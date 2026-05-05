@@ -1,0 +1,713 @@
+{
+  "_comment": "MAS-shaped wires. Auto-generated from data/wires.json by scripts/migrate_to_mas.py.",
+  "wires": [
+    {
+      "name": "AWG44",
+      "type": "round",
+      "awg": 44,
+      "conductingDiameter": 0.0503,
+      "outerDiameter": 0.1003,
+      "conductingArea": 0.002,
+      "costPerMeter": 0.0003,
+      "massPerMeter": 0.0179,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG44"
+      }
+    },
+    {
+      "name": "AWG43",
+      "type": "round",
+      "awg": 43,
+      "conductingDiameter": 0.0564,
+      "outerDiameter": 0.1064,
+      "conductingArea": 0.0025,
+      "costPerMeter": 0.0004,
+      "massPerMeter": 0.0224,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG43"
+      }
+    },
+    {
+      "name": "AWG42",
+      "type": "round",
+      "awg": 42,
+      "conductingDiameter": 0.0633,
+      "outerDiameter": 0.1133,
+      "conductingArea": 0.0032,
+      "costPerMeter": 0.0005,
+      "massPerMeter": 0.0287,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG42"
+      }
+    },
+    {
+      "name": "AWG41",
+      "type": "round",
+      "awg": 41,
+      "conductingDiameter": 0.0711,
+      "outerDiameter": 0.1211,
+      "conductingArea": 0.004,
+      "costPerMeter": 0.0006,
+      "massPerMeter": 0.0358,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG41"
+      }
+    },
+    {
+      "name": "AWG40",
+      "type": "round",
+      "awg": 40,
+      "conductingDiameter": 0.0799,
+      "outerDiameter": 0.12990000000000002,
+      "conductingArea": 0.005,
+      "costPerMeter": 0.0008,
+      "massPerMeter": 0.0448,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG40"
+      }
+    },
+    {
+      "name": "AWG39",
+      "type": "round",
+      "awg": 39,
+      "conductingDiameter": 0.0897,
+      "outerDiameter": 0.1397,
+      "conductingArea": 0.0063,
+      "costPerMeter": 0.001,
+      "massPerMeter": 0.0564,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG39"
+      }
+    },
+    {
+      "name": "AWG38",
+      "type": "round",
+      "awg": 38,
+      "conductingDiameter": 0.1007,
+      "outerDiameter": 0.1507,
+      "conductingArea": 0.0079,
+      "costPerMeter": 0.0013,
+      "massPerMeter": 0.0708,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG38"
+      }
+    },
+    {
+      "name": "AWG37",
+      "type": "round",
+      "awg": 37,
+      "conductingDiameter": 0.1131,
+      "outerDiameter": 0.16310000000000002,
+      "conductingArea": 0.01,
+      "costPerMeter": 0.0016,
+      "massPerMeter": 0.0896,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG37"
+      }
+    },
+    {
+      "name": "AWG36",
+      "type": "round",
+      "awg": 36,
+      "conductingDiameter": 0.127,
+      "outerDiameter": 0.177,
+      "conductingArea": 0.0127,
+      "costPerMeter": 0.002,
+      "massPerMeter": 0.1138,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG36"
+      }
+    },
+    {
+      "name": "AWG35",
+      "type": "round",
+      "awg": 35,
+      "conductingDiameter": 0.1426,
+      "outerDiameter": 0.1926,
+      "conductingArea": 0.0159,
+      "costPerMeter": 0.0026,
+      "massPerMeter": 0.1425,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG35"
+      }
+    },
+    {
+      "name": "AWG34",
+      "type": "round",
+      "awg": 34,
+      "conductingDiameter": 0.1601,
+      "outerDiameter": 0.2101,
+      "conductingArea": 0.0201,
+      "costPerMeter": 0.0032,
+      "massPerMeter": 0.1801,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG34"
+      }
+    },
+    {
+      "name": "AWG33",
+      "type": "round",
+      "awg": 33,
+      "conductingDiameter": 0.1798,
+      "outerDiameter": 0.2298,
+      "conductingArea": 0.0254,
+      "costPerMeter": 0.0041,
+      "massPerMeter": 0.2276,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG33"
+      }
+    },
+    {
+      "name": "AWG32",
+      "type": "round",
+      "awg": 32,
+      "conductingDiameter": 0.2019,
+      "outerDiameter": 0.2519,
+      "conductingArea": 0.032,
+      "costPerMeter": 0.0052,
+      "massPerMeter": 0.2867,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG32"
+      }
+    },
+    {
+      "name": "AWG31",
+      "type": "round",
+      "awg": 31,
+      "conductingDiameter": 0.2268,
+      "outerDiameter": 0.2768,
+      "conductingArea": 0.04,
+      "costPerMeter": 0.0065,
+      "massPerMeter": 0.3584,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG31"
+      }
+    },
+    {
+      "name": "AWG30",
+      "type": "round",
+      "awg": 30,
+      "conductingDiameter": 0.2546,
+      "outerDiameter": 0.3046,
+      "conductingArea": 0.051,
+      "costPerMeter": 0.0082,
+      "massPerMeter": 0.457,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG30"
+      }
+    },
+    {
+      "name": "AWG29",
+      "type": "round",
+      "awg": 29,
+      "conductingDiameter": 0.2859,
+      "outerDiameter": 0.3359,
+      "conductingArea": 0.064,
+      "costPerMeter": 0.0103,
+      "massPerMeter": 0.5734,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG29"
+      }
+    },
+    {
+      "name": "AWG28",
+      "type": "round",
+      "awg": 28,
+      "conductingDiameter": 0.3211,
+      "outerDiameter": 0.3711,
+      "conductingArea": 0.08,
+      "costPerMeter": 0.0129,
+      "massPerMeter": 0.7168,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG28"
+      }
+    },
+    {
+      "name": "AWG27",
+      "type": "round",
+      "awg": 27,
+      "conductingDiameter": 0.3606,
+      "outerDiameter": 0.41059999999999997,
+      "conductingArea": 0.1,
+      "costPerMeter": 0.0161,
+      "massPerMeter": 0.896,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG27"
+      }
+    },
+    {
+      "name": "AWG26",
+      "type": "round",
+      "awg": 26,
+      "conductingDiameter": 0.4049,
+      "outerDiameter": 0.45489999999999997,
+      "conductingArea": 0.13,
+      "costPerMeter": 0.021,
+      "massPerMeter": 1.1648,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG26"
+      }
+    },
+    {
+      "name": "AWG25",
+      "type": "round",
+      "awg": 25,
+      "conductingDiameter": 0.4547,
+      "outerDiameter": 0.5047,
+      "conductingArea": 0.16,
+      "costPerMeter": 0.0258,
+      "massPerMeter": 1.4336,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG25"
+      }
+    },
+    {
+      "name": "AWG24",
+      "type": "round",
+      "awg": 24,
+      "conductingDiameter": 0.5106,
+      "outerDiameter": 0.5606000000000001,
+      "conductingArea": 0.2,
+      "costPerMeter": 0.0323,
+      "massPerMeter": 1.792,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG24"
+      }
+    },
+    {
+      "name": "AWG23",
+      "type": "round",
+      "awg": 23,
+      "conductingDiameter": 0.5733,
+      "outerDiameter": 0.6233000000000001,
+      "conductingArea": 0.26,
+      "costPerMeter": 0.0419,
+      "massPerMeter": 2.3296,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG23"
+      }
+    },
+    {
+      "name": "AWG22",
+      "type": "round",
+      "awg": 22,
+      "conductingDiameter": 0.6438,
+      "outerDiameter": 0.6938000000000001,
+      "conductingArea": 0.33,
+      "costPerMeter": 0.0532,
+      "massPerMeter": 2.9568,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG22"
+      }
+    },
+    {
+      "name": "AWG21",
+      "type": "round",
+      "awg": 21,
+      "conductingDiameter": 0.723,
+      "outerDiameter": 0.773,
+      "conductingArea": 0.41,
+      "costPerMeter": 0.0661,
+      "massPerMeter": 3.6736,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG21"
+      }
+    },
+    {
+      "name": "AWG20",
+      "type": "round",
+      "awg": 20,
+      "conductingDiameter": 0.8118,
+      "outerDiameter": 0.8618,
+      "conductingArea": 0.52,
+      "costPerMeter": 0.0839,
+      "massPerMeter": 4.6592,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG20"
+      }
+    },
+    {
+      "name": "AWG19",
+      "type": "round",
+      "awg": 19,
+      "conductingDiameter": 0.9116,
+      "outerDiameter": 0.9662959999999999,
+      "conductingArea": 0.65,
+      "costPerMeter": 0.1048,
+      "massPerMeter": 5.824,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG19"
+      }
+    },
+    {
+      "name": "AWG18",
+      "type": "round",
+      "awg": 18,
+      "conductingDiameter": 1.024,
+      "outerDiameter": 1.08544,
+      "conductingArea": 0.82,
+      "costPerMeter": 0.1322,
+      "massPerMeter": 7.3472,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG18"
+      }
+    },
+    {
+      "name": "AWG17",
+      "type": "round",
+      "awg": 17,
+      "conductingDiameter": 1.15,
+      "outerDiameter": 1.2189999999999999,
+      "conductingArea": 1.04,
+      "costPerMeter": 0.1677,
+      "massPerMeter": 9.3184,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG17"
+      }
+    },
+    {
+      "name": "AWG16",
+      "type": "round",
+      "awg": 16,
+      "conductingDiameter": 1.291,
+      "outerDiameter": 1.36846,
+      "conductingArea": 1.31,
+      "costPerMeter": 0.2113,
+      "massPerMeter": 11.7376,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG16"
+      }
+    },
+    {
+      "name": "AWG15",
+      "type": "round",
+      "awg": 15,
+      "conductingDiameter": 1.45,
+      "outerDiameter": 1.537,
+      "conductingArea": 1.65,
+      "costPerMeter": 0.2661,
+      "massPerMeter": 14.784,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG15"
+      }
+    },
+    {
+      "name": "AWG14",
+      "type": "round",
+      "awg": 14,
+      "conductingDiameter": 1.628,
+      "outerDiameter": 1.7256799999999999,
+      "conductingArea": 2.08,
+      "costPerMeter": 0.3355,
+      "massPerMeter": 18.6368,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG14"
+      }
+    },
+    {
+      "name": "AWG13",
+      "type": "round",
+      "awg": 13,
+      "conductingDiameter": 1.828,
+      "outerDiameter": 1.93768,
+      "conductingArea": 2.63,
+      "costPerMeter": 0.4242,
+      "massPerMeter": 23.5648,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG13"
+      }
+    },
+    {
+      "name": "AWG12",
+      "type": "round",
+      "awg": 12,
+      "conductingDiameter": 2.053,
+      "outerDiameter": 2.17618,
+      "conductingArea": 3.31,
+      "costPerMeter": 0.5338,
+      "massPerMeter": 29.6576,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG12"
+      }
+    },
+    {
+      "name": "AWG11",
+      "type": "round",
+      "awg": 11,
+      "conductingDiameter": 2.305,
+      "outerDiameter": 2.4433000000000002,
+      "conductingArea": 4.17,
+      "costPerMeter": 0.6725,
+      "massPerMeter": 37.3632,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG11"
+      }
+    },
+    {
+      "name": "AWG10",
+      "type": "round",
+      "awg": 10,
+      "conductingDiameter": 2.588,
+      "outerDiameter": 2.74328,
+      "conductingArea": 5.26,
+      "costPerMeter": 0.8483,
+      "massPerMeter": 47.1296,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG10"
+      }
+    },
+    {
+      "name": "AWG9",
+      "type": "round",
+      "awg": 9,
+      "conductingDiameter": 2.906,
+      "outerDiameter": 3.08036,
+      "conductingArea": 6.63,
+      "costPerMeter": 1.0693,
+      "massPerMeter": 59.4048,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG9"
+      }
+    },
+    {
+      "name": "AWG8",
+      "type": "round",
+      "awg": 8,
+      "conductingDiameter": 3.264,
+      "outerDiameter": 3.45984,
+      "conductingArea": 8.36,
+      "costPerMeter": 1.3483,
+      "massPerMeter": 74.9056,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG8"
+      }
+    },
+    {
+      "name": "AWG7",
+      "type": "round",
+      "awg": 7,
+      "conductingDiameter": 3.665,
+      "outerDiameter": 3.8849,
+      "conductingArea": 10.55,
+      "costPerMeter": 1.7015,
+      "massPerMeter": 94.528,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG7"
+      }
+    },
+    {
+      "name": "AWG6",
+      "type": "round",
+      "awg": 6,
+      "conductingDiameter": 4.115,
+      "outerDiameter": 4.3619,
+      "conductingArea": 13.3,
+      "costPerMeter": 2.145,
+      "massPerMeter": 119.168,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG6"
+      }
+    },
+    {
+      "name": "AWG5",
+      "type": "round",
+      "awg": 5,
+      "conductingDiameter": 4.621,
+      "outerDiameter": 4.8982600000000005,
+      "conductingArea": 16.77,
+      "costPerMeter": 2.7047,
+      "massPerMeter": 150.2592,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG5"
+      }
+    },
+    {
+      "name": "AWG4",
+      "type": "round",
+      "awg": 4,
+      "conductingDiameter": 5.189,
+      "outerDiameter": 5.5003400000000005,
+      "conductingArea": 21.15,
+      "costPerMeter": 3.4111,
+      "massPerMeter": 189.504,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG4"
+      }
+    },
+    {
+      "name": "AWG3",
+      "type": "round",
+      "awg": 3,
+      "conductingDiameter": 5.827,
+      "outerDiameter": 6.17662,
+      "conductingArea": 26.67,
+      "costPerMeter": 4.3013,
+      "massPerMeter": 238.9632,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG3"
+      }
+    },
+    {
+      "name": "AWG2",
+      "type": "round",
+      "awg": 2,
+      "conductingDiameter": 6.544,
+      "outerDiameter": 6.93664,
+      "conductingArea": 33.63,
+      "costPerMeter": 5.4238,
+      "massPerMeter": 301.3248,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG2"
+      }
+    },
+    {
+      "name": "AWG1",
+      "type": "round",
+      "awg": 1,
+      "conductingDiameter": 7.348,
+      "outerDiameter": 7.78888,
+      "conductingArea": 42.41,
+      "costPerMeter": 6.8399,
+      "massPerMeter": 379.9936,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG1"
+      }
+    },
+    {
+      "name": "AWG0",
+      "type": "round",
+      "awg": 0,
+      "conductingDiameter": 8.252,
+      "outerDiameter": 8.74712,
+      "conductingArea": 53.48,
+      "costPerMeter": 8.6253,
+      "massPerMeter": 479.1808,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWG0"
+      }
+    },
+    {
+      "name": "AWGOO",
+      "type": "round",
+      "conductingDiameter": 9.226,
+      "outerDiameter": 9.77956,
+      "conductingArea": 67.43,
+      "costPerMeter": 10.8751,
+      "massPerMeter": 604.1728,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWGOO"
+      }
+    },
+    {
+      "name": "AWGOOO",
+      "type": "round",
+      "conductingDiameter": 10.4,
+      "outerDiameter": 11.024000000000001,
+      "conductingArea": 85.3,
+      "costPerMeter": 13.7572,
+      "massPerMeter": 764.288,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWGOOO"
+      }
+    },
+    {
+      "name": "AWGOOOO",
+      "type": "round",
+      "conductingDiameter": 11.86,
+      "outerDiameter": 12.5716,
+      "conductingArea": 107.2,
+      "costPerMeter": 17.2892,
+      "massPerMeter": 960.512,
+      "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg.",
+      "x-pfc-inductor": {
+        "id": "AWGOOOO"
+      }
+    },
+    {
+      "name": "2UEW 0.95 mm (AWG19)",
+      "type": "round",
+      "conductingDiameter": 0.95,
+      "outerDiameter": 0.9974999999999999,
+      "conductingArea": 0.7088218424661971,
+      "notes": "Polyurethane 2UEW MW75/130°C enamelled copper, common in Dongxing reactors.",
+      "x-pfc-inductor": {
+        "id": "2uew-0.95"
+      },
+      "costPerMeter": 0.12,
+      "massPerMeter": 0.006351043708497127
+    },
+    {
+      "name": "2UEW 0.70 mm (AWG21)",
+      "type": "round",
+      "conductingDiameter": 0.7,
+      "outerDiameter": 0.735,
+      "conductingArea": 0.3848451000647496,
+      "notes": "Polyurethane 2UEW MW75/130°C enamelled copper, common in Dongxing reactors.",
+      "x-pfc-inductor": {
+        "id": "2uew-0.70"
+      },
+      "costPerMeter": 0.12,
+      "massPerMeter": 0.0034482120965801566
+    },
+    {
+      "name": "2UEW 0.65 mm (AWG22)",
+      "type": "round",
+      "conductingDiameter": 0.65,
+      "outerDiameter": 0.6825000000000001,
+      "conductingArea": 0.3318307240354219,
+      "notes": "Polyurethane 2UEW MW75/130°C enamelled copper, common in Dongxing reactors.",
+      "x-pfc-inductor": {
+        "id": "2uew-0.65"
+      },
+      "costPerMeter": 0.12,
+      "massPerMeter": 0.0029732032873573803
+    }
+  ]
+}

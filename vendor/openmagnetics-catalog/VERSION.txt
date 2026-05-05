@@ -1,0 +1,19 @@
+OpenMagnetics MAS catalog
+Source: https://github.com/Power-Supply-Manufacturers-Association/MAS
+Commit: f634f7b15e9b4a9f263372a8505086b643f84775
+Date:   2026-04-28
+
+Files vendored (subset of the upstream `data/` tree):
+- core_materials.ndjson  (411 entries, ferrites + powders)
+- wires.ndjson           (4352 entries, mostly Elektrisola enamelled copper)
+
+Cores are NOT vendored. The upstream `cores.ndjson` references shapes
+without effective dimensions — Ae/le/Ve are computed at runtime by the
+OpenMagnetics Python tools. We don't add that dep, so for now the
+catalog importer covers materials + wires only.
+
+To refresh:
+    git clone --depth 1 https://github.com/Power-Supply-Manufacturers-Association/MAS.git /tmp/mas
+    cp /tmp/mas/data/core_materials.ndjson /tmp/mas/data/wires.ndjson \
+        vendor/openmagnetics-catalog/
+    git -C /tmp/mas log -1 --format='%H %ai' >> vendor/openmagnetics-catalog/VERSION.txt

@@ -1,0 +1,3555 @@
+{
+  "_comment": "Imported from Otimizador_Magneticos.xlsm. Steinmetz fitted from F/B/P datapoints. Rolloff is default per material type — verify against vendor datasheet for high DC bias designs.",
+  "materials": [
+    {
+      "id": "tdkepcos-n95",
+      "vendor": "TDK/EPCOS",
+      "family": "MnZn ferrite",
+      "name": "N95",
+      "type": "ferrite",
+      "mu_initial": 3000.0,
+      "Bsat_25C_T": 0.41,
+      "Bsat_100C_T": 0.3485,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 52.41347856573032,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.5465886884439175,
+        "beta": 2.6641629183730515,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": null,
+      "loss_datapoints": [
+        {
+          "f_kHz": 25.889,
+          "B_T": 0.3,
+          "Pv_mWcm3": 148.322
+        },
+        {
+          "f_kHz": 45.339,
+          "B_T": 0.3,
+          "Pv_mWcm3": 290.425
+        },
+        {
+          "f_kHz": 26.073,
+          "B_T": 0.2,
+          "Pv_mWcm3": 46.277
+        },
+        {
+          "f_kHz": 75.081,
+          "B_T": 0.2,
+          "Pv_mWcm3": 194.06
+        },
+        {
+          "f_kHz": 25.834,
+          "B_T": 0.1,
+          "Pv_mWcm3": 6.742
+        },
+        {
+          "f_kHz": 74.98,
+          "B_T": 0.1,
+          "Pv_mWcm3": 27.44
+        },
+        {
+          "f_kHz": 28.365,
+          "B_T": 0.05,
+          "Pv_mWcm3": 1.21
+        },
+        {
+          "f_kHz": 76.079,
+          "B_T": 0.05,
+          "Pv_mWcm3": 4.641
+        },
+        {
+          "f_kHz": 101.766,
+          "B_T": 0.025,
+          "Pv_mWcm3": 1.304
+        },
+        {
+          "f_kHz": 200.6977,
+          "B_T": 0.025,
+          "Pv_mWcm3": 5.309
+        },
+        {
+          "f_kHz": 50.07,
+          "B_T": 0.05,
+          "Pv_mWcm3": 2.516
+        },
+        {
+          "f_kHz": 50.133,
+          "B_T": 0.1,
+          "Pv_mWcm3": 16.029
+        }
+      ],
+      "cost_per_kg": 12.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 12 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "tdkepcos-n97",
+      "vendor": "TDK/EPCOS",
+      "family": "MnZn ferrite",
+      "name": "N97",
+      "type": "ferrite",
+      "mu_initial": 2300.0,
+      "Bsat_25C_T": 0.41,
+      "Bsat_100C_T": 0.3485,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 52.432118353738645,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.5634641390047683,
+        "beta": 2.651147928675839,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": null,
+      "loss_datapoints": [
+        {
+          "f_kHz": 29.7507715573203,
+          "B_T": 0.3,
+          "Pv_mWcm3": 169.737124166267
+        },
+        {
+          "f_kHz": 44.6865347666891,
+          "B_T": 0.3,
+          "Pv_mWcm3": 283.038966953977
+        },
+        {
+          "f_kHz": 29.7507715573203,
+          "B_T": 0.2,
+          "Pv_mWcm3": 54.0919383526128
+        },
+        {
+          "f_kHz": 75.2185727124196,
+          "B_T": 0.2,
+          "Pv_mWcm3": 192.672566675649
+        },
+        {
+          "f_kHz": 29.993821469659,
+          "B_T": 0.1,
+          "Pv_mWcm3": 7.71803632281877
+        },
+        {
+          "f_kHz": 74.609051597463,
+          "B_T": 0.1,
+          "Pv_mWcm3": 27.4897279144223
+        },
+        {
+          "f_kHz": 198.070495480811,
+          "B_T": 0.1,
+          "Pv_mWcm3": 144.11665066211
+        },
+        {
+          "f_kHz": 29.7507715573203,
+          "B_T": 0.05,
+          "Pv_mWcm3": 1.28520223041831
+        },
+        {
+          "f_kHz": 75.8330733302867,
+          "B_T": 0.05,
+          "Pv_mWcm3": 4.50774413753884
+        },
+        {
+          "f_kHz": 201.320001886652,
+          "B_T": 0.05,
+          "Pv_mWcm3": 25.9281441562254
+        },
+        {
+          "f_kHz": 100.816953307817,
+          "B_T": 0.025,
+          "Pv_mWcm3": 1.25120160799816
+        },
+        {
+          "f_kHz": 199.688638945451,
+          "B_T": 0.025,
+          "Pv_mWcm3": 5.19724269918568
+        }
+      ],
+      "cost_per_kg": 12.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 12 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "tdkepcos-n87",
+      "vendor": "TDK/EPCOS",
+      "family": "MnZn ferrite",
+      "name": "N87",
+      "type": "ferrite",
+      "mu_initial": 2200.0,
+      "Bsat_25C_T": 0.39,
+      "Bsat_100C_T": 0.3315,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 58.05817217760401,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.5182397977334388,
+        "beta": 2.694470416332433,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": null,
+      "loss_datapoints": [
+        {
+          "f_kHz": 29.9586155011276,
+          "B_T": 0.2,
+          "Pv_mWcm3": 73.8798315261583
+        },
+        {
+          "f_kHz": 50.0184736496559,
+          "B_T": 0.2,
+          "Pv_mWcm3": 144.773999081038
+        },
+        {
+          "f_kHz": 74.6523490924038,
+          "B_T": 0.2,
+          "Pv_mWcm3": 243.474892787379
+        },
+        {
+          "f_kHz": 102.022427346135,
+          "B_T": 0.2,
+          "Pv_mWcm3": 397.134469022852
+        },
+        {
+          "f_kHz": 29.9586155011276,
+          "B_T": 0.1,
+          "Pv_mWcm3": 9.23573466583386
+        },
+        {
+          "f_kHz": 50.4206796687502,
+          "B_T": 0.1,
+          "Pv_mWcm3": 18.098230794567
+        },
+        {
+          "f_kHz": 84.8585589064699,
+          "B_T": 0.1,
+          "Pv_mWcm3": 38.2825913951477
+        },
+        {
+          "f_kHz": 141.678629723435,
+          "B_T": 0.1,
+          "Pv_mWcm3": 88.7579312654113
+        },
+        {
+          "f_kHz": 29.7196354723488,
+          "B_T": 0.05,
+          "Pv_mWcm3": 1.47454726701535
+        },
+        {
+          "f_kHz": 86.9221449611508,
+          "B_T": 0.05,
+          "Pv_mWcm3": 5.74947452533628
+        },
+        {
+          "f_kHz": 101.208593922413,
+          "B_T": 0.025,
+          "Pv_mWcm3": 1.3047816749318
+        },
+        {
+          "f_kHz": 201.533768594173,
+          "B_T": 0.025,
+          "Pv_mWcm3": 5.66223705816679
+        }
+      ],
+      "cost_per_kg": 12.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 12 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "tdkepcos-n49",
+      "vendor": "TDK/EPCOS",
+      "family": "MnZn ferrite",
+      "name": "N49",
+      "type": "ferrite",
+      "mu_initial": 1500.0,
+      "Bsat_25C_T": 0.4,
+      "Bsat_100C_T": 0.34,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 67.31774472977831,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.2206600370733034,
+        "beta": 3.0261563722239173,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": null,
+      "loss_datapoints": [
+        {
+          "f_kHz": 25.489447621276,
+          "B_T": 0.3,
+          "Pv_mWcm3": 341.172822188444
+        },
+        {
+          "f_kHz": 49.6721632539534,
+          "B_T": 0.3,
+          "Pv_mWcm3": 740.368926575966
+        },
+        {
+          "f_kHz": 25.489447621276,
+          "B_T": 0.2,
+          "Pv_mWcm3": 108.391011849887
+        },
+        {
+          "f_kHz": 74.609051597463,
+          "B_T": 0.2,
+          "Pv_mWcm3": 404.5746379034
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.2,
+          "Pv_mWcm3": 560.167142793858
+        },
+        {
+          "f_kHz": 26.3326580574835,
+          "B_T": 0.1,
+          "Pv_mWcm3": 14.6855759101597
+        },
+        {
+          "f_kHz": 49.6721632539534,
+          "B_T": 0.1,
+          "Pv_mWcm3": 29.4928921061974
+        },
+        {
+          "f_kHz": 74.609051597463,
+          "B_T": 0.1,
+          "Pv_mWcm3": 45.5137547373201
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 65.0010829396858
+        },
+        {
+          "f_kHz": 25.2828981485395,
+          "B_T": 0.05,
+          "Pv_mWcm3": 1.43704284723516
+        },
+        {
+          "f_kHz": 75.8330733302867,
+          "B_T": 0.05,
+          "Pv_mWcm3": 5.61905814662829
+        },
+        {
+          "f_kHz": 201.320001886651,
+          "B_T": 0.025,
+          "Pv_mWcm3": 2.47173180499458
+        }
+      ],
+      "cost_per_kg": 12.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 12 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "tdkepcos-n92",
+      "vendor": "TDK/EPCOS",
+      "family": "MnZn ferrite",
+      "name": "N92",
+      "type": "ferrite",
+      "mu_initial": 1500.0,
+      "Bsat_25C_T": 0.44,
+      "Bsat_100C_T": 0.374,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 51.276860438024606,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.1129653441536167,
+        "beta": 2.683676611422146,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": null,
+      "loss_datapoints": [
+        {
+          "f_kHz": 25.1013672025739,
+          "B_T": 0.3,
+          "Pv_mWcm3": 166.695982716147
+        },
+        {
+          "f_kHz": 47.903379706801,
+          "B_T": 0.3,
+          "Pv_mWcm3": 394.690510195381
+        },
+        {
+          "f_kHz": 25.3354847495838,
+          "B_T": 0.2,
+          "Pv_mWcm3": 71.49539581658
+        },
+        {
+          "f_kHz": 74.8020206083176,
+          "B_T": 0.2,
+          "Pv_mWcm3": 272.790270845416
+        },
+        {
+          "f_kHz": 25.1917004384207,
+          "B_T": 0.1,
+          "Pv_mWcm3": 12.9508855443194
+        },
+        {
+          "f_kHz": 74.4000401528014,
+          "B_T": 0.1,
+          "Pv_mWcm3": 39.8352346456319
+        },
+        {
+          "f_kHz": 99.5142783497553,
+          "B_T": 0.1,
+          "Pv_mWcm3": 57.6361797556438
+        },
+        {
+          "f_kHz": 25.6710328681812,
+          "B_T": 0.05,
+          "Pv_mWcm3": 1.95032483890051
+        },
+        {
+          "f_kHz": 50.2130620892378,
+          "B_T": 0.05,
+          "Pv_mWcm3": 3.55469332793445
+        },
+        {
+          "f_kHz": 75.2126831446674,
+          "B_T": 0.05,
+          "Pv_mWcm3": 5.55459509628994
+        },
+        {
+          "f_kHz": 99.7903099537179,
+          "B_T": 0.05,
+          "Pv_mWcm3": 8.03674546635788
+        },
+        {
+          "f_kHz": 101.7110677025,
+          "B_T": 0.025,
+          "Pv_mWcm3": 1.03763062395205
+        }
+      ],
+      "cost_per_kg": 12.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 12 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "magnetics-r",
+      "vendor": "Magnetics",
+      "family": "MnZn ferrite",
+      "name": "R",
+      "type": "ferrite",
+      "mu_initial": 2300.0,
+      "Bsat_25C_T": 0.4,
+      "Bsat_100C_T": 0.34,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 62.62510508991277,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.4951027708563247,
+        "beta": 2.6374325624533452,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": null,
+      "loss_datapoints": [
+        {
+          "f_kHz": 25.0,
+          "B_T": 0.137995953858597,
+          "Pv_mWcm3": 19.433297709026
+        },
+        {
+          "f_kHz": 25.0,
+          "B_T": 0.177692981460887,
+          "Pv_mWcm3": 38.8445177264764
+        },
+        {
+          "f_kHz": 25.0,
+          "B_T": 0.245949953573246,
+          "Pv_mWcm3": 94.1592994511795
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.0612244900210747,
+          "Pv_mWcm3": 15.1039874870977
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.101515654602847,
+          "Pv_mWcm3": 58.2563675328849
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.157063583921998,
+          "Pv_mWcm3": 197.072303956674
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.253465375022216,
+          "Pv_mWcm3": 702.424305942339
+        },
+        {
+          "f_kHz": 200.0,
+          "B_T": 0.0457222707095184,
+          "Pv_mWcm3": 19.9398649788607
+        },
+        {
+          "f_kHz": 200.0,
+          "B_T": 0.0814907252265705,
+          "Pv_mWcm3": 97.4692438388822
+        },
+        {
+          "f_kHz": 200.0,
+          "B_T": 0.124198033304141,
+          "Pv_mWcm3": 299.319166719014
+        },
+        {
+          "f_kHz": 200.0,
+          "B_T": 0.19100415877871,
+          "Pv_mWcm3": 968.976877949811
+        },
+        {
+          "f_kHz": 500.0,
+          "B_T": 0.0424080254751004,
+          "Pv_mWcm3": 97.5850054748351
+        }
+      ],
+      "cost_per_kg": 12.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 12 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "magnetics-p",
+      "vendor": "Magnetics",
+      "family": "MnZn ferrite",
+      "name": "P",
+      "type": "ferrite",
+      "mu_initial": 2500.0,
+      "Bsat_25C_T": 0.4,
+      "Bsat_100C_T": 0.34,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 82.5050011671102,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.6324071949742687,
+        "beta": 2.7319612015376724,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": null,
+      "loss_datapoints": [
+        {
+          "f_kHz": 25.0,
+          "B_T": 0.131325579720013,
+          "Pv_mWcm3": 21.2538889962061
+        },
+        {
+          "f_kHz": 25.0,
+          "B_T": 0.199541784802012,
+          "Pv_mWcm3": 63.6299439275432
+        },
+        {
+          "f_kHz": 25.0,
+          "B_T": 0.234802306646631,
+          "Pv_mWcm3": 99.3227442353113
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.0804996873300941,
+          "Pv_mWcm3": 15.0912756168172
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.106082866953357,
+          "Pv_mWcm3": 30.6643761527169
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.164506277743159,
+          "Pv_mWcm3": 99.7046409562832
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.101126723356872,
+          "Pv_mWcm3": 69.0563276154771
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.203072860718991,
+          "Pv_mWcm3": 416.60641055785
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.0606471423922653,
+          "Pv_mWcm3": 18.1614437676428
+        },
+        {
+          "f_kHz": 200.0,
+          "B_T": 0.0713046207585588,
+          "Pv_mWcm3": 99.7782907152934
+        },
+        {
+          "f_kHz": 400.0,
+          "B_T": 0.0608844366945059,
+          "Pv_mWcm3": 197.05868291626
+        },
+        {
+          "f_kHz": 500.0,
+          "B_T": 0.0827095999830642,
+          "Pv_mWcm3": 978.723935591185
+        }
+      ],
+      "cost_per_kg": 12.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 12 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "magnetics-f",
+      "vendor": "Magnetics",
+      "family": "MnZn ferrite",
+      "name": "F",
+      "type": "ferrite",
+      "mu_initial": 3000.0,
+      "Bsat_25C_T": 0.4,
+      "Bsat_100C_T": 0.34,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 105.22005149659711,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.3806016876695892,
+        "beta": 2.433452979929755,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": null,
+      "loss_datapoints": [
+        {
+          "f_kHz": 25.0,
+          "B_T": 0.100850945354302,
+          "Pv_mWcm3": 16.6464044520503
+        },
+        {
+          "f_kHz": 25.0,
+          "B_T": 0.158494967693494,
+          "Pv_mWcm3": 48.8149093607397
+        },
+        {
+          "f_kHz": 25.0,
+          "B_T": 0.251208404128608,
+          "Pv_mWcm3": 146.664025471233
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.0709081487421905,
+          "Pv_mWcm3": 17.1938262575315
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.102379917011395,
+          "Pv_mWcm3": 40.8569538065703
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.200015142954522,
+          "Pv_mWcm3": 212.776006715126
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.0505681563452974,
+          "Pv_mWcm3": 19.5695527488158
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.0912759425309206,
+          "Pv_mWcm3": 82.5845820790707
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.151793738330657,
+          "Pv_mWcm3": 289.346027336625
+        },
+        {
+          "f_kHz": 200.0,
+          "B_T": 0.0652822216758896,
+          "Pv_mWcm3": 101.093806108626
+        },
+        {
+          "f_kHz": 200.0,
+          "B_T": 0.102304615541673,
+          "Pv_mWcm3": 289.346027336625
+        },
+        {
+          "f_kHz": 300.0,
+          "B_T": 0.09091220354454,
+          "Pv_mWcm3": 387.156315546932
+        }
+      ],
+      "cost_per_kg": 12.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 12 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "magnetics-t",
+      "vendor": "Magnetics",
+      "family": "MnZn ferrite",
+      "name": "T",
+      "type": "ferrite",
+      "mu_initial": 3000.0,
+      "Bsat_25C_T": 0.46,
+      "Bsat_100C_T": 0.391,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 39.72973107118231,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.859336643513757,
+        "beta": 2.5373013046481736,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": null,
+      "loss_datapoints": [
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.0776233186909223,
+          "Pv_mWcm3": 21.2394488158204
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.100331638254807,
+          "Pv_mWcm3": 42.5163640447223
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.136340075292153,
+          "Pv_mWcm3": 90.3024137962668
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.202420224292334,
+          "Pv_mWcm3": 251.458973257881
+        },
+        {
+          "f_kHz": 200.0,
+          "B_T": 0.0503774779574443,
+          "Pv_mWcm3": 20.5324216906077
+        },
+        {
+          "f_kHz": 200.0,
+          "B_T": 0.0861783101096418,
+          "Pv_mWcm3": 91.8440217499554
+        },
+        {
+          "f_kHz": 200.0,
+          "B_T": 0.154069478930282,
+          "Pv_mWcm3": 410.829489979981
+        },
+        {
+          "f_kHz": 200.0,
+          "B_T": 0.202698076750795,
+          "Pv_mWcm3": 865.225052313961
+        },
+        {
+          "f_kHz": 400.0,
+          "B_T": 0.0467469217686585,
+          "Pv_mWcm3": 91.8440217499554
+        },
+        {
+          "f_kHz": 400.0,
+          "B_T": 0.0729602975540244,
+          "Pv_mWcm3": 251.458973257881
+        },
+        {
+          "f_kHz": 400.0,
+          "B_T": 0.101206432533757,
+          "Pv_mWcm3": 529.583704671412
+        },
+        {
+          "f_kHz": 400.0,
+          "B_T": 0.119372246153851,
+          "Pv_mWcm3": 762.065997446689
+        }
+      ],
+      "cost_per_kg": 12.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 12 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "magnetics-l",
+      "vendor": "Magnetics",
+      "family": "MnZn ferrite",
+      "name": "L",
+      "type": "ferrite",
+      "mu_initial": 900.0,
+      "Bsat_25C_T": 0.35,
+      "Bsat_100C_T": 0.2975,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 0.11810282480998927,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 2.542011552784059,
+        "beta": 5.8952812132771815,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": null,
+      "loss_datapoints": [
+        {
+          "f_kHz": 500.0,
+          "B_T": 0.123734855472757,
+          "Pv_mWcm3": 24.0420286281508
+        },
+        {
+          "f_kHz": 500.0,
+          "B_T": 0.160033596593509,
+          "Pv_mWcm3": 140.5964341528
+        },
+        {
+          "f_kHz": 500.0,
+          "B_T": 0.221073299195444,
+          "Pv_mWcm3": 1317.56964234047
+        },
+        {
+          "f_kHz": 500.0,
+          "B_T": 0.186616658120151,
+          "Pv_mWcm3": 436.019908851541
+        },
+        {
+          "f_kHz": 500.0,
+          "B_T": 0.137232319290255,
+          "Pv_mWcm3": 48.1446634168284
+        },
+        {
+          "f_kHz": 1000.0,
+          "B_T": 0.105705255910918,
+          "Pv_mWcm3": 23.6743225698356
+        },
+        {
+          "f_kHz": 1000.0,
+          "B_T": 0.137578854323335,
+          "Pv_mWcm3": 138.436351890046
+        },
+        {
+          "f_kHz": 1000.0,
+          "B_T": 0.190075260030569,
+          "Pv_mWcm3": 1073.99540609002
+        },
+        {
+          "f_kHz": 2000.0,
+          "B_T": 0.0813292494976543,
+          "Pv_mWcm3": 77.6616005754627
+        },
+        {
+          "f_kHz": 2000.0,
+          "B_T": 0.115594477733434,
+          "Pv_mWcm3": 592.054993447323
+        },
+        {
+          "f_kHz": 3000.0,
+          "B_T": 0.0620387760961298,
+          "Pv_mWcm3": 60.7253099746859
+        },
+        {
+          "f_kHz": 3000.0,
+          "B_T": 0.0924325082775875,
+          "Pv_mWcm3": 558.911270546407
+        }
+      ],
+      "cost_per_kg": 12.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 12 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "thornton-ip6",
+      "vendor": "Thornton",
+      "family": "Ferrite",
+      "name": "IP6",
+      "type": "ferrite",
+      "mu_initial": 2000.0,
+      "Bsat_25C_T": 0.325,
+      "Bsat_100C_T": 0.27625,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 43.58022261096953,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.2240358797696143,
+        "beta": 2.1701323134709365,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": null,
+      "loss_datapoints": [
+        {
+          "f_kHz": 10.2216989875631,
+          "B_T": 0.2,
+          "Pv_mWcm3": 12.8843690562097
+        },
+        {
+          "f_kHz": 19.9446742729902,
+          "B_T": 0.2,
+          "Pv_mWcm3": 25.8210277612922
+        },
+        {
+          "f_kHz": 40.2353306394783,
+          "B_T": 0.2,
+          "Pv_mWcm3": 56.5933881161377
+        },
+        {
+          "f_kHz": 60.7573396561859,
+          "B_T": 0.2,
+          "Pv_mWcm3": 90.6209163767888
+        },
+        {
+          "f_kHz": 10.2457222415878,
+          "B_T": 0.1,
+          "Pv_mWcm3": 3.01299557804173
+        },
+        {
+          "f_kHz": 19.9861344683034,
+          "B_T": 0.1,
+          "Pv_mWcm3": 7.14042424685148
+        },
+        {
+          "f_kHz": 49.8174181900734,
+          "B_T": 0.1,
+          "Pv_mWcm3": 21.1778304604624
+        },
+        {
+          "f_kHz": 87.9141380941765,
+          "B_T": 0.1,
+          "Pv_mWcm3": 42.9047147598621
+        },
+        {
+          "f_kHz": 10.3903015651312,
+          "B_T": 0.05,
+          "Pv_mWcm3": 0.515261741995529
+        },
+        {
+          "f_kHz": 29.5971821968671,
+          "B_T": 0.05,
+          "Pv_mWcm3": 1.99929927048165
+        },
+        {
+          "f_kHz": 50.51310358115,
+          "B_T": 0.05,
+          "Pv_mWcm3": 3.96045988564465
+        },
+        {
+          "f_kHz": 89.1305658349067,
+          "B_T": 0.05,
+          "Pv_mWcm3": 8.67659997949114
+        }
+      ],
+      "cost_per_kg": 12.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 12 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "thornton-ip6i2",
+      "vendor": "Thornton",
+      "family": "Ferrite",
+      "name": "IP6I2",
+      "type": "ferrite",
+      "mu_initial": 2200.0,
+      "Bsat_25C_T": 0.275,
+      "Bsat_100C_T": 0.23375,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 250,
+        "f_ref_kHz": 100,
+        "B_ref_mT": 100,
+        "alpha": 1.4,
+        "beta": 2.5,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": null,
+      "loss_datapoints": [],
+      "cost_per_kg": 12.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 0 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "thornton-ip6i3",
+      "vendor": "Thornton",
+      "family": "Ferrite",
+      "name": "IP6I3",
+      "type": "ferrite",
+      "mu_initial": 2200.0,
+      "Bsat_25C_T": 0.28,
+      "Bsat_100C_T": 0.23800000000000002,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 250,
+        "f_ref_kHz": 100,
+        "B_ref_mT": 100,
+        "alpha": 1.4,
+        "beta": 2.5,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": null,
+      "loss_datapoints": [],
+      "cost_per_kg": 12.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 0 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "thornton-ip12r",
+      "vendor": "Thornton",
+      "family": "Ferrite",
+      "name": "IP12R",
+      "type": "ferrite",
+      "mu_initial": 2100.0,
+      "Bsat_25C_T": 0.35,
+      "Bsat_100C_T": 0.2975,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 27.47667348397751,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.4049291721205452,
+        "beta": 2.6934207294208394,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": null,
+      "loss_datapoints": [
+        {
+          "f_kHz": 10.2420232335587,
+          "B_T": 0.2,
+          "Pv_mWcm3": 7.4797527198894596
+        },
+        {
+          "f_kHz": 19.534449952317,
+          "B_T": 0.2,
+          "Pv_mWcm3": 19.0077954946877
+        },
+        {
+          "f_kHz": 29.7367682710068,
+          "B_T": 0.2,
+          "Pv_mWcm3": 34.4422875418667
+        },
+        {
+          "f_kHz": 50.1529791666605,
+          "B_T": 0.2,
+          "Pv_mWcm3": 72.7809640903811
+        },
+        {
+          "f_kHz": 64.1389227931746,
+          "B_T": 0.2,
+          "Pv_mWcm3": 98.9803445887482
+        },
+        {
+          "f_kHz": 10.1375898894361,
+          "B_T": 0.1,
+          "Pv_mWcm3": 0.933955984981538
+        },
+        {
+          "f_kHz": 19.9389949832681,
+          "B_T": 0.1,
+          "Pv_mWcm3": 2.44750752425716
+        },
+        {
+          "f_kHz": 59.6986336974526,
+          "B_T": 0.1,
+          "Pv_mWcm3": 11.7417529292821
+        },
+        {
+          "f_kHz": 85.4576098304208,
+          "B_T": 0.1,
+          "Pv_mWcm3": 20.0072290266422
+        },
+        {
+          "f_kHz": 10.0342214055579,
+          "B_T": 0.05,
+          "Pv_mWcm3": 0.183067510615124
+        },
+        {
+          "f_kHz": 20.1443984319436,
+          "B_T": 0.05,
+          "Pv_mWcm3": 0.499819339633875
+        },
+        {
+          "f_kHz": 84.5862366874584,
+          "B_T": 0.05,
+          "Pv_mWcm3": 3.61296289567872
+        }
+      ],
+      "cost_per_kg": 12.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 12 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "thornton-ip12e",
+      "vendor": "Thornton",
+      "family": "Ferrite",
+      "name": "IP12E",
+      "type": "ferrite",
+      "mu_initial": 2300.0,
+      "Bsat_25C_T": 0.35,
+      "Bsat_100C_T": 0.2975,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 5.713055789528966,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.0,
+        "beta": 1.8122972384275073,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": null,
+      "loss_datapoints": [
+        {
+          "f_kHz": 29.3038717624467,
+          "B_T": 0.2,
+          "Pv_mWcm3": 6.27885154275214
+        },
+        {
+          "f_kHz": 69.4624451509569,
+          "B_T": 0.2,
+          "Pv_mWcm3": 13.5556266413298
+        },
+        {
+          "f_kHz": 206.932213507677,
+          "B_T": 0.2,
+          "Pv_mWcm3": 39.1112858434314
+        },
+        {
+          "f_kHz": 406.317966987733,
+          "B_T": 0.2,
+          "Pv_mWcm3": 74.1546298133657
+        },
+        {
+          "f_kHz": 29.1381432686501,
+          "B_T": 0.1,
+          "Pv_mWcm3": 1.67483003665475
+        },
+        {
+          "f_kHz": 88.567182487229,
+          "B_T": 0.1,
+          "Pv_mWcm3": 5.23507838638058
+        },
+        {
+          "f_kHz": 199.897212253732,
+          "B_T": 0.1,
+          "Pv_mWcm3": 12.3686945444738
+        },
+        {
+          "f_kHz": 400.477000315814,
+          "B_T": 0.1,
+          "Pv_mWcm3": 25.4056314466483
+        },
+        {
+          "f_kHz": 29.2736693540754,
+          "B_T": 0.05,
+          "Pv_mWcm3": 0.493779479641837
+        },
+        {
+          "f_kHz": 59.7999776882573,
+          "B_T": 0.05,
+          "Pv_mWcm3": 0.945566622192798
+        },
+        {
+          "f_kHz": 155.055913639092,
+          "B_T": 0.05,
+          "Pv_mWcm3": 2.44419538659424
+        },
+        {
+          "f_kHz": 397.989731881582,
+          "B_T": 0.05,
+          "Pv_mWcm3": 5.94975568033014
+        }
+      ],
+      "cost_per_kg": 12.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 12 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "thornton-th50",
+      "vendor": "Thornton",
+      "family": "Ferrite",
+      "name": "TH50",
+      "type": "ferrite",
+      "mu_initial": 5000.0,
+      "Bsat_25C_T": 0.26,
+      "Bsat_100C_T": 0.221,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 250,
+        "f_ref_kHz": 100,
+        "B_ref_mT": 100,
+        "alpha": 1.4,
+        "beta": 2.5,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": null,
+      "loss_datapoints": [],
+      "cost_per_kg": 12.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 0 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "thornton-th60",
+      "vendor": "Thornton",
+      "family": "Ferrite",
+      "name": "TH60",
+      "type": "ferrite",
+      "mu_initial": 6000.0,
+      "Bsat_25C_T": 0.26,
+      "Bsat_100C_T": 0.221,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 250,
+        "f_ref_kHz": 100,
+        "B_ref_mT": 100,
+        "alpha": 1.4,
+        "beta": 2.5,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": null,
+      "loss_datapoints": [],
+      "cost_per_kg": 12.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 0 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "thornton-elm4",
+      "vendor": "Thornton",
+      "family": "Ferrite",
+      "name": "ELM4",
+      "type": "powder",
+      "mu_initial": 450.0,
+      "Bsat_25C_T": 0.3,
+      "Bsat_100C_T": 0.255,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 250,
+        "f_ref_kHz": 100,
+        "B_ref_mT": 100,
+        "alpha": 1.4,
+        "beta": 2.5,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": {
+        "a": 0.01,
+        "b": 0.012154453274211883,
+        "c": 1.2,
+        "H_units": "Oe"
+      },
+      "loss_datapoints": [],
+      "cost_per_kg": 12.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 0 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "magnetics-14_highflux",
+      "vendor": "Magnetics",
+      "family": "High Flux",
+      "name": "14_HighFlux",
+      "type": "powder",
+      "mu_initial": 14.0,
+      "Bsat_25C_T": 1.5,
+      "Bsat_100C_T": 1.275,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 2084.2618036616122,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.2195943777064489,
+        "beta": 1.5,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": {
+        "a": 0.01,
+        "b": 0.0012130879567969408,
+        "c": 1.13,
+        "H_units": "Oe"
+      },
+      "loss_datapoints": [
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.02,
+          "Pv_mWcm3": 216.288
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 2001.5
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.2,
+          "Pv_mWcm3": 2265.72
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 866.604
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.02,
+          "Pv_mWcm3": 93.6477
+        },
+        {
+          "f_kHz": 40.0,
+          "B_T": 0.02,
+          "Pv_mWcm3": 70.5991
+        },
+        {
+          "f_kHz": 40.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 667.139
+        },
+        {
+          "f_kHz": 40.0,
+          "B_T": 0.3,
+          "Pv_mWcm3": 3024.12
+        },
+        {
+          "f_kHz": 20.0,
+          "B_T": 0.02,
+          "Pv_mWcm3": 29.9351
+        },
+        {
+          "f_kHz": 20.0,
+          "B_T": 0.2,
+          "Pv_mWcm3": 739.567
+        },
+        {
+          "f_kHz": 10.0,
+          "B_T": 0.04,
+          "Pv_mWcm3": 33.8862
+        },
+        {
+          "f_kHz": 10.0,
+          "B_T": 0.4,
+          "Pv_mWcm3": 845.986
+        }
+      ],
+      "cost_per_kg": 22.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 12 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "magnetics-26_highflux",
+      "vendor": "Magnetics",
+      "family": "High Flux",
+      "name": "26_HighFlux",
+      "type": "powder",
+      "mu_initial": 26.0,
+      "Bsat_25C_T": 1.5,
+      "Bsat_100C_T": 1.275,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 1665.9784265828916,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.1968404226880678,
+        "beta": 2.1819465605881745,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": {
+        "a": 0.01,
+        "b": 0.0021606348574015393,
+        "c": 1.13,
+        "H_units": "Oe"
+      },
+      "loss_datapoints": [
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.02,
+          "Pv_mWcm3": 54.3848
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 1807.15
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.03,
+          "Pv_mWcm3": 52.1126
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 706.351
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.2,
+          "Pv_mWcm3": 3170.29
+        },
+        {
+          "f_kHz": 40.0,
+          "B_T": 0.02,
+          "Pv_mWcm3": 15.7052
+        },
+        {
+          "f_kHz": 40.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 521.87
+        },
+        {
+          "f_kHz": 40.0,
+          "B_T": 0.2,
+          "Pv_mWcm3": 2342.28
+        },
+        {
+          "f_kHz": 20.0,
+          "B_T": 0.04,
+          "Pv_mWcm3": 33.2459
+        },
+        {
+          "f_kHz": 20.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 241.055
+        },
+        {
+          "f_kHz": 20.0,
+          "B_T": 0.3,
+          "Pv_mWcm3": 2652.38
+        },
+        {
+          "f_kHz": 10.0,
+          "B_T": 0.4,
+          "Pv_mWcm3": 2413.02
+        }
+      ],
+      "cost_per_kg": 22.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 12 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "magnetics-40_highflux",
+      "vendor": "Magnetics",
+      "family": "High Flux",
+      "name": "40_HighFlux",
+      "type": "powder",
+      "mu_initial": 40.0,
+      "Bsat_25C_T": 1.5,
+      "Bsat_100C_T": 1.275,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 1709.2984245996065,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.1854296226183239,
+        "beta": 2.2764941030021038,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": {
+        "a": 0.01,
+        "b": 0.0034163668646591343,
+        "c": 1.13,
+        "H_units": "Oe"
+      },
+      "loss_datapoints": [
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.03,
+          "Pv_mWcm3": 108.222
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 1682.31
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.03,
+          "Pv_mWcm3": 50.2241
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 764.702
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.2,
+          "Pv_mWcm3": 3613.75
+        },
+        {
+          "f_kHz": 40.0,
+          "B_T": 0.03,
+          "Pv_mWcm3": 38.3504
+        },
+        {
+          "f_kHz": 40.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 596.158
+        },
+        {
+          "f_kHz": 40.0,
+          "B_T": 0.2,
+          "Pv_mWcm3": 2817.27
+        },
+        {
+          "f_kHz": 20.0,
+          "B_T": 0.02,
+          "Pv_mWcm3": 6.3185
+        },
+        {
+          "f_kHz": 20.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 241.762
+        },
+        {
+          "f_kHz": 20.0,
+          "B_T": 0.3,
+          "Pv_mWcm3": 2931.22
+        },
+        {
+          "f_kHz": 10.0,
+          "B_T": 0.4,
+          "Pv_mWcm3": 2750.78
+        }
+      ],
+      "cost_per_kg": 22.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 12 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "magnetics-60_highflux",
+      "vendor": "Magnetics",
+      "family": "High Flux",
+      "name": "60_HighFlux",
+      "type": "powder",
+      "mu_initial": 60.0,
+      "Bsat_25C_T": 1.5,
+      "Bsat_100C_T": 1.275,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 849.7227149444259,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.2979345631882513,
+        "beta": 1.6010377472163428,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": {
+        "a": 0.01,
+        "b": 0.0069162383818135035,
+        "c": 1.13,
+        "H_units": "Oe"
+      },
+      "loss_datapoints": [
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.03,
+          "Pv_mWcm3": 136.26
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 915.987
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.03,
+          "Pv_mWcm3": 50.6736
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 344.211
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.4,
+          "Pv_mWcm3": 3097.13
+        },
+        {
+          "f_kHz": 40.0,
+          "B_T": 0.03,
+          "Pv_mWcm3": 35.566
+        },
+        {
+          "f_kHz": 40.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 239.087
+        },
+        {
+          "f_kHz": 40.0,
+          "B_T": 0.5,
+          "Pv_mWcm3": 3097.13
+        },
+        {
+          "f_kHz": 20.0,
+          "B_T": 0.04,
+          "Pv_mWcm3": 24.1948
+        },
+        {
+          "f_kHz": 20.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 101.801
+        },
+        {
+          "f_kHz": 20.0,
+          "B_T": 0.7,
+          "Pv_mWcm3": 2313.9
+        },
+        {
+          "f_kHz": 10.0,
+          "B_T": 0.8,
+          "Pv_mWcm3": 1374.82
+        }
+      ],
+      "cost_per_kg": 22.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 12 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "magnetics-125_highflux",
+      "vendor": "Magnetics",
+      "family": "High Flux",
+      "name": "125_HighFlux",
+      "type": "powder",
+      "mu_initial": 125.0,
+      "Bsat_25C_T": 1.5,
+      "Bsat_100C_T": 1.275,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 849.7227149444259,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.2979345631882513,
+        "beta": 1.6010377472163428,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": {
+        "a": 0.01,
+        "b": 0.0163641062703802,
+        "c": 1.13,
+        "H_units": "Oe"
+      },
+      "loss_datapoints": [
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.03,
+          "Pv_mWcm3": 136.26
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 915.987
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.03,
+          "Pv_mWcm3": 50.6736
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 344.211
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.4,
+          "Pv_mWcm3": 3097.13
+        },
+        {
+          "f_kHz": 40.0,
+          "B_T": 0.03,
+          "Pv_mWcm3": 35.566
+        },
+        {
+          "f_kHz": 40.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 239.087
+        },
+        {
+          "f_kHz": 40.0,
+          "B_T": 0.5,
+          "Pv_mWcm3": 3097.13
+        },
+        {
+          "f_kHz": 20.0,
+          "B_T": 0.04,
+          "Pv_mWcm3": 24.1948
+        },
+        {
+          "f_kHz": 20.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 101.801
+        },
+        {
+          "f_kHz": 20.0,
+          "B_T": 0.7,
+          "Pv_mWcm3": 2313.9
+        },
+        {
+          "f_kHz": 10.0,
+          "B_T": 0.8,
+          "Pv_mWcm3": 1374.82
+        }
+      ],
+      "cost_per_kg": 22.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 12 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "magnetics-147_highflux",
+      "vendor": "Magnetics",
+      "family": "High Flux",
+      "name": "147_HighFlux",
+      "type": "powder",
+      "mu_initial": 147.0,
+      "Bsat_25C_T": 1.5,
+      "Bsat_100C_T": 1.275,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 807.0610809409292,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.0,
+        "beta": 2.28743712753698,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": {
+        "a": 0.01,
+        "b": 0.01947790141953122,
+        "c": 1.13,
+        "H_units": "Oe"
+      },
+      "loss_datapoints": [
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.03,
+          "Pv_mWcm3": 11.658
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 1526.08
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.03,
+          "Pv_mWcm3": 39.0651
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 533.921
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.2,
+          "Pv_mWcm3": 2347.35
+        },
+        {
+          "f_kHz": 40.0,
+          "B_T": 0.03,
+          "Pv_mWcm3": 27.6233
+        },
+        {
+          "f_kHz": 40.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 369.694
+        },
+        {
+          "f_kHz": 40.0,
+          "B_T": 0.3,
+          "Pv_mWcm3": 4052.75
+        },
+        {
+          "f_kHz": 20.0,
+          "B_T": 0.03,
+          "Pv_mWcm3": 11.5535
+        },
+        {
+          "f_kHz": 20.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 156.257
+        },
+        {
+          "f_kHz": 20.0,
+          "B_T": 0.4,
+          "Pv_mWcm3": 3116.92
+        },
+        {
+          "f_kHz": 10.0,
+          "B_T": 0.6,
+          "Pv_mWcm3": 3425.9
+        }
+      ],
+      "cost_per_kg": 22.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 12 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "magnetics-160_highflux",
+      "vendor": "Magnetics",
+      "family": "High Flux",
+      "name": "160_HighFlux",
+      "type": "powder",
+      "mu_initial": 160.0,
+      "Bsat_25C_T": 1.5,
+      "Bsat_100C_T": 1.275,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 807.0610809409292,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.0,
+        "beta": 2.28743712753698,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": {
+        "a": 0.01,
+        "b": 0.021490337562229334,
+        "c": 1.13,
+        "H_units": "Oe"
+      },
+      "loss_datapoints": [
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.03,
+          "Pv_mWcm3": 11.658
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 1526.08
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.03,
+          "Pv_mWcm3": 39.0651
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 533.921
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.2,
+          "Pv_mWcm3": 2347.35
+        },
+        {
+          "f_kHz": 40.0,
+          "B_T": 0.03,
+          "Pv_mWcm3": 27.6233
+        },
+        {
+          "f_kHz": 40.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 369.694
+        },
+        {
+          "f_kHz": 40.0,
+          "B_T": 0.3,
+          "Pv_mWcm3": 4052.75
+        },
+        {
+          "f_kHz": 20.0,
+          "B_T": 0.03,
+          "Pv_mWcm3": 11.5535
+        },
+        {
+          "f_kHz": 20.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 156.257
+        },
+        {
+          "f_kHz": 20.0,
+          "B_T": 0.4,
+          "Pv_mWcm3": 3116.92
+        },
+        {
+          "f_kHz": 10.0,
+          "B_T": 0.6,
+          "Pv_mWcm3": 3425.9
+        }
+      ],
+      "cost_per_kg": 22.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 12 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "magnetics-19_xflux",
+      "vendor": "Magnetics",
+      "family": "XFlux",
+      "name": "19_Xflux",
+      "type": "powder",
+      "mu_initial": 19.0,
+      "Bsat_25C_T": 1.6,
+      "Bsat_100C_T": 1.36,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 2164.1177453975884,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.2169071852433053,
+        "beta": 1.9906721477674703,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": {
+        "a": 0.01,
+        "b": 0.0016264777546521015,
+        "c": 1.13,
+        "H_units": "Oe"
+      },
+      "loss_datapoints": [
+        {
+          "f_kHz": 200.0,
+          "B_T": 0.06,
+          "Pv_mWcm3": 1821.12
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.03,
+          "Pv_mWcm3": 200.3
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 2151.25
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.03,
+          "Pv_mWcm3": 86.1792
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 935.262
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.2,
+          "Pv_mWcm3": 3696.86
+        },
+        {
+          "f_kHz": 40.0,
+          "B_T": 0.03,
+          "Pv_mWcm3": 65.0593
+        },
+        {
+          "f_kHz": 40.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 713.447
+        },
+        {
+          "f_kHz": 40.0,
+          "B_T": 0.2,
+          "Pv_mWcm3": 2790.87
+        },
+        {
+          "f_kHz": 20.0,
+          "B_T": 0.03,
+          "Pv_mWcm3": 26.8499
+        },
+        {
+          "f_kHz": 20.0,
+          "B_T": 0.3,
+          "Pv_mWcm3": 2567.82
+        },
+        {
+          "f_kHz": 10.0,
+          "B_T": 0.4,
+          "Pv_mWcm3": 2196.52
+        }
+      ],
+      "cost_per_kg": 18.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 12 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "magnetics-26_xflux",
+      "vendor": "Magnetics",
+      "family": "XFlux",
+      "name": "26_Xflux",
+      "type": "powder",
+      "mu_initial": 26.0,
+      "Bsat_25C_T": 1.6,
+      "Bsat_100C_T": 1.36,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 2164.1177453975884,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.2169071852433053,
+        "beta": 1.9906721477674703,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": {
+        "a": 0.01,
+        "b": 0.0024193439349276848,
+        "c": 1.13,
+        "H_units": "Oe"
+      },
+      "loss_datapoints": [
+        {
+          "f_kHz": 200.0,
+          "B_T": 0.06,
+          "Pv_mWcm3": 1821.12
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.03,
+          "Pv_mWcm3": 200.3
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 2151.25
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.03,
+          "Pv_mWcm3": 86.1792
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 935.262
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.2,
+          "Pv_mWcm3": 3696.86
+        },
+        {
+          "f_kHz": 40.0,
+          "B_T": 0.03,
+          "Pv_mWcm3": 65.0593
+        },
+        {
+          "f_kHz": 40.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 713.447
+        },
+        {
+          "f_kHz": 40.0,
+          "B_T": 0.2,
+          "Pv_mWcm3": 2790.87
+        },
+        {
+          "f_kHz": 20.0,
+          "B_T": 0.03,
+          "Pv_mWcm3": 26.8499
+        },
+        {
+          "f_kHz": 20.0,
+          "B_T": 0.3,
+          "Pv_mWcm3": 2567.82
+        },
+        {
+          "f_kHz": 10.0,
+          "B_T": 0.4,
+          "Pv_mWcm3": 2196.52
+        }
+      ],
+      "cost_per_kg": 18.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 12 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "magnetics-40_xflux",
+      "vendor": "Magnetics",
+      "family": "XFlux",
+      "name": "40_Xflux",
+      "type": "powder",
+      "mu_initial": 40.0,
+      "Bsat_25C_T": 1.6,
+      "Bsat_100C_T": 1.36,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 1749.3147970143402,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.135509270510891,
+        "beta": 1.9358919930007061,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": {
+        "a": 0.01,
+        "b": 0.0038831204905232612,
+        "c": 1.13,
+        "H_units": "Oe"
+      },
+      "loss_datapoints": [
+        {
+          "f_kHz": 200.0,
+          "B_T": 0.09,
+          "Pv_mWcm3": 3138.47
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.03,
+          "Pv_mWcm3": 171.303
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 1739.93
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.03,
+          "Pv_mWcm3": 78.0158
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 800.653
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.2,
+          "Pv_mWcm3": 3042.53
+        },
+        {
+          "f_kHz": 40.0,
+          "B_T": 0.03,
+          "Pv_mWcm3": 59.6109
+        },
+        {
+          "f_kHz": 40.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 611.769
+        },
+        {
+          "f_kHz": 40.0,
+          "B_T": 0.2,
+          "Pv_mWcm3": 2348.94
+        },
+        {
+          "f_kHz": 20.0,
+          "B_T": 0.03,
+          "Pv_mWcm3": 27.4308
+        },
+        {
+          "f_kHz": 20.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 278.616
+        },
+        {
+          "f_kHz": 20.0,
+          "B_T": 0.3,
+          "Pv_mWcm3": 2398.06
+        }
+      ],
+      "cost_per_kg": 18.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 12 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "magnetics-60_xflux",
+      "vendor": "Magnetics",
+      "family": "XFlux",
+      "name": "60_Xflux",
+      "type": "powder",
+      "mu_initial": 60.0,
+      "Bsat_25C_T": 1.6,
+      "Bsat_100C_T": 1.36,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 1549.398369235915,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.193162221811945,
+        "beta": 1.9000376315530545,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": {
+        "a": 0.01,
+        "b": 0.00666466397229517,
+        "c": 1.13,
+        "H_units": "Oe"
+      },
+      "loss_datapoints": [
+        {
+          "f_kHz": 200.0,
+          "B_T": 0.09,
+          "Pv_mWcm3": 2899.89
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.03,
+          "Pv_mWcm3": 157.595
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 1562.95
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.03,
+          "Pv_mWcm3": 69.6082
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 676.024
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.2,
+          "Pv_mWcm3": 2504.29
+        },
+        {
+          "f_kHz": 40.0,
+          "B_T": 0.03,
+          "Pv_mWcm3": 52.4586
+        },
+        {
+          "f_kHz": 40.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 509.47
+        },
+        {
+          "f_kHz": 40.0,
+          "B_T": 0.3,
+          "Pv_mWcm3": 4184.31
+        },
+        {
+          "f_kHz": 20.0,
+          "B_T": 0.03,
+          "Pv_mWcm3": 23.1704
+        },
+        {
+          "f_kHz": 20.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 225.027
+        },
+        {
+          "f_kHz": 20.0,
+          "B_T": 0.4,
+          "Pv_mWcm3": 3220.17
+        }
+      ],
+      "cost_per_kg": 18.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 12 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "magnetics-75_xflux",
+      "vendor": "Magnetics",
+      "family": "XFlux",
+      "name": "75_Xflux",
+      "type": "powder",
+      "mu_initial": 75.0,
+      "Bsat_25C_T": 1.6,
+      "Bsat_100C_T": 1.36,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 1130.1359084434796,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.1662054494904381,
+        "beta": 2.016225612993691,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": {
+        "a": 0.01,
+        "b": 0.008498548588032234,
+        "c": 1.13,
+        "H_units": "Oe"
+      },
+      "loss_datapoints": [
+        {
+          "f_kHz": 200.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 2553.09
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.04,
+          "Pv_mWcm3": 179.116
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.2,
+          "Pv_mWcm3": 4501.53
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.04,
+          "Pv_mWcm3": 78.9542
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 501.316
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.2,
+          "Pv_mWcm3": 2026.4
+        },
+        {
+          "f_kHz": 40.0,
+          "B_T": 0.04,
+          "Pv_mWcm3": 61.3637
+        },
+        {
+          "f_kHz": 40.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 389.625
+        },
+        {
+          "f_kHz": 40.0,
+          "B_T": 0.3,
+          "Pv_mWcm3": 3610.6
+        },
+        {
+          "f_kHz": 20.0,
+          "B_T": 0.04,
+          "Pv_mWcm3": 27.3347
+        },
+        {
+          "f_kHz": 20.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 171.747
+        },
+        {
+          "f_kHz": 20.0,
+          "B_T": 0.4,
+          "Pv_mWcm3": 2835.8
+        }
+      ],
+      "cost_per_kg": 18.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 12 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "magnetics-90_xflux",
+      "vendor": "Magnetics",
+      "family": "XFlux",
+      "name": "90_Xflux",
+      "type": "powder",
+      "mu_initial": 90.0,
+      "Bsat_25C_T": 1.6,
+      "Bsat_100C_T": 1.36,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 1130.1359084434796,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.1662054494904381,
+        "beta": 2.016225612993691,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": {
+        "a": 0.01,
+        "b": 0.010349256920782795,
+        "c": 1.13,
+        "H_units": "Oe"
+      },
+      "loss_datapoints": [
+        {
+          "f_kHz": 200.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 2553.09
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.04,
+          "Pv_mWcm3": 179.116
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.2,
+          "Pv_mWcm3": 4501.53
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.04,
+          "Pv_mWcm3": 78.9542
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 501.316
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.2,
+          "Pv_mWcm3": 2026.4
+        },
+        {
+          "f_kHz": 40.0,
+          "B_T": 0.04,
+          "Pv_mWcm3": 61.3637
+        },
+        {
+          "f_kHz": 40.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 389.625
+        },
+        {
+          "f_kHz": 40.0,
+          "B_T": 0.3,
+          "Pv_mWcm3": 3610.6
+        },
+        {
+          "f_kHz": 20.0,
+          "B_T": 0.04,
+          "Pv_mWcm3": 27.3347
+        },
+        {
+          "f_kHz": 20.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 171.747
+        },
+        {
+          "f_kHz": 20.0,
+          "B_T": 0.4,
+          "Pv_mWcm3": 2835.8
+        }
+      ],
+      "cost_per_kg": 18.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 12 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "magmattec-002",
+      "vendor": "Magmattec",
+      "family": "Powder iron",
+      "name": "002",
+      "type": "powder",
+      "mu_initial": 10.0,
+      "Bsat_25C_T": 0.5,
+      "Bsat_100C_T": 0.425,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 1430.2243561020002,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.0659448995983851,
+        "beta": 2.135520547522436,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": {
+        "a": 0.01,
+        "b": 0.0016874162145172798,
+        "c": 1.1,
+        "H_units": "Oe"
+      },
+      "loss_datapoints": [
+        {
+          "f_kHz": 500.0,
+          "B_T": 0.01,
+          "Pv_mWcm3": 59.3756
+        },
+        {
+          "f_kHz": 500.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 9121.13
+        },
+        {
+          "f_kHz": 250.0,
+          "B_T": 0.01,
+          "Pv_mWcm3": 24.6747
+        },
+        {
+          "f_kHz": 250.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 4018.98
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.02,
+          "Pv_mWcm3": 43.9397
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.2,
+          "Pv_mWcm3": 6004.13
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.02,
+          "Pv_mWcm3": 21.2264
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 729.787
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.3,
+          "Pv_mWcm3": 6260.52
+        },
+        {
+          "f_kHz": 25.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 355.506
+        },
+        {
+          "f_kHz": 25.0,
+          "B_T": 0.4,
+          "Pv_mWcm3": 5522.44
+        },
+        {
+          "f_kHz": 10.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 141.688
+        }
+      ],
+      "cost_per_kg": 8.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 12 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "magmattec-014",
+      "vendor": "Magmattec",
+      "family": "Powder iron",
+      "name": "014",
+      "type": "powder",
+      "mu_initial": 14.0,
+      "Bsat_25C_T": 0.5,
+      "Bsat_100C_T": 0.425,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 1427.2990118598927,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.0642476560304122,
+        "beta": 2.1305495356449358,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": {
+        "a": 0.01,
+        "b": 0.0016874162145172798,
+        "c": 1.1,
+        "H_units": "Oe"
+      },
+      "loss_datapoints": [
+        {
+          "f_kHz": 500.0,
+          "B_T": 0.03,
+          "Pv_mWcm3": 691.447
+        },
+        {
+          "f_kHz": 250.0,
+          "B_T": 0.01,
+          "Pv_mWcm3": 24.3639
+        },
+        {
+          "f_kHz": 250.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 4003.22
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.02,
+          "Pv_mWcm3": 44.7304
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 1499.35
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.02,
+          "Pv_mWcm3": 21.1496
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 708.928
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.3,
+          "Pv_mWcm3": 6379.98
+        },
+        {
+          "f_kHz": 25.0,
+          "B_T": 0.03,
+          "Pv_mWcm3": 26.0413
+        },
+        {
+          "f_kHz": 25.0,
+          "B_T": 0.2,
+          "Pv_mWcm3": 1414.5
+        },
+        {
+          "f_kHz": 25.0,
+          "B_T": 0.3,
+          "Pv_mWcm3": 3016.6
+        },
+        {
+          "f_kHz": 10.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 142.237
+        }
+      ],
+      "cost_per_kg": 8.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 12 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "magmattec-018",
+      "vendor": "Magmattec",
+      "family": "Powder iron",
+      "name": "018",
+      "type": "powder",
+      "mu_initial": 55.0,
+      "Bsat_25C_T": 1.03,
+      "Bsat_100C_T": 0.8755,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 3492.6998579876645,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.1670804614523453,
+        "beta": 2.1678563069765673,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": {
+        "a": 0.01,
+        "b": 0.00666466397229517,
+        "c": 1.13,
+        "H_units": "Oe"
+      },
+      "loss_datapoints": [
+        {
+          "f_kHz": 500.0,
+          "B_T": 0.01,
+          "Pv_mWcm3": 170.594
+        },
+        {
+          "f_kHz": 500.0,
+          "B_T": 0.05,
+          "Pv_mWcm3": 5251.83
+        },
+        {
+          "f_kHz": 250.0,
+          "B_T": 0.01,
+          "Pv_mWcm3": 64.9278
+        },
+        {
+          "f_kHz": 250.0,
+          "B_T": 0.03,
+          "Pv_mWcm3": 754.942
+        },
+        {
+          "f_kHz": 250.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 9333.26
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.01,
+          "Pv_mWcm3": 21.526
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.04,
+          "Pv_mWcm3": 495.203
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 3392.51
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.02,
+          "Pv_mWcm3": 48.1476
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.04,
+          "Pv_mWcm3": 226.548
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 1637.59
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.2,
+          "Pv_mWcm3": 6868.28
+        }
+      ],
+      "cost_per_kg": 8.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 12 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "magmattec-026",
+      "vendor": "Magmattec",
+      "family": "Powder iron",
+      "name": "026",
+      "type": "powder",
+      "mu_initial": 75.0,
+      "Bsat_25C_T": 1.38,
+      "Bsat_100C_T": 1.1729999999999998,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 5116.592039491437,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.3796603919730839,
+        "beta": 2.040097088186892,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": {
+        "a": 0.01,
+        "b": 0.008899759450817758,
+        "c": 1.13,
+        "H_units": "Oe"
+      },
+      "loss_datapoints": [
+        {
+          "f_kHz": 500.0,
+          "B_T": 0.02,
+          "Pv_mWcm3": 2328.23
+        },
+        {
+          "f_kHz": 250.0,
+          "B_T": 0.01,
+          "Pv_mWcm3": 165.517
+        },
+        {
+          "f_kHz": 250.0,
+          "B_T": 0.06,
+          "Pv_mWcm3": 6658.19
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.01,
+          "Pv_mWcm3": 39.8647
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 4680.21
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.01,
+          "Pv_mWcm3": 15.2241
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 1799.5
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.2,
+          "Pv_mWcm3": 6981.76
+        },
+        {
+          "f_kHz": 25.0,
+          "B_T": 0.02,
+          "Pv_mWcm3": 29.3837
+        },
+        {
+          "f_kHz": 25.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 797.746
+        },
+        {
+          "f_kHz": 25.0,
+          "B_T": 0.3,
+          "Pv_mWcm3": 6436.29
+        },
+        {
+          "f_kHz": 10.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 298.521
+        }
+      ],
+      "cost_per_kg": 8.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 12 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "magmattec-034",
+      "vendor": "Magmattec",
+      "family": "Powder iron",
+      "name": "034",
+      "type": "powder",
+      "mu_initial": 33.0,
+      "Bsat_25C_T": 1.1,
+      "Bsat_100C_T": 0.935,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 22009.883005357176,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.1257287741879392,
+        "beta": 2.5309000273751554,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": {
+        "a": 0.01,
+        "b": 0.003283547769039278,
+        "c": 1.13,
+        "H_units": "Oe"
+      },
+      "loss_datapoints": [
+        {
+          "f_kHz": 500.0,
+          "B_T": 0.01,
+          "Pv_mWcm3": 455.31
+        },
+        {
+          "f_kHz": 250.0,
+          "B_T": 0.01,
+          "Pv_mWcm3": 180.74
+        },
+        {
+          "f_kHz": 250.0,
+          "B_T": 0.05,
+          "Pv_mWcm3": 9785.78
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.01,
+          "Pv_mWcm3": 61.2116
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.06,
+          "Pv_mWcm3": 5819.56
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.01,
+          "Pv_mWcm3": 28.2755
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.04,
+          "Pv_mWcm3": 1029.29
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 9645.53
+        },
+        {
+          "f_kHz": 25.0,
+          "B_T": 0.01,
+          "Pv_mWcm3": 13.2513
+        },
+        {
+          "f_kHz": 25.0,
+          "B_T": 0.03,
+          "Pv_mWcm3": 232.686
+        },
+        {
+          "f_kHz": 25.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 4858.7
+        },
+        {
+          "f_kHz": 10.0,
+          "B_T": 0.2,
+          "Pv_mWcm3": 9785.78
+        }
+      ],
+      "cost_per_kg": 8.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 12 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "magmattec-052",
+      "vendor": "Magmattec",
+      "family": "Powder iron",
+      "name": "052",
+      "type": "powder",
+      "mu_initial": 75.0,
+      "Bsat_25C_T": 1.4,
+      "Bsat_100C_T": 1.19,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 8343.221813478889,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.1585018647559424,
+        "beta": 2.356126808693124,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": {
+        "a": 0.01,
+        "b": 0.008899759450817758,
+        "c": 1.13,
+        "H_units": "Oe"
+      },
+      "loss_datapoints": [
+        {
+          "f_kHz": 500.0,
+          "B_T": 0.01,
+          "Pv_mWcm3": 304.419
+        },
+        {
+          "f_kHz": 250.0,
+          "B_T": 0.01,
+          "Pv_mWcm3": 110.507
+        },
+        {
+          "f_kHz": 250.0,
+          "B_T": 0.07,
+          "Pv_mWcm3": 9009.62
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.01,
+          "Pv_mWcm3": 33.8007
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 7642.93
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.01,
+          "Pv_mWcm3": 14.9837
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.06,
+          "Pv_mWcm3": 1074.55
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 3561.68
+        },
+        {
+          "f_kHz": 25.0,
+          "B_T": 0.02,
+          "Pv_mWcm3": 37.862
+        },
+        {
+          "f_kHz": 25.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 1720.03
+        },
+        {
+          "f_kHz": 25.0,
+          "B_T": 0.2,
+          "Pv_mWcm3": 8809.16
+        },
+        {
+          "f_kHz": 10.0,
+          "B_T": 0.3,
+          "Pv_mWcm3": 8995.99
+        }
+      ],
+      "cost_per_kg": 8.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 12 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "micrometals--2mm",
+      "vendor": "Micrometals",
+      "family": "Iron powder mix",
+      "name": "-2MM",
+      "type": "powder",
+      "mu_initial": 10.0,
+      "Bsat_25C_T": 1.48,
+      "Bsat_100C_T": 1.258,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 250,
+        "f_ref_kHz": 100,
+        "B_ref_mT": 100,
+        "alpha": 1.4,
+        "beta": 2.5,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": {
+        "a": 0.01,
+        "b": 0.0014765400535129204,
+        "c": 1.1,
+        "H_units": "Oe"
+      },
+      "loss_datapoints": [],
+      "cost_per_kg": 8.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 0 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "micrometals--8mm",
+      "vendor": "Micrometals",
+      "family": "Iron powder mix",
+      "name": "-8MM",
+      "type": "powder",
+      "mu_initial": 35.0,
+      "Bsat_25C_T": 1.76,
+      "Bsat_100C_T": 1.496,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 250,
+        "f_ref_kHz": 100,
+        "B_ref_mT": 100,
+        "alpha": 1.4,
+        "beta": 2.5,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": {
+        "a": 0.01,
+        "b": 0.002837476832958719,
+        "c": 1.13,
+        "H_units": "Oe"
+      },
+      "loss_datapoints": [],
+      "cost_per_kg": 8.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 0 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "micrometals--14mm",
+      "vendor": "Micrometals",
+      "family": "Iron powder mix",
+      "name": "-14MM",
+      "type": "powder",
+      "mu_initial": 14.0,
+      "Bsat_25C_T": 1.52,
+      "Bsat_100C_T": 1.292,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 250,
+        "f_ref_kHz": 100,
+        "B_ref_mT": 100,
+        "alpha": 1.4,
+        "beta": 2.5,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": {
+        "a": 0.01,
+        "b": 0.0014765400535129204,
+        "c": 1.1,
+        "H_units": "Oe"
+      },
+      "loss_datapoints": [],
+      "cost_per_kg": 8.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 0 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "micrometals--18mm",
+      "vendor": "Micrometals",
+      "family": "Iron powder mix",
+      "name": "-18MM",
+      "type": "powder",
+      "mu_initial": 55.0,
+      "Bsat_25C_T": 1.78,
+      "Bsat_100C_T": 1.513,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 250,
+        "f_ref_kHz": 100,
+        "B_ref_mT": 100,
+        "alpha": 1.4,
+        "beta": 2.5,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": {
+        "a": 0.01,
+        "b": 0.006004070667979368,
+        "c": 1.13,
+        "H_units": "Oe"
+      },
+      "loss_datapoints": [],
+      "cost_per_kg": 8.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 0 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "micrometals--19mm",
+      "vendor": "Micrometals",
+      "family": "Iron powder mix",
+      "name": "-19MM",
+      "type": "powder",
+      "mu_initial": 55.0,
+      "Bsat_25C_T": 1.82,
+      "Bsat_100C_T": 1.547,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 250,
+        "f_ref_kHz": 100,
+        "B_ref_mT": 100,
+        "alpha": 1.4,
+        "beta": 2.5,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": {
+        "a": 0.01,
+        "b": 0.006004070667979368,
+        "c": 1.13,
+        "H_units": "Oe"
+      },
+      "loss_datapoints": [],
+      "cost_per_kg": 8.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 0 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "micrometals--26mm",
+      "vendor": "Micrometals",
+      "family": "Iron powder mix",
+      "name": "-26MM",
+      "type": "powder",
+      "mu_initial": 75.0,
+      "Bsat_25C_T": 1.85,
+      "Bsat_100C_T": 1.5725,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 5244.498264799546,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.4309889376920095,
+        "beta": 2.042470172702936,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": {
+        "a": 0.01,
+        "b": 0.009338228934328495,
+        "c": 1.13,
+        "H_units": "Oe"
+      },
+      "loss_datapoints": [
+        {
+          "f_kHz": 500.0,
+          "B_T": 0.02,
+          "Pv_mWcm3": 2438.54
+        },
+        {
+          "f_kHz": 250.0,
+          "B_T": 0.01,
+          "Pv_mWcm3": 170.557
+        },
+        {
+          "f_kHz": 250.0,
+          "B_T": 0.07,
+          "Pv_mWcm3": 9451.16
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.01,
+          "Pv_mWcm3": 43.0845
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 4601.73
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.01,
+          "Pv_mWcm3": 16.044
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 1838.89
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.2,
+          "Pv_mWcm3": 7027.2
+        },
+        {
+          "f_kHz": 25.0,
+          "B_T": 0.02,
+          "Pv_mWcm3": 30.7066
+        },
+        {
+          "f_kHz": 25.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 816.874
+        },
+        {
+          "f_kHz": 25.0,
+          "B_T": 0.3,
+          "Pv_mWcm3": 6688.55
+        },
+        {
+          "f_kHz": 10.0,
+          "B_T": 0.6,
+          "Pv_mWcm3": 8207.26
+        }
+      ],
+      "cost_per_kg": 8.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 12 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "micrometals--30mm",
+      "vendor": "Micrometals",
+      "family": "Iron powder mix",
+      "name": "-30MM",
+      "type": "powder",
+      "mu_initial": 22.0,
+      "Bsat_25C_T": 1.67,
+      "Bsat_100C_T": 1.4195,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 5455.013609737857,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.056294358625823,
+        "beta": 2.0267038448102426,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": {
+        "a": 0.01,
+        "b": 0.002837476832958719,
+        "c": 1.13,
+        "H_units": "Oe"
+      },
+      "loss_datapoints": [
+        {
+          "f_kHz": 500.0,
+          "B_T": 0.02,
+          "Pv_mWcm3": 2270.14
+        },
+        {
+          "f_kHz": 250.0,
+          "B_T": 0.01,
+          "Pv_mWcm3": 204.286
+        },
+        {
+          "f_kHz": 250.0,
+          "B_T": 0.07,
+          "Pv_mWcm3": 8959.31
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.01,
+          "Pv_mWcm3": 65.1416
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 4989.3
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.01,
+          "Pv_mWcm3": 30.1163
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 2306.63
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.2,
+          "Pv_mWcm3": 7664.63
+        },
+        {
+          "f_kHz": 25.0,
+          "B_T": 0.2,
+          "Pv_mWcm3": 57.3227
+        },
+        {
+          "f_kHz": 25.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 1058.81
+        },
+        {
+          "f_kHz": 25.0,
+          "B_T": 0.3,
+          "Pv_mWcm3": 7037.87
+        },
+        {
+          "f_kHz": 10.0,
+          "B_T": 0.6,
+          "Pv_mWcm3": 930585.0
+        }
+      ],
+      "cost_per_kg": 8.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 12 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "micrometals--34mm",
+      "vendor": "Micrometals",
+      "family": "Iron powder mix",
+      "name": "-34MM",
+      "type": "powder",
+      "mu_initial": 33.0,
+      "Bsat_25C_T": 1.71,
+      "Bsat_100C_T": 1.4535,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 250,
+        "f_ref_kHz": 100,
+        "B_ref_mT": 100,
+        "alpha": 1.4,
+        "beta": 2.5,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": {
+        "a": 0.01,
+        "b": 0.002837476832958719,
+        "c": 1.13,
+        "H_units": "Oe"
+      },
+      "loss_datapoints": [],
+      "cost_per_kg": 8.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 0 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "micrometals--35mm",
+      "vendor": "Micrometals",
+      "family": "Iron powder mix",
+      "name": "-35MM",
+      "type": "powder",
+      "mu_initial": 33.0,
+      "Bsat_25C_T": 1.73,
+      "Bsat_100C_T": 1.4705,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 250,
+        "f_ref_kHz": 100,
+        "B_ref_mT": 100,
+        "alpha": 1.4,
+        "beta": 2.5,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": {
+        "a": 0.01,
+        "b": 0.002837476832958719,
+        "c": 1.13,
+        "H_units": "Oe"
+      },
+      "loss_datapoints": [],
+      "cost_per_kg": 8.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 0 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "micrometals--38mm",
+      "vendor": "Micrometals",
+      "family": "Iron powder mix",
+      "name": "-38MM",
+      "type": "powder",
+      "mu_initial": 85.0,
+      "Bsat_25C_T": 1.87,
+      "Bsat_100C_T": 1.5895000000000001,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 6506.881814166311,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.511157036121338,
+        "beta": 2.0393341409303334,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": {
+        "a": 0.01,
+        "b": 0.009338228934328495,
+        "c": 1.13,
+        "H_units": "Oe"
+      },
+      "loss_datapoints": [
+        {
+          "f_kHz": 500.0,
+          "B_T": 0.02,
+          "Pv_mWcm3": 3693.9
+        },
+        {
+          "f_kHz": 250.0,
+          "B_T": 0.01,
+          "Pv_mWcm3": 248.717
+        },
+        {
+          "f_kHz": 250.0,
+          "B_T": 0.06,
+          "Pv_mWcm3": 9585.07
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.01,
+          "Pv_mWcm3": 50.048
+        },
+        {
+          "f_kHz": 100.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 5683.31
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.01,
+          "Pv_mWcm3": 17.2265
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 2055.34
+        },
+        {
+          "f_kHz": 50.0,
+          "B_T": 0.2,
+          "Pv_mWcm3": 8090.5
+        },
+        {
+          "f_kHz": 25.0,
+          "B_T": 0.02,
+          "Pv_mWcm3": 31.4002
+        },
+        {
+          "f_kHz": 25.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 838.133
+        },
+        {
+          "f_kHz": 25.0,
+          "B_T": 0.3,
+          "Pv_mWcm3": 7024.67
+        },
+        {
+          "f_kHz": 10.0,
+          "B_T": 0.1,
+          "Pv_mWcm3": 286.454
+        }
+      ],
+      "cost_per_kg": 8.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 12 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "micrometals--40mm",
+      "vendor": "Micrometals",
+      "family": "Iron powder mix",
+      "name": "-40MM",
+      "type": "powder",
+      "mu_initial": 60.0,
+      "Bsat_25C_T": 1.84,
+      "Bsat_100C_T": 1.564,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 250,
+        "f_ref_kHz": 100,
+        "B_ref_mT": 100,
+        "alpha": 1.4,
+        "beta": 2.5,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": {
+        "a": 0.01,
+        "b": 0.006004070667979368,
+        "c": 1.13,
+        "H_units": "Oe"
+      },
+      "loss_datapoints": [],
+      "cost_per_kg": 8.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 0 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "micrometals--45mm",
+      "vendor": "Micrometals",
+      "family": "Iron powder mix",
+      "name": "-45MM",
+      "type": "powder",
+      "mu_initial": 45.0,
+      "Bsat_25C_T": 1.89,
+      "Bsat_100C_T": 1.6064999999999998,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 250,
+        "f_ref_kHz": 100,
+        "B_ref_mT": 100,
+        "alpha": 1.4,
+        "beta": 2.5,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": {
+        "a": 0.01,
+        "b": 0.006004070667979368,
+        "c": 1.13,
+        "H_units": "Oe"
+      },
+      "loss_datapoints": [],
+      "cost_per_kg": 8.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 0 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "id": "micrometals--52mm",
+      "vendor": "Micrometals",
+      "family": "Iron powder mix",
+      "name": "-52MM",
+      "type": "powder",
+      "mu_initial": 75.0,
+      "Bsat_25C_T": 1.85,
+      "Bsat_100C_T": 1.5725,
+      "rho_kg_m3": 5000.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 250,
+        "f_ref_kHz": 100,
+        "B_ref_mT": 100,
+        "alpha": 1.4,
+        "beta": 2.5,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": {
+        "a": 0.01,
+        "b": 0.009338228934328495,
+        "c": 1.13,
+        "H_units": "Oe"
+      },
+      "loss_datapoints": [],
+      "cost_per_kg": 8.0,
+      "cost_currency": "USD",
+      "notes": "Imported from Otimizador_Magneticos.xlsm. 0 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.uv/
+.claude/
+build/
+dist/
+.pytest_cache/
+.coverage
+htmlcov/
+.DS_Store
+*.swp
+.vscode/
+.idea/

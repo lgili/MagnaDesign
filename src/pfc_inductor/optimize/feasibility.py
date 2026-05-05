@@ -1,0 +1,132 @@
+"""Cheap feasibility heuristics for core selection.
+
+The full design engine takes 5–10 ms per (core, wire, material) combo;
+running it across 50 cores when the user just wants to see "which cores
+even fit?" feels laggy. This module provides O(1) filters per core that
+catch the obvious losers (too small to reach L_required, window way too
+small for the wire) without any solver work.
+
+The logic intentionally stays loose — false negatives (rejecting a core
+that *would* have produced a feasible design) are worse than false
+positives (showing one that turns out infeasible after the user clicks
+"Calcular"). Tunable thresholds:
+
+- ``N_estimate <= N_HARD_CAP`` (250 turns) — anything beyond is unlikely
+  to fit physically, even with thin wire.
+- ``Ku_estimate <= 0.7`` — the engine itself caps at user's ``Ku_max``,
+  but we allow a healthy 0.7 cushion in the heuristic to avoid
+  rejecting cores the engine could solve with a slightly different
+  wire.
+"""
+from __future__ import annotations
+import math
+from typing import Literal
+
+from pfc_inductor.models import Spec, Core, Wire, Material
+from pfc_inductor.topology import boost_ccm, passive_choke, line_reactor
+
+
+N_HARD_CAP = 250
+KU_HEADROOM = 0.7    # quick-check cap; engine has its own user-set Ku_max
+B_HEADROOM = 1.6     # accept B_pk up to 1.6 × Bsat in heuristic — engine
+                     # may still produce feasible after rolloff/saturation
+
+
+Verdict = Literal["ok", "too_small_L", "window_overflow", "saturates"]
+
+
+def _required_L_uH(spec: Spec) -> float:
+    """Pre-design L target (no rolloff, just topology math)."""
+    if spec.topology == "line_reactor":
+        return line_reactor.required_inductance_uH(spec)
+    if spec.topology == "boost_ccm":
+        return boost_ccm.required_inductance_uH(spec, spec.Vin_min_Vrms)
+    return passive_choke.required_inductance_uH(spec, spec.Vin_min_Vrms)
+
+
+def _peak_current_A(spec: Spec) -> float:
+    if spec.topology == "line_reactor":
+        return line_reactor.line_pk_current_A(spec)
+    if spec.topology == "boost_ccm":
+        return boost_ccm.line_peak_current_A(spec, spec.Vin_min_Vrms)
+    return passive_choke.line_peak_current_A(spec, spec.Vin_min_Vrms)
+
+
+def core_quick_check(
+    spec: Spec, core: Core, material: Material, wire: Wire,
+) -> Verdict:
+    """O(1) viability check.
+
+    Returns ``"ok"`` for cores that *might* yield a feasible design,
+    or a one-word reason otherwise. Designed for combo-box filtering
+    where running the full engine would be too slow.
+    """
+    L_req_uH = _required_L_uH(spec)
+    if L_req_uH <= 0:
+        return "ok"
+
+    # 1. Can we reach L_required with at most N_HARD_CAP turns,
+    #    assuming the worst-case rolloff penalty?
+    AL_nH = max(core.AL_nH, 1e-9)
+    # Worst-case rolloff: powder cores with high DC bias drop to ~30 %
+    # of initial μ. We use 0.5 as a generous heuristic so we don't
+    # exclude cores that could survive moderate bias.
+    L_max_uH = (N_HARD_CAP ** 2) * AL_nH * 0.5 * 1e-3
+    if L_max_uH < L_req_uH:
+        return "too_small_L"
+
+    # 2. Estimate N at unit μ_pct (lower bound on N).
+    N_estimate = int(math.ceil(math.sqrt(L_req_uH / (AL_nH * 1e-3))))
+    if N_estimate > N_HARD_CAP:
+        return "too_small_L"
+
+    # 3. Window check at the estimated N. Single-layer wire area;
+    #    we know the engine inflates Ku by insulation/airgap factors,
+    #    so we accept up to KU_HEADROOM here.
+    Wa_mm2 = max(core.Wa_mm2, 1e-9)
+    Ku_estimate = N_estimate * wire.A_cu_mm2 / Wa_mm2
+    if Ku_estimate > KU_HEADROOM:
+        return "window_overflow"
+
+    # 4. Saturation. For line reactor at fundamental: B_pk grows
+    #    linearly with N for a fixed core. For boost/choke: B_pk grows
+    #    with N · I_pk / le.
+    Bsat_T = material.Bsat_25C_T
+    if spec.topology == "line_reactor":
+        omega = 2.0 * math.pi * max(spec.f_line_Hz, 1.0)
+        L_at_N_H = (N_estimate ** 2) * AL_nH * 1e-9
+        V_L_rms = omega * L_at_N_H * spec.I_rated_Arms
+        Ae_m2 = max(core.Ae_mm2 * 1e-6, 1e-12)
+        B_pk = math.sqrt(2.0) * V_L_rms / (omega * N_estimate * Ae_m2)
+    else:
+        I_pk = _peak_current_A(spec)
+        Ae_m2 = max(core.Ae_mm2 * 1e-6, 1e-12)
+        le_m = max(core.le_mm * 1e-3, 1e-9)
+        # B = μ₀ · μᵣ · N · I / le (powder/ferrite) before rolloff
+        mu_eff = material.mu_initial
+        B_pk = (4.0 * math.pi * 1e-7) * mu_eff * N_estimate * I_pk / le_m
+
+    if B_pk > B_HEADROOM * Bsat_T:
+        return "saturates"
+
+    return "ok"
+
+
+def filter_viable_cores(
+    spec: Spec, cores: list[Core], material: Material, wire: Wire,
+) -> tuple[list[Core], dict[str, int]]:
+    """Return ``(viable_cores, reason_counts)`` for the given spec.
+
+    The reason_counts tally is useful for the UI label
+    ("9 viáveis · 23 ocultos: 18 Ku, 5 saturação").
+    """
+    viable: list[Core] = []
+    reasons: dict[str, int] = {"too_small_L": 0, "window_overflow": 0,
+                               "saturates": 0}
+    for c in cores:
+        v = core_quick_check(spec, c, material, wire)
+        if v == "ok":
+            viable.append(c)
+        else:
+            reasons[v] = reasons.get(v, 0) + 1
+    return viable, reasons
