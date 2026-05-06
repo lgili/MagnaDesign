@@ -25,7 +25,13 @@ from __future__ import annotations
 import os
 from typing import Optional
 
-from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtCore import (
+    QEasingCurve,
+    Qt,
+    QTimer,
+    QVariantAnimation,
+    Signal,
+)
 from PySide6.QtWidgets import (
     QFileDialog,
     QLabel,
@@ -170,6 +176,9 @@ class CoreView3D(QWidget):
 
         self.cube = OrientationCube(parent=self)
         self.cube.view_requested.connect(self.set_view)
+        # Cube tracks camera orbits so its visible faces stay
+        # synchronised with the live scene.
+        self.camera_changed.connect(self.cube.update_from_camera)
 
         self.toolbar = SideToolbar(parent=self)
         self.toolbar.fullscreen_requested.connect(self._on_fullscreen)
@@ -374,16 +383,78 @@ class CoreView3D(QWidget):
     # ==================================================================
     # Public API: camera presets
     # ==================================================================
-    def set_view(self, view: str) -> None:
-        """Snap the camera to a named canonical view."""
+    def set_view(self, view: str, *, animated: bool = True) -> None:
+        """Animate the camera to a named canonical view.
+
+        ``animated=True`` (default) interpolates ``camera_position``
+        over 300 ms via :class:`QVariantAnimation` with an out-cubic
+        easing curve. ``animated=False`` snaps instantly — used by
+        the test suite to avoid flakiness from async timers.
+        """
         if self.plotter is None:
             return
         try:
-            set_camera_to_view(self.plotter, view)
-            self.plotter.render()
             self.chips.set_active(view)
         except Exception:
             pass
+        if not animated:
+            try:
+                set_camera_to_view(self.plotter, view)
+                self.plotter.render()
+            except Exception:
+                pass
+            return
+        # Capture start camera state, compute target, interpolate.
+        try:
+            cam = self.plotter.camera
+            start_pos = tuple(cam.position)
+            start_focal = tuple(cam.focal_point)
+            start_up = tuple(cam.up)
+            # Apply the target then read its state back.
+            set_camera_to_view(self.plotter, view)
+            target_pos = tuple(cam.position)
+            target_focal = tuple(cam.focal_point)
+            target_up = tuple(cam.up)
+            # Restore start so the interpolation begins from the
+            # original frame.
+            cam.position = start_pos
+            cam.focal_point = start_focal
+            cam.up = start_up
+        except Exception:
+            # If we can't read the camera, fall back to a snap.
+            try:
+                set_camera_to_view(self.plotter, view)
+                self.plotter.render()
+            except Exception:
+                pass
+            return
+
+        anim = QVariantAnimation(self)
+        anim.setStartValue(0.0)
+        anim.setEndValue(1.0)
+        anim.setDuration(300)
+        anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+
+        def _lerp(a: tuple, b: tuple, t: float) -> tuple:
+            return tuple(a[i] + (b[i] - a[i]) * t for i in range(3))
+
+        def _on_value(t: float) -> None:
+            if self.plotter is None:
+                return
+            try:
+                self.plotter.camera.position = _lerp(start_pos, target_pos, t)
+                self.plotter.camera.focal_point = _lerp(
+                    start_focal, target_focal, t,
+                )
+                self.plotter.camera.up = _lerp(start_up, target_up, t)
+                self.plotter.render()
+            except Exception:
+                pass
+
+        anim.valueChanged.connect(_on_value)
+        # Hold a reference so GC doesn't kill the animation mid-flight.
+        self._view_anim = anim
+        anim.start()
 
     # ==================================================================
     # Layer toggles
@@ -464,16 +535,54 @@ class CoreView3D(QWidget):
         self.request_measure(on)
 
     def request_explode(self, on: bool) -> None:
-        # Cosmetic: shift each core block outward by 8 mm when on.
-        if self.plotter is None:
+        """Animate core blocks outward by 8 mm (or back to origin).
+
+        Cosmetic — does not affect mesh geometry. Uses a 250 ms
+        ``QVariantAnimation`` with an ease-out curve so the motion
+        feels intentional rather than abrupt.
+        """
+        if self.plotter is None or not self._actor_core:
             return
-        offset = 8.0 if on else 0.0
+        # Capture current positions and target positions per actor.
+        starts: list[tuple[float, float, float]] = []
+        targets: list[tuple[float, float, float]] = []
         for actor in self._actor_core:
             try:
-                actor.SetPosition(offset, 0, 0)
+                pos = tuple(actor.GetPosition())  # (x, y, z)
+            except Exception:
+                pos = (0.0, 0.0, 0.0)
+            starts.append(pos)
+            tx = 8.0 if on else 0.0
+            targets.append((tx, pos[1], pos[2]))
+
+        anim = QVariantAnimation(self)
+        anim.setStartValue(0.0)
+        anim.setEndValue(1.0)
+        anim.setDuration(250)
+        anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+
+        def _on_value(t: float) -> None:
+            if self.plotter is None:
+                return
+            for i, actor in enumerate(self._actor_core):
+                s = starts[i]
+                tgt = targets[i]
+                try:
+                    actor.SetPosition(
+                        s[0] + (tgt[0] - s[0]) * t,
+                        s[1] + (tgt[1] - s[1]) * t,
+                        s[2] + (tgt[2] - s[2]) * t,
+                    )
+                except Exception:
+                    pass
+            try:
+                self.plotter.render()
             except Exception:
                 pass
-        self.plotter.render()
+
+        anim.valueChanged.connect(_on_value)
+        self._explode_anim = anim
+        anim.start()
 
     def request_screenshot(self, path: Optional[str] = None) -> Optional[str]:
         if self.plotter is None:

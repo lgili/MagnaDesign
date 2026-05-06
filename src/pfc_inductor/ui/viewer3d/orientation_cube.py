@@ -1,9 +1,15 @@
 """Top-right orientation cube widget.
 
-Renders a small isometric cube with axis-coloured faces and labels (X/Y/Z).
-Clicking a face emits ``face_clicked(name)`` where name is one of
-``+x | -x | +y | -y | +z | -z``. The viewer maps that to a canonical
-camera preset.
+Renders a small isometric cube with axis-coloured faces and labels
+(±X/±Y/±Z). Clicking a face emits ``face_clicked(name)`` where name
+is one of ``+x | -x | +y | -y | +z | -z``. The viewer maps that to a
+canonical camera preset.
+
+The cube tracks the live camera direction: as the user orbits the
+3D scene, :meth:`update_from_camera` recomputes which 3 faces are
+visible (the ones whose outward normal has positive dot product with
+the camera direction). The polygon geometry stays fixed; only the
+face *labels* and *colours* swap so the cube keeps reading correctly.
 """
 from __future__ import annotations
 
@@ -40,11 +46,20 @@ class OrientationCube(QWidget):
     face_clicked = Signal(str)        # +x / -x / +y / -y / +z / -z
     view_requested = Signal(str)      # canonical view name (front/top/side)
 
+    # Polygon slot → which face is currently rendered there.
+    # Default: iso view sees +Z (top), +X (right), +Y (front-left).
+    _DEFAULT_SLOT_TO_FACE = {
+        "top":   "+z",
+        "right": "+x",
+        "front": "+y",
+    }
+
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.setFixedSize(self.SIZE, self.SIZE)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
-        self._face_polygons: dict[str, QPolygonF] = {}
+        self._slot_polygons: dict[str, QPolygonF] = {}
+        self._slot_to_face: dict[str, str] = dict(self._DEFAULT_SLOT_TO_FACE)
         self._compute_polygons()
 
     # ------------------------------------------------------------------
@@ -53,13 +68,14 @@ class OrientationCube(QWidget):
     def paintEvent(self, _event):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        # Draw each face fill + outline + label.
-        for name, poly in self._face_polygons.items():
-            p.setBrush(QBrush(_AXIS_COLORS[name]))
+        # Draw each visible face into its slot polygon.
+        for slot, poly in self._slot_polygons.items():
+            face_name = self._slot_to_face[slot]
+            p.setBrush(QBrush(_AXIS_COLORS[face_name]))
             p.setPen(QPen(QColor("#22ffffff"), 1))
             p.drawPolygon(poly)
-            label = name.replace("+", "").replace("-", "").upper()
-            sign = "+" if name.startswith("+") else "−"
+            label = face_name.replace("+", "").replace("-", "").upper()
+            sign = "+" if face_name.startswith("+") else "−"
             text = sign + label
             self._draw_label(p, poly, text)
 
@@ -82,14 +98,51 @@ class OrientationCube(QWidget):
     # ------------------------------------------------------------------
     def mousePressEvent(self, event):
         pos = QPointF(event.position())
-        for name, poly in self._face_polygons.items():
+        for slot, poly in self._slot_polygons.items():
             if poly.containsPoint(pos, Qt.FillRule.OddEvenFill):
-                self.face_clicked.emit(name)
-                view = _AXIS_TO_VIEW.get(name)
+                face_name = self._slot_to_face[slot]
+                self.face_clicked.emit(face_name)
+                view = _AXIS_TO_VIEW.get(face_name)
                 if view is not None:
                     self.view_requested.emit(view)
                 return
         return super().mousePressEvent(event)
+
+    # ------------------------------------------------------------------
+    # Camera-tracking
+    # ------------------------------------------------------------------
+    def update_from_camera(self, payload: dict) -> None:
+        """Re-compute which faces are visible from the camera direction.
+
+        ``payload`` is the ``camera_changed`` dict emitted by
+        :class:`CoreView3D`: ``{"position": (x, y, z),
+        "focal": (x, y, z), "up": (x, y, z)}``.
+
+        We pick the 3 visible faces by the sign of the camera-direction
+        components (the vector pointing *from* the focal point *to* the
+        camera). For each axis, the face whose outward normal has the
+        same sign is the visible one.
+        """
+        try:
+            pos = payload.get("position", (1.0, -1.0, 1.0))
+            focal = payload.get("focal", (0.0, 0.0, 0.0))
+        except AttributeError:
+            return
+        dx = float(pos[0]) - float(focal[0])
+        dy = float(pos[1]) - float(focal[1])
+        dz = float(pos[2]) - float(focal[2])
+
+        face_x = "+x" if dx >= 0 else "-x"
+        face_y = "+y" if dy >= 0 else "-y"
+        face_z = "+z" if dz >= 0 else "-z"
+
+        # Slot mapping is stable: "right" always maps to the visible
+        # X-axis face, "top" to the Z-axis face, "front" to the Y-axis
+        # face. We only swap the +/- which face fills each slot.
+        new_map = {"top": face_z, "right": face_x, "front": face_y}
+        if new_map != self._slot_to_face:
+            self._slot_to_face = new_map
+            self.update()
 
     # ------------------------------------------------------------------
     # Geometry
@@ -131,11 +184,10 @@ class OrientationCube(QWidget):
             QPointF(cx,         cy + 1.20 * d),
             QPointF(cx - 1.05 * d, cy + 0.65 * d),
         ])
-        # Hidden faces — assigned to the same polygons but inverted later
-        # via a modifier key would be overkill. For now we only expose the
-        # 3 visible faces; clicking any background area is a no-op.
-        self._face_polygons = {
-            "+z": top,
-            "+x": right,
-            "+y": front,
+        # Slot polygons (stable geometry); the *face* drawn into each
+        # slot rotates with the camera via :meth:`update_from_camera`.
+        self._slot_polygons = {
+            "top":   top,
+            "right": right,
+            "front": front,
         }

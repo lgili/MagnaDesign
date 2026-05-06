@@ -223,6 +223,25 @@ class CompareDialog(QDialog):
         self.selection_applied.emit(s.material.id, s.core.id, s.wire.id)
         self.accept()
 
+    # ------------------------------------------------------------------
+    # Public accessors — used by the v3 ``Exportar`` tab so the user
+    # can write the comparison directly from the workspace without
+    # opening the dialog first.
+    # ------------------------------------------------------------------
+    def slots(self) -> list[CompareSlot]:
+        """Snapshot of accumulated comparison slots (read-only)."""
+        return list(self._slots)
+
+    def export_html_to(self, path: str) -> str:
+        """Write the current slots as a comparative HTML datasheet."""
+        from pfc_inductor.report.html_compare import generate_compare_html
+        return str(generate_compare_html(self._slots, path))
+
+    def export_csv_to(self, path: str) -> str:
+        """Write the current slots as a CSV (one row per metric)."""
+        self._write_csv(path)
+        return path
+
     def _on_export_html(self):
         if not self._slots:
             return

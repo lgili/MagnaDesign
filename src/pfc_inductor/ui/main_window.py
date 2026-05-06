@@ -337,9 +337,52 @@ class MainWindow(QMainWindow):
         )
 
     def _export_compare(self) -> None:
-        # Stub: compare-export reuses the existing CompareDialog flow.
-        # Open the dialog and let the user trigger its own export.
-        self._open_compare()
+        """Export the current comparative table to HTML or CSV.
+
+        Behaviour:
+
+        - If the user has never opened the compare dialog yet (no
+          accumulated slots), open it and prompt them to add the
+          current design + alternatives. They can re-trigger the
+          export from the dialog itself (which has its own
+          HTML/CSV buttons).
+        - If at least 2 slots are accumulated, ask for a file path
+          and write directly — no dialog needed. The format is
+          chosen from the file extension (``.csv`` → CSV, anything
+          else → HTML).
+        """
+        from PySide6.QtWidgets import QFileDialog
+
+        dlg = self._compare_dialog
+        slots = dlg.slots() if dlg is not None else []
+
+        if dlg is None or len(slots) < 2:
+            QMessageBox.information(
+                self, "Comparativo vazio",
+                "Adicione ao menos 2 designs ao comparativo antes de "
+                "exportar. Vou abrir a janela agora — use \"Adicionar "
+                "atual\" para popular.",
+            )
+            self._open_compare()
+            return
+
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Exportar comparativo",
+            "comparacao.html", "HTML (*.html);;CSV (*.csv)",
+        )
+        if not path:
+            return
+        try:
+            if path.lower().endswith(".csv"):
+                out = dlg.export_csv_to(path)
+            else:
+                out = dlg.export_html_to(path)
+        except (OSError, ValueError, KeyError) as e:
+            QMessageBox.critical(self, "Erro ao exportar", str(e))
+            return
+        QMessageBox.information(
+            self, "Exportado", f"Comparativo salvo em:\n{out}",
+        )
 
     def _open_db_editor(self) -> None:
         dlg = DbEditorDialog(parent=self)
