@@ -21,11 +21,11 @@ Selector convention for v2 widgets
 
 - ``QFrame#Card`` — outer card frame (radius 16, surface, 1 px border).
 - ``QFrame#Sidebar`` — navy chrome on the left.
-- ``QPushButton.SidebarItem`` — sidebar nav item.
-- ``QPushButton.Primary`` — primary CTA (accent fill).
-- ``QPushButton.Secondary`` — secondary CTA (outline).
-- ``QPushButton.Tertiary`` — ghost button (no border, hover bg).
-- ``QToolButton.Chip`` — view chips and segmented controls.
+- ``QPushButton[class~="SidebarItem"]`` — sidebar nav item.
+- ``QPushButton[class~="Primary"]`` — primary CTA (accent fill).
+- ``QPushButton[class~="Secondary"]`` — secondary CTA (outline).
+- ``QPushButton[class~="Tertiary"]`` — ghost button (no border, hover bg).
+- ``QToolButton[class~="Chip"]`` — view chips and segmented controls.
 - ``QLabel.Pill`` — status pill (variant via ``pill`` dynamic property).
 """
 from __future__ import annotations
@@ -140,7 +140,7 @@ def pill_qss(variant: str, state: ThemeState | None = None) -> str:
     }
     bg, fg = table[variant]
     return f"""
-QLabel.Pill[pill="{variant}"] {{
+QLabel[class~="Pill"][pill="{variant}"] {{
     background: {bg};
     color: {fg};
     border-radius: {r.pill}px;
@@ -407,7 +407,7 @@ def pills_qss(s: ThemeState) -> str:
 
 def _legacy_pill_alias_qss(s: ThemeState) -> str:
     """v1 used a flat ``QLabel[pill="..."]`` selector (no class). Keep it
-    aliased to the v2 ``QLabel.Pill[pill="..."]`` so existing widgets that
+    aliased to the v2 ``QLabel[class~="Pill"][pill="..."]`` so existing widgets that
     only set the dynamic property still pick up the styles."""
     p = s.palette
     t = s.type
@@ -697,7 +697,7 @@ QLabel#SidebarLogoCaption {{
     font-size: {t.caption}px;
 }}
 
-QPushButton.SidebarItem {{
+QPushButton[class~="SidebarItem"] {{
     background-color: transparent;
     color: {sb.text_muted};
     border: 0;
@@ -709,12 +709,12 @@ QPushButton.SidebarItem {{
     font-weight: {t.medium};
     min-height: 22px;
 }}
-QPushButton.SidebarItem:hover {{
+QPushButton[class~="SidebarItem"]:hover {{
     background-color: {sb.bg_hover};
     color: {sb.text};
 }}
-QPushButton.SidebarItem:checked,
-QPushButton.SidebarItem[active="true"] {{
+QPushButton[class~="SidebarItem"]:checked,
+QPushButton[class~="SidebarItem"][active="true"] {{
     background-color: {sb.bg_active};
     color: {sb.text_active};
     font-weight: {t.semibold};
@@ -743,7 +743,7 @@ def v2_buttons_qss(s: ThemeState) -> str:
     t = s.type
     r = s.radius
     return f"""
-QPushButton.Primary {{
+QPushButton[class~="Primary"] {{
     background-color: {p.accent};
     color: {p.text_inverse};
     border: 1px solid {p.accent};
@@ -753,21 +753,21 @@ QPushButton.Primary {{
     font-weight: {t.semibold};
     min-height: 22px;
 }}
-QPushButton.Primary:hover {{
+QPushButton[class~="Primary"]:hover {{
     background-color: {p.accent_hover};
     border-color: {p.accent_hover};
 }}
-QPushButton.Primary:pressed {{
+QPushButton[class~="Primary"]:pressed {{
     background-color: {p.accent_pressed};
     border-color: {p.accent_pressed};
 }}
-QPushButton.Primary:disabled {{
+QPushButton[class~="Primary"]:disabled {{
     background-color: {p.border};
     border-color: {p.border};
     color: {p.text_muted};
 }}
 
-QPushButton.Secondary {{
+QPushButton[class~="Secondary"] {{
     background-color: {p.surface};
     color: {p.text};
     border: 1px solid {p.border_strong};
@@ -777,15 +777,15 @@ QPushButton.Secondary {{
     font-weight: {t.medium};
     min-height: 22px;
 }}
-QPushButton.Secondary:hover {{
+QPushButton[class~="Secondary"]:hover {{
     background-color: {p.bg};
     border-color: {p.text_muted};
 }}
-QPushButton.Secondary:pressed {{
+QPushButton[class~="Secondary"]:pressed {{
     background-color: {p.border};
 }}
 
-QPushButton.Tertiary {{
+QPushButton[class~="Tertiary"] {{
     background-color: transparent;
     color: {p.text_secondary};
     border: 1px solid transparent;
@@ -794,7 +794,7 @@ QPushButton.Tertiary {{
     font-family: {t.ui_family_brand};
     font-weight: {t.medium};
 }}
-QPushButton.Tertiary:hover {{
+QPushButton[class~="Tertiary"]:hover {{
     background-color: {p.bg};
     color: {p.text};
     border-color: {p.border};
@@ -809,7 +809,7 @@ def chip_qss(s: ThemeState) -> str:
     t = s.type
     r = s.radius
     return f"""
-QToolButton.Chip {{
+QToolButton[class~="Chip"] {{
     background-color: {p.surface};
     color: {p.text_secondary};
     border: 1px solid {p.border};
@@ -819,11 +819,11 @@ QToolButton.Chip {{
     font-size: {t.caption}px;
     font-weight: {t.medium};
 }}
-QToolButton.Chip:hover {{
+QToolButton[class~="Chip"]:hover {{
     background-color: {p.bg};
     color: {p.text};
 }}
-QToolButton.Chip:checked {{
+QToolButton[class~="Chip"]:checked {{
     background-color: {p.accent_subtle_bg};
     color: {p.accent_subtle_text};
     border-color: {p.accent};

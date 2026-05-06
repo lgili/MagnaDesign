@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
 
 from pfc_inductor.models import Spec, Material, Core, Wire, DesignResult
 from pfc_inductor.ui.widgets import Card, TopologySchematicWidget
-from pfc_inductor.ui.theme import get_theme
+from pfc_inductor.ui.theme import get_theme, on_theme_changed
 
 
 _TOPOLOGY_LABELS = {

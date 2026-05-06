@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
     QWidget, QToolButton, QMenu, QSizePolicy,
 )
 
-from pfc_inductor.ui.theme import SIDEBAR
+from pfc_inductor.ui.theme import SIDEBAR, get_theme
 from pfc_inductor.ui.icons import icon as ui_icon
 
 
@@ -97,6 +97,10 @@ class Sidebar(QFrame):
     def _build_header(self) -> QWidget:
         header = QFrame()
         header.setObjectName("SidebarHeader")
+        header.setStyleSheet(
+            f"QFrame#SidebarHeader {{ background: transparent; "
+            f"border: 0; padding: 0; }}"
+        )
         h = QHBoxLayout(header)
         h.setContentsMargins(20, 18, 20, 14)
         h.setSpacing(10)
@@ -105,14 +109,32 @@ class Sidebar(QFrame):
         logo.setPixmap(
             ui_icon("cube", color=SIDEBAR.accent, size=22).pixmap(22, 22)
         )
+        logo.setStyleSheet("background: transparent; border: 0;")
 
         text_col = QVBoxLayout()
         text_col.setContentsMargins(0, 0, 0, 0)
         text_col.setSpacing(0)
+        t = get_theme().type
         title = QLabel("MagnaDesign")
         title.setObjectName("SidebarLogoText")
+        # Inline stylesheet — bypass any QSS cascade that might leak
+        # the workspace text colour into the sidebar.
+        title.setStyleSheet(
+            f"color: {SIDEBAR.text_active}; "
+            f"font-family: {t.ui_family_brand}; "
+            f"font-size: {t.title_md}px; "
+            f"font-weight: {t.semibold}; "
+            f"background: transparent; border: 0;"
+            f"letter-spacing: -0.01em;"
+        )
         caption = QLabel("Inductor Design Suite")
         caption.setObjectName("SidebarLogoCaption")
+        caption.setStyleSheet(
+            f"color: {SIDEBAR.text_muted}; "
+            f"font-family: {t.ui_family_brand}; "
+            f"font-size: {t.caption}px; "
+            f"background: transparent; border: 0;"
+        )
         text_col.addWidget(title)
         text_col.addWidget(caption)
 
@@ -134,6 +156,23 @@ class Sidebar(QFrame):
         self._button_group = QButtonGroup(self)
         self._button_group.setExclusive(True)
 
+        t = get_theme().type
+        nav_item_qss = (
+            f"QPushButton {{"
+            f"  background: transparent; color: {SIDEBAR.text_muted};"
+            f"  border: 0; border-radius: 10px; padding: 8px 12px;"
+            f"  text-align: left;"
+            f"  font-family: {t.ui_family_brand};"
+            f"  font-size: {t.body_md}px;"
+            f"  font-weight: {t.medium};"
+            f"  min-height: 22px;"
+            f"}}"
+            f"QPushButton:hover {{ background: {SIDEBAR.bg_hover};"
+            f"  color: {SIDEBAR.text}; }}"
+            f"QPushButton:checked {{ background: {SIDEBAR.bg_active};"
+            f"  color: {SIDEBAR.text_active};"
+            f"  font-weight: {t.semibold}; }}"
+        )
         for area_id, label, icon_name in SIDEBAR_AREAS:
             btn = QPushButton(label)
             btn.setProperty("class", "SidebarItem")
@@ -143,6 +182,7 @@ class Sidebar(QFrame):
             btn.setIconSize(QSize(16, 16))
             btn.setSizePolicy(QSizePolicy.Policy.Expanding,
                               QSizePolicy.Policy.Fixed)
+            btn.setStyleSheet(nav_item_qss)
             btn.clicked.connect(
                 lambda _checked=False, a=area_id: self._on_nav_clicked(a)
             )
@@ -175,6 +215,13 @@ class Sidebar(QFrame):
         # Version label
         version = QLabel("v0.2 Pro")
         version.setObjectName("SidebarVersion")
+        t = get_theme().type
+        version.setStyleSheet(
+            f"color: {SIDEBAR.text_muted}; "
+            f"font-family: {t.ui_family_brand}; "
+            f"font-size: {t.caption}px; "
+            f"background: transparent; border: 0;"
+        )
 
         # Overflow menu
         self._btn_overflow = QToolButton()

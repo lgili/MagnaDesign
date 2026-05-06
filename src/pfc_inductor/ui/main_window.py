@@ -106,6 +106,9 @@ class MainWindow(QMainWindow):
         self._wires = load_wires()
 
         # ---- shell state -----------------------------------------------
+        # Cards mounted on per-area pages (besides the main Dashboard) —
+        # tracked here so ``design_completed`` can fan out to all of them.
+        self._extra_cards: list[tuple[str, QWidget]] = []
         self._workflow_state = WorkflowState(self)
         self._workflow_state.from_settings(QSettings(SETTINGS_ORG, SETTINGS_APP))
         self._workflow_state.state_changed.connect(self._on_state_changed)
@@ -145,9 +148,8 @@ class MainWindow(QMainWindow):
         # ---- Workspace -------------------------------------------------
         workspace = QFrame()
         workspace.setObjectName("Workspace")
-        workspace.setStyleSheet(
-            f"QFrame#Workspace {{ background: {get_theme().palette.bg}; }}"
-        )
+        self._workspace = workspace
+        self._refresh_workspace_bg()
         v = QVBoxLayout(workspace)
         v.setContentsMargins(0, 0, 0, 0)
         v.setSpacing(0)
@@ -183,11 +185,10 @@ class MainWindow(QMainWindow):
         self._on_state_changed()
 
     def _build_stack_pages(self) -> None:
-        """Page 0 = MagnaDesign DashboardPage. Pages 1..6 = stub
-        placeholders. The legacy 3-column splitter (spec/plot/result)
-        lives behind a "Modo clássico" toggle in Configurações — page 7
-        switches between the placeholder and the legacy splitter
-        depending on the persisted preference.
+        """Page 0 = MagnaDesign DashboardPage. Pages 1..7 = real
+        per-area pages (Topologia, Núcleos, Bobinamento, Simulação,
+        Mecânico, Relatórios, Configurações), each composed of one or
+        two dashboard-grade cards plus a header.
         """
         # ---- page 0: DashboardPage -------------------------------------
         self.dashboard_page = DashboardPage()
@@ -203,41 +204,205 @@ class MainWindow(QMainWindow):
         )
         self.stack.addWidget(self.dashboard_page)
 
-        # ---- pages 1..6: placeholders ----------------------------------
-        for area in AREA_PAGES[1:7]:
-            self.stack.addWidget(self._make_placeholder_page(area))
+        # ---- pages 1..7: real area pages -------------------------------
+        for area in AREA_PAGES[1:]:
+            self.stack.addWidget(self._build_area_page(area))
 
-        # ---- page 7: configurações (with classic-mode toggle) ---------
-        self._classic_page = self._make_classic_page()
-        self.stack.addWidget(self._classic_page)
+    def _make_placeholder_page(self, area_id: str) -> QWidget:
+        """Build a real area page for ``area_id``.
 
-    def _make_classic_page(self) -> QWidget:
-        """Configurações page hosting the classic-mode toggle + (when on)
-        the legacy 3-column splitter."""
+        Each area gets a header (title + caption) plus a body composed
+        of dashboard-grade cards or a single full-bleed widget. Areas
+        that already have a richer view in the Dashboard (e.g.
+        Bobinamento, Entreferro) reuse the same card class so we don't
+        re-implement the data binding.
+        """
+        return self._build_area_page(area_id)
+
+    # ------------------------------------------------------------------
+    # Area page builders
+    # ------------------------------------------------------------------
+    def _build_area_page(self, area_id: str) -> QWidget:
+        from PySide6.QtWidgets import QScrollArea
+        sp = get_theme().spacing
+
+        outer = QFrame()
+        outer.setStyleSheet(
+            f"QFrame {{ background: {get_theme().palette.bg}; }}"
+        )
+        v = QVBoxLayout(outer)
+        v.setContentsMargins(0, 0, 0, 0)
+        v.setSpacing(0)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setStyleSheet(
+            f"QScrollArea {{ background: {get_theme().palette.bg}; border: 0; }}"
+        )
+        inner = QWidget()
+        inner.setStyleSheet(f"background: {get_theme().palette.bg};")
+        scroll.setWidget(inner)
+        v.addWidget(scroll, 1)
+
+        body = QVBoxLayout(inner)
+        body.setContentsMargins(sp.page, sp.page, sp.page, sp.page)
+        body.setSpacing(sp.card_gap)
+
+        title_text, caption_text, content = self._area_content(area_id)
+        title = QLabel(title_text)
+        title.setProperty("role", "title")
+        caption = QLabel(caption_text)
+        caption.setProperty("role", "muted")
+        caption.setWordWrap(True)
+        body.addWidget(title)
+        body.addWidget(caption)
+
+        if content is not None:
+            body.addWidget(content, 1)
+        else:
+            body.addStretch(1)
+
+        return outer
+
+    def _area_content(self, area_id: str) -> tuple[str, str, QWidget | None]:
+        """Return (title, caption, body widget) for a non-Dashboard area."""
+        from pfc_inductor.ui.dashboard.cards import (
+            TopologiaCard, NucleoCard, BobinamentoCard, EntreferroCard,
+            PerdasCard, FormasOndaCard, Viz3DCard, ResumoCard,
+        )
+
+        if area_id == "topologia":
+            card = TopologiaCard()
+            card.topology_change_requested.connect(self._open_topology_picker)
+            self._extra_cards.append(("topologia", card))
+            return (
+                "Topologia",
+                "Escolha a topologia PFC e ajuste os parâmetros de "
+                "entrada e potência. A escolha define a matemática do "
+                "indutor (forma de onda, perdas, dimensionamento).",
+                card,
+            )
+        if area_id == "nucleos":
+            box = QFrame()
+            row = QHBoxLayout(box)
+            row.setContentsMargins(0, 0, 0, 0)
+            row.setSpacing(get_theme().spacing.card_gap)
+            n = NucleoCard()
+            r = ResumoCard()
+            self._extra_cards.append(("nucleos", n))
+            self._extra_cards.append(("nucleos", r))
+            row.addWidget(n, 1)
+            row.addWidget(r, 1)
+            return (
+                "Núcleos",
+                "Material magnético, geometria do núcleo e fio. "
+                "A seleção atual e seus principais KPIs.",
+                box,
+            )
+        if area_id == "bobinamento":
+            box = QFrame()
+            row = QHBoxLayout(box)
+            row.setContentsMargins(0, 0, 0, 0)
+            row.setSpacing(get_theme().spacing.card_gap)
+            b = BobinamentoCard()
+            e = EntreferroCard()
+            self._extra_cards.append(("bobinamento", b))
+            self._extra_cards.append(("bobinamento", e))
+            row.addWidget(b, 1)
+            row.addWidget(e, 1)
+            return (
+                "Bobinamento",
+                "Detalhes do enrolamento, entreferro e resistência DC/AC. "
+                "Use o menu \"…\" da barra lateral para abrir o "
+                "otimizador de Litz.",
+                box,
+            )
+        if area_id == "simulacao":
+            box = QFrame()
+            col = QVBoxLayout(box)
+            col.setContentsMargins(0, 0, 0, 0)
+            col.setSpacing(get_theme().spacing.card_gap)
+            f = FormasOndaCard()
+            p = PerdasCard()
+            self._extra_cards.append(("simulacao", f))
+            self._extra_cards.append(("simulacao", p))
+            col.addWidget(f, 1)
+            col.addWidget(p, 1)
+            return (
+                "Simulação",
+                "Forma de onda da corrente no indutor, perdas e validação "
+                "FEM. Use \"…\" → Validar (FEA) para comparar com FEMM/FEMMT.",
+                box,
+            )
+        if area_id == "mecanico":
+            v = Viz3DCard()
+            self._extra_cards.append(("mecanico", v))
+            return (
+                "Mecânico",
+                "Visualização 3D do núcleo e enrolamento. Use as chips "
+                "no canto superior para alternar Frente / Cima / Lateral / Iso.",
+                v,
+            )
+        if area_id == "relatorios":
+            box = QFrame()
+            col = QVBoxLayout(box)
+            col.setContentsMargins(0, 0, 0, 0)
+            col.setSpacing(get_theme().spacing.card_gap)
+            from pfc_inductor.ui.widgets import Card
+            from PySide6.QtWidgets import QPushButton
+            inner_body = QFrame()
+            ib = QVBoxLayout(inner_body)
+            ib.setContentsMargins(0, 0, 0, 0)
+            ib.setSpacing(8)
+            desc = QLabel(
+                "Gera um datasheet HTML auto-contido (3 páginas) com "
+                "vistas ortográficas, especificações e tabela BOM. "
+                "Imprima como PDF a partir do navegador."
+            )
+            desc.setWordWrap(True)
+            desc.setProperty("role", "muted")
+            btn = QPushButton("Gerar Relatório (HTML)")
+            btn.setProperty("class", "Primary")
+            btn.clicked.connect(self._export_report)
+            ib.addWidget(desc)
+            ib.addWidget(btn, 0, Qt.AlignmentFlag.AlignLeft)
+            ib.addStretch(1)
+            card = Card("Datasheet", inner_body)
+            col.addWidget(card)
+            col.addStretch(1)
+            return (
+                "Relatórios",
+                "Datasheet do design corrente + comparativos.",
+                box,
+            )
+        if area_id == "configuracoes":
+            return (
+                "Configurações",
+                "Modo clássico (3 colunas) restaura o layout v1 com "
+                "SpecPanel / PlotPanel / ResultPanel.",
+                self._make_classic_page_body(),
+            )
+        return ("", "", None)
+
+    def _make_classic_page_body(self) -> QWidget:
+        """Standalone body of the Configurações page — checkbox + the
+        legacy splitter (visibility-toggled)."""
         from PySide6.QtWidgets import QCheckBox
 
-        page = QFrame()
-        v = QVBoxLayout(page)
-        v.setContentsMargins(48, 64, 48, 48)
+        box = QFrame()
+        v = QVBoxLayout(box)
+        v.setContentsMargins(0, 0, 0, 0)
         v.setSpacing(16)
         v.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        title = QLabel("Configurações")
-        title.setProperty("role", "title")
-        v.addWidget(title)
-
-        chk_classic = QCheckBox(
+        chk = QCheckBox(
             "Modo clássico (3 colunas) — usa o layout v1 com SpecPanel / "
             "PlotPanel / ResultPanel"
         )
         qs = QSettings(SETTINGS_ORG, SETTINGS_APP)
-        chk_classic.setChecked(bool(qs.value("classic_mode", False, type=bool)))
-        v.addWidget(chk_classic)
-
-        legacy_holder = QFrame()
-        ll = QVBoxLayout(legacy_holder)
-        ll.setContentsMargins(0, 16, 0, 0)
-        ll.setSpacing(0)
+        chk.setChecked(bool(qs.value("classic_mode", False, type=bool)))
+        v.addWidget(chk)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.setHandleWidth(1)
@@ -248,50 +413,34 @@ class MainWindow(QMainWindow):
         splitter.setStretchFactor(1, 3)
         splitter.setStretchFactor(2, 1)
         splitter.setSizes([380, 720, 420])
-        ll.addWidget(splitter)
-        legacy_holder.setVisible(chk_classic.isChecked())
+        splitter.setVisible(chk.isChecked())
 
         def _on_toggle(state: bool) -> None:
             qs.setValue("classic_mode", bool(state))
-            legacy_holder.setVisible(bool(state))
+            splitter.setVisible(bool(state))
 
-        chk_classic.toggled.connect(_on_toggle)
-        v.addWidget(legacy_holder, 1)
-        return page
-
-    def _make_placeholder_page(self, area_id: str) -> QWidget:
-        page = QFrame()
-        page.setObjectName(f"PagePlaceholder_{area_id}")
-        v = QVBoxLayout(page)
-        v.setContentsMargins(48, 64, 48, 48)
-        v.setSpacing(8)
-        v.setAlignment(Qt.AlignmentFlag.AlignTop)
-
-        label = QLabel(f"Área «{area_id}»")
-        label.setProperty("role", "title")
-        caption = QLabel(
-            "Esta área ainda não tem layout dedicado. "
-            "Por enquanto, use o menu \"…\" da barra lateral para acessar "
-            "as ferramentas legadas."
-        )
-        caption.setProperty("role", "muted")
-        caption.setWordWrap(True)
-        v.addWidget(label)
-        v.addWidget(caption)
-        v.addStretch(1)
-        return page
+        chk.toggled.connect(_on_toggle)
+        v.addWidget(splitter, 1)
+        return box
 
     # ==================================================================
     # Theme + navigation
     # ==================================================================
+    def _refresh_workspace_bg(self) -> None:
+        if hasattr(self, "_workspace"):
+            self._workspace.setStyleSheet(
+                f"QFrame#Workspace {{ background: {get_theme().palette.bg}; }}"
+            )
+
     def _toggle_theme(self) -> None:
         new = "dark" if not is_dark() else "light"
-        set_theme(new)
+        set_theme(new)  # emits theme_changed → all subscribers refresh
         app = QApplication.instance()
         if isinstance(app, QApplication):
             app.setStyleSheet(make_stylesheet(get_theme()))
         QSettings(SETTINGS_ORG, SETTINGS_APP).setValue("theme", new)
         self.sidebar.set_dark_theme(is_dark())
+        self._refresh_workspace_bg()
         self.result_panel.refresh_theme()
         self._on_calculate()
 
@@ -629,6 +778,14 @@ class MainWindow(QMainWindow):
             self.dashboard_page.update_from_design(
                 result, spec, core, wire, material,
             )
+
+        # Update area-page cards (Topologia / Núcleos / Bobinamento /
+        # Simulação / Mecânico / Relatórios).
+        for _area, card in getattr(self, "_extra_cards", []):
+            try:
+                card.update_from_design(result, spec, core, wire, material)
+            except Exception:
+                pass
 
         # Emit for subscribers (tests, future plug-ins).
         self.design_completed.emit(result, spec, core, wire, material)

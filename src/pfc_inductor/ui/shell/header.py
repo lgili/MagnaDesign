@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
 )
 
 from pfc_inductor.ui.icons import icon as ui_icon
-from pfc_inductor.ui.theme import get_theme
+from pfc_inductor.ui.theme import get_theme, on_theme_changed
 
 
 class WorkspaceHeader(QFrame):
@@ -99,6 +99,23 @@ class WorkspaceHeader(QFrame):
         h.addWidget(self._btn_compare, 0, Qt.AlignmentFlag.AlignVCenter)
         h.addWidget(self._btn_report, 0, Qt.AlignmentFlag.AlignVCenter)
 
+        # Subscribe to theme changes so inline QSS refreshes.
+        on_theme_changed(self._refresh_qss)
+        self._unsaved_state: bool = False
+        self._last_saved_at: Optional[datetime] = None
+
+    def _refresh_qss(self) -> None:
+        self.setStyleSheet(self._self_qss())
+        self._name_edit.setStyleSheet(self._name_edit_qss())
+        # Re-apply pencil button + status pill colours.
+        self._btn_pencil.setIcon(
+            ui_icon("pencil", color=get_theme().palette.text_muted, size=14)
+        )
+        # Refresh the save-status pill (which uses palette via QSS).
+        self.set_save_status(
+            unsaved=self._unsaved_state, last_saved_at=self._last_saved_at,
+        )
+
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
@@ -108,6 +125,8 @@ class WorkspaceHeader(QFrame):
 
     def set_save_status(self, *, unsaved: bool,
                         last_saved_at: Optional[datetime] = None) -> None:
+        self._unsaved_state = unsaved
+        self._last_saved_at = last_saved_at
         if unsaved:
             self._status_pill.setText("● Não salvo")
             self._status_pill.setProperty("pill", "warning")

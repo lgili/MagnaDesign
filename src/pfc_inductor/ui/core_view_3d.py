@@ -181,27 +181,52 @@ class CoreView3D(QWidget):
         if self.chips is None:
             return
         margin = 12
+
+        # Compact mode: when the viewer is too small (e.g. inside the
+        # dashboard's Visualização 3D card), hide the side toolbar and
+        # bottom action bar so the chips + cube don't overlap them. The
+        # full-bleed Mecânico page restores everything.
+        compact = self.width() < 520 or self.height() < 360
+
         # Top-left: chips
         self.chips.adjustSize()
         self.chips.move(margin, margin)
-        # Top-right: cube
-        self.cube.move(self.width() - self.cube.width() - margin, margin)
-        # Right side: vertical toolbar centred
-        self.toolbar.adjustSize()
-        self.toolbar.move(
-            self.width() - self.toolbar.width() - margin,
-            (self.height() - self.toolbar.height()) // 2,
-        )
-        # Bottom centre: actions
-        self.action_bar.adjustSize()
-        self.action_bar.move(
-            (self.width() - self.action_bar.width()) // 2,
-            self.height() - self.action_bar.height() - margin,
-        )
+        self.chips.show()
+
+        # Top-right: cube — hide in *very* compact mode (too narrow even
+        # for the chips group + cube side-by-side).
+        very_compact = self.width() < 380
+        self.cube.setVisible(not very_compact)
+        if not very_compact:
+            self.cube.move(self.width() - self.cube.width() - margin, margin)
+
+        # Right side: vertical toolbar — only when not compact.
+        self.toolbar.setVisible(not compact)
+        if not compact:
+            self.toolbar.adjustSize()
+            self.toolbar.move(
+                self.width() - self.toolbar.width() - margin,
+                (self.height() - self.toolbar.height()) // 2,
+            )
+
+        # Bottom centre: action bar — only when not compact.
+        self.action_bar.setVisible(not compact)
+        if not compact:
+            self.action_bar.adjustSize()
+            self.action_bar.move(
+                (self.width() - self.action_bar.width()) // 2,
+                self.height() - self.action_bar.height() - margin,
+            )
 
     def resizeEvent(self, event):  # type: ignore[override]
         super().resizeEvent(event)
         self._reposition_overlays()
+
+    def showEvent(self, event):  # type: ignore[override]
+        super().showEvent(event)
+        # The widget's geometry isn't realised at construction; defer
+        # one-shot reposition until after Qt finishes the layout pass.
+        QTimer.singleShot(0, self._reposition_overlays)
 
     # ==================================================================
     # Camera observer

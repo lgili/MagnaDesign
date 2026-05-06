@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
     QFrame, QGridLayout, QLabel, QWidget, QSizePolicy,
 )
 
-from pfc_inductor.ui.theme import get_theme
+from pfc_inductor.ui.theme import get_theme, on_theme_changed
 
 
 Row = tuple[str, str, Optional[str]]
@@ -47,12 +47,22 @@ class DataTable(QFrame):
         self._grid.setColumnStretch(2, 0)
 
         self._row_widgets: list[tuple[QFrame, QLabel, QLabel, QLabel]] = []
-        self.set_rows(rows or [])
+        self._rows_cache: list[Row] = list(rows or [])
+        self.set_rows(self._rows_cache)
+        on_theme_changed(self._refresh_qss)
+
+    def _refresh_qss(self) -> None:
+        # Easiest: redraw rows so palette-driven inline colours pick up
+        # the new theme.
+        self.set_rows(self._rows_cache)
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
     def set_rows(self, rows: Iterable[Row]) -> None:
+        # Snapshot so the theme refresh has something to redraw.
+        self._rows_cache = list(rows)
+        rows = self._rows_cache
         # Clear previous
         while self._grid.count():
             item = self._grid.takeAt(0)

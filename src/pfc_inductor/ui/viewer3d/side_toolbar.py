@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
 )
 
 from pfc_inductor.ui.icons import icon as ui_icon
-from pfc_inductor.ui.theme import get_theme
+from pfc_inductor.ui.theme import get_theme, on_theme_changed
 
 
 # (icon-name, signal-attr, tooltip)
@@ -66,6 +66,19 @@ class SideToolbar(QFrame):
                     btn.toggled.connect(self.measure_toggled.emit)
             elif sig_name is not None:
                 btn.clicked.connect(getattr(self, sig_name).emit)
+        on_theme_changed(self._refresh_qss)
+
+    def _refresh_qss(self) -> None:
+        self.setStyleSheet(self._self_qss())
+        for btn in self._buttons.values():
+            btn.setStyleSheet(self._button_qss())
+        # Re-tint icons.
+        from pfc_inductor.ui.icons import icon as ui_icon
+        for icon_name, btn in self._buttons.items():
+            btn.setIcon(
+                ui_icon(icon_name,
+                        color=get_theme().palette.text_secondary, size=18)
+            )
 
     # ------------------------------------------------------------------
     # Layer popup

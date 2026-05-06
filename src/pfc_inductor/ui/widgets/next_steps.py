@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 )
 
 from pfc_inductor.ui.icons import icon as ui_icon
-from pfc_inductor.ui.theme import get_theme
+from pfc_inductor.ui.theme import get_theme, on_theme_changed
 
 
 ActionStatus = Literal["done", "pending", "todo"]
@@ -101,6 +101,12 @@ class NextStepsCard(QWidget):
                            QSizePolicy.Policy.Preferred)
         self._items: list[ActionItem] = []
         self.set_items(items or [])
+        on_theme_changed(self._refresh_qss)
+
+    def _refresh_qss(self) -> None:
+        # Re-render rows so colour-coded icons + label tones pick up the
+        # active palette.
+        self.set_items(list(self._items))
 
     def set_items(self, items: Sequence[ActionItem]) -> None:
         # Clear existing

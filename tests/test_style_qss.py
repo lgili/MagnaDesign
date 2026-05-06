@@ -43,11 +43,11 @@ def test_make_stylesheet_renders_for_each_theme(theme_name, app):
     # Smoke: every fragment must contribute something non-empty.
     assert "QMainWindow" in qss
     assert "QPushButton" in qss
-    assert "QFrame#Card" in qss          # cards fragment
-    assert "QFrame#Sidebar" in qss       # sidebar fragment
-    assert "QPushButton.Primary" in qss  # v2 buttons
-    assert "QToolButton.Chip" in qss     # chips
-    assert "QFrame#Stepper" in qss       # stepper
+    assert "QFrame#Card" in qss                       # cards fragment
+    assert "QFrame#Sidebar" in qss                    # sidebar fragment
+    assert 'QPushButton[class~="Primary"]' in qss     # v2 buttons
+    assert 'QToolButton[class~="Chip"]' in qss        # chips
+    assert "QFrame#Stepper" in qss                    # stepper
     set_theme("light")
 
 
@@ -120,16 +120,19 @@ def test_sidebar_qss_invariant_across_themes():
 def test_v2_buttons_have_radius_10(app):
     set_theme("light")
     qss = v2_buttons_qss(get_theme())
-    assert "QPushButton.Primary" in qss
-    assert "QPushButton.Secondary" in qss
-    assert "QPushButton.Tertiary" in qss
+    # Qt6 dynamic-property selectors (the dot-class ``QPushButton.Primary``
+    # form would be parsed as a metaObject className match, not a
+    # ``setProperty("class", "Primary")`` match — see ADR-shadow notes).
+    assert 'QPushButton[class~="Primary"]' in qss
+    assert 'QPushButton[class~="Secondary"]' in qss
+    assert 'QPushButton[class~="Tertiary"]' in qss
     assert "border-radius: 10px" in qss
 
 
 def test_chip_qss_radius_is_8():
     set_theme("light")
     qss = chip_qss(get_theme())
-    assert "QToolButton.Chip" in qss
+    assert 'QToolButton[class~="Chip"]' in qss
     assert "border-radius: 8px" in qss
 
 

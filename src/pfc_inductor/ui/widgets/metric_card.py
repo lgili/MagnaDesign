@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
     QFrame, QVBoxLayout, QHBoxLayout, QLabel, QWidget, QSizePolicy,
 )
 
-from pfc_inductor.ui.theme import get_theme
+from pfc_inductor.ui.theme import get_theme, on_theme_changed
 
 
 MetricStatus = Literal["ok", "warn", "err", "neutral"]
@@ -89,7 +89,15 @@ class MetricCard(QFrame):
         # State storage
         self._trend_better = trend_better
         self._status: MetricStatus = status
+        self._trend_pct = trend_pct
         self.set_trend(trend_pct)
+        on_theme_changed(self._refresh_qss)
+
+    def _refresh_qss(self) -> None:
+        """Re-apply inline QSS after a theme toggle."""
+        self.setStyleSheet(self._self_qss(self._status))
+        # Re-apply trend so colour follows the new palette.
+        self.set_trend(self._trend_pct)
 
     # ------------------------------------------------------------------
     # Public API
@@ -104,6 +112,7 @@ class MetricCard(QFrame):
         self.setStyleSheet(self._self_qss(status))
 
     def set_trend(self, pct: Optional[float]) -> None:
+        self._trend_pct = pct
         if pct is None:
             self._trend_lbl.setText("")
             self._trend_lbl.setStyleSheet("")

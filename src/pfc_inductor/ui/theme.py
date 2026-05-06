@@ -3,6 +3,21 @@
 Two themes (light/dark) sharing the same semantic structure. Every UI module
 imports from here — no hard-coded colours elsewhere.
 
+Theme-change broadcast
+----------------------
+
+A module-level ``theme_changed`` Qt signal fires whenever ``set_theme()``
+mutates the active palette. Widgets that hold *inline* stylesheets
+(``self.setStyleSheet(...)``) — i.e. anything not styled exclusively by
+``app.setStyleSheet(make_stylesheet(...))`` — should subscribe to it
+and re-apply their inline QSS:
+
+    from pfc_inductor.ui.theme import on_theme_changed
+    on_theme_changed(self._refresh_qss)
+
+This is the cheapest way to keep light↔dark transitions correct across
+the whole app without a heavyweight palette-driven QStyle.
+
 Style direction: Linear/Notion-grade technical app. Subtle borders, generous
 padding, monospaced numerics, hierarchical typography.
 
@@ -349,8 +364,36 @@ def set_theme(name: ThemeName) -> ThemeState:
         type=_state.type,
         sidebar=SIDEBAR,  # invariant
     )
+    _broadcaster.theme_changed.emit()
     return _state
 
 
 def is_dark() -> bool:
     return _state.name == "dark"
+
+
+# ---------------------------------------------------------------------------
+# Theme-change broadcaster
+# ---------------------------------------------------------------------------
+
+# Imported lazily so that ``import pfc_inductor.ui.theme`` from non-GUI
+# contexts (e.g. the data loader's tests) does not pull in PySide6.
+def _make_broadcaster():
+    from PySide6.QtCore import QObject, Signal
+
+    class _Broadcaster(QObject):
+        theme_changed = Signal()
+    return _Broadcaster()
+
+
+_broadcaster = _make_broadcaster()
+
+
+def on_theme_changed(callback) -> None:
+    """Subscribe ``callback`` to the global theme-change signal.
+
+    The callback receives no arguments — it should re-read the active
+    palette from :func:`get_theme` and re-apply whatever style state it
+    owns.
+    """
+    _broadcaster.theme_changed.connect(callback)

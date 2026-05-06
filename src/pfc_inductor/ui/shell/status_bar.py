@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
     QFrame, QHBoxLayout, QLabel, QWidget,
 )
 
-from pfc_inductor.ui.theme import get_theme
+from pfc_inductor.ui.theme import get_theme, on_theme_changed
 
 
 # Threshold above which the counter actually colours itself with the
@@ -88,6 +88,18 @@ class BottomStatusBar(QFrame):
         self._timer.timeout.connect(self._refresh_save_text)
         self._timer.start()
 
+        self._unsaved_state = False
+        on_theme_changed(self._refresh_qss)
+
+    def _refresh_qss(self) -> None:
+        self.setStyleSheet(self._self_qss())
+        self._save_label.setStyleSheet(
+            self._save_label_qss(saved=not self._unsaved_state)
+        )
+        # Pill counters re-pick up palette via the global QSS, so a
+        # ``style().polish(self)`` cascade from the QApplication-level
+        # restyle is enough — no per-pill mutation needed here.
+
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
@@ -103,6 +115,7 @@ class BottomStatusBar(QFrame):
     def set_save_status(self, *, unsaved: bool,
                         last_saved_at: Optional[datetime] = None) -> None:
         self._last_saved_at = last_saved_at
+        self._unsaved_state = unsaved
         if unsaved:
             self._save_label.setText("● Alterações não salvas")
             self._save_label.setStyleSheet(self._save_label_qss(saved=False))

@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
 )
 
 from pfc_inductor.models import Spec, Material, Core, Wire, DesignResult
-from pfc_inductor.ui.theme import get_theme
+from pfc_inductor.ui.theme import get_theme, on_theme_changed
 from pfc_inductor.ui.dashboard.cards import (
     TopologiaCard, ResumoCard, FormasOndaCard, NucleoCard,
     Viz3DCard, PerdasCard, BobinamentoCard, EntreferroCard,
@@ -47,19 +47,24 @@ class DashboardPage(QWidget):
         scroll = QScrollArea(self)
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setStyleSheet(
-            f"QScrollArea {{ background: {get_theme().palette.bg}; border: 0; }}"
-        )
+        self._scroll = scroll
 
         inner = QWidget()
-        inner.setStyleSheet(
-            f"background: {get_theme().palette.bg};"
-        )
         scroll.setWidget(inner)
+        self._inner = inner
         outer.addWidget(scroll, 1)
+        self._apply_palette_bg()
+        on_theme_changed(self._apply_palette_bg)
+
+    def _apply_palette_bg(self) -> None:
+        bg = get_theme().palette.bg
+        self._scroll.setStyleSheet(
+            f"QScrollArea {{ background: {bg}; border: 0; }}"
+        )
+        self._inner.setStyleSheet(f"background: {bg};")
 
         sp = get_theme().spacing
-        grid = QGridLayout(inner)
+        grid = QGridLayout(self._inner)
         grid.setContentsMargins(sp.page, sp.page, sp.page, sp.page)
         grid.setHorizontalSpacing(sp.card_gap)
         grid.setVerticalSpacing(sp.card_gap)

@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
     QFrame, QHBoxLayout, QToolButton, QButtonGroup, QWidget,
 )
 
-from pfc_inductor.ui.theme import get_theme
+from pfc_inductor.ui.theme import get_theme, on_theme_changed
 
 
 _VIEWS = (
@@ -47,6 +47,10 @@ class ViewChips(QFrame):
             h.addWidget(btn)
         # Default: Iso
         self._buttons["iso"].setChecked(True)
+        on_theme_changed(self._refresh_qss)
+
+    def _refresh_qss(self) -> None:
+        self.setStyleSheet(self._self_qss())
 
     # ------------------------------------------------------------------
     def set_active(self, view: str) -> None:

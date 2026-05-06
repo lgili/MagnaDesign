@@ -28,7 +28,7 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import QSizePolicy, QWidget
 
-from pfc_inductor.ui.theme import get_theme
+from pfc_inductor.ui.theme import get_theme, on_theme_changed
 
 
 TopologyKind = Literal[
@@ -376,6 +376,7 @@ class TopologySchematicWidget(QWidget):
         self.setSizePolicy(QSizePolicy.Policy.Expanding,
                            QSizePolicy.Policy.Preferred)
         self._topology: TopologyKind = "boost_ccm"
+        on_theme_changed(self.update)
 
     # ------------------------------------------------------------------
     def set_topology(self, name: str) -> None:

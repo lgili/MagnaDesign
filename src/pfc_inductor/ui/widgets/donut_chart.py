@@ -9,7 +9,7 @@ from typing import Optional, Sequence
 
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 
-from pfc_inductor.ui.theme import get_theme
+from pfc_inductor.ui.theme import get_theme, on_theme_changed
 
 # Lazy-import matplotlib so test discovery doesn't pay the cost.
 def _figure_imports():
@@ -50,6 +50,13 @@ class DonutChart(QWidget):
         self._centre_caption = centre_caption
         self._segments: list[Segment] = []
         self.set_segments(segments or [])
+        on_theme_changed(self._refresh_palette)
+
+    def _refresh_palette(self) -> None:
+        """Re-render so axes/labels pick up the new palette."""
+        p = get_theme().palette
+        self._fig.set_facecolor(p.surface)
+        self._render()
 
     # ------------------------------------------------------------------
     # Public API

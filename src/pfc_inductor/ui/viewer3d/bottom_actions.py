@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
 )
 
 from pfc_inductor.ui.icons import icon as ui_icon
-from pfc_inductor.ui.theme import get_theme
+from pfc_inductor.ui.theme import get_theme, on_theme_changed
 
 
 class BottomActions(QFrame):
@@ -56,6 +56,13 @@ class BottomActions(QFrame):
         for btn in (self.btn_explode, self.btn_section,
                     self.btn_measure, self.btn_export):
             h.addWidget(btn)
+        on_theme_changed(self._refresh_qss)
+
+    def _refresh_qss(self) -> None:
+        self.setStyleSheet(self._self_qss())
+        for btn in (self.btn_explode, self.btn_section,
+                    self.btn_measure, self.btn_export):
+            btn.setStyleSheet(self._button_qss())
 
     # ------------------------------------------------------------------
     def _make_button(self, label: str, icon_name: str) -> QPushButton:
