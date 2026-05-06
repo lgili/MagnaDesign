@@ -1,13 +1,11 @@
-"""Spec input panel: all fields of `Spec` plus core/material/wire selectors."""
+"""Spec input panel: all fields of `Spec`."""
 from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-    QCheckBox,
     QComboBox,
-    QCompleter,
     QDoubleSpinBox,
     QFormLayout,
     QGroupBox,
@@ -17,45 +15,20 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from pfc_inductor.data_loader import load_curated_ids
-from pfc_inductor.models import Core, Material, Spec, Wire
-
-
-def _make_searchable(combo: QComboBox) -> None:
-    """Turn a ``QComboBox`` into an editable, type-to-filter widget.
-
-    The user can type any substring of an item name and the popup will
-    show only matching rows. Clicking on one selects it and resolves
-    back to the full label, preserving the ``itemData`` (the entry id)
-    we store on each row.
-    """
-    combo.setEditable(True)
-    combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
-    completer = QCompleter(combo.model(), combo)
-    completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
-    completer.setFilterMode(Qt.MatchFlag.MatchContains)
-    completer.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
-    combo.setCompleter(completer)
+from pfc_inductor.models import Spec
 
 
 class SpecPanel(QWidget):
-    """Left-side panel: collects spec + selections, emits when changed."""
+    """Left-side panel: collects spec, emits when changed."""
 
     changed = Signal()
     calculate_requested = Signal()
 
     def __init__(
         self,
-        materials: list[Material],
-        cores: list[Core],
-        wires: list[Wire],
         parent: Optional[QWidget] = None,
     ):
         super().__init__(parent)
-        self._materials = materials
-        self._cores = cores
-        self._wires = wires
-
         from PySide6.QtWidgets import QFrame, QLabel, QScrollArea
         # Outer fixed: scroll area on top, primary CTA pinned at bottom.
         outer = QVBoxLayout(self)
@@ -86,7 +59,6 @@ class SpecPanel(QWidget):
         self._line_reactor_box.setVisible(False)
         body.addWidget(self._line_reactor_box)
         body.addWidget(self._build_thermal_box())
-        body.addWidget(self._build_selection_box())
         body.addStretch(1)
 
         # Primary CTA pinned outside scroll area so it stays visible.
@@ -100,7 +72,6 @@ class SpecPanel(QWidget):
         outer.addLayout(cta_row)
 
         self._wire_signals()
-        self._set_initial_selection()
 
     def _build_topology_box(self) -> QGroupBox:
         box = QGroupBox("TOPOLOGIA")
@@ -118,15 +89,15 @@ class SpecPanel(QWidget):
         box = QGroupBox("REATOR DE LINHA")
         form = QFormLayout(box)
         self.cmb_phases = QComboBox()
-        self.cmb_phases.addItem("Trifásico (3φ)", 3)
         self.cmb_phases.addItem("Monofásico (1φ)", 1)
-        self.sp_vline = self._dspin(80, 690, 380.0, 1.0, " Vrms")
-        self.sp_irated = self._dspin(0.1, 500, 30.0, 0.5, " A")
-        self.sp_pctZ = self._dspin(0.5, 20, 5.0, 0.5, " %")
+        self.cmb_phases.addItem("Trifásico (3φ)", 3)
+        self.sp_vline = self._dspin(80, 690, 220.0, 1.0, " Vrms")
+        self.sp_irated = self._dspin(0.1, 500, 2.2, 0.5, " A")
+        self.sp_l_req = self._dspin(0.1, 1000, 10.0, 0.1, " mH")
         form.addRow("Fases:", self.cmb_phases)
         form.addRow("V de linha:", self.sp_vline)
         form.addRow("I nominal (RMS):", self.sp_irated)
-        form.addRow("% impedância alvo:", self.sp_pctZ)
+        form.addRow("Indutância alvo:", self.sp_l_req)
         return box
 
     def _on_topology_changed(self):
@@ -175,230 +146,14 @@ class SpecPanel(QWidget):
         box = QGroupBox("TÉRMICO / JANELA")
         form = QFormLayout(box)
         self.sp_tamb = self._dspin(-20, 80, 40.0, 1.0, " °C")
-        self.sp_tmax = self._dspin(60, 180, 100.0, 1.0, " °C")
-        self.sp_ku = self._dspin(0.05, 0.7, 0.40, 0.01, "")
+        self.sp_tmax = self._dspin(60, 180, 125.0, 1.0, " °C")
+        self.sp_ku = self._dspin(0.05, 0.7, 0.7, 0.01, "")
         self.sp_bsat_margin = self._dspin(0.0, 0.5, 0.20, 0.01, "")
         form.addRow("T ambiente:", self.sp_tamb)
         form.addRow("T máx enrolamento:", self.sp_tmax)
         form.addRow("Ku máx (uso da janela):", self.sp_ku)
         form.addRow("Margem Bsat:", self.sp_bsat_margin)
         return box
-
-    def _build_selection_box(self) -> QGroupBox:
-        box = QGroupBox("SELEÇÃO")
-        form = QFormLayout(box)
-
-        self._curated_material_ids = load_curated_ids("materials")
-        self._curated_wire_ids = load_curated_ids("wires")
-
-        self.chk_curated_only = QCheckBox("Mostrar apenas curados")
-        self.chk_curated_only.setToolTip(
-            "Esconde os ~410 materiais e ~1380 fios importados do catálogo "
-            "OpenMagnetics MAS — útil quando as listas ficam longas demais."
-        )
-        self.chk_curated_only.toggled.connect(self._refresh_visible_options)
-
-        # Hide cores that obviously can't satisfy the current spec
-        # (window overflow, can't reach L_required, saturates) — fast
-        # heuristic, no design solver. Default ON.
-        self.chk_filter_cores = QCheckBox("Filtrar núcleos viáveis")
-        self.chk_filter_cores.setChecked(True)
-        self.chk_filter_cores.setToolTip(
-            "Esconde núcleos que claramente não vão satisfazer Pout/L/Ku "
-            "para a especificação atual. Re-aplica quando você muda "
-            "material, fio ou parâmetros do conversor — e clica de novo "
-            "neste filtro depois de mudar Pout/Vin/fsw para revalidar."
-        )
-        self.chk_filter_cores.toggled.connect(self._on_material_changed)
-
-        # All three selectors are sortable + type-to-filter so the user
-        # can find an entry by typing any substring (e.g. "kool 60",
-        # "ee 32", "AWG 14") instead of scrolling through hundreds of
-        # rows.
-        self.cmb_material = QComboBox()
-        _make_searchable(self.cmb_material)
-        self.cmb_material.currentIndexChanged.connect(self._on_material_changed)
-        self.cmb_core = QComboBox()
-        _make_searchable(self.cmb_core)
-        self.cmb_wire = QComboBox()
-        _make_searchable(self.cmb_wire)
-        # Re-filter cores when wire changes — different wire areas
-        # affect the window-overflow heuristic.
-        self.cmb_wire.currentIndexChanged.connect(self._on_wire_changed)
-
-        # Header label that says "X viáveis · Y ocultos: …"
-        from PySide6.QtWidgets import QLabel
-        self.lbl_filter_status = QLabel("")
-        self.lbl_filter_status.setProperty("role", "muted")
-        self.lbl_filter_status.setWordWrap(True)
-
-        form.addRow("", self.chk_curated_only)
-        form.addRow("", self.chk_filter_cores)
-        form.addRow("Material:", self.cmb_material)
-        form.addRow("Núcleo:", self.cmb_core)
-        form.addRow("", self.lbl_filter_status)
-        form.addRow("Fio:", self.cmb_wire)
-
-        self._refresh_visible_options()
-        return box
-
-    def _on_wire_changed(self) -> None:
-        """Wire change re-runs the core filter (wire area changes Ku)."""
-        if self.chk_filter_cores.isChecked():
-            self._on_material_changed()
-
-    def _refresh_visible_options(self) -> None:
-        """Repopulate material + wire combos based on the curated-only flag."""
-        curated_only = self.chk_curated_only.isChecked()
-        prev_mat = self.cmb_material.currentData()
-        prev_wire = self.cmb_wire.currentData()
-
-        mats = (
-            [m for m in self._materials if m.id in self._curated_material_ids]
-            if curated_only else list(self._materials)
-        )
-        if not mats:
-            mats = list(self._materials)
-        # Sort case-insensitively by display label (vendor — name) so the
-        # type-to-filter completer feels predictable.
-        mats = sorted(mats, key=lambda m: f"{m.vendor} — {m.name}".lower())
-        self.cmb_material.blockSignals(True)
-        self.cmb_material.clear()
-        for m in mats:
-            self.cmb_material.addItem(f"{m.vendor} — {m.name}", m.id)
-        self.cmb_material.blockSignals(False)
-        self._reselect_combo(self.cmb_material, prev_mat)
-
-        wires = (
-            [w for w in self._wires if w.id in self._curated_wire_ids]
-            if curated_only else list(self._wires)
-        )
-        if not wires:
-            wires = list(self._wires)
-        wires = sorted(wires, key=lambda w: w.id.lower())
-        self.cmb_wire.blockSignals(True)
-        self.cmb_wire.clear()
-        for w in wires:
-            label = w.id if w.type == "round" else f"{w.id} (Litz)"
-            self.cmb_wire.addItem(label, w.id)
-        self.cmb_wire.blockSignals(False)
-        self._reselect_combo(self.cmb_wire, prev_wire)
-
-        self._on_material_changed()
-
-    @staticmethod
-    def _reselect_combo(combo: QComboBox, target_id) -> None:
-        if target_id is None:
-            return
-        for i in range(combo.count()):
-            if combo.itemData(i) == target_id:
-                combo.setCurrentIndex(i)
-                return
-
-    def _on_material_changed(self):
-        """Refresh core combobox: filter by material compat + (optional)
-        quick feasibility heuristic for the current spec.
-        """
-        target = self.cmb_material.currentData()
-        if target is None:
-            return
-        prev_core = self.cmb_core.currentData()
-        compat = [c for c in self._cores if c.default_material_id == target]
-        if not compat:
-            compat = self._cores  # fallback: show all
-
-        # Apply the fast viability filter when the user has the toggle
-        # on and we have enough info to build a Spec.
-        viable = compat
-        status = ""
-        if self.chk_filter_cores.isChecked():
-            viable, status = self._filter_cores_for_spec(compat, target)
-        if not viable:
-            # Shouldn't happen but guard against an empty combo.
-            viable = compat
-            status = (
-                "Filtro removeu todos — mostrando todos os compatíveis. "
-                "Ajuste Pout/Ku máx ou troque material/fio."
-            )
-        self.lbl_filter_status.setText(status)
-
-        # Sort by part number for the type-to-filter completer.
-        viable_sorted = sorted(viable, key=lambda c: c.part_number.lower())
-        self.cmb_core.blockSignals(True)
-        self.cmb_core.clear()
-        for c in viable_sorted:
-            self.cmb_core.addItem(
-                f"{c.part_number}  ({c.shape}, Ve={c.Ve_mm3/1000:.1f} cm³, AL={c.AL_nH:.0f} nH)",
-                c.id,
-            )
-        self.cmb_core.blockSignals(False)
-        self._reselect_combo(self.cmb_core, prev_core)
-        self.cmb_core.currentIndexChanged.emit(self.cmb_core.currentIndex())
-        self.changed.emit()
-
-    def _filter_cores_for_spec(
-        self, cores_compat: list[Core], material_id: str,
-    ) -> tuple[list[Core], str]:
-        """Run the quick feasibility heuristic.
-
-        Returns (viable_cores, status_text). Empty status means "no
-        cores were filtered out".
-        """
-        try:
-            from pfc_inductor.data_loader import find_material
-            from pfc_inductor.optimize.feasibility import filter_viable_cores
-            spec = self.get_spec()
-            material = find_material(self._materials, material_id)
-            wire_id = self.cmb_wire.currentData()
-            if not wire_id:
-                return cores_compat, ""
-            wire = next((w for w in self._wires if w.id == wire_id), None)
-            if wire is None:
-                return cores_compat, ""
-            viable, reasons = filter_viable_cores(
-                spec, cores_compat, material, wire,
-            )
-        except Exception:
-            # On any error (eg incomplete spec), don't filter — show all.
-            return cores_compat, ""
-
-        n_hidden = len(cores_compat) - len(viable)
-        if n_hidden <= 0:
-            return viable, f"{len(viable)} viáveis · 0 ocultos"
-        bits = [f"{n} {label}"
-                for label, n in (
-                    ("L pequeno", reasons.get("too_small_L", 0)),
-                    ("janela", reasons.get("window_overflow", 0)),
-                    ("saturação", reasons.get("saturates", 0)),
-                ) if n > 0]
-        why = ", ".join(bits) if bits else "—"
-        return viable, (
-            f"{len(viable)} viáveis · {n_hidden} ocultos ({why})"
-        )
-
-    def _set_initial_selection(self):
-        """Pick a sensible starting point: High Flux 60u + suitable toroid + AWG14."""
-        for i in range(self.cmb_material.count()):
-            if "60_HighFlux" in self.cmb_material.itemText(i):
-                self.cmb_material.setCurrentIndex(i)
-                break
-        # _on_material_changed has fired; pick a 30-100 cm³ core if possible
-        best_idx = 0
-        for i in range(self.cmb_core.count()):
-            txt = self.cmb_core.itemText(i)
-            try:
-                ve_str = txt.split("Ve=")[1].split(" ")[0]
-                ve = float(ve_str)
-                if 30 <= ve <= 100:
-                    best_idx = i
-                    break
-            except (IndexError, ValueError):
-                continue
-        self.cmb_core.setCurrentIndex(best_idx)
-        for i in range(self.cmb_wire.count()):
-            if self.cmb_wire.itemData(i) == "AWG14":
-                self.cmb_wire.setCurrentIndex(i)
-                break
 
     @staticmethod
     def _dspin(mn, mx, val, step, suffix) -> QDoubleSpinBox:
@@ -415,8 +170,7 @@ class SpecPanel(QWidget):
             self.cmb_topology, self.sp_vin_min, self.sp_vin_max, self.sp_vin_nom,
             self.sp_fline, self.sp_vout, self.sp_pout, self.sp_eta, self.sp_fsw,
             self.sp_ripple, self.sp_tamb, self.sp_tmax, self.sp_ku, self.sp_bsat_margin,
-            self.cmb_core, self.cmb_material, self.cmb_wire,
-            self.cmb_phases, self.sp_vline, self.sp_irated, self.sp_pctZ,
+            self.cmb_phases, self.sp_vline, self.sp_irated, self.sp_l_req,
         ]
         for w in widgets:
             if isinstance(w, QComboBox):
@@ -434,12 +188,12 @@ class SpecPanel(QWidget):
             v_nom = self.sp_vline.value()
             n_phases = int(self.cmb_phases.currentData() or 3)
             i_rated = self.sp_irated.value()
-            pct_z = self.sp_pctZ.value()
+            l_req = self.sp_l_req.value()
         else:
             v_nom = self.sp_vin_nom.value()
             n_phases = 3
-            i_rated = 30.0
-            pct_z = 5.0
+            i_rated = 2.2
+            l_req = 10.0
         return Spec(
             topology=topo,
             Vin_min_Vrms=self.sp_vin_min.value(),
@@ -456,15 +210,6 @@ class SpecPanel(QWidget):
             Ku_max=self.sp_ku.value(),
             Bsat_margin=self.sp_bsat_margin.value(),
             n_phases=n_phases,
-            pct_impedance=pct_z,
+            L_req_mH=l_req,
             I_rated_Arms=i_rated,
         )
-
-    def get_core_id(self) -> str:
-        return self.cmb_core.currentData()
-
-    def get_material_id(self) -> str:
-        return self.cmb_material.currentData()
-
-    def get_wire_id(self) -> str:
-        return self.cmb_wire.currentData()

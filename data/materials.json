@@ -3550,6 +3550,132 @@
       "cost_per_kg": 8.0,
       "cost_currency": "USD",
       "notes": "Imported from Otimizador_Magneticos.xlsm. 0 loss datapoint(s) used to fit Steinmetz. Demo cost."
+    },
+    {
+      "name": "50H800",
+      "manufacturer": "Dongxing/JIS",
+      "family": "NGO silicon steel",
+      "type": "silicon-steel",
+      "permeability": {
+        "initialValue": 3000.0
+      },
+      "saturation": [
+        {
+          "temperature": 25.0,
+          "magneticFluxDensity": 1.65
+        },
+        {
+          "temperature": 100.0,
+          "magneticFluxDensity": 1.5675
+        }
+      ],
+      "coreLossesMethods": [
+        {
+          "method": "steinmetz",
+          "coefficients": {
+            "k": 1.45,
+            "alpha": 1.55,
+            "beta": 1.85
+          },
+          "referenceFrequency": 60.0,
+          "referenceFluxDensity": 1.0
+        }
+      ],
+      "density": 7650.0,
+      "notes": "Chinese/JIS NGO silicon steel grade 50H800, 0.50 mm lamination. Used in Dongxing line/harmonic reactors (DX60xxx series). Typical Bsat 1.65 T @ 25°C, μᵣ 3000.",
+      "x-pfc-inductor": {
+        "id": "dongxing-50h800",
+        "steinmetz_meta": {
+          "f_min_kHz": 0.04,
+          "f_max_kHz": 1.0
+        },
+        "cost_per_kg": 4.2,
+        "cost_currency": "USD"
+      }
+    },
+    {
+      "name": "50CS1300",
+      "manufacturer": "Dongxing/JIS",
+      "family": "NGO silicon steel",
+      "type": "silicon-steel",
+      "permeability": {
+        "initialValue": 4000.0
+      },
+      "saturation": [
+        {
+          "temperature": 25.0,
+          "magneticFluxDensity": 1.55
+        },
+        {
+          "temperature": 100.0,
+          "magneticFluxDensity": 1.4725
+        }
+      ],
+      "coreLossesMethods": [
+        {
+          "method": "steinmetz",
+          "coefficients": {
+            "k": 2.4,
+            "alpha": 1.5,
+            "beta": 1.8
+          },
+          "referenceFrequency": 60.0,
+          "referenceFluxDensity": 1.0
+        }
+      ],
+      "density": 7650.0,
+      "notes": "Chinese/JIS NGO silicon steel grade 50CS1300, 0.50 mm lamination. Used in Dongxing line/harmonic reactors (DX60xxx series). Typical Bsat 1.55 T @ 25°C, μᵣ 4000.",
+      "x-pfc-inductor": {
+        "id": "dongxing-50cs1300",
+        "steinmetz_meta": {
+          "f_min_kHz": 0.04,
+          "f_max_kHz": 1.0
+        },
+        "cost_per_kg": 4.2,
+        "cost_currency": "USD"
+      }
+    },
+    {
+      "name": "50H1300",
+      "manufacturer": "Dongxing/JIS",
+      "family": "NGO silicon steel",
+      "type": "silicon-steel",
+      "permeability": {
+        "initialValue": 4000.0
+      },
+      "saturation": [
+        {
+          "temperature": 25.0,
+          "magneticFluxDensity": 1.55
+        },
+        {
+          "temperature": 100.0,
+          "magneticFluxDensity": 1.4725
+        }
+      ],
+      "coreLossesMethods": [
+        {
+          "method": "steinmetz",
+          "coefficients": {
+            "k": 2.2,
+            "alpha": 1.52,
+            "beta": 1.82
+          },
+          "referenceFrequency": 60.0,
+          "referenceFluxDensity": 1.0
+        }
+      ],
+      "density": 7650.0,
+      "notes": "Chinese/JIS NGO silicon steel grade 50H1300, 0.50 mm lamination. Used in Dongxing line/harmonic reactors (DX60xxx series). Typical Bsat 1.55 T @ 25°C, μᵣ 4000.",
+      "x-pfc-inductor": {
+        "id": "dongxing-50h1300",
+        "steinmetz_meta": {
+          "f_min_kHz": 0.04,
+          "f_max_kHz": 1.0
+        },
+        "cost_per_kg": 4.2,
+        "cost_currency": "USD"
+      }
     }
   ]
 }

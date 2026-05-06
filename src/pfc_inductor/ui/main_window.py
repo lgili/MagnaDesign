@@ -93,6 +93,24 @@ class MainWindow(QMainWindow):
     design_completed = _Signal(object, object, object, object, object)
     """``Signal(DesignResult, Spec, Core, Wire, Material)``."""
 
+    class _StateProvider:
+        """Adapter that satisfies the ``SpecPanelLike`` protocol for the
+        ``CalculationController``.
+
+        Pulls spec from the real panel, but selection IDs from the host
+        ``MainWindow``'s state — the key seam for this refactoring.
+        """
+        def __init__(self, win: MainWindow):
+            self._win = win
+        def get_spec(self) -> Spec:
+            return self._win.projeto_page.spec_panel.get_spec()
+        def get_core_id(self) -> str:
+            return self._win._current_core_id
+        def get_wire_id(self) -> str:
+            return self._win._current_wire_id
+        def get_material_id(self) -> str:
+            return self._win._current_material_id
+
     def __init__(self):
         super().__init__()
         self.setWindowTitle("MagnaDesign — Inductor Design Suite")
@@ -112,10 +130,18 @@ class MainWindow(QMainWindow):
         self.projeto_page = ProjetoPage(
             self._materials, self._cores, self._wires,
         )
-        # Calculation controller — talks to the SpecPanel that lives
-        # inside the drawer.
+
+        # ---- Selection state (the new source of truth) -----------------
+        # Set a safe, hardcoded default selection on startup.
+        self._current_material_id: str = "magnetics-60_highflux"
+        self._current_core_id: str = "magnetics-0058181a2-60_highflux"
+        self._current_wire_id: str = "AWG14"
+
+        # ---- Calculation controller ------------------------------------
+        # The controller talks to our adapter, not the real spec panel.
+        self._state_provider = self._StateProvider(self)
         self._calc = CalculationController(
-            self.projeto_page.spec_panel,
+            self._state_provider,
             self._materials, self._cores, self._wires,
         )
 
@@ -294,7 +320,7 @@ class MainWindow(QMainWindow):
             return
         dlg = OptimizerDialog(
             spec, self._materials, self._cores, self._wires,
-            current_material_id=self.projeto_page.spec_panel.get_material_id(),
+            current_material_id=self._current_material_id,
             parent=self,
         )
         dlg.selection_applied.connect(self._apply_optimizer_choice)
@@ -455,12 +481,8 @@ class MainWindow(QMainWindow):
 
     def _open_similar_parts(self) -> None:
         try:
-            target_core = self._calc.find_core(
-                self.projeto_page.spec_panel.get_core_id(),
-            )
-            target_material = self._calc.find_material(
-                self.projeto_page.spec_panel.get_material_id(),
-            )
+            target_core = self._calc.find_core(self._current_core_id)
+            target_material = self._calc.find_material(self._current_material_id)
         except DesignError as e:
             QMessageBox.warning(self, "Seleção inválida", e.user_message())
             return
@@ -473,15 +495,8 @@ class MainWindow(QMainWindow):
 
     def _apply_similar_selection(self, material_id: str,
                                  core_id: str) -> None:
-        sp = self.projeto_page.spec_panel
-        for i in range(sp.cmb_material.count()):
-            if sp.cmb_material.itemData(i) == material_id:
-                sp.cmb_material.setCurrentIndex(i)
-                break
-        for i in range(sp.cmb_core.count()):
-            if sp.cmb_core.itemData(i) == core_id:
-                sp.cmb_core.setCurrentIndex(i)
-                break
+        self._current_material_id = material_id
+        self._current_core_id = core_id
         self._on_calculate()
 
     def _reload_databases(self) -> None:
@@ -491,29 +506,15 @@ class MainWindow(QMainWindow):
         self._calc.replace_catalogs(
             self._materials, self._cores, self._wires,
         )
-        sp = self.projeto_page.spec_panel
-        sp._materials = self._materials
-        sp._cores = self._cores
-        sp._wires = self._wires
-        sp._refresh_visible_options()
-        sp._set_initial_selection()
+        # TODO: re-validate that the current selection is still valid,
+        # or pick a new default. For now, just trigger a recalc.
         self._on_calculate()
 
     def _apply_optimizer_choice(self, material_id: str, core_id: str,
                                 wire_id: str) -> None:
-        sp = self.projeto_page.spec_panel
-        for i in range(sp.cmb_material.count()):
-            if sp.cmb_material.itemData(i) == material_id:
-                sp.cmb_material.setCurrentIndex(i)
-                break
-        for i in range(sp.cmb_core.count()):
-            if sp.cmb_core.itemData(i) == core_id:
-                sp.cmb_core.setCurrentIndex(i)
-                break
-        for i in range(sp.cmb_wire.count()):
-            if sp.cmb_wire.itemData(i) == wire_id:
-                sp.cmb_wire.setCurrentIndex(i)
-                break
+        self._current_material_id = material_id
+        self._current_core_id = core_id
+        self._current_wire_id = wire_id
         self._on_calculate()
 
     # ==================================================================
@@ -545,10 +546,7 @@ class MainWindow(QMainWindow):
             spec, self._materials, self._cores, self._wires,
             material, core, wire,
         )
-
-        # Refresh the optimizer page's bound inputs so the next sweep
-        # reflects the current spec without the user having to do
-        # anything extra.
+        self.projeto_page.set_current_selection(material, core, wire)
         self.otimizador_page.set_inputs(
             spec, self._materials, self._cores, self._wires,
             material.id,

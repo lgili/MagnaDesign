@@ -50,6 +50,10 @@ class Scoreboard(QFrame):
         self._save_label = QLabel("● Pronto")
         h.addWidget(self._save_label, 0, Qt.AlignmentFlag.AlignVCenter)
 
+        self._selection_label = QLabel("")
+        self._selection_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        h.addWidget(self._selection_label, 1, Qt.AlignmentFlag.AlignVCenter)
+
         # ---- centre: KPI strip -----------------------------------------
         self._kpi = QLabel("")
         self._kpi.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -136,6 +140,14 @@ class Scoreboard(QFrame):
     def save_text(self) -> str:
         return self._save_label.text()
 
+    def set_current_selection(self, material, core, wire) -> None:
+        if material is None or core is None or wire is None:
+            self._selection_label.setText("")
+            return
+
+        selection_text = f"{material.name} · {core.part_number} · {wire.id}"
+        self._selection_label.setText(selection_text)
+
     # ------------------------------------------------------------------
     # Internals
     # ------------------------------------------------------------------
@@ -174,6 +186,12 @@ class Scoreboard(QFrame):
         self._refresh_save_label_qss()
         p = get_theme().palette
         t = get_theme().type
+        self._selection_label.setStyleSheet(
+            f"color: {p.text_secondary};"
+            f" font-family: {t.numeric_family};"
+            f" font-size: {t.body_md}px;"
+            f" background: transparent; border: 0;"
+        )
         self._kpi.setStyleSheet(
             f"color: {p.text_secondary};"
             f" font-family: {t.numeric_family};"

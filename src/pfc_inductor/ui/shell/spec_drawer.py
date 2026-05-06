@@ -53,9 +53,6 @@ class SpecDrawer(QFrame):
 
     def __init__(
         self,
-        materials: list[Material],
-        cores: list[Core],
-        wires: list[Wire],
         parent: Optional[QWidget] = None,
     ) -> None:
         super().__init__(parent)
@@ -103,7 +100,7 @@ class SpecDrawer(QFrame):
         outer.addWidget(self._topo_row)
 
         # ---- Embedded SpecPanel ------------------------------------------
-        self._spec_panel = SpecPanel(materials, cores, wires, parent=self)
+        self._spec_panel = SpecPanel(parent=self)
         self._spec_panel.calculate_requested.connect(self.calculate_requested.emit)
         outer.addWidget(self._spec_panel, 1)
 

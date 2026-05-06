@@ -138,25 +138,27 @@ class ResumoStrip(QFrame):
         else:
             self.m_dI.set_status("neutral")
 
-        agg = self._aggregate_status()
-        self._set_badge(agg)
+        agg, reasons = self._aggregate_status()
+        self._set_badge(agg, reasons)
 
     def clear(self) -> None:
         for mc in self._tiles:
             mc.set_value("—")
             mc.set_status("neutral")
-        self._set_badge("neutral")
+        self._set_badge("neutral", [])
 
     # ------------------------------------------------------------------
-    def _aggregate_status(self) -> MetricStatus:
-        statuses = [mc._status for mc in self._tiles]
-        if "err" in statuses:
-            return "err"
-        if "warn" in statuses:
-            return "warn"
-        return "ok"
+    def _aggregate_status(self) -> tuple[MetricStatus, list[str]]:
+        statuses = [(mc._status, mc._lbl.text()) for mc in self._tiles]
+        errors = [title for status, title in statuses if status == "err"]
+        if errors:
+            return "err", errors
+        warnings = [title for status, title in statuses if status == "warn"]
+        if warnings:
+            return "warn", warnings
+        return "ok", []
 
-    def _set_badge(self, status: MetricStatus) -> None:
+    def _set_badge(self, status: MetricStatus, reasons: list[str]) -> None:
         if status == "ok":
             text, variant = "Aprovado", "success"
         elif status == "warn":
@@ -165,6 +167,10 @@ class ResumoStrip(QFrame):
             text, variant = "Reprovado", "danger"
         else:
             text, variant = "—", "neutral"
+
+        if reasons:
+            text += f" ({', '.join(reasons)})"
+
         self.badge.setText(text)
         self.badge.setProperty("pill", variant)
         # Force re-evaluation of dynamic-property selectors.

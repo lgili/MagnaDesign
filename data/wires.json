@@ -528,6 +528,45 @@
       "mass_per_meter_g": 960.512,
       "cost_per_meter": 17.2892,
       "notes": "Imported from Otimizador_Magneticos.xlsm. Demo cost @ $18/kg."
+    },
+    {
+      "name": "2UEW 0.95 mm (AWG19)",
+      "type": "round",
+      "conductingDiameter": 0.95,
+      "outerDiameter": 0.9974999999999999,
+      "conductingArea": 0.7088218424661971,
+      "notes": "Polyurethane 2UEW MW75/130°C enamelled copper, common in Dongxing reactors.",
+      "x-pfc-inductor": {
+        "id": "2uew-0.95"
+      },
+      "costPerMeter": 0.12,
+      "massPerMeter": 0.006351043708497127
+    },
+    {
+      "name": "2UEW 0.70 mm (AWG21)",
+      "type": "round",
+      "conductingDiameter": 0.7,
+      "outerDiameter": 0.735,
+      "conductingArea": 0.3848451000647496,
+      "notes": "Polyurethane 2UEW MW75/130°C enamelled copper, common in Dongxing reactors.",
+      "x-pfc-inductor": {
+        "id": "2uew-0.70"
+      },
+      "costPerMeter": 0.12,
+      "massPerMeter": 0.0034482120965801566
+    },
+    {
+      "name": "2UEW 0.65 mm (AWG22)",
+      "type": "round",
+      "conductingDiameter": 0.65,
+      "outerDiameter": 0.6825000000000001,
+      "conductingArea": 0.3318307240354219,
+      "notes": "Polyurethane 2UEW MW75/130°C enamelled copper, common in Dongxing reactors.",
+      "x-pfc-inductor": {
+        "id": "2uew-0.65"
+      },
+      "costPerMeter": 0.12,
+      "massPerMeter": 0.0029732032873573803
     }
   ]
 }

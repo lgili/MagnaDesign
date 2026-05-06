@@ -34,9 +34,9 @@ class Spec(BaseModel):
                               description="Peak-to-peak inductor current ripple, % of peak line current")
 
     T_amb_C: float = Field(40.0, description="Ambient temperature for thermal calc")
-    T_max_C: float = Field(100.0, description="Max allowable winding temp")
+    T_max_C: float = Field(125.0, description="Max allowable winding temp")
 
-    Ku_max: float = Field(0.4, ge=0.05, le=0.7, description="Max window utilization (0.4 round, 0.2 litz)")
+    Ku_max: float = Field(0.7, ge=0.05, le=0.7, description="Max window utilization (0.4 round, 0.2 litz)")
     Bsat_margin: float = Field(0.20, ge=0.0, le=0.5,
                                description="Saturation margin (20% means use Bsat*0.8 as limit)")
 
@@ -45,15 +45,12 @@ class Spec(BaseModel):
         3, ge=1, le=3,
         description="1 or 3 — only used when topology == 'line_reactor'",
     )
-    pct_impedance: float = Field(
-        5.0, ge=0.5, le=20.0,
-        description=(
-            "Target % of base line impedance for the reactor. "
-            "Typical: 3 (light filtering) / 5 (standard) / 8 (heavy)."
-        ),
+    L_req_mH: float = Field(
+        10.0, ge=0.1, le=1000.0,
+        description="Target inductance for the reactor (mH).",
     )
     I_rated_Arms: float = Field(
-        30.0, gt=0.0,
+        2.2, gt=0.0,
         description="Rated continuous RMS current at the reactor (line side).",
     )
 

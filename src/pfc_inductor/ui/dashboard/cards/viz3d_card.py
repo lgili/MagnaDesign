@@ -43,6 +43,8 @@ class Viz3DCard(Card):
         body = _Viz3DBody()
         super().__init__("Visualização 3D", body, parent=parent)
         self._vbody = body
+        from PySide6.QtWidgets import QSizePolicy
+        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
 
     @property
     def viewer(self) -> CoreView3D:

@@ -96,6 +96,8 @@ class CoreView3D(QWidget):
             try:
                 from pyvistaqt import QtInteractor
                 self.plotter = QtInteractor(self)
+                from PySide6.QtWidgets import QSizePolicy
+                self.plotter.interactor.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
                 outer.addWidget(self.plotter.interactor, 1)
                 self._setup_renderer()
                 # Failure to draw the placeholder text must not kill the
@@ -372,7 +374,7 @@ class CoreView3D(QWidget):
                 pbr=False,
             )
 
-        self.plotter.reset_camera()
+        # self.plotter.reset_camera()
         # Apply the chips' active preset.
         try:
             self.set_view(self.chips.active())

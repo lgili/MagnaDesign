@@ -15120,6 +15120,81 @@
       "AL_nH": 405.0,
       "lgap_mm": 0.0,
       "notes": ""
+    },
+    {
+      "name": "EI60-20",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI60-20",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 400.0,
+        "effectiveMagneticPathLength": 117.0,
+        "effectiveVolume": 46800.0,
+        "windingWindowArea": 300.0,
+        "meanLengthTurn": 152.0,
+        "height": 58.0
+      },
+      "materialName": "dongxing-50h800",
+      "inductanceFactor": 672.0,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, calibrated against datasheets DX60346/414/415.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei6020-50h800",
+        "mass_g": 660.0,
+        "cost_per_piece": 8.0
+      }
+    },
+    {
+      "name": "EI41-17",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI41-17",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 240.0,
+        "effectiveMagneticPathLength": 80.0,
+        "effectiveVolume": 19200.0,
+        "windingWindowArea": 125.0,
+        "meanLengthTurn": 97.0,
+        "height": 36.5
+      },
+      "materialName": "dongxing-50cs1300",
+      "inductanceFactor": 510.0,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, calibrated against datasheets DX60346/414/415.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei4117-50cs1300",
+        "mass_g": 280.0,
+        "cost_per_piece": 8.0
+      }
+    },
+    {
+      "name": "EI28-17",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI28-17",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 170.0,
+        "effectiveMagneticPathLength": 65.0,
+        "effectiveVolume": 11050.0,
+        "windingWindowArea": 80.0,
+        "meanLengthTurn": 96.0,
+        "height": 31.6
+      },
+      "materialName": "dongxing-50h1300",
+      "inductanceFactor": 694.0,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, calibrated against datasheets DX60346/414/415.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei2817-50h1300",
+        "mass_g": 180.0,
+        "cost_per_piece": 8.0
+      }
     }
   ]
 }

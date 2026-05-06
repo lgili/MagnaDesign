@@ -90,7 +90,7 @@ class ProjetoPage(QWidget):
         outer.setSpacing(0)
 
         # ---- Spec drawer (left) ---------------------------------------
-        self.drawer = SpecDrawer(materials, cores, wires)
+        self.drawer = SpecDrawer()
         self.drawer.calculate_requested.connect(self.recalculate_requested.emit)
         self.drawer.topology_change_requested.connect(
             self.topology_change_requested.emit,
@@ -203,6 +203,10 @@ class ProjetoPage(QWidget):
         self.scoreboard.set_save_status(
             unsaved=unsaved, last_saved_at=last_saved_at,
         )
+
+    def set_current_selection(self, material: Material, core: Core, wire: Wire):
+        self.scoreboard.set_current_selection(material, core, wire)
+
 
     def update_from_design(self, result: DesignResult, spec: Spec,
                            core: Core, wire: Wire,

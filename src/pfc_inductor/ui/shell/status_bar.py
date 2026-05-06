@@ -74,6 +74,21 @@ class BottomStatusBar(QFrame):
         self._save_label = QLabel("● Pronto")
         self._save_label.setStyleSheet(self._save_label_qss(saved=True))
         h.addWidget(self._save_label, 0, Qt.AlignmentFlag.AlignVCenter)
+
+        # ---- center: current selection ---------------------------------
+        h.addSpacing(24)
+        self._selection_material_label = self._selection_label()
+        self._selection_core_label = self._selection_label()
+        self._selection_wire_label = self._selection_label()
+        h.addWidget(self._icon_label("package"))
+        h.addWidget(self._selection_material_label)
+        h.addSpacing(16)
+        h.addWidget(self._icon_label("layers"))
+        h.addWidget(self._selection_core_label)
+        h.addSpacing(16)
+        h.addWidget(self._icon_label("git-commit"))
+        h.addWidget(self._selection_wire_label)
+
         h.addStretch(1)
 
         # ---- right: 3 pills --------------------------------------------
@@ -105,6 +120,12 @@ class BottomStatusBar(QFrame):
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
+    def set_current_selection(
+        self, material_name: str, core_name: str, wire_name: str,
+    ) -> None:
+        self._selection_material_label.setText(material_name)
+        self._selection_core_label.setText(core_name)
+        self._selection_wire_label.setText(wire_name)
     def set_warnings(self, n: int) -> None:
         self._pill_warnings.set_count(n)
 
@@ -147,6 +168,17 @@ class BottomStatusBar(QFrame):
     # ------------------------------------------------------------------
     # Internals
     # ------------------------------------------------------------------
+    def _icon_label(self, key: str) -> QLabel:
+        icon = ui_icon(key, color=get_theme().palette.muted, size=16)
+        label = QLabel()
+        label.setPixmap(icon.pixmap(16, 16))
+        return label
+
+    def _selection_label(self) -> QLabel:
+        label = QLabel("—")
+        label.setProperty("role", "muted")
+        return label
+
     def _refresh_save_text(self) -> None:
         if self._last_saved_at is None:
             self._save_label.setText("● Pronto")

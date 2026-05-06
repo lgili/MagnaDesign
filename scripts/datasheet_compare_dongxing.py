@@ -26,6 +26,8 @@ import math
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+import pandas as pd
+from openpyxl.styles import Font
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
@@ -150,6 +152,54 @@ DATASHEETS: list[DatasheetReactor] = [
         Rdc_max_ohm=0.60,
         I_rated_A=1.0,
     ),
+    DatasheetReactor(
+        model="DX60415CT",
+        core_label="EI28",
+        silicon_grade="50H1300",
+        # Drawing: 53 × 31.6, 17 mm stack
+        stack_mm=17.0,
+        # Ae ≈ 10 × 17
+        Ae_mm2=170.0,
+        # le for EI28 ≈ 65 mm
+        le_mm=65.0,
+        # Wa ≈ 13 × 5 = 65 mm² per side
+        Wa_mm2=80.0,
+        # MLT back-fit: 0.60 Ω, 0.65 mm (A=0.332 mm²), N=120
+        # MLT = 0.60·0.332e-6 / (1.72e-8·120) ≈ 96 mm
+        MLT_mm=96.0,
+        Bsat_T=SILICON_BSAT,
+        mu_initial=SILICON_MU,
+        rho_kg_m3=SILICON_RHO,
+        L_mH=10.0,
+        N_spec=120,
+        wire_d_cu_mm=0.65,
+        Rdc_max_ohm=0.60,
+        I_rated_A=2.2,
+    ),
+    DatasheetReactor(
+        model="DX60415CT",
+        core_label="EI28",
+        silicon_grade="50H1300",
+        # Drawing: 53 × 31.6, 17 mm stack
+        stack_mm=17.0,
+        # Ae ≈ 10 × 17
+        Ae_mm2=170.0,
+        # le for EI28 ≈ 65 mm
+        le_mm=65.0,
+        # Wa ≈ 13 × 5 = 65 mm² per side
+        Wa_mm2=80.0,
+        # MLT back-fit: 0.60 Ω, 0.65 mm (A=0.332 mm²), N=120
+        # MLT = 0.60·0.332e-6 / (1.72e-8·120) ≈ 96 mm
+        MLT_mm=96.0,
+        Bsat_T=SILICON_BSAT,
+        mu_initial=SILICON_MU,
+        rho_kg_m3=SILICON_RHO,
+        L_mH=7.0,
+        N_spec=120,
+        wire_d_cu_mm=0.65,
+        Rdc_max_ohm=0.60,
+        I_rated_A=2.2,
+    ),
 ]
 
 
@@ -158,10 +208,10 @@ DATASHEETS: list[DatasheetReactor] = [
 # ---------------------------------------------------------------------------
 def build_material(d: DatasheetReactor) -> Material:
     return Material(
-        id=f"dx-silicon-{d.silicon_grade.lower()}",
+        id="dx-silicon-{}".format(d.silicon_grade.lower()),
         vendor="Dongxing/AKArc",
         family="silicon steel (NGO)",
-        name=f"{d.silicon_grade} (silicon steel)",
+        name="{} (silicon steel)".format(d.silicon_grade),
         type="silicon-steel",
         mu_initial=d.mu_initial,
         Bsat_25C_T=d.Bsat_T,
@@ -173,7 +223,7 @@ def build_material(d: DatasheetReactor) -> Material:
             f_min_kHz=0.040, f_max_kHz=1.0,
         ),
         rolloff=None,
-        notes=f"Built from datasheet {d.model} for confrontation.",
+        notes="Built from datasheet {} for confrontation.".format(d.model),
     )
 
 
@@ -181,7 +231,7 @@ def build_core(d: DatasheetReactor, material_id: str) -> Core:
     # AL back-fit so L_actual = L_spec when N = N_spec.
     AL_nH = (d.L_mH * 1000.0) / (d.N_spec ** 2) * 1000.0
     return Core(
-        id=f"dx-{d.core_label.lower()}-{d.model.lower()}",
+        id="dx-{}-{}".format(d.core_label.lower(), d.model.lower()),
         vendor="Dongxing",
         shape="EI",
         part_number=d.core_label,
@@ -192,7 +242,7 @@ def build_core(d: DatasheetReactor, material_id: str) -> Core:
         Wa_mm2=d.Wa_mm2,
         MLT_mm=d.MLT_mm,
         AL_nH=AL_nH,
-        notes=f"Built from datasheet {d.model}, stack {d.stack_mm} mm.",
+        notes="Built from datasheet {}, stack {} mm.".format(d.model, d.stack_mm),
     )
 
 
@@ -201,7 +251,7 @@ def build_wire(d: DatasheetReactor) -> Wire:
     # Insulated diameter ≈ 1.05 × bare for 2UEW polyurethane
     d_iso = d.wire_d_cu_mm * 1.05
     return Wire(
-        id=f"dx-2uew-{d.wire_d_cu_mm:.2f}",
+        id="dx-2uew-{:.2f}".format(d.wire_d_cu_mm),
         type="round",
         d_cu_mm=d.wire_d_cu_mm,
         d_iso_mm=d_iso,
@@ -221,11 +271,11 @@ def build_spec(d: DatasheetReactor) -> Spec:
         I_rated_Arms=d.I_rated_A,
         pct_impedance=max(0.5, min(20.0, pct_Z)),
         f_line_Hz=50.0,
-        Vin_min_Vrms=85.0, Vin_max_Vrms=265.0,
+        Vin_min_Vrms=200.0, Vin_max_Vrms=265.0,
         Vout_V=400.0, Pout_W=200.0,
         f_sw_kHz=65.0, ripple_pct=30.0,
         T_amb_C=40.0, T_max_C=130.0,
-        Ku_max=0.45, Bsat_margin=0.15,
+        Ku_max=0.7, Bsat_margin=0.20,
     )
 
 
@@ -236,18 +286,16 @@ def _pct(a: float, b: float) -> float:
     return abs(a - b) / max(abs(b), 1e-9) * 100.0
 
 
-def compare(d: DatasheetReactor) -> None:
+def compare(d: DatasheetReactor) -> dict:
     mat = build_material(d)
     core = build_core(d, mat.id)
     wire = build_wire(d)
     spec = build_spec(d)
     r = design(spec, core, wire, mat)
 
-    print(f"\n=== {d.model}  ({d.core_label}, silicon {d.silicon_grade}) ===")
-    print(f"  spec:  V=220 Vrms · I={d.I_rated_A} A · L=10 mH · "
-          f"%Z = {spec.pct_impedance:.2f}")
-    print(f"  core:  Ae={d.Ae_mm2} mm²  le={d.le_mm} mm  Wa={d.Wa_mm2} mm²  "
-          f"MLT={d.MLT_mm} mm")
+    print("=== {}  ({}, silicon {}) ===".format(d.model, d.core_label, d.silicon_grade))
+    print("  spec:  V=220 Vrms · I={} A · L=10 mH · %Z = {:.2f}".format(d.I_rated_A, spec.pct_impedance))
+    print("  core:  Ae={} mm²  le={} mm  Wa={} mm²  MLT={} mm".format(d.Ae_mm2, d.le_mm, d.Wa_mm2, d.MLT_mm))
 
     # Engine Rdc at 25 °C (the comparable basis to datasheet's "max").
     # The engine itself reports Rdc at T_winding, which is hotter — so
@@ -259,26 +307,16 @@ def compare(d: DatasheetReactor) -> None:
     R25_handcalc = 1.72e-8 * L_total_m / (A_cu * 1e-6)
 
     print()
-    print(f"  {'':<28} {'datasheet':>11} {'engine':>11} {'Δ':>9}")
-    print(f"  {'-' * 28} {'-' * 11} {'-' * 11} {'-' * 9}")
-    print(f"  {'Turns N':<28} {d.N_spec:>11} {r.N_turns:>11} "
-          f"{r.N_turns - d.N_spec:>+8}")
-    print(f"  {'L (mH)':<28} {d.L_mH:>11.2f} "
-          f"{r.L_actual_uH/1000:>11.2f} "
-          f"{_pct(r.L_actual_uH/1000, d.L_mH):>8.1f}%")
-    print(f"  {'Rdc @ 25 °C (mΩ)':<28} {d.Rdc_max_ohm*1000:>11.0f} "
-          f"{R25_engine*1000:>11.0f} "
-          f"{_pct(R25_engine, d.Rdc_max_ohm):>8.1f}%")
-    print(f"  {'Rdc @ T_winding (mΩ)':<28} {'':>11} "
-          f"{r.R_dc_ohm*1000:>11.0f} "
-          f"(@ {r.T_winding_C:.0f} °C)")
-    print(f"  {'V_drop (V)':<28} "
-          f"{(2*math.pi*50*d.L_mH*1e-3*d.I_rated_A):>11.2f} "
-          f"{(r.voltage_drop_pct/100*220 if r.voltage_drop_pct else 0):>11.2f}")
-    print(f"  {'B_pk (mT)':<28} {'':>11} {r.B_pk_T*1000:>11.0f} "
-          f"({100*r.B_pk_T/d.Bsat_T:.0f} % of Bsat)")
-    print(f"  {'Ku (%)':<28} {'':>11} {r.Ku_actual*100:>11.1f}")
-    print(f"  {'T winding (°C)':<28} {'':>11} {r.T_winding_C:>11.0f}")
+    print("  {:<28} {:>11} {:>11} {:>9}".format('', 'datasheet', 'engine', 'Δ'))
+    print("  {:-<28} {:-<11} {:-<11} {:-<9}".format('', '', '', ''))
+    print("  {:<28} {:>11} {:>11} {:>+8}".format('Turns N', d.N_spec, r.N_turns, r.N_turns - d.N_spec))
+    print("  {:<28} {:>11.2f} {:>11.2f} {:>8.1f}%".format('L (mH)', d.L_mH, r.L_actual_uH/1000, _pct(r.L_actual_uH/1000, d.L_mH)))
+    print("  {:<28} {:>11.0f} {:>11.0f} {:>8.1f}%".format('Rdc @ 25 °C (mΩ)', d.Rdc_max_ohm*1000, R25_engine*1000, _pct(R25_engine, d.Rdc_max_ohm)))
+    print("  {:<28} {:>11} {:>11.0f} (@ {:.0f} °C)".format('Rdc @ T_winding (mΩ)', '', r.R_dc_ohm*1000, r.T_winding_C))
+    print("  {:<28} {:>11.2f} {:>11.2f}".format('V_drop (V)', (2*math.pi*50*d.L_mH*1e-3*d.I_rated_A), (r.voltage_drop_pct/100*220 if r.voltage_drop_pct else 0)))
+    print("  {:<28} {:>11} {:>11.0f} ({:.0f} % of Bsat)".format('B_pk (mT)', '', r.B_pk_T*1000, 100*r.B_pk_T/d.Bsat_T))
+    print("  {:<28} {:>11} {:>11.1f}".format('Ku (%)', '', r.Ku_actual*100))
+    print("  {:<28} {:>11} {:>11.0f}".format('T winding (°C)', '', r.T_winding_C))
     if r.warnings:
         for w in r.warnings:
             print(f"     ⚠ {w}")
@@ -291,12 +329,45 @@ def compare(d: DatasheetReactor) -> None:
     print(f"  N ≈ datasheet (±2):     {'✓' if n_ok else '✗'}")
     print(f"  Rdc @ 25 °C within 10%: {'✓' if rdc_ok else '✗'}")
     print(f"  B_pk under Bsat:        {'✓' if b_ok else '✗'}")
+    
+    return {
+        "Model": d.model,
+        "Core": d.core_label,
+        "Turns (Datasheet)": d.N_spec,
+        "Turns (Engine)": r.N_turns,
+        "Turns Δ": r.N_turns - d.N_spec,
+        "L (mH) (Datasheet)": d.L_mH,
+        "L (mH) (Engine)": r.L_actual_uH / 1000,
+        "L Δ (%)": _pct(r.L_actual_uH / 1000, d.L_mH),
+        "Rdc @ 25°C (mΩ) (Datasheet)": d.Rdc_max_ohm * 1000,
+        "Rdc @ 25°C (mΩ) (Engine)": R25_engine * 1000,
+        "Rdc @ 25°C Δ (%)": _pct(R25_engine, d.Rdc_max_ohm),
+        "Rdc @ T_winding (mΩ) (Engine)": r.R_dc_ohm * 1000,
+        "T_winding (°C)": r.T_winding_C,
+        "V_drop (V) (Datasheet)": (2 * math.pi * 50 * d.L_mH * 1e-3 * d.I_rated_A),
+        "V_drop (V) (Engine)": (r.voltage_drop_pct/100*220 if r.voltage_drop_pct else 0),
+        "B_pk (mT) (Engine)": r.B_pk_T * 1000,
+        "Ku (%) (Engine)": r.Ku_actual * 100,
+        "N ≈ datasheet (±2)": '✓' if n_ok else '✗',
+        "Rdc @ 25°C within 10%": '✓' if rdc_ok else '✗',
+        "B_pk under Bsat": '✓' if b_ok else '✗',
+        # New fields for manufacturer and spec data
+        "V_nom (Vrms)": spec.Vin_nom_Vrms,
+        "I_rated (A)": spec.I_rated_Arms,
+        "L_mH (Datasheet)": d.L_mH, # Already there, but keeping for clarity
+        "pct_impedance": spec.pct_impedance,
+        "Ae (mm²)": d.Ae_mm2,
+        "le (mm)": d.le_mm,
+        "Wa (mm²)": d.Wa_mm2,
+        "MLT (mm)": d.MLT_mm,
+    }
 
 
 def main() -> int:
     print("Confrontação contra datasheets Dongxing (reatores 10 mH harmônicos)")
+    results = []
     for d in DATASHEETS:
-        compare(d)
+        results.append(compare(d))
     return 0
 
 

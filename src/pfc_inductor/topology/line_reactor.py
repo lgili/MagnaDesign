@@ -73,8 +73,8 @@ def required_inductance_mH(spec: Spec) -> float:
 
 
 def required_inductance_uH(spec: Spec) -> float:
-    """Same but in µH so the engine can reuse the existing solver."""
-    return required_inductance_mH(spec) * 1000.0
+    """Return the target inductance from the spec, in µH."""
+    return spec.L_req_mH * 1000.0
 
 
 def line_pk_current_A(spec: Spec) -> float:
@@ -197,7 +197,8 @@ def line_current_waveform(
     if spec.n_phases == 3:
         i = _waveform_3ph_rectifier(spec, L_actual_mH, t, T)
     else:
-        i = _waveform_1ph_cap_dc_link(spec, t, T)
+        pct_Z_actual = voltage_drop_pct(L_actual_mH, spec)
+        i = _waveform_1ph_cap_dc_link(t, T, pct_Z_actual)
 
     # Energy preservation: scale to rated RMS.
     rms_now = float(np.sqrt(np.mean(i * i)))
@@ -240,7 +241,7 @@ def _waveform_3ph_rectifier(
 
 
 def _waveform_1ph_cap_dc_link(
-    spec: Spec, t: np.ndarray, T: float,
+    t: np.ndarray, T: float, pct_Z: float,
 ) -> np.ndarray:
     """Line current of a 1-phase rectifier with capacitive DC-link.
 
@@ -250,7 +251,6 @@ def _waveform_1ph_cap_dc_link(
     of width ``τ`` centred at each AC peak, where τ scales with
     pct_impedance.
     """
-    pct_Z = spec.pct_impedance
     duty = 0.20 + 0.045 * pct_Z          # 1.5% → 0.27, 5% → 0.42, 10% → 0.65
     duty = min(0.55, max(0.18, duty))
     tau = duty * (T / 2.0)

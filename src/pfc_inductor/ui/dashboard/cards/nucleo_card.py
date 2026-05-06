@@ -332,26 +332,20 @@ class _NucleoBody(QWidget):
         self._tabs.addTab(self.tab_wire, "Fio")
         v.addWidget(self._tabs, 1)
 
-        # Footer
-        footer = QHBoxLayout()
-        footer.setSpacing(8)
-        self._lbl_count = QLabel_("")
-        self._btn_apply = QPushButton("Aplicar seleção")
-        self._btn_apply.setProperty("class", "Primary")
-        self._btn_apply.setEnabled(False)
-        self._btn_apply.clicked.connect(self._on_apply)
-        footer.addWidget(self._lbl_count, 1)
-        footer.addWidget(self._btn_apply, 0)
-        v.addLayout(footer)
-
-        # Track current ids so we can compare on apply.
-        self._current_material_id: str = ""
-        self._current_core_id: str = ""
-        self._current_wire_id: str = ""
+        # Cache inputs for re-ranking.
+        self._spec: Spec | None = None
+        self._materials: list[Material] = []
+        self._cores: list[Core] = []
+        self._wires: list[Wire] = []
+        self._current_material: Material | None = None
+        self._current_core: Core | None = None
+        self._current_wire: Wire | None = None
+        self._is_populating = False
 
         for tab in (self.tab_material, self.tab_core, self.tab_wire):
-            tab.selection_changed.connect(self._refresh_apply)
-        self._tabs.currentChanged.connect(self._refresh_apply)
+            tab.selection_changed.connect(
+                lambda tab=tab: self._on_table_selection_changed(tab)
+            )
 
     # ------------------------------------------------------------------
     # Public API
@@ -366,93 +360,137 @@ class _NucleoBody(QWidget):
         current_core: Core,
         current_wire: Wire,
     ) -> None:
-        self._current_material_id = current_material.id
-        self._current_core_id = current_core.id
-        self._current_wire_id = current_wire.id
+        self._is_populating = True
+        try:
+            # Cache all inputs.
+            self._spec = spec
+            self._materials = materials
+            self._cores = cores
+            self._wires = wires
+            self._current_material = current_material
+            self._current_core = current_core
+            self._current_wire = current_wire
 
-        # Material tab
-        m_rows: list[tuple[object, list[str], float]] = []
-        for m, s in rank_materials(spec, materials):
-            m_rows.append((m, [
-                f"{m.name} ({m.vendor})",
-                f"{m.mu_initial:.0f}",
-                f"{m.Bsat_25C_T:.2f}",
-            ], s))
-        self.tab_material.set_rows(m_rows)
+            # Material tab
+            m_rows: list[tuple[object, list[str], float]] = []
+            for m, s in rank_materials(spec, materials):
+                m_rows.append((m, [
+                    f"{m.name} ({m.vendor})",
+                    f"{m.mu_initial:.0f}",
+                    f"{m.Bsat_25C_T:.2f}",
+                ], s))
+            self.tab_material.set_rows(m_rows)
 
-        # Core tab
-        c_rows: list[tuple[object, list[str], float]] = []
-        for c, s in rank_cores(spec, cores, current_material, current_wire):
-            c_rows.append((c, [
-                c.part_number or c.id,
-                c.vendor,
-                f"{c.Ve_mm3 / 1000:.1f}",
-            ], s))
-        self.tab_core.set_rows(c_rows)
+            # Core tab
+            c_rows: list[tuple[object, list[str], float]] = []
+            for c, s in rank_cores(spec, cores, current_material, current_wire):
+                c_rows.append((c, [
+                    c.part_number or c.id,
+                    c.vendor,
+                    f"{c.Ve_mm3 / 1000:.1f}",
+                ], s))
+            self.tab_core.set_rows(c_rows)
 
-        # Wire tab
-        w_rows: list[tuple[object, list[str], float]] = []
-        for w, s in rank_wires(spec, current_core, wires, current_material):
-            label = (w.id if w.type != "round"
-                     else (f"AWG {w.awg}" if w.awg else w.id))
-            w_rows.append((w, [
-                label,
-                w.type,
-                f"{w.A_cu_mm2:.3f}",
-            ], s))
-        self.tab_wire.set_rows(w_rows)
-
-        self._refresh_apply()
+            # Wire tab
+            w_rows: list[tuple[object, list[str], float]] = []
+            for w, s in rank_wires(spec, current_core, wires, current_material):
+                label = (w.id if w.type != "round"
+                         else (f"AWG {w.awg}" if w.awg else w.id))
+                w_rows.append((w, [
+                    label,
+                    w.type,
+                    f"{w.A_cu_mm2:.3f}",
+                ], s))
+            self.tab_wire.set_rows(w_rows)
+        finally:
+            self._is_populating = False
 
     def update_from_design(self, result: DesignResult, spec: Spec,
                            core: Core, wire: Wire,
                            material: Material) -> None:
-        # Update only the "current ids" — full re-rank can be triggered
-        # explicitly via populate() (it's called by the parent card on
-        # database load).
-        self._current_material_id = material.id
-        self._current_core_id = core.id
-        self._current_wire_id = wire.id
-        self._refresh_apply()
+        # Update only the "current selection" — full re-rank can be
+        # triggered explicitly via populate().
+        self._current_material = material
+        self._current_core = core
+        self._current_wire = wire
 
     def clear(self) -> None:
         for tab in (self.tab_material, self.tab_core, self.tab_wire):
             tab.set_rows([])
-        self._btn_apply.setEnabled(False)
-        self._lbl_count.setText("")
 
     # ------------------------------------------------------------------
     # Internals
     # ------------------------------------------------------------------
-    def _refresh_apply(self) -> None:
-        # Compose the prospective selection.
-        mat_id, core_id, wire_id = self._prospective_ids()
-        differs = (
-            mat_id != self._current_material_id
-            or core_id != self._current_core_id
-            or wire_id != self._current_wire_id
+    def _on_table_selection_changed(self, changed_tab: _CandidateTab) -> None:
+        if self._is_populating or not self._spec:
+            return
+
+        prospective_mat, prospective_core, prospective_wire = self._prospective_selection()
+
+        # If the user selected a new material, re-rank the other two
+        # tables immediately without triggering a full recompute.
+        if changed_tab is self.tab_material:
+            if prospective_mat and prospective_mat != self._current_material:
+                # 1. Filter cores compatible with the new material.
+                compatible_cores = [
+                    c for c in self._cores
+                    if c.default_material_id == prospective_mat.id
+                ]
+                # Fallback: if no cores are explicitly compatible, show all.
+                if not compatible_cores:
+                    compatible_cores = self._cores
+
+                # 2. Re-rank the compatible cores.
+                c_rows: list[tuple[object, list[str], float]] = []
+                for c, s in rank_cores(
+                    self._spec, compatible_cores, prospective_mat, self._current_wire
+                ):
+                    c_rows.append((c, [c.part_number or c.id, c.vendor, f"{c.Ve_mm3 / 1000:.1f}"], s))
+                self.tab_core.set_rows(c_rows)
+
+                # 3. Re-rank wires (less critical, but good to keep consistent).
+                w_rows: list[tuple[object, list[str], float]] = []
+                for w, s in rank_wires(
+                    self._spec, self._current_core, self._wires, prospective_mat
+                ):
+                    label = (w.id if w.type != "round" else (f"AWG {w.awg}" if w.awg else w.id))
+                    w_rows.append((w, [label, w.type, f"{w.A_cu_mm2:.3f}"], s))
+                self.tab_wire.set_rows(w_rows)
+            return
+
+        # For core or wire changes, trigger a full recompute.
+        has_changed = (
+            (prospective_mat and prospective_mat != self._current_material)
+            or (prospective_core and prospective_core != self._current_core)
+            or (prospective_wire and prospective_wire != self._current_wire)
         )
-        self._btn_apply.setEnabled(differs)
-        # Update the count label.
-        active_tab = self._tabs.currentWidget()
-        if isinstance(active_tab, _CandidateTab):
-            self._lbl_count.setText(
-                f"{active_tab.visible_row_count()} candidatos "
-                f"visíveis · selecione um e clique Aplicar"
+        if has_changed:
+            # Ensure we have a valid selection before emitting.
+            if not all((prospective_mat, prospective_core, prospective_wire)):
+                return
+            self.selection_applied.emit(
+                prospective_mat.id,
+                prospective_core.id,
+                prospective_wire.id,
             )
 
-    def _prospective_ids(self) -> tuple[str, str, str]:
+    def _prospective_selection(self) -> tuple[Material | None, Core | None, Wire | None]:
         mat = self.tab_material.selected_candidate()
         crc = self.tab_core.selected_candidate()
         wir = self.tab_wire.selected_candidate()
-        m_id = getattr(mat, "id", self._current_material_id)
-        c_id = getattr(crc, "id", self._current_core_id)
-        w_id = getattr(wir, "id", self._current_wire_id)
-        return m_id, c_id, w_id
+        return (
+            mat if isinstance(mat, Material) else self._current_material,
+            crc if isinstance(crc, Core) else self._current_core,
+            wir if isinstance(wir, Wire) else self._current_wire,
+        )
 
-    def _on_apply(self) -> None:
-        m_id, c_id, w_id = self._prospective_ids()
-        self.selection_applied.emit(m_id, c_id, w_id)
+    def _prospective_ids(self) -> tuple[str, str, str]:
+        mat, crc, wir = self._prospective_selection()
+        return (
+            mat.id if mat else "",
+            crc.id if crc else "",
+            wir.id if wir else "",
+        )
 
 
 # Lightweight QLabel re-import alias keeps the file's primary widget
