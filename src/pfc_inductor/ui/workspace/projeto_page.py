@@ -56,7 +56,6 @@ class ProjetoPage(QWidget):
     name_changed = Signal(str)
     topology_change_requested = Signal()
     fea_requested = Signal()
-    bh_loop_requested = Signal()
     similar_requested = Signal()
     litz_requested = Signal()
     export_html_requested = Signal()
@@ -132,7 +131,6 @@ class ProjetoPage(QWidget):
         # Tab 1 — Validar
         self.validar_tab = ValidarTab()
         self.validar_tab.fea_requested.connect(self.fea_requested.emit)
-        self.validar_tab.bh_loop_requested.connect(self.bh_loop_requested.emit)
         self.validar_tab.compare_requested.connect(self.compare_requested.emit)
         self.tabs.addTab(self.validar_tab, "Validar")
 

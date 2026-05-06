@@ -1,8 +1,11 @@
-"""Catálogo workspace page — DB editor + MAS catalog import.
+"""Catálogo workspace page — DB editor inline + MAS catalog import.
 
-Both legacy dialogs (``DbEditorDialog`` and ``CatalogUpdateDialog``)
-are still launched as modals; the page just gives them a discoverable
-home in the sidebar instead of hiding them in an overflow menu.
+Hosts the :class:`DbEditorEmbed
+<pfc_inductor.ui.db_editor.DbEditorEmbed>` directly (no modal) so the
+user can browse and edit the catalog as a first-class destination.
+The MAS catalog importer + Similar parts finder remain as modal
+dialogs because they are short-lived ask-and-go flows (a one-shot
+import dialog over hours of editing makes sense).
 """
 from __future__ import annotations
 
@@ -19,17 +22,33 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from pfc_inductor.ui.db_editor import DbEditorEmbed
 from pfc_inductor.ui.icons import icon as ui_icon
 from pfc_inductor.ui.theme import get_theme
 from pfc_inductor.ui.widgets import Card
 
 
 class CatalogoPage(QWidget):
-    """Sidebar destination for catalog browsing + MAS import."""
+    """Sidebar destination for catalog browsing + MAS import.
 
-    db_editor_requested = Signal()
+    Signals
+    -------
+    saved
+        Emitted by the embedded DB editor whenever the user saves
+        changes — the host (``MainWindow``) reloads catalogs and
+        triggers a recompute.
+    mas_import_requested
+        Emitted when the user clicks "Atualizar do MAS".
+    similar_requested
+        Emitted when the user clicks "Buscar similares".
+    """
+
+    saved = Signal()
     mas_import_requested = Signal()
     similar_requested = Signal()
+
+    # Kept for back-compat with v3.0 wiring; now an alias of ``saved``.
+    db_editor_requested = Signal()
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -52,83 +71,56 @@ class CatalogoPage(QWidget):
         intro.setWordWrap(True)
         outer.addWidget(intro)
 
-        outer.addWidget(self._build_db_card())
-        outer.addWidget(self._build_mas_card())
-        outer.addWidget(self._build_similar_card())
-        outer.addStretch(1)
+        # ---- Quick-actions row (MAS import + Similar) ------------------
+        actions_card = self._build_actions_card()
+        outer.addWidget(actions_card)
+
+        # ---- Inline DB editor — the workspace centerpiece --------------
+        self._db_editor = DbEditorEmbed()
+        self._db_editor.saved.connect(self.saved.emit)
+        editor_body = QFrame()
+        eb = QVBoxLayout(editor_body)
+        eb.setContentsMargins(0, 0, 0, 0)
+        eb.setSpacing(0)
+        eb.addWidget(self._db_editor)
+        outer.addWidget(Card("Editor da base de dados", editor_body), 1)
 
     # ------------------------------------------------------------------
-    def _build_db_card(self) -> Card:
+    def _build_actions_card(self) -> Card:
         body = QFrame()
-        v = QVBoxLayout(body)
+        v = QHBoxLayout(body)
         v.setContentsMargins(0, 0, 0, 0)
-        v.setSpacing(8)
-        desc = QLabel(
-            "Editor JSON-backed das tabelas de materiais, núcleos e "
-            "fios. Edita em-place; salva no diretório de dados do "
-            "usuário sem mexer nos arquivos do pacote.",
-        )
-        desc.setProperty("role", "muted")
-        desc.setWordWrap(True)
-        btn = QPushButton("Abrir editor de base de dados")
-        btn.setProperty("class", "Secondary")
-        btn.setIcon(ui_icon("database",
-                            color=get_theme().palette.text, size=14))
-        btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn.clicked.connect(self.db_editor_requested.emit)
-        row = QHBoxLayout()
-        row.addWidget(btn)
-        row.addStretch(1)
-        v.addWidget(desc)
-        v.addLayout(row)
-        return Card("Base de dados local", body)
+        v.setSpacing(10)
 
-    def _build_mas_card(self) -> Card:
-        body = QFrame()
-        v = QVBoxLayout(body)
-        v.setContentsMargins(0, 0, 0, 0)
-        v.setSpacing(8)
-        desc = QLabel(
-            "Faz pull do catálogo OpenMagnetics MAS (~410 mat, "
-            "4 350 fios) e funde com a base local. Pode escolher "
-            "merge-substituir ou merge-acrescentar.",
-        )
-        desc.setProperty("role", "muted")
-        desc.setWordWrap(True)
-        btn = QPushButton("Atualizar do MAS")
-        btn.setProperty("class", "Secondary")
-        btn.setIcon(ui_icon("download-cloud",
-                            color=get_theme().palette.text, size=14))
-        btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn.clicked.connect(self.mas_import_requested.emit)
-        row = QHBoxLayout()
-        row.addWidget(btn)
-        row.addStretch(1)
-        v.addWidget(desc)
-        v.addLayout(row)
-        return Card("Importar OpenMagnetics MAS", body)
+        btn_mas = QPushButton("Atualizar do MAS")
+        btn_mas.setProperty("class", "Secondary")
+        btn_mas.setIcon(ui_icon("download-cloud",
+                                color=get_theme().palette.text, size=14))
+        btn_mas.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_mas.clicked.connect(self.mas_import_requested.emit)
 
-    def _build_similar_card(self) -> Card:
-        body = QFrame()
-        v = QVBoxLayout(body)
-        v.setContentsMargins(0, 0, 0, 0)
-        v.setSpacing(8)
+        btn_similar = QPushButton("Buscar similares")
+        btn_similar.setProperty("class", "Secondary")
+        btn_similar.setIcon(ui_icon("search",
+                                     color=get_theme().palette.text, size=14))
+        btn_similar.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_similar.clicked.connect(self.similar_requested.emit)
+
         desc = QLabel(
-            "Busca substitutos drop-in (mesmo Ve, mesma classe de "
-            "material, AL próximo) — útil para troca de fornecedor "
-            "ou para checar se há um core mais barato.",
+            "Funções rápidas — importar do catálogo aberto OpenMagnetics "
+            "ou buscar substitutos drop-in para o núcleo selecionado.",
         )
         desc.setProperty("role", "muted")
         desc.setWordWrap(True)
-        btn = QPushButton("Buscar similares")
-        btn.setProperty("class", "Secondary")
-        btn.setIcon(ui_icon("search",
-                            color=get_theme().palette.text, size=14))
-        btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn.clicked.connect(self.similar_requested.emit)
-        row = QHBoxLayout()
-        row.addWidget(btn)
-        row.addStretch(1)
-        v.addWidget(desc)
-        v.addLayout(row)
-        return Card("Buscar substitutos similares", body)
+
+        v.addWidget(btn_mas)
+        v.addWidget(btn_similar)
+        v.addStretch(1)
+
+        wrap = QFrame()
+        wv = QVBoxLayout(wrap)
+        wv.setContentsMargins(0, 0, 0, 0)
+        wv.setSpacing(8)
+        wv.addWidget(desc)
+        wv.addWidget(body)
+        return Card("Ferramentas rápidas", wrap)

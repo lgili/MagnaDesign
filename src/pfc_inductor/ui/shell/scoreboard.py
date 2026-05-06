@@ -98,15 +98,32 @@ class Scoreboard(QFrame):
         if result is None:
             self._kpi.setText("—")
             return
-        # Compose the KPI strip — keep it tight.
+        # Compose the KPI strip — keep it tight, and switch the last
+        # slot based on topology so the engineer sees what *matters*
+        # for the current design type:
+        #   boost CCM      → η      (efficiency is the headline figure)
+        #   passive choke  → η      (same — Pout is meaningful)
+        #   line reactor   → THD    (Pout flow is two-way; THD is the
+        #                            compliance metric IEC 61000-3-2
+        #                            actually scores)
         try:
             parts = [
                 f"L={result.L_actual_uH:.0f} µH",
                 f"B={result.B_pk_T * 1000.0:.0f} mT",
                 f"ΔT={result.T_rise_C:.0f} °C",
             ]
-            # Efficiency: 1 - P_loss / P_in (only meaningful for boost)
-            if spec is not None and spec.Pout_W > 0:
+            topology = getattr(spec, "topology", None) if spec is not None else None
+            if topology == "line_reactor":
+                # THD is the headline; fall through to %Z if THD wasn't
+                # estimated for this design.
+                thd = getattr(result, "thd_estimate_pct", None)
+                if thd is not None:
+                    parts.append(f"THD={thd:.0f} %")
+                else:
+                    pctz = getattr(result, "pct_impedance_actual", None)
+                    if pctz is not None:
+                        parts.append(f"%Z={pctz:.1f} %")
+            elif spec is not None and spec.Pout_W > 0:
                 eta = 1.0 - result.losses.P_total_W / spec.Pout_W
                 parts.append(f"η={eta * 100:.1f} %")
             self._kpi.setText(" · ".join(parts))

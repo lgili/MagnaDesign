@@ -178,7 +178,6 @@ class MainWindow(QMainWindow):
             self._open_topology_picker,
         )
         self.projeto_page.fea_requested.connect(self._open_fea)
-        self.projeto_page.bh_loop_requested.connect(self._open_bh_loop)
         self.projeto_page.similar_requested.connect(self._open_similar_parts)
         self.projeto_page.litz_requested.connect(self._open_litz)
         self.projeto_page.export_html_requested.connect(self._export_report)
@@ -189,11 +188,17 @@ class MainWindow(QMainWindow):
             self._apply_optimizer_choice,
         )
 
-        # ---- Otimizador page ------------------------------------------
-        self.otimizador_page.open_requested.connect(self._open_optimizer)
+        # ---- Otimizador page (embed) ----------------------------------
+        # The Pareto sweep is now a first-class page surface; "Aplicar"
+        # bubbles up via selection_applied just like the Núcleo card.
+        self.otimizador_page.selection_applied.connect(
+            self._apply_optimizer_choice,
+        )
 
         # ---- Catalogo page --------------------------------------------
-        self.catalogo_page.db_editor_requested.connect(self._open_db_editor)
+        # The DB editor is now embedded directly in the page; ``saved``
+        # fires when the user clicks "Salvar tudo" inside the embed.
+        self.catalogo_page.saved.connect(self._reload_databases)
         self.catalogo_page.mas_import_requested.connect(
             self._open_catalog_update,
         )
@@ -364,13 +369,6 @@ class MainWindow(QMainWindow):
         dlg = AboutDialog(parent=self)
         dlg.exec()
 
-    def _open_bh_loop(self) -> None:
-        # B-H loop already lives as a tab in the legacy PlotPanel and is
-        # rendered inside the FEA dialog's "operating point" view. For
-        # v3 we redirect the user to the FEA dialog, which has the
-        # B-H trajectory chart natively.
-        self._open_fea()
-
     def current_compare_slot(self) -> CompareSlot:
         spec, core, wire, material = self._collect_inputs()
         result = design(spec, core, wire, material)
@@ -504,6 +502,14 @@ class MainWindow(QMainWindow):
         self.projeto_page.populate_nucleo(
             spec, self._materials, self._cores, self._wires,
             material, core, wire,
+        )
+
+        # Refresh the optimizer page's bound inputs so the next sweep
+        # reflects the current spec without the user having to do
+        # anything extra.
+        self.otimizador_page.set_inputs(
+            spec, self._materials, self._cores, self._wires,
+            material.id,
         )
 
         # Emit for subscribers (tests, future plug-ins).

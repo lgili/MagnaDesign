@@ -51,15 +51,25 @@ def test_main_window_no_legacy_qtoolbar(win):
 
 
 def test_main_window_no_legacy_splitter(win):
-    """v3 removed the legacy 3-column splitter from the shell."""
+    """v3 removed the *legacy* 3-column SpecPanel | PlotPanel |
+    ResultPanel splitter. Other splitters (e.g. inside OptimizerEmbed
+    where the ranked table sits next to the Pareto plot) are fine
+    — they are owned by individual pages, not by the shell."""
     from PySide6.QtWidgets import QSplitter
-    splitters = win.findChildren(QSplitter)
-    # Compare dialog (cached) may have a splitter, but it isn't a
-    # child of MainWindow until the dialog is shown. We assert the
-    # shell tree itself has zero splitters.
-    splitter_in_shell = [s for s in splitters
-                         if s.parent() and s.window() is win]
-    assert splitter_in_shell == []
+    from pfc_inductor.ui.spec_panel import SpecPanel
+    from pfc_inductor.ui.plot_panel import PlotPanel
+    from pfc_inductor.ui.result_panel import ResultPanel
+    legacy_panels = (SpecPanel, PlotPanel, ResultPanel)
+
+    for sp in win.findChildren(QSplitter):
+        # Walk the splitter's immediate children; flag any that hosts
+        # one of the legacy panels.
+        for i in range(sp.count()):
+            w = sp.widget(i)
+            assert not isinstance(w, legacy_panels), (
+                f"Found a legacy splitter mounting {type(w).__name__} "
+                "in the shell — v3 should have removed this."
+            )
 
 
 def test_sidebar_navigation_routes_to_stack(win):

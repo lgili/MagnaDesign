@@ -1,50 +1,43 @@
 """Otimizador workspace page.
 
-The full Pareto-sweep + ranked-table view lives in
-:class:`OptimizerDialog <pfc_inductor.ui.optimize_dialog.OptimizerDialog>`.
-This page wraps it as a non-modal CTA card so the user reaches the
-optimizer from the sidebar instead of an obscure overflow menu.
+Hosts :class:`OptimizerEmbed
+<pfc_inductor.ui.optimize_dialog.OptimizerEmbed>` directly — no modal.
+The Pareto sweep + ranked table + "Aplicar selecionado" button are
+the entire page; the engineer can run sweeps, inspect candidates and
+apply choices without leaving the workspace.
 
-The dialog itself stays as the heavy lifter — refactoring it into a
-``QWidget`` page is a separate change. What matters for the v3 flow:
-
-- The optimizer is a *first-class destination* in the sidebar.
-- Clicking "Abrir Otimizador" launches the modal exactly like the
-  legacy overflow menu used to.
-- The ``selection_applied(material_id, core_id, wire_id)`` signal
-  bubbles up so ``MainWindow`` reuses the same recompute path it
-  uses for the Núcleo card "Aplicar".
+The page is **stateless on construction**: the embed starts in
+"empty" mode (run button disabled, prompt to compute first). The host
+(``MainWindow``) calls :meth:`set_inputs` after every successful
+``_on_calculate`` so the optimizer always reflects the latest spec
+and catalog.
 """
 from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QFrame,
-    QHBoxLayout,
     QLabel,
-    QPushButton,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
 
-from pfc_inductor.ui.icons import icon as ui_icon
-from pfc_inductor.ui.theme import get_theme
+from pfc_inductor.models import Core, Material, Spec, Wire
+from pfc_inductor.ui.optimize_dialog import OptimizerEmbed
 from pfc_inductor.ui.widgets import Card
 
 
 class OtimizadorPage(QWidget):
-    """Sidebar destination for the optimizer.
+    """Sidebar destination for the optimizer."""
 
-    Signals
-    -------
-    open_requested
-        Emitted when the user clicks "Abrir Otimizador". The host
-        (``MainWindow``) opens :class:`OptimizerDialog` in response.
-    """
+    selection_applied = Signal(str, str, str)  # material_id, core_id, wire_id
 
+    # Kept for back-compat with v3.0 wiring; emitted by no widget but
+    # still re-exported as a no-op so consumers that connect to it
+    # continue to compile.
     open_requested = Signal()
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
@@ -52,7 +45,7 @@ class OtimizadorPage(QWidget):
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         outer = QVBoxLayout(self)
         outer.setContentsMargins(24, 24, 24, 24)
-        outer.setSpacing(16)
+        outer.setSpacing(12)
 
         title = QLabel("Otimizador")
         title.setProperty("role", "title")
@@ -62,39 +55,34 @@ class OtimizadorPage(QWidget):
             "Varre todas as combinações (núcleo × material × fio) "
             "viáveis para a spec atual e mostra a Pareto-front em três "
             "eixos simultâneos: perdas, volume e custo. Selecione um "
-            "ponto e clique \"Aplicar\" para trazê-lo de volta ao "
-            "projeto.",
+            "ponto e clique \"Aplicar selecionado\" para trazê-lo de "
+            "volta ao projeto.",
         )
         intro.setProperty("role", "muted")
         intro.setWordWrap(True)
         outer.addWidget(intro)
 
-        body = QFrame()
-        v = QVBoxLayout(body)
+        # Embedded optimizer body — same widget the modal dialog wraps.
+        self._embed = OptimizerEmbed()
+        self._embed.selection_applied.connect(self.selection_applied.emit)
+
+        embed_holder = QFrame()
+        v = QVBoxLayout(embed_holder)
         v.setContentsMargins(0, 0, 0, 0)
-        v.setSpacing(8)
-        bullets = QLabel(
-            "• ~2 000 designs/segundo no thread separado.\n"
-            "• Filtro \"apenas viáveis\" desativa as soluções que "
-            "saturariam ou estouram a janela.\n"
-            "• Objetivos: minimize perdas / volume / custo, "
-            "ou Pareto multiobjetivo.\n"
-            "• Top-N pode ser enviado direto ao Comparativo."
+        v.setSpacing(0)
+        v.addWidget(self._embed)
+        outer.addWidget(Card("Pareto sweep multi-objetivo", embed_holder), 1)
+
+    # ------------------------------------------------------------------
+    def set_inputs(
+        self,
+        spec: Spec,
+        materials: list[Material],
+        cores: list[Core],
+        wires: list[Wire],
+        current_material_id: str = "",
+    ) -> None:
+        """Forward to the embed. Called by the host after recompute."""
+        self._embed.set_inputs(
+            spec, materials, cores, wires, current_material_id,
         )
-        bullets.setProperty("role", "muted")
-        bullets.setWordWrap(True)
-        v.addWidget(bullets)
-
-        btn = QPushButton("Abrir Otimizador")
-        btn.setProperty("class", "Primary")
-        btn.setIcon(ui_icon("sliders",
-                            color=get_theme().palette.text_inverse, size=14))
-        btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn.clicked.connect(self.open_requested.emit)
-        row = QHBoxLayout()
-        row.addWidget(btn)
-        row.addStretch(1)
-        v.addLayout(row)
-
-        outer.addWidget(Card("Pareto sweep multi-objetivo", body))
-        outer.addStretch(1)

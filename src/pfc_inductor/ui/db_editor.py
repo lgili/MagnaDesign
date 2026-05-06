@@ -245,20 +245,30 @@ class _ListJsonEditor(QWidget):
         self._refresh_list(select_id=new_e.id)
 
 
-class DbEditorDialog(QDialog):
-    saved = Signal()  # Emitted when DB has been written
+class DbEditorEmbed(QWidget):
+    """Embeddable variant of the DB editor.
+
+    Same body as :class:`DbEditorDialog` but lives as a ``QWidget`` so
+    it can be mounted directly inside a workspace page (the v3
+    Catálogo page does this). Emits ``saved`` whenever the user
+    successfully writes the catalog to disk; the host listens and
+    triggers a recompute.
+    """
+
+    saved = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Editor da base de dados")
-        self.resize(1200, 700)
-
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(8)
+
         info = QLabel(
-            "Edite materiais, núcleos e fios. Alterações são gravadas no diretório "
-            "de dados do usuário (não afeta o pacote instalado)."
+            "Edite materiais, núcleos e fios. Alterações são gravadas no "
+            "diretório de dados do usuário (não afeta o pacote instalado)."
         )
         info.setWordWrap(True)
+        info.setProperty("role", "muted")
         layout.addWidget(info)
 
         self.tabs = QTabWidget()
@@ -277,13 +287,10 @@ class DbEditorDialog(QDialog):
 
         bb = QHBoxLayout()
         self.btn_save = QPushButton("Salvar tudo")
-        self.btn_save.setStyleSheet("font-weight: bold; padding: 4px 14px;")
+        self.btn_save.setProperty("class", "Primary")
         self.btn_save.clicked.connect(self._on_save)
-        self.btn_close = QPushButton("Fechar")
-        self.btn_close.clicked.connect(self.reject)
         bb.addStretch(1)
         bb.addWidget(self.btn_save)
-        bb.addWidget(self.btn_close)
         layout.addLayout(bb)
 
     def _refresh_titles(self):
@@ -304,9 +311,58 @@ class DbEditorDialog(QDialog):
                 save_cores(self.tab_core.entries)
             if self.tab_wire.dirty:
                 save_wires(self.tab_wire.entries)
-        except Exception as e:
+        except (OSError, ValueError) as e:
             QMessageBox.critical(self, "Erro ao salvar", str(e))
             return
         self.saved.emit()
         QMessageBox.information(self, "Salvo", "Base de dados atualizada.")
+
+
+class DbEditorDialog(QDialog):
+    """Modal wrapper around :class:`DbEditorEmbed`.
+
+    Kept for back-compat with callers that expect a dialog (e.g. the
+    Catálogo overflow path). New code should prefer the embed."""
+
+    saved = Signal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Editor da base de dados")
+        self.resize(1200, 700)
+
+        layout = QVBoxLayout(self)
+        self._embed = DbEditorEmbed(self)
+        self._embed.saved.connect(self._on_inner_saved)
+        layout.addWidget(self._embed, 1)
+
+        # Add a Close button alongside the embed's Save button, in a
+        # row at the bottom that the embed itself doesn't render.
+        close_row = QHBoxLayout()
+        close_row.addStretch(1)
+        btn_close = QPushButton("Fechar")
+        btn_close.clicked.connect(self.reject)
+        close_row.addWidget(btn_close)
+        layout.addLayout(close_row)
+
+    # Forward attribute access to the embed for back-compat
+    # (``dlg.tab_mat`` etc.).
+    @property
+    def tab_mat(self):
+        return self._embed.tab_mat
+
+    @property
+    def tab_core(self):
+        return self._embed.tab_core
+
+    @property
+    def tab_wire(self):
+        return self._embed.tab_wire
+
+    @property
+    def tabs(self):
+        return self._embed.tabs
+
+    def _on_inner_saved(self):
+        self.saved.emit()
         self.accept()

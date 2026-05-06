@@ -1,4 +1,16 @@
-"""Optimizer dialog: sweep cores × wires for the selected material, show Pareto."""
+"""Optimizer: sweep cores × wires for the selected material, show Pareto.
+
+Two surfaces:
+
+- :class:`OptimizerEmbed` — a ``QWidget`` containing the entire
+  optimizer body (controls, table, plot, "Aplicar" button). Mountable
+  in any page; used by the v3 :class:`OtimizadorPage
+  <pfc_inductor.ui.workspace.otimizador_page.OtimizadorPage>`.
+
+- :class:`OptimizerDialog` — modal wrapper that composes
+  ``OptimizerEmbed`` plus a ``Fechar`` button. Kept for back-compat
+  with the legacy overflow-menu launch path.
+"""
 from __future__ import annotations
 
 from typing import Optional
@@ -23,6 +35,7 @@ from PySide6.QtWidgets import (
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
+    QWidget,
 )
 
 matplotlib.use("QtAgg")
@@ -62,32 +75,39 @@ class _SweepWorker(QObject):
             self.failed.emit(str(e))
 
 
-class OptimizerDialog(QDialog):
-    """Modal optimizer. On accept, returns chosen (core_id, wire_id, material_id)."""
+class OptimizerEmbed(QWidget):
+    """Optimizer body — controls + ranked table + Pareto plot + Apply.
+
+    Designed to be embedded inline in a workspace page or wrapped in a
+    modal :class:`OptimizerDialog`. The constructor accepts an
+    optional spec; if ``None`` the run button is disabled until
+    :meth:`set_inputs` is called with a valid spec + catalogs.
+    """
 
     selection_applied = Signal(str, str, str)  # material_id, core_id, wire_id
 
     def __init__(
         self,
-        spec: Spec,
-        materials: list[Material],
-        cores: list[Core],
-        wires: list[Wire],
-        current_material_id: str,
-        parent=None,
+        spec: Optional[Spec] = None,
+        materials: Optional[list[Material]] = None,
+        cores: Optional[list[Core]] = None,
+        wires: Optional[list[Wire]] = None,
+        current_material_id: str = "",
+        parent: Optional[QWidget] = None,
     ):
         super().__init__(parent)
-        self.setWindowTitle("Otimizador — varredura núcleos × fios")
-        self.resize(1200, 700)
         self._spec = spec
-        self._materials = materials
-        self._cores = cores
-        self._wires = wires
+        self._materials = list(materials) if materials else []
+        self._cores = list(cores) if cores else []
+        self._wires = list(wires) if wires else []
         self._results: list[SweepResult] = []
         self._pareto: list[SweepResult] = []
+        self._row_to_result: list[SweepResult] = []
         self._thread: Optional[QThread] = None
 
         outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(8)
 
         outer.addWidget(self._build_controls(current_material_id))
 
@@ -98,6 +118,48 @@ class OptimizerDialog(QDialog):
         outer.addWidget(splitter, 1)
 
         outer.addLayout(self._build_buttons())
+
+        # Disable run if no spec yet.
+        if self._spec is None:
+            self.btn_run.setEnabled(False)
+            self.lbl_count.setText(
+                "Aguardando spec — calcule um design primeiro.",
+            )
+
+    # ------------------------------------------------------------------
+    def set_inputs(
+        self,
+        spec: Spec,
+        materials: list[Material],
+        cores: list[Core],
+        wires: list[Wire],
+        current_material_id: str = "",
+    ) -> None:
+        """(Re)bind the optimizer inputs without rebuilding the UI.
+
+        Called by the host whenever the user edits the spec / reloads
+        the catalogs in another part of the app — the optimizer page
+        always reflects the latest state."""
+        self._spec = spec
+        self._materials = list(materials)
+        self._cores = list(cores)
+        self._wires = list(wires)
+        # Refresh the material combo with the new catalog.
+        self.cmb_material.blockSignals(True)
+        self.cmb_material.clear()
+        self.cmb_material.addItem("(varrer todos)", None)
+        for m in self._materials:
+            self.cmb_material.addItem(f"{m.vendor} — {m.name}", m.id)
+        for i in range(self.cmb_material.count()):
+            if self.cmb_material.itemData(i) == current_material_id:
+                self.cmb_material.setCurrentIndex(i)
+                break
+        self.cmb_material.blockSignals(False)
+        self.btn_run.setEnabled(True)
+        if not self._results:
+            self.lbl_count.setText(
+                "Pronto — clique em <b>Rodar varredura</b>.",
+            )
 
     def _build_controls(self, current_material_id: str) -> QGroupBox:
         box = QGroupBox("Configuração da varredura")
@@ -196,12 +258,10 @@ class OptimizerDialog(QDialog):
         h = QHBoxLayout()
         h.addStretch(1)
         self.btn_apply = QPushButton("Aplicar selecionado")
+        self.btn_apply.setProperty("class", "Primary")
         self.btn_apply.setEnabled(False)
         self.btn_apply.clicked.connect(self._apply_selection)
-        self.btn_close = QPushButton("Fechar")
-        self.btn_close.clicked.connect(self.reject)
         h.addWidget(self.btn_apply)
-        h.addWidget(self.btn_close)
         return h
 
     def _run_sweep(self):
@@ -350,4 +410,48 @@ class OptimizerDialog(QDialog):
             return
         sr = self._row_to_result[idx]
         self.selection_applied.emit(sr.material.id, sr.core.id, sr.wire.id)
+
+
+class OptimizerDialog(QDialog):
+    """Modal wrapper around :class:`OptimizerEmbed`.
+
+    Kept for back-compat with callers that prefer a dialog. New code
+    should embed :class:`OptimizerEmbed` directly inside a page.
+    """
+
+    selection_applied = Signal(str, str, str)
+
+    def __init__(
+        self,
+        spec: Spec,
+        materials: list[Material],
+        cores: list[Core],
+        wires: list[Wire],
+        current_material_id: str,
+        parent=None,
+    ):
+        super().__init__(parent)
+        self.setWindowTitle("Otimizador — varredura núcleos × fios")
+        self.resize(1200, 700)
+        layout = QVBoxLayout(self)
+
+        self._embed = OptimizerEmbed(
+            spec, materials, cores, wires,
+            current_material_id, parent=self,
+        )
+        # Forward the inner signal AND auto-accept so callers that wait
+        # for ``dlg.exec() == Accepted`` keep working unchanged.
+        self._embed.selection_applied.connect(self._on_inner_applied)
+        layout.addWidget(self._embed, 1)
+
+        bottom = QHBoxLayout()
+        bottom.addStretch(1)
+        btn_close = QPushButton("Fechar")
+        btn_close.clicked.connect(self.reject)
+        bottom.addWidget(btn_close)
+        layout.addLayout(bottom)
+
+    def _on_inner_applied(self, material_id: str, core_id: str,
+                          wire_id: str) -> None:
+        self.selection_applied.emit(material_id, core_id, wire_id)
         self.accept()

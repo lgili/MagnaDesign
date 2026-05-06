@@ -1,5 +1,6 @@
 """Reusable dashboard widgets — Card, MetricCard, DataTable, ScorePill,
 DonutChart, NextStepsCard."""
+from pfc_inductor.ui.widgets.bh_loop_chart import BHLoopChart
 from pfc_inductor.ui.widgets.card import Card
 from pfc_inductor.ui.widgets.data_table import DataTable
 from pfc_inductor.ui.widgets.donut_chart import DonutChart
@@ -20,4 +21,5 @@ __all__ = [
     "DonutChart",
     "NextStepsCard", "ActionItem", "ActionStatus",
     "TopologySchematicWidget", "TopologyKind", "topology_picker_choices",
+    "BHLoopChart",
 ]

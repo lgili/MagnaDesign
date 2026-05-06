@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
 from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
 from pfc_inductor.ui.icons import icon as ui_icon
 from pfc_inductor.ui.theme import get_theme
-from pfc_inductor.ui.widgets import Card
+from pfc_inductor.ui.widgets import BHLoopChart, Card
 
 
 class ValidarTab(QWidget):
@@ -39,7 +39,6 @@ class ValidarTab(QWidget):
     """
 
     fea_requested = Signal()
-    bh_loop_requested = Signal()
     compare_requested = Signal()
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
@@ -81,10 +80,13 @@ class ValidarTab(QWidget):
             f"{result.B_pk_T * 1000:.0f} mT · margem saturação = "
             f"{result.sat_margin_pct:.0f} %"
         )
+        # Live B-H trajectory plot.
+        self._bh_chart.update_from_design(result, core, material)
 
     def clear(self) -> None:
         self._fea_summary.setText("Aguardando cálculo…")
         self._bh_summary.setText("Aguardando cálculo…")
+        self._bh_chart.clear()
 
     # ------------------------------------------------------------------
     def _build_fea_card(self) -> Card:
@@ -120,25 +122,21 @@ class ValidarTab(QWidget):
         v.setContentsMargins(0, 0, 0, 0)
         v.setSpacing(8)
         desc = QLabel(
-            "Mostra a trajetória do operating point sobre a curva B–H "
-            "estática do material. Excelente para checar visualmente "
-            "se o ripple está perto da joelha de saturação.",
+            "Trajetória do operating point sobre a curva B–H estática "
+            "do material — envelope de rede, ripple no pico (quando "
+            "presente) e linha de Bsat. Atualiza automaticamente após "
+            "cada Recalcular.",
         )
         desc.setProperty("role", "muted")
         desc.setWordWrap(True)
         self._bh_summary = QLabel("Aguardando cálculo…")
         self._bh_summary.setStyleSheet(self._summary_qss())
-        btn = QPushButton("Mostrar B–H loop")
-        btn.setProperty("class", "Secondary")
-        btn.setIcon(ui_icon("activity", color=get_theme().palette.text, size=14))
-        btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn.clicked.connect(self.bh_loop_requested.emit)
-        row = QHBoxLayout()
-        row.addWidget(btn)
-        row.addStretch(1)
+        # Live chart embedded inline — no separate dialog.
+        self._bh_chart = BHLoopChart()
+        self._bh_chart.setMinimumHeight(260)
         v.addWidget(desc)
         v.addWidget(self._bh_summary)
-        v.addLayout(row)
+        v.addWidget(self._bh_chart, 1)
         return Card("B–H loop no operating point", body)
 
     def _build_compare_card(self) -> Card:
