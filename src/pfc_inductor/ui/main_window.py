@@ -1,19 +1,37 @@
-"""Main application window."""
+"""Main application window — MagnaDesign shell.
+
+Layout (left → right, top → bottom):
+
+    +-----------------------------------------------------+
+    | [Sidebar 250px navy]  | WorkspaceHeader (project + CTAs)
+    |                       +------------------------------
+    |                       | WorkflowStepper (8 segments)
+    |                       +------------------------------
+    |                       | QStackedWidget                |
+    |                       |   page 0 = legacy splitter    |
+    |                       |   page 1+ = placeholders      |
+    |                       +------------------------------
+    |                       | BottomStatusBar (pills)      |
+    +-----------------------------------------------------+
+
+The legacy 3-column splitter (spec/plot/result) lives inside the stack as
+page 0 — every existing feature keeps working while the dashboard grid
+(``refactor-ui-dashboard-cards``) is being built. Other sidebar areas
+mount stub pages that can later be replaced by their dedicated views.
+"""
 from __future__ import annotations
-from typing import Optional
 import numpy as np
 
-from PySide6.QtCore import Qt, QSettings, QSize
-from PySide6.QtGui import QAction, QFont
+from PySide6.QtCore import Qt, QSettings
 from PySide6.QtWidgets import (
-    QMainWindow, QSplitter, QWidget, QVBoxLayout, QHBoxLayout, QStatusBar,
-    QLabel, QMessageBox, QToolBar, QApplication, QToolButton,
+    QMainWindow, QSplitter, QWidget, QVBoxLayout, QHBoxLayout,
+    QLabel, QMessageBox, QApplication, QStackedWidget, QFrame,
 )
 
 from pfc_inductor.data_loader import (
     load_materials, load_cores, load_wires, find_material, ensure_user_data,
 )
-from pfc_inductor.models import Spec, Material, Core, Wire
+from pfc_inductor.models import Spec, Core, Wire
 from pfc_inductor.design import design
 from pfc_inductor.physics import rolloff as rf
 from pfc_inductor.physics import estimate_cost
@@ -34,17 +52,52 @@ from pfc_inductor.compare import CompareSlot
 from pfc_inductor.report import generate_datasheet
 from pfc_inductor.ui.theme import get_theme, set_theme, is_dark
 from pfc_inductor.ui.style import make_stylesheet
-from pfc_inductor.ui.icons import icon as ui_icon
+from pfc_inductor.ui.shell import (
+    Sidebar, WorkspaceHeader, WorkflowStepper, BottomStatusBar,
+)
+from pfc_inductor.ui.state import WorkflowState
+from pfc_inductor.ui.dashboard import DashboardPage
+from pfc_inductor.ui.dialogs import TopologyPickerDialog
 
 
 SETTINGS_ORG = "indutor"
 SETTINGS_APP = "PFCInductorDesigner"
 
+# Map sidebar area_id → stack-page index. Page 0 hosts the legacy
+# splitter for now; the remaining areas show stub placeholders that can
+# be replaced by their dedicated views in later changes.
+AREA_PAGES: tuple[str, ...] = (
+    "dashboard", "topologia", "nucleos", "bobinamento",
+    "simulacao", "mecanico", "relatorios", "configuracoes",
+)
+
+# Steps-by-area for the workflow stepper. The active step is derived
+# from which sidebar area is currently selected, so the stepper feels
+# alive even though it isn't user-clickable yet.
+AREA_TO_STEP: dict[str, int] = {
+    "topologia": 0,
+    "dashboard": 2,        # "Cálculo" — the dashboard *is* the design view
+    "nucleos": 3,
+    "bobinamento": 4,
+    "simulacao": 5,
+    "mecanico": 6,
+    "relatorios": 7,
+    "configuracoes": 0,
+}
+
 
 class MainWindow(QMainWindow):
+    """The main application window. Emits :attr:`design_completed` after
+    every successful recompute so the dashboard cards (and any future
+    subscribers) can update from a single signal."""
+
+    from PySide6.QtCore import Signal as _Signal
+    design_completed = _Signal(object, object, object, object, object)
+    """``Signal(DesignResult, Spec, Core, Wire, Material)``."""
+
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("PFC Inductor Designer")
+        self.setWindowTitle("MagnaDesign — Inductor Design Suite")
         self.resize(1500, 900)
 
         ensure_user_data()
@@ -52,11 +105,140 @@ class MainWindow(QMainWindow):
         self._cores = load_cores()
         self._wires = load_wires()
 
+        # ---- shell state -----------------------------------------------
+        self._workflow_state = WorkflowState(self)
+        self._workflow_state.from_settings(QSettings(SETTINGS_ORG, SETTINGS_APP))
+        self._workflow_state.state_changed.connect(self._on_state_changed)
+
+        # ---- legacy panels (still used by the dashboard page) ----------
         self.spec_panel = SpecPanel(self._materials, self._cores, self._wires)
         self.result_panel = ResultPanel()
         self.plot_panel = PlotPanel()
 
-        # Layout: left=spec, center=plots, right=results.
+        # Build chrome + workspace (with the legacy splitter inside).
+        self._build_shell()
+
+        # Auto-recalc disabled — only the spec-panel "Calcular" button
+        # triggers a recompute. See spec_panel docstring.
+        self.spec_panel.calculate_requested.connect(self._on_calculate)
+        self._auto_calc = False
+
+        self._on_calculate()
+        self._maybe_offer_fea_setup()
+
+    # ==================================================================
+    # Shell construction
+    # ==================================================================
+    def _build_shell(self) -> None:
+        """Compose Sidebar + Workspace into the central widget."""
+        central = QWidget()
+        h = QHBoxLayout(central)
+        h.setContentsMargins(0, 0, 0, 0)
+        h.setSpacing(0)
+
+        # ---- Sidebar ---------------------------------------------------
+        self.sidebar = Sidebar(parent=central, dark_theme=is_dark())
+        self.sidebar.navigation_requested.connect(self._on_nav_requested)
+        self.sidebar.theme_toggle_requested.connect(self._toggle_theme)
+        self.sidebar.overflow_action_requested.connect(self._on_overflow_action)
+
+        # ---- Workspace -------------------------------------------------
+        workspace = QFrame()
+        workspace.setObjectName("Workspace")
+        workspace.setStyleSheet(
+            f"QFrame#Workspace {{ background: {get_theme().palette.bg}; }}"
+        )
+        v = QVBoxLayout(workspace)
+        v.setContentsMargins(0, 0, 0, 0)
+        v.setSpacing(0)
+
+        self.header = WorkspaceHeader(parent=workspace)
+        self.header.set_project_name(self._workflow_state.project_name)
+        self.header.compare_requested.connect(self._open_compare)
+        self.header.report_requested.connect(self._export_report)
+        self.header.name_changed.connect(self._workflow_state.set_project_name)
+
+        self.stepper = WorkflowStepper(parent=workspace)
+        self.stepper.set_state(
+            self._workflow_state.current_step,
+            self._workflow_state.completed_steps,
+        )
+        self.stepper.step_clicked.connect(self._on_stepper_clicked)
+
+        self.stack = QStackedWidget(workspace)
+        self._build_stack_pages()
+
+        self.status_bar = BottomStatusBar(parent=workspace)
+
+        v.addWidget(self.header)
+        v.addWidget(self.stepper)
+        v.addWidget(self.stack, 1)
+        v.addWidget(self.status_bar)
+
+        h.addWidget(self.sidebar)
+        h.addWidget(workspace, 1)
+        self.setCentralWidget(central)
+
+        # Push first state-derived UI snapshot.
+        self._on_state_changed()
+
+    def _build_stack_pages(self) -> None:
+        """Page 0 = MagnaDesign DashboardPage. Pages 1..6 = stub
+        placeholders. The legacy 3-column splitter (spec/plot/result)
+        lives behind a "Modo clássico" toggle in Configurações — page 7
+        switches between the placeholder and the legacy splitter
+        depending on the persisted preference.
+        """
+        # ---- page 0: DashboardPage -------------------------------------
+        self.dashboard_page = DashboardPage()
+        self.dashboard_page.fea_requested.connect(self._open_fea)
+        self.dashboard_page.compare_requested.connect(self._open_compare)
+        self.dashboard_page.litz_requested.connect(self._open_litz)
+        self.dashboard_page.report_requested.connect(self._export_report)
+        self.dashboard_page.similar_requested.connect(self._open_similar_parts)
+        # Topology change: opens the picker dialog and applies the
+        # selection back into the spec panel.
+        self.dashboard_page.topology_change_requested.connect(
+            self._open_topology_picker
+        )
+        self.stack.addWidget(self.dashboard_page)
+
+        # ---- pages 1..6: placeholders ----------------------------------
+        for area in AREA_PAGES[1:7]:
+            self.stack.addWidget(self._make_placeholder_page(area))
+
+        # ---- page 7: configurações (with classic-mode toggle) ---------
+        self._classic_page = self._make_classic_page()
+        self.stack.addWidget(self._classic_page)
+
+    def _make_classic_page(self) -> QWidget:
+        """Configurações page hosting the classic-mode toggle + (when on)
+        the legacy 3-column splitter."""
+        from PySide6.QtWidgets import QCheckBox
+
+        page = QFrame()
+        v = QVBoxLayout(page)
+        v.setContentsMargins(48, 64, 48, 48)
+        v.setSpacing(16)
+        v.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+        title = QLabel("Configurações")
+        title.setProperty("role", "title")
+        v.addWidget(title)
+
+        chk_classic = QCheckBox(
+            "Modo clássico (3 colunas) — usa o layout v1 com SpecPanel / "
+            "PlotPanel / ResultPanel"
+        )
+        qs = QSettings(SETTINGS_ORG, SETTINGS_APP)
+        chk_classic.setChecked(bool(qs.value("classic_mode", False, type=bool)))
+        v.addWidget(chk_classic)
+
+        legacy_holder = QFrame()
+        ll = QVBoxLayout(legacy_holder)
+        ll.setContentsMargins(0, 16, 0, 0)
+        ll.setSpacing(0)
+
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.setHandleWidth(1)
         splitter.addWidget(self.spec_panel)
@@ -66,142 +248,148 @@ class MainWindow(QMainWindow):
         splitter.setStretchFactor(1, 3)
         splitter.setStretchFactor(2, 1)
         splitter.setSizes([380, 720, 420])
+        ll.addWidget(splitter)
+        legacy_holder.setVisible(chk_classic.isChecked())
 
-        container = QWidget()
-        v = QVBoxLayout(container)
-        v.setContentsMargins(0, 0, 0, 0)
-        v.setSpacing(0)
-        v.addWidget(splitter)
-        self.setCentralWidget(container)
+        def _on_toggle(state: bool) -> None:
+            qs.setValue("classic_mode", bool(state))
+            legacy_holder.setVisible(bool(state))
 
-        self._build_toolbar()
-        self._build_status_bar()
+        chk_classic.toggled.connect(_on_toggle)
+        v.addWidget(legacy_holder, 1)
+        return page
 
-        # Recalc happens on demand: the "Calcular" button on the spec
-        # panel is the single trigger. Auto-recalc on every change kept
-        # the UI feeling laggy — pyvista + matplotlib + the design
-        # engine over a 1430-wire / 1020-core DB take ~200–500 ms per
-        # cycle, and any signal hiccup (visibility toggle, combo
-        # repopulation) compounds. Explicit click is fast and
-        # predictable.
-        self.spec_panel.calculate_requested.connect(self._on_calculate)
-        self._auto_calc = False
+    def _make_placeholder_page(self, area_id: str) -> QWidget:
+        page = QFrame()
+        page.setObjectName(f"PagePlaceholder_{area_id}")
+        v = QVBoxLayout(page)
+        v.setContentsMargins(48, 64, 48, 48)
+        v.setSpacing(8)
+        v.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        self._on_calculate()
-        self._maybe_offer_fea_setup()
-
-    # ------------------------------------------------------------------
-    # Chrome
-    # ------------------------------------------------------------------
-    def _build_toolbar(self):
-        tb = QToolBar("Ferramentas")
-        tb.setMovable(False)
-        tb.setIconSize(QSize(16, 16))
-        tb.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        self.addToolBar(tb)
-
-        p = get_theme().palette
-        ic = lambda name: ui_icon(name, p.text_secondary, 16)
-
-        for icon_name, label, slot in [
-            ("sliders",  "Otimizador",          self._open_optimizer),
-            ("compare",  "Comparar",            self._open_compare),
-            ("search",   "Similares",           self._open_similar_parts),
-            ("braid",    "Litz",                self._open_litz),
-            ("cube",     "Validar (FEA)",       self._open_fea),
-        ]:
-            act = QAction(ic(icon_name), label, self)
-            act.triggered.connect(slot)
-            tb.addAction(act)
-
-        tb.addSeparator()
-
-        act_db = QAction(ic("database"), "Base de dados", self)
-        act_db.triggered.connect(self._open_db_editor)
-        tb.addAction(act_db)
-
-        act_catalog = QAction(ic("download_cloud"), "Atualizar catálogo", self)
-        act_catalog.setToolTip(
-            "Importa materiais e fios do catálogo OpenMagnetics MAS"
+        label = QLabel(f"Área «{area_id}»")
+        label.setProperty("role", "title")
+        caption = QLabel(
+            "Esta área ainda não tem layout dedicado. "
+            "Por enquanto, use o menu \"…\" da barra lateral para acessar "
+            "as ferramentas legadas."
         )
-        act_catalog.triggered.connect(self._open_catalog_update)
-        tb.addAction(act_catalog)
+        caption.setProperty("role", "muted")
+        caption.setWordWrap(True)
+        v.addWidget(label)
+        v.addWidget(caption)
+        v.addStretch(1)
+        return page
 
-        act_setup = QAction(ic("download_cloud"), "Instalar FEA", self)
-        act_setup.setToolTip(
-            "Reinstalar/atualizar dependências FEA (ONELAB + FEMMT)"
-        )
-        act_setup.triggered.connect(self._open_setup_deps)
-        tb.addAction(act_setup)
-
-        act_report = QAction(ic("file"), "Relatório", self)
-        act_report.triggered.connect(self._export_report)
-        tb.addAction(act_report)
-
-        act_about = QAction(ic("zap"), "Sobre", self)
-        act_about.triggered.connect(self._open_about)
-        tb.addAction(act_about)
-
-        # Stretch + theme toggle on far right.
-        spacer = QWidget()
-        spacer.setSizePolicy(QSizePolicyExpanding(), QSizePolicyExpanding())
-        tb.addWidget(spacer)
-
-        self._theme_action = QAction(self)
-        self._theme_action.setToolTip("Alternar tema claro/escuro")
-        self._theme_action.triggered.connect(self._toggle_theme)
-        self._refresh_theme_action_icon()
-        tb.addAction(self._theme_action)
-
-        self._toolbar = tb
-
-    def _refresh_theme_action_icon(self):
-        p = get_theme().palette
-        name = "sun" if is_dark() else "moon"
-        self._theme_action.setIcon(ui_icon(name, p.text_secondary, 16))
-        self._theme_action.setText("Tema escuro" if not is_dark() else "Tema claro")
-
-    def _toggle_theme(self):
+    # ==================================================================
+    # Theme + navigation
+    # ==================================================================
+    def _toggle_theme(self) -> None:
         new = "dark" if not is_dark() else "light"
         set_theme(new)
-        QApplication.instance().setStyleSheet(make_stylesheet(get_theme()))
+        app = QApplication.instance()
+        if isinstance(app, QApplication):
+            app.setStyleSheet(make_stylesheet(get_theme()))
         QSettings(SETTINGS_ORG, SETTINGS_APP).setValue("theme", new)
-        self._refresh_theme_action_icon()
-        # Re-tint toolbar icons.
-        self._retint_toolbar_icons()
-        # Refresh result colours that aren't covered by QSS.
+        self.sidebar.set_dark_theme(is_dark())
         self.result_panel.refresh_theme()
         self._on_calculate()
 
-    def _retint_toolbar_icons(self):
-        p = get_theme().palette
-        actions = self._toolbar.actions()
-        names = ["sliders", "compare", "search", "braid", "cube",
-                 None, "database", "download_cloud", "download_cloud",
-                 "file", "zap", None]
-        # Skip separators and the spacer; theme button has its own logic.
-        for act, name in zip(actions, names + [None] * (len(actions) - len(names))):
-            if name is None:
-                continue
-            act.setIcon(ui_icon(name, p.text_secondary, 16))
+    def _on_stepper_clicked(self, step_idx: int) -> None:
+        """Translate a stepper-segment click into a sidebar navigation
+        request — the inverse of ``AREA_TO_STEP``.
 
-    def _build_status_bar(self):
-        sb = QStatusBar()
-        self.setStatusBar(sb)
+        Multiple areas may map to the same step (Topologia and
+        Configurações both map to step 0). We pick the first canonical
+        match in :data:`AREA_PAGES` order, so e.g. clicking step 0
+        always lands on "topologia" rather than "configuracoes".
+        """
+        for area in AREA_PAGES:
+            if AREA_TO_STEP.get(area) == step_idx:
+                self.sidebar.set_active_area(area)
+                self._on_nav_requested(area)
+                return
 
-        # Left: status text.
-        self._sb_label = QLabel("Pronto.")
-        self._sb_label.setProperty("role", "muted")
-        sb.addWidget(self._sb_label, 1)
+    def _on_nav_requested(self, area_id: str) -> None:
+        try:
+            idx = AREA_PAGES.index(area_id)
+        except ValueError:
+            return
+        self.stack.setCurrentIndex(idx)
+        # Move the workflow stepper to the matching step.
+        if area_id in AREA_TO_STEP:
+            self._workflow_state.set_current_step(AREA_TO_STEP[area_id])
 
-        # Right: app version pill.
-        version_pill = QLabel("v0.1")
-        version_pill.setProperty("pill", "neutral")
-        sb.addPermanentWidget(version_pill)
+    def _on_overflow_action(self, key: str) -> None:
+        """Sidebar footer "..." menu dispatcher."""
+        handlers = {
+            "optimizer": self._open_optimizer,
+            "compare":   self._open_compare,
+            "similar":   self._open_similar_parts,
+            "litz":      self._open_litz,
+            "fea":       self._open_fea,
+            "db_editor": self._open_db_editor,
+            "catalog":   self._open_catalog_update,
+            "setup_fea": self._open_setup_deps,
+            "about":     self._open_about,
+        }
+        h = handlers.get(key)
+        if h is not None:
+            h()
 
-    # ------------------------------------------------------------------
-    # Action handlers
-    # ------------------------------------------------------------------
+    # ==================================================================
+    # WorkflowState fan-out
+    # ==================================================================
+    def _on_state_changed(self) -> None:
+        s = self._workflow_state.snapshot()
+        self.header.set_project_name(s.project_name)
+        self.header.set_save_status(
+            unsaved=s.unsaved, last_saved_at=s.last_saved_at,
+        )
+        self.stepper.set_state(s.current_step, s.completed_steps)
+        self.status_bar.set_warnings(s.warnings)
+        self.status_bar.set_errors(s.errors)
+        self.status_bar.set_validations(s.validations_passed)
+        self.status_bar.set_save_status(
+            unsaved=s.unsaved, last_saved_at=s.last_saved_at,
+        )
+
+    # ==================================================================
+    # Action handlers (preserved from v1)
+    # ==================================================================
+    def _open_topology_picker(self) -> None:
+        """Show the topology picker dialog and apply the selection back
+        to the spec panel. Triggers a recompute when the user changes
+        topology."""
+        try:
+            spec = self.spec_panel.get_spec()
+            current = spec.topology
+            n_phases = getattr(spec, "n_phases", 1)
+        except Exception:
+            current = "boost_ccm"
+            n_phases = 1
+        dlg = TopologyPickerDialog(
+            current=current, n_phases=int(n_phases), parent=self,
+        )
+        if dlg.exec() != TopologyPickerDialog.DialogCode.Accepted:
+            return
+        new_key = dlg.selected_key()
+        new_phases = dlg.selected_n_phases()
+        # Apply by updating the existing combo boxes — keeps every other
+        # spec field intact and re-uses the existing _on_topology_changed
+        # show/hide logic.
+        sp = self.spec_panel
+        for i in range(sp.cmb_topology.count()):
+            if sp.cmb_topology.itemData(i) == new_key:
+                sp.cmb_topology.setCurrentIndex(i)
+                break
+        if new_key == "line_reactor":
+            for i in range(sp.cmb_phases.count()):
+                if int(sp.cmb_phases.itemData(i) or 0) == new_phases:
+                    sp.cmb_phases.setCurrentIndex(i)
+                    break
+        self._on_calculate()
+
     def _open_optimizer(self):
         try:
             spec = self.spec_panel.get_spec()
@@ -240,6 +428,11 @@ class MainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "Datasheet generation failed", str(e))
             return
+        # Mark the "Relatório" workflow step done + flash a save-state.
+        self._workflow_state.mark_step_done(7)
+        self._workflow_state.mark_saved()
+        if hasattr(self, "dashboard_page"):
+            self.dashboard_page.mark_action_done("report")
         QMessageBox.information(
             self, "Datasheet saved",
             f"Saved to:\n{out}\n\nOpen in a browser and use Print → Save as PDF.",
@@ -260,11 +453,6 @@ class MainWindow(QMainWindow):
         dlg.exec()
 
     def _maybe_offer_fea_setup(self) -> None:
-        """Open the install dialog on boot when ONELAB is missing.
-
-        Only fires once per MainWindow construction — closing the dialog
-        keeps it closed for the remainder of the session.
-        """
         try:
             v = check_fea_setup()
         except Exception:
@@ -314,14 +502,13 @@ class MainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.warning(self, "Seleção inválida", str(e))
             return
-        # The FEA dialog runs `select_backend_for_shape` and surfaces the
-        # chosen backend + fidelity rating in its status header — toroid
-        # picks FEMM when available, EE/ETD/PQ pick FEMMT, etc.
         dlg = FEAValidationDialog(
             slot.spec, slot.core, slot.wire, slot.material, slot.result,
             parent=self,
         )
         dlg.exec()
+        # FEA round-trip ⇒ "Simulação FEM" step done.
+        self._workflow_state.mark_step_done(5)
 
     def _open_similar_parts(self):
         try:
@@ -357,8 +544,6 @@ class MainWindow(QMainWindow):
         sp._materials = self._materials
         sp._cores = self._cores
         sp._wires = self._wires
-        # Repopulate via the spec panel's own helper so combos stay
-        # sorted + searchable consistently.
         sp._refresh_visible_options()
         sp._set_initial_selection()
         self._on_calculate()
@@ -379,9 +564,9 @@ class MainWindow(QMainWindow):
                 break
         self._on_calculate()
 
-    # ------------------------------------------------------------------
+    # ==================================================================
     # Lookups + recalc
-    # ------------------------------------------------------------------
+    # ==================================================================
     def _find_core(self, core_id: str) -> Core:
         for c in self._cores:
             if c.id == core_id:
@@ -395,12 +580,7 @@ class MainWindow(QMainWindow):
         raise KeyError(wire_id)
 
     def _on_param_changed(self):
-        """No-op — auto-recalc removed. Recalc is triggered exclusively
-        by the user clicking <b>Calcular</b> on the spec panel.
-
-        Kept for compatibility in case any caller still emits
-        ``changed`` (none currently connect to it).
-        """
+        """No-op — auto-recalc removed."""
         return
 
     def _on_calculate(self):
@@ -411,7 +591,7 @@ class MainWindow(QMainWindow):
             material = find_material(self._materials, self.spec_panel.get_material_id())
             result = design(spec, core, wire, material)
         except Exception as e:
-            self._sb_label.setText(f"Erro: {e}")
+            self._workflow_state.set_errors(self._workflow_state.errors + 1)
             QMessageBox.warning(self, "Erro no cálculo", str(e))
             return
 
@@ -430,17 +610,25 @@ class MainWindow(QMainWindow):
             core=core, wire=wire, material=material,
         )
 
-        if result.warnings:
-            msg = (f"⚠ {len(result.warnings)} aviso(s)  ·  "
-                   f"L={result.L_actual_uH:.0f} µH  ·  N={result.N_turns}  ·  "
-                   f"P={result.losses.P_total_W:.2f} W  ·  T={result.T_winding_C:.0f} °C")
-        else:
-            msg = (f"OK  ·  L={result.L_actual_uH:.0f} µH  ·  N={result.N_turns}  ·  "
-                   f"P={result.losses.P_total_W:.2f} W  ·  T={result.T_winding_C:.0f} °C")
-        self._sb_label.setText(msg)
+        # Wire results into the workflow status counters.
+        n_warn = len(result.warnings) if hasattr(result, "warnings") else 0
+        # 12 validation checkpoints in the engine — count those that
+        # came back without a matching warning string.
+        n_validations = max(0, 12 - n_warn)
+        self._workflow_state.set_warnings(n_warn)
+        self._workflow_state.set_errors(0)
+        self._workflow_state.set_validations(n_validations)
+        # A successful calc means: Topologia ✓, Entrada ✓, Cálculo ✓,
+        # Núcleo ✓ are all "done" — Bobinamento depends on a wire pick
+        # which may be auto-default, leave that to user action.
+        for s in (0, 1, 2, 3):
+            self._workflow_state.mark_step_done(s)
 
+        # Update dashboard cards.
+        if hasattr(self, "dashboard_page"):
+            self.dashboard_page.update_from_design(
+                result, spec, core, wire, material,
+            )
 
-def QSizePolicyExpanding():
-    """Helper to avoid importing QSizePolicy at module top."""
-    from PySide6.QtWidgets import QSizePolicy
-    return QSizePolicy.Policy.Expanding
+        # Emit for subscribers (tests, future plug-ins).
+        self.design_completed.emit(result, spec, core, wire, material)

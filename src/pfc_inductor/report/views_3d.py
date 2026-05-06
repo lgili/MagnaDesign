@@ -98,45 +98,18 @@ def _add_to_scene(plotter, core: Core, wire: Wire, N_turns: int,
         )
 
 
-# Camera presets per orthographic view.
-# Coordinate convention (matches the mesh builder):
-#   +X = width  (left-right)
-#   +Y = depth  (front-back)
-#   +Z = height (up-down)
-_VIEW_CAMERAS = {
-    # (camera direction from origin, up vector). The eye is placed at
-    # ``centre + dir·distance`` and looks back at the centre.
-    "front":  ((0.0, -1.0, 0.0), (0.0, 0.0, 1.0)),    # camera at −Y, up=+Z
-    "top":    ((0.0, 0.0, 1.0),  (0.0, 1.0, 0.0)),    # camera at +Z, up=+Y
-    "side":   ((1.0, 0.0, 0.0),  (0.0, 0.0, 1.0)),    # camera at +X, up=+Z
-    "iso":    ((1.0, -1.0, 0.7), (0.0, 0.0, 1.0)),    # 30°/30° iso, up=+Z
-}
+# Camera presets are shared with the interactive 3D viewer overlay
+# (``ui.viewer3d.view_chips``). The canonical definition lives in
+# :mod:`pfc_inductor.visual.views` so both renderers consume the same
+# directions and up-vectors.
+from pfc_inductor.visual.views import (
+    VIEW_CAMERAS as _VIEW_CAMERAS,
+    set_camera_to_view as _set_view_helper,
+)
 
 
 def _set_view(plotter, name: str) -> None:
-    cam_dir, up_vec = _VIEW_CAMERAS[name]
-    bounds = plotter.bounds  # (xmin, xmax, ymin, ymax, zmin, zmax)
-    centre = np.array([(bounds[0] + bounds[1]) / 2,
-                       (bounds[2] + bounds[3]) / 2,
-                       (bounds[4] + bounds[5]) / 2])
-    # Distance based on the largest object dim.
-    span = max(bounds[1] - bounds[0], bounds[3] - bounds[2],
-               bounds[5] - bounds[4])
-    distance = span * 2.4
-    eye = centre + np.array(cam_dir, dtype=float) * distance
-    plotter.camera_position = [tuple(eye), tuple(centre), up_vec]
-    if name in ("front", "top", "side"):
-        # Orthographic projection for the technical views.
-        try:
-            plotter.camera.parallel_projection = True
-            plotter.camera.parallel_scale = span / 1.7
-        except Exception:
-            pass
-    else:
-        try:
-            plotter.camera.parallel_projection = False
-        except Exception:
-            pass
+    _set_view_helper(plotter, name)
 
 
 def _render_one(core: Core, wire: Wire, N_turns: int, material: Material,

@@ -49,12 +49,22 @@
       - Bottom: Δ summary ("FEA confirma o design dentro de X% nas 4 métricas")
 - [x] 4.4 Cache the last FEA result per design hash so re-clicking is instant.
 
-## 5. EE/ETD/PQ support (phase 2)
+## 5. EE/ETD/PQ support (phase 2 — superseded)
 
-- [ ] 5.1 `fea/geometry.py::planar_problem(core, info, N, wire)` for bobbin
+> The original v1 plan was to add FEMM 2D-planar EE/ETD/PQ alongside
+> the toroid axisymmetric solver. Mid-flight we switched the EE path
+> to **FEMMT** (`add-femmt-integration`) because FEMM lacks a
+> cross-platform installer for macOS/Linux and FEMMT covers EE/ETD/PQ
+> natively. The three items below are therefore left intentionally
+> unchecked — they were superseded, not abandoned.
+
+- [~] 5.1 `fea/geometry.py::planar_problem(core, info, N, wire)` for bobbin
       shapes — 2D planar through the centre line.
-- [ ] 5.2 Re-use solve/postprocess pipeline.
-- [ ] 5.3 Verify against a known textbook EE design example.
+      _(superseded by FEMMT path — see `archive/add-femmt-integration`)_
+- [~] 5.2 Re-use solve/postprocess pipeline.
+      _(superseded — FEMMT has its own postprocess)_
+- [~] 5.3 Verify against a known textbook EE design example.
+      _(superseded — FEMMT path is the validator for EE/ETD/PQ)_
 
 ## 6. Testing
 
