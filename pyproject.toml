@@ -63,6 +63,13 @@ extend-exclude = [
     "vendor",
     "src/pfc_inductor/fea/legacy",
     ".venv",
+    # PyInstaller spec files are interpreted by PyInstaller's spec
+    # runner, not Python directly: ``Analysis``/``PYZ``/``EXE``/
+    # ``COLLECT``/``BUNDLE`` are injected globals, so static linters
+    # (correctly) flag them as F821. The spec file already declares
+    # ``# ruff: noqa: F821`` but excluding the directory keeps the
+    # noise out of bulk ``ruff check src`` runs.
+    "packaging",
 ]
 
 [tool.ruff.lint]

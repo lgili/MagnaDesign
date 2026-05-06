@@ -24,7 +24,9 @@ is returned. The auto-detect for MAS shape vs legacy is per-file.
 from __future__ import annotations
 
 import json
+import os
 import shutil
+import sys
 from pathlib import Path
 from typing import Iterable
 
@@ -36,8 +38,54 @@ APP_NAME = "PFCInductorDesigner"
 APP_AUTHOR = "indutor"
 
 _PACKAGE_ROOT = Path(__file__).resolve().parent
-_REPO_ROOT = _PACKAGE_ROOT.parent.parent
-_BUNDLED_DATA = _REPO_ROOT / "data"
+
+
+def _bundled_data_root() -> Path:
+    """Locate the bundled ``data/`` directory across all run modes.
+
+    Three deployment shapes are supported and probed in order:
+
+    1. **PyInstaller frozen build** — ``sys._MEIPASS`` (one-file mode)
+       or ``sys.executable``'s parent (one-folder mode). The release
+       workflow ships ``data/`` next to the binary so we look there
+       first when ``sys.frozen`` is set.
+    2. **Editable install from a checkout** — ``data/`` lives at
+       ``<repo>/data/`` (one level above ``src/pfc_inductor/``).
+    3. **Pip-installed wheel** — ``data/`` was copied into the package
+       itself via ``[tool.setuptools.package-data]``; resolves to
+       ``<site-packages>/pfc_inductor/data/``.
+
+    The first existing directory wins. ``PFC_INDUCTOR_DATA_DIR`` env
+    var overrides everything for power users / packagers.
+    """
+    override = os.environ.get("PFC_INDUCTOR_DATA_DIR")
+    if override:
+        return Path(override).expanduser().resolve()
+
+    if getattr(sys, "frozen", False):
+        # PyInstaller one-file extracts to ``sys._MEIPASS``.
+        meipass = getattr(sys, "_MEIPASS", None)
+        if meipass:
+            candidate = Path(meipass) / "data"
+            if candidate.exists():
+                return candidate
+        # PyInstaller one-folder: ``data/`` ships alongside the
+        # executable in ``<dist>/pfc-inductor/``.
+        exe_dir = Path(sys.executable).resolve().parent
+        candidate = exe_dir / "data"
+        if candidate.exists():
+            return candidate
+
+    # Editable / source checkout: ``<repo>/data``.
+    repo_data = _PACKAGE_ROOT.parent.parent / "data"
+    if repo_data.exists():
+        return repo_data
+
+    # Wheel install: ``<site-packages>/pfc_inductor/data``.
+    return _PACKAGE_ROOT / "data"
+
+
+_BUNDLED_DATA = _bundled_data_root()
 _BUNDLED_MAS = _BUNDLED_DATA / "mas"
 _BUNDLED_CATALOG = _BUNDLED_MAS / "catalog"
 

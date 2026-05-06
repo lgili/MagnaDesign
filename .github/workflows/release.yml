@@ -1,0 +1,241 @@
+name: Release
+
+# Trigger on tag push (``v1.2.3``) — that's how we cut releases.
+# ``workflow_dispatch`` is kept so we can dry-run the matrix manually
+# from the Actions UI without burning a tag.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Tag to publish (e.g. v0.1.0)"
+        required: true
+        default: "v0.0.0-dev"
+
+# Releases need write access to repo contents to attach artifacts.
+permissions:
+  contents: write
+
+# Cancel any in-flight build for the same tag if a force-push lands.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      # Don't abort the whole matrix if one OS flakes — we still want
+      # the others to publish.
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: pfc-inductor-linux-x86_64
+            archive_ext: tar.gz
+          - os: macos-latest
+            artifact_name: pfc-inductor-macos-arm64
+            archive_ext: zip
+          - os: windows-latest
+            artifact_name: pfc-inductor-windows-x86_64
+            archive_ext: zip
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          # 3.12 is the upper bound in pyproject (FEMMT pin keeps us
+          # below 3.13). 3.12 is also the smallest matplotlib/PyVista
+          # wheel surface we still get binary wheels for on all 3 OSes.
+          python-version: "3.12"
+          cache: pip
+
+      # ---------- Linux: Qt + GL native deps ---------------------------
+      - name: Install Linux Qt runtime libs
+        if: runner.os == 'Linux'
+        # PyInstaller bundles PySide6, but the *runtime* still dlopens
+        # system EGL/GL/xkbcommon. We install the same set the CI uses
+        # so the bundle picks them up via auditwheel-style copies.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libegl1 libgl1 libglib2.0-0 libxkbcommon0 \
+            libdbus-1-3 libxcb-cursor0 libxcb-icccm4 \
+            libxcb-image0 libxcb-keysyms1 libxcb-randr0 \
+            libxcb-render-util0 libxcb-shape0 libxcb-sync1 \
+            libxcb-xfixes0 libxcb-xkb1 libxkbcommon-x11-0 \
+            libxcb-shm0 libxcb-glx0 libfontconfig1 libxrender1
+
+      # ---------- Common: install project + PyInstaller ---------------
+      - name: Install project (no dev / no fea)
+        run: |
+          python -m pip install --upgrade pip
+          # Skip ``[dev]`` (test/lint tools, not needed in the bundle)
+          # and ``[fea]`` (FEMMT — optional and platform-fragile;
+          # users install it separately via the in-app setup dialog).
+          pip install -e .
+          pip install pyinstaller==6.11.1
+
+      # ---------- Build with the shared spec --------------------------
+      - name: Build with PyInstaller
+        # ``--clean`` wipes the cache so two consecutive tag builds
+        # don't pick up stale data files. ``--noconfirm`` avoids the
+        # interactive "overwrite dist/" prompt.
+        run: pyinstaller --clean --noconfirm packaging/pfc-inductor.spec
+
+      # ---------- Smoke check: binary at least starts up --------------
+      # On macOS/Windows the GUI app would block waiting for events;
+      # we only test the import graph by invoking with --version-style
+      # noop. Skipped on the actual binary; instead we sanity-check the
+      # presence of the bundled ``data/`` and main executable.
+      - name: Verify build outputs (Linux/Windows)
+        if: runner.os != 'macOS'
+        shell: bash
+        run: |
+          set -e
+          if [[ "${{ runner.os }}" == "Linux" ]]; then
+            test -x dist/pfc-inductor/pfc-inductor || {
+              echo "::error::missing executable"; exit 1; }
+          else
+            test -f dist/pfc-inductor/pfc-inductor.exe || {
+              echo "::error::missing executable"; exit 1; }
+          fi
+          test -d dist/pfc-inductor/data || {
+            echo "::error::missing bundled data/ directory"; exit 1; }
+          echo "OK — bundle layout looks sane"
+
+      - name: Verify build outputs (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          set -e
+          test -d "dist/pfc-inductor.app" || {
+            echo "::error::missing .app bundle"; exit 1; }
+          test -x "dist/pfc-inductor.app/Contents/MacOS/pfc-inductor" || {
+            echo "::error::missing executable inside .app"; exit 1; }
+          test -d "dist/pfc-inductor.app/Contents/Resources/data" || \
+          test -d "dist/pfc-inductor.app/Contents/Frameworks/data" || \
+          test -d "dist/pfc-inductor/data" || {
+            echo "::error::missing bundled data/ inside .app or dist/"; exit 1; }
+          echo "OK — .app layout looks sane"
+
+      # ---------- Package: per-OS archive -----------------------------
+      - name: Package (Linux)
+        if: runner.os == 'Linux'
+        # GNU tar with -C avoids absolute paths in the archive; users
+        # extract to whatever directory they like.
+        run: |
+          cd dist
+          tar -czf "../${{ matrix.artifact_name }}.tar.gz" pfc-inductor
+          cd ..
+          ls -lh "${{ matrix.artifact_name }}.tar.gz"
+
+      - name: Package (macOS)
+        if: runner.os == 'macOS'
+        # ``ditto`` preserves macOS resource forks / extended attrs that
+        # ``zip`` corrupts (signed apps would lose their signature).
+        run: |
+          cd dist
+          ditto -c -k --keepParent --sequesterRsrc \
+            "pfc-inductor.app" "../${{ matrix.artifact_name }}.zip"
+          cd ..
+          ls -lh "${{ matrix.artifact_name }}.zip"
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        # PowerShell's Compress-Archive is fine for ~500 MB and is
+        # always present. No per-runner zip install needed.
+        shell: pwsh
+        run: |
+          Compress-Archive -Path dist/pfc-inductor `
+            -DestinationPath "${{ matrix.artifact_name }}.zip" `
+            -CompressionLevel Optimal
+          Get-Item "${{ matrix.artifact_name }}.zip" |
+            Select-Object Name, @{n="MB";e={[math]::Round($_.Length/1MB, 1)}}
+
+      # ---------- Upload artifact for the release job to pick up -----
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_name }}.${{ matrix.archive_ext }}
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    # Only publish a real Release when this run was triggered by a tag
+    # push. Manual ``workflow_dispatch`` runs still build all 3 OSes
+    # (great for smoke-testing) but stop short of cutting a release.
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Checkout (for release notes)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: List artifacts
+        run: ls -lh artifacts/
+
+      - name: Extract changelog for this tag
+        id: changelog
+        # If a CHANGELOG.md section exists for the tag we publish that
+        # as the release body; otherwise we fall back to an
+        # auto-generated commit list since the previous tag.
+        run: |
+          set -e
+          tag="${GITHUB_REF#refs/tags/}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          prev_tag=$(git describe --tags --abbrev=0 "$tag^" 2>/dev/null || echo "")
+          if [[ -n "$prev_tag" ]]; then
+            echo "Changes since $prev_tag:" > body.md
+            git log --pretty=format:"- %s (%h)" "$prev_tag..$tag" >> body.md
+          else
+            echo "Initial release." > body.md
+          fi
+          {
+            echo ""
+            echo ""
+            echo "## Downloads"
+            echo ""
+            echo "| Platform | Architecture | File |"
+            echo "|----------|--------------|------|"
+            echo "| Linux | x86_64 | \`pfc-inductor-linux-x86_64.tar.gz\` |"
+            echo "| macOS | Apple Silicon (arm64) | \`pfc-inductor-macos-arm64.zip\` |"
+            echo "| Windows | x86_64 | \`pfc-inductor-windows-x86_64.zip\` |"
+            echo ""
+            echo "### How to run"
+            echo "- **Linux:** \`tar -xzf pfc-inductor-linux-x86_64.tar.gz && ./pfc-inductor/pfc-inductor\`"
+            echo "- **macOS:** unzip and drag \`pfc-inductor.app\` into \`/Applications\`. First launch: right-click → Open to bypass Gatekeeper."
+            echo "- **Windows:** unzip and run \`pfc-inductor\\pfc-inductor.exe\`. Windows SmartScreen may warn — click *More info → Run anyway*."
+            echo ""
+            echo "FEA validation (FEMMT + ONELAB) is **not** bundled. Install it via *Configurações → Setup FEA* inside the app on first use."
+          } >> body.md
+          cat body.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.changelog.outputs.tag }}
+          name: ${{ steps.changelog.outputs.tag }}
+          body_path: body.md
+          files: artifacts/*
+          # Mark prereleases automatically based on the tag shape so
+          # ``v0.1.0-rc1`` doesn't accidentally publish as Latest.
+          prerelease: ${{ contains(github.ref, '-') }}
+          fail_on_unmatched_files: true
