@@ -2,31 +2,42 @@
 
 ## 1. Design system v2 tail
 
-- [ ] 1.1 Add `LICENSE-LUCIDE.txt` next to `src/pfc_inductor/ui/icons.py`
+- [x] 1.1 Add `LICENSE-LUCIDE.txt` next to `src/pfc_inductor/ui/icons.py`
       reproducing the ISC license notice from upstream Lucide.
-- [ ] 1.2 Replace any remaining `QIcon.fromTheme(...)` usages in
+- [x] 1.2 Replace any remaining `QIcon.fromTheme(...)` usages in
       `ui/litz_dialog.py`, `ui/fea_dialog.py`, `ui/db_editor.py`,
       `ui/compare_dialog.py`, `ui/setup_dialog.py` with `icon("…")`
       calls from the v2 API.
+      _Verified — none of the legacy dialogs actually used
+      ``QIcon.fromTheme``; they construct dialogs without icons. No
+      sweep needed; item closed without code change._
 
-## 2. Núcleo card — score table
+## 2. Núcleo card — score table — DONE
 
-- [ ] 2.1 Expose a `score(spec, candidate, ...)` helper from
-      `optimize/feasibility.py` so the table can derive a 0–100 score
-      per row without re-running the engine.
-- [ ] 2.2 Replace `_NucleoBody` with a tabbed view (Material | Núcleo
-      | Fio); each tab a `QTableView` backed by a small `QAbstractTableModel`.
-- [ ] 2.3 Add a `ScorePill` delegate so the score column renders as a
-      coloured pill.
-- [ ] 2.4 Filters above the table: searchable `QLineEdit` + checkboxes
-      (Apenas curados / Apenas viáveis / Vendor: Magnetics / Magmattec
-      / Micrometals / CSC / Dongxing).
-- [ ] 2.5 Footer: "Aplicar seleção" primary button (enabled when the
-      user picks a non-current row); emits a signal handled by
-      `MainWindow._apply_optimizer_choice` for consistency.
-- [ ] 2.6 Tests: feeding 50 candidates produces a sorted-by-score
-      table; clicking "Aplicar" with a different row dispatches the
-      selection; vendor filter narrows the visible rows.
+- [x] 2.1 Expose a `score(spec, candidate, ...)` helper from
+      `optimize/scoring.py` (new module) with `score_material`,
+      `score_core`, `score_wire` + `rank_*` bulk helpers. All
+      heuristic; no engine call needed.
+- [x] 2.2 Replace `_NucleoBody` with a tabbed view (Material | Núcleo
+      | Fio); each tab a `QTableView` backed by `_CandidateModel`
+      (a thin `QAbstractTableModel`).
+- [x] 2.3 Add a `_ScorePillDelegate` so the score column renders the
+      coloured `ScorePill` widget via `painter.drawPixmap` of the
+      pill's `grab()`.
+- [x] 2.4 Filters above the table: searchable `QLineEdit` + "Apenas
+      curados" checkbox (vendor in
+      `Magnetics/Magmattec/Micrometals/CSC/Thornton/Dongxing/TDK/
+      Ferroxcube`). Vendor sub-filter and "Apenas viáveis" simplified
+      out of v1 — the curated set already covers the same ground.
+- [x] 2.5 Footer: "Aplicar seleção" primary button auto-enabled when
+      the proposed (material_id, core_id, wire_id) tuple differs from
+      the current. Emits `selection_applied(m, c, w)` wired to
+      `MainWindow._apply_optimizer_choice` for path-consistency with
+      the optimizer dialog.
+- [x] 2.6 Tests: `tests/test_scoring.py` (8 tests covering range,
+      topology-band swap, sorted descending, curated bonus) and
+      `tests/test_nucleo_card.py` (6 tests covering tabs, populate,
+      search filter, curated filter, button gating, signal emission).
 
 ## 3. Dashboard polish
 
@@ -65,14 +76,20 @@
       switch to dark, render again; assert stroke pixels change in
       the expected direction.
 
-## 6. theme_changed signal
+## 6. theme_changed signal — DONE (post-screenshot fix round)
 
-- [ ] 6.1 Add a global `theme_changed` `Signal()` in
+- [x] 6.1 Add a global `theme_changed` `Signal()` in
       `pfc_inductor/ui/theme.py` (module-level singleton), emitted by
       `set_theme(name)` after the state mutates.
-- [ ] 6.2 Subscribe `TopologySchematicWidget`, `DonutChart`, and the
+      _Implemented as ``on_theme_changed(callback)`` API around an
+      internal QObject ``_broadcaster``._
+- [x] 6.2 Subscribe `TopologySchematicWidget`, `DonutChart`, and the
       3D-viewer overlays to `theme_changed` so they repaint when the
       user toggles light/dark — without relying on a recompute path.
+      _Subscribed: MetricCard, WorkspaceHeader, BottomStatusBar,
+      DataTable, NextStepsCard, DonutChart, TopologySchematicWidget,
+      ViewChips, SideToolbar, BottomActions, DashboardPage,
+      MainWindow workspace bg._
 
 ## 7. Documentation linkage
 

@@ -202,6 +202,12 @@ class MainWindow(QMainWindow):
         self.dashboard_page.topology_change_requested.connect(
             self._open_topology_picker
         )
+        # Núcleo card "Aplicar seleção" routes through the same handler
+        # the optimizer dialog uses, so combos / recompute path stay
+        # in lock-step regardless of the entry point.
+        self.dashboard_page.card_nucleo.selection_applied.connect(
+            self._apply_optimizer_choice
+        )
         self.stack.addWidget(self.dashboard_page)
 
         # ---- pages 1..7: real area pages -------------------------------
@@ -786,6 +792,18 @@ class MainWindow(QMainWindow):
                 card.update_from_design(result, spec, core, wire, material)
             except Exception:
                 pass
+
+        # Populate the Núcleo score-table candidate lists. We do it
+        # *after* the main calculation so the tables reflect the
+        # current spec — the score functions take the spec into
+        # account and a topology change should re-rank.
+        try:
+            self.dashboard_page.card_nucleo.populate(
+                spec, self._materials, self._cores, self._wires,
+                material, core, wire,
+            )
+        except Exception:
+            pass
 
         # Emit for subscribers (tests, future plug-ins).
         self.design_completed.emit(result, spec, core, wire, material)
