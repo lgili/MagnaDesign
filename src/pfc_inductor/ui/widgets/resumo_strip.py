@@ -61,7 +61,10 @@ class ResumoStrip(QFrame):
     gets a predictable amount of vertical room.
     """
 
-    HEIGHT = 96
+    # 80 px is just tall enough for the metric_compact tiles (64 px
+    # content + 8/8 padding) and lets ProjetoPage breathe on a 768 px
+    # laptop screen. Was 96 px in v3.4.
+    HEIGHT = 80
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -72,7 +75,7 @@ class ResumoStrip(QFrame):
         self.setStyleSheet(self._self_qss())
 
         h = QHBoxLayout(self)
-        h.setContentsMargins(20, 12, 20, 12)
+        h.setContentsMargins(16, 8, 16, 8)
         h.setSpacing(12)
 
         self.m_L = MetricCard("Indutância", "—", "µH", compact=True)

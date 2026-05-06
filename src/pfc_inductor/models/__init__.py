@@ -1,3 +1,9 @@
+from pfc_inductor.models.cascade import (
+    Candidate,
+    FeasibilityEnvelope,
+    Tier0Result,
+    Tier1Result,
+)
 from pfc_inductor.models.core import Core
 from pfc_inductor.models.material import (
     LossDatapoint,
@@ -10,14 +16,18 @@ from pfc_inductor.models.spec import Spec, Topology
 from pfc_inductor.models.wire import Wire, WireType
 
 __all__ = [
+    "Candidate",
     "Core",
     "DesignResult",
+    "FeasibilityEnvelope",
     "LossBreakdown",
     "LossDatapoint",
     "Material",
     "RolloffParams",
     "Spec",
     "SteinmetzParams",
+    "Tier0Result",
+    "Tier1Result",
     "Topology",
     "Wire",
     "WireType",

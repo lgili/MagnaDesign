@@ -114,7 +114,23 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("MagnaDesign — Inductor Design Suite")
-        self.resize(1500, 900)
+        # Cap the default size to the available screen so the window
+        # never opens larger than the desktop on small laptops (e.g.
+        # 1366×768) — that was hiding the bottom Scoreboard on first
+        # launch. We leave a 32 px margin for the OS taskbar / dock.
+        try:
+            from PySide6.QtGui import QGuiApplication
+            screen = QGuiApplication.primaryScreen()
+            if screen is not None:
+                avail = screen.availableGeometry()
+                w = min(1500, max(960, avail.width() - 64))
+                h = min(900, max(640, avail.height() - 64))
+                self.resize(w, h)
+            else:
+                self.resize(1500, 900)
+        except Exception:
+            # Headless / offscreen: fall back to the canonical size.
+            self.resize(1500, 900)
 
         ensure_user_data()
         self._materials = load_materials()

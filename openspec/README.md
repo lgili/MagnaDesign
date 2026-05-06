@@ -16,6 +16,7 @@ Estrutura de propostas e tarefas para evoluir o aplicativo. Convenção
 
 | Change ID                | Tamanho | Descrição |
 |--------------------------|---------|-----------|
+| `add-cascade-optimizer`  | XL      | Otimizador brute-force em 4 tiers (feasibility → analítico → ODE transitório → FEA estático/transitório), `ConverterModel` interface para topologias plugáveis, RunStore SQLite e UI dedicada. Phase A entrega a fundação; Tiers 2/3/4 são gated em benchmark |
 | `add-circuit-export`     | M       | Emitir subcircuitos LTspice / PSIM / Modelica do indutor projetado (deferred desde v2) |
 | `redesign-ui-flow-v3`    | XL      | Reescreve a shell em torno de Spec drawer persistente + 3 tabs no workspace + 4 áreas reais na sidebar; remove Modo Clássico e o stepper de 8 segmentos |
 | `ui-refactor-followups`  | M       | Tail-end items dos 5 refactors v2 — animations 3D, docs UI (Núcleo score table foi entregue) |

@@ -119,14 +119,14 @@ class ProjetoPage(QWidget):
         # ---- ResumoStrip — PERSISTENT above the tabs ------------------
         # Wrapped in a slim padded frame so it visually sits on the
         # surface and not on the page bg, with subtle separator from
-        # the tab strip below.
+        # the tab strip below. Padding is intentionally tight so the
+        # whole chrome (header + progress + KPI + tabs + scoreboard)
+        # fits on a 768 px laptop without pushing the bottom off-screen.
         kpi_holder = QFrame()
         kpi_holder.setObjectName("KpiHolder")
+        sp = get_theme().spacing
         kh = QVBoxLayout(kpi_holder)
-        kh.setContentsMargins(get_theme().spacing.page,
-                              get_theme().spacing.lg,
-                              get_theme().spacing.page,
-                              0)
+        kh.setContentsMargins(sp.lg, sp.md, sp.lg, 0)
         kh.setSpacing(0)
         self.kpi_strip = ResumoStrip()
         kh.addWidget(self.kpi_strip)

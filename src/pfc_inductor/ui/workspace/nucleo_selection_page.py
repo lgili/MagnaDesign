@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QScrollArea,
     QSizePolicy,
     QStackedWidget,
     QToolButton,
@@ -114,10 +115,22 @@ class NucleoSelectionPage(QWidget):
         outer.addLayout(toolbar)
 
         # ---- Stacked body (page 0 = tabela, page 1 = otimizador) ------
+        # Wrap the stack inside a QScrollArea so the page never forces
+        # the window taller than the screen. The NucleoCard's table
+        # already enforces its own minimumHeight; if the user shrinks
+        # the window below that, the scrollbar handles it gracefully
+        # rather than pushing the Scoreboard out of view.
         self._stack = QStackedWidget()
         self._stack.addWidget(self._build_tabela_page())
         self._stack.addWidget(self._build_otimizador_page())
-        outer.addWidget(self._stack, 1)
+        scroll = QScrollArea()
+        scroll.setWidget(self._stack)
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setSizePolicy(QSizePolicy.Policy.Expanding,
+                             QSizePolicy.Policy.Expanding)
+        outer.addWidget(scroll, 1)
 
         # ---- Nudge banner: appears below the stack for ~4s after the
         # inline optimizer applies a selection. Hidden by default.
@@ -145,12 +158,17 @@ class NucleoSelectionPage(QWidget):
         h.setContentsMargins(0, 0, 0, 0)
         h.setSpacing(get_theme().spacing.card_gap)
 
+        # Only constrain the *width* — leaving height elastic lets the
+        # page collapse on a 768 px-tall laptop without pushing the
+        # Scoreboard off the bottom. The NucleoCard's internal
+        # QTableView already enforces its own minimumHeight (260 px)
+        # so the table stays scannable regardless.
         self.card_nucleo = NucleoCard()
-        self.card_nucleo.setMinimumSize(*CARD_MIN.nucleo)
+        self.card_nucleo.setMinimumWidth(CARD_MIN.nucleo[0])
         self.card_nucleo.selection_applied.connect(self.selection_applied.emit)
 
         self.card_viz3d = Viz3DCard()
-        self.card_viz3d.setMinimumSize(*CARD_MIN.viz3d)
+        self.card_viz3d.setMinimumWidth(CARD_MIN.viz3d[0])
 
         # 60/40 via stretch factors. Avoids fragile pixel widths.
         h.addWidget(self.card_nucleo, 6)

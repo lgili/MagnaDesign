@@ -36,7 +36,8 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QLabel,
     QScrollArea,
-    QStackedLayout,
+    QSizePolicy,
+    QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -66,15 +67,26 @@ class AnalisePage(QWidget):
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
+        # The Análise tab has to honour whatever vertical room the
+        # parent QTabWidget gives it — without an Expanding policy on
+        # the page itself, Qt grows the page to its preferred height
+        # (= grid's minimum sum, ~700 px) and pushes the surrounding
+        # Scoreboard off the screen on smaller laptops.
+        self.setSizePolicy(QSizePolicy.Policy.Expanding,
+                           QSizePolicy.Policy.Expanding)
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
 
-        # ``_stack`` swaps between the empty placeholder and the live
-        # grid of cards. Before the first ``update_from_design`` we
-        # show the placeholder so the page never reads as broken.
-        self._stack = QStackedLayout()
-        outer.addLayout(self._stack)
+        # Use a QStackedWidget (not a bare QStackedLayout) so we can
+        # add it to the outer QVBoxLayout with an explicit stretch
+        # factor of 1 — that's what tells Qt the stack should consume
+        # all available vertical space and clip via the inner
+        # QScrollArea instead of dictating the page's preferred height.
+        self._stack = QStackedWidget(self)
+        self._stack.setSizePolicy(QSizePolicy.Policy.Expanding,
+                                  QSizePolicy.Policy.Expanding)
+        outer.addWidget(self._stack, 1)
 
         # Empty-state placeholder (page 0).
         self._empty_state = self._build_empty_state()
@@ -84,6 +96,8 @@ class AnalisePage(QWidget):
         scroll = QScrollArea(self)
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setSizePolicy(QSizePolicy.Policy.Expanding,
+                             QSizePolicy.Policy.Expanding)
         self._scroll = scroll
 
         inner = QWidget()
@@ -120,23 +134,30 @@ class AnalisePage(QWidget):
         for c in range(12):
             grid.setColumnStretch(c, 1)
 
+        # Width-only minimums — letting card heights stay elastic
+        # means the AnalisePage sums to a much smaller minimum height,
+        # so the page fits on a 768 px laptop without overflowing the
+        # window. The QScrollArea above wraps the grid for the case
+        # where the user genuinely wants more vertical room than the
+        # window provides.
+
         # Row 0 — Formas de Onda full width.
         self.card_formas = FormasOndaCard()
-        self.card_formas.setMinimumSize(*CARD_MIN.formas)
+        self.card_formas.setMinimumWidth(CARD_MIN.formas[0])
         grid.addWidget(self.card_formas, 0, 0, 1, 12)
         grid.setRowStretch(0, 2)
 
         # Row 1 — Perdas full width (stacked bar reads wide).
         self.card_perdas = PerdasCard()
-        self.card_perdas.setMinimumSize(*CARD_MIN.perdas)
+        self.card_perdas.setMinimumWidth(CARD_MIN.perdas[0])
         grid.addWidget(self.card_perdas, 1, 0, 1, 12)
         grid.setRowStretch(1, 1)
 
         # Row 2 — Bobinamento + Entreferro lado a lado.
         self.card_bobinamento = BobinamentoCard()
         self.card_entreferro = EntreferroCard()
-        self.card_bobinamento.setMinimumSize(*CARD_MIN.bobinam)
-        self.card_entreferro.setMinimumSize(*CARD_MIN.entreferro)
+        self.card_bobinamento.setMinimumWidth(CARD_MIN.bobinam[0])
+        self.card_entreferro.setMinimumWidth(CARD_MIN.entreferro[0])
         grid.addWidget(self.card_bobinamento, 2, 0, 1, 6)
         grid.addWidget(self.card_entreferro, 2, 6, 1, 6)
         grid.setRowStretch(2, 1)
