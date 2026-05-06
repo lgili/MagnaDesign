@@ -307,6 +307,22 @@ _ICONS: dict[str, str] = {
         '<path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/>',
         '<path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"/>',
     ),
+    # Lucide ``package`` — closed cardboard box icon. Used by the
+    # BottomStatusBar to flag the "current selection" cluster
+    # (material/core/wire). Same visual family as ``box``.
+    "package": _svg(
+        '<path d="M16.5 9.4 7.5 4.21"/>',
+        '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/>',
+        '<polyline points="3.27 6.96 12 12.01 20.73 6.96"/>',
+        '<line x1="12" y1="22.08" x2="12" y2="12"/>',
+    ),
+    # Lucide ``git-commit`` — circle on a horizontal line. Used by the
+    # BottomStatusBar for the validations counter cluster.
+    "git-commit": _svg(
+        '<circle cx="12" cy="12" r="4"/>',
+        '<line x1="1.05" y1="12" x2="7" y2="12"/>',
+        '<line x1="17.01" y1="12" x2="22.96" y2="12"/>',
+    ),
 }
 
 

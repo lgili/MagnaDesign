@@ -34,13 +34,13 @@ class _PerdasBody(QWidget):
                            core: Core, wire: Wire,
                            material: Material) -> None:
         p = get_theme().palette
-        l = result.losses
+        losses = result.losses
         # Segment colours pinned to semantic palette tokens so the bar
         # reads consistently in both themes.
         self._bar.set_segments([
-            ("Cu DC", l.P_cu_dc_W, p.accent),
-            ("Cu AC", l.P_cu_ac_W, p.warning),
-            ("Núcleo", l.P_core_total_W, p.copper),
+            ("Cu DC", losses.P_cu_dc_W, p.accent),
+            ("Cu AC", losses.P_cu_ac_W, p.warning),
+            ("Núcleo", losses.P_core_total_W, p.copper),
         ])
 
     def clear(self) -> None:

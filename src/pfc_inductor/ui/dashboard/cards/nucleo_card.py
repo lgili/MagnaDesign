@@ -10,8 +10,6 @@ Filters above each table:
 - Searchable ``QLineEdit`` (case-insensitive substring against name +
   vendor).
 - "Apenas curados" checkbox (vendor in :data:`_CURATED_VENDORS`).
-- "Apenas viáveis" checkbox (only meaningful for Núcleo and Fio tabs;
-  hidden for Material).
 
 Footer: an "Aplicar seleção" primary button. Becomes enabled when the
 user picks a row whose id differs from the current selection. Emits

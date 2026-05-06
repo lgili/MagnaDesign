@@ -11,7 +11,7 @@ there is no fixed ``figsize`` to fight with the parent layout.
 """
 from __future__ import annotations
 
-from typing import Optional, Sequence
+from typing import NamedTuple, Optional, Sequence
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -26,8 +26,17 @@ from PySide6.QtWidgets import (
 
 from pfc_inductor.ui.theme import get_theme, on_theme_changed
 
-# (label, value, color_or_None)
-Segment = tuple[str, float, Optional[str]]
+
+class Segment(NamedTuple):
+    """One coloured slice of the stacked bar.
+
+    Named so callers stop indexing into anonymous 3-tuples
+    (``seg[0]`` vs ``seg.label``). Tuple unpacking still works for the
+    legacy callsites that destructure ``(label, value, color)``.
+    """
+    label: str
+    value: float
+    color: Optional[str] = None
 
 
 class HorizontalStackedBar(QWidget):

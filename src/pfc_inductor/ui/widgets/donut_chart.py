@@ -118,7 +118,7 @@ class DonutChart(QWidget):
         )
         # Compact legend below the donut.
         self._ax.legend(
-            wedges, [f"{l}  {v:.1f}" for l, v in zip(labels, values, strict=False)],
+            wedges, [f"{lbl}  {v:.1f}" for lbl, v in zip(labels, values, strict=False)],
             loc="lower center", bbox_to_anchor=(0.5, -0.18),
             frameon=False, fontsize=8, ncols=min(3, len(labels)),
             labelcolor=p.text_secondary,

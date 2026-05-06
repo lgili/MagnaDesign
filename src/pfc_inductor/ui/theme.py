@@ -441,6 +441,24 @@ class Breakpoint:
 BP = Breakpoint()
 
 
+@dataclass(frozen=True)
+class Animation:
+    """Duration tokens for transient UI feedback. All values in
+    milliseconds.
+
+    These are not yet wrapped in a ``prefers-reduced-motion`` check
+    because Qt on desktop does not expose that primitive directly;
+    when we add the accessibility hook callers should consult it
+    before scheduling a timer for ``flash_ms`` or ``nudge_ms``.
+    """
+    flash_ms: int = 1200       # post-apply outline flash on ResumoStrip
+    nudge_ms: int = 4000       # nudge banner ("ver em Análise →")
+    toast_ms: int = 3000       # generic toast/snackbar dwell time
+
+
+ANIMATION = Animation()
+
+
 # ---------------------------------------------------------------------------
 # Theme state singleton
 # ---------------------------------------------------------------------------

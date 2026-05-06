@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
 )
 
 from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
-from pfc_inductor.ui.theme import CARD_MIN, get_theme, on_theme_changed
+from pfc_inductor.ui.theme import ANIMATION, CARD_MIN, get_theme, on_theme_changed
 from pfc_inductor.ui.widgets.metric_card import MetricCard, MetricStatus
 
 
@@ -141,6 +141,29 @@ class ResumoStrip(QFrame):
         agg, reasons = self._aggregate_status()
         self._set_badge(agg, reasons)
 
+    def flash_applied(self) -> None:
+        """Brief violet outline on the strip that confirms a recalc /
+        selection-apply just completed.
+
+        Called by :class:`ProjetoPage <pfc_inductor.ui.workspace.projeto_page.ProjetoPage>`
+        right after ``update_from_design`` fans out, so the user has
+        an unambiguous visual anchor for "your change landed" instead
+        of having to scan every tile to spot what shifted.
+        """
+        self.setProperty("flash", "true")
+        st = self.style()
+        st.unpolish(self)
+        st.polish(self)
+        self.update()
+        QTimer.singleShot(ANIMATION.flash_ms, self._clear_flash)
+
+    def _clear_flash(self) -> None:
+        self.setProperty("flash", "false")
+        st = self.style()
+        st.unpolish(self)
+        st.polish(self)
+        self.update()
+
     def clear(self) -> None:
         for mc in self._tiles:
             mc.set_value("—")
@@ -149,7 +172,10 @@ class ResumoStrip(QFrame):
 
     # ------------------------------------------------------------------
     def _aggregate_status(self) -> tuple[MetricStatus, list[str]]:
-        statuses = [(mc._status, mc._lbl.text()) for mc in self._tiles]
+        # Use the public ``status()`` / ``label_text()`` accessors (added
+        # in v3.x) instead of reaching into ``_status`` / ``_lbl.text()``
+        # — keeps the cross-widget contract surface small.
+        statuses = [(mc.status(), mc.label_text()) for mc in self._tiles]
         errors = [title for status, title in statuses if status == "err"]
         if errors:
             return "err", errors
@@ -168,8 +194,17 @@ class ResumoStrip(QFrame):
         else:
             text, variant = "—", "neutral"
 
+        # Truncate the inline reason summary so the badge can't grow
+        # unbounded. Show up to 2 names + "+N" for the rest; the full
+        # list is preserved on hover via the tooltip below.
         if reasons:
-            text += f" ({', '.join(reasons)})"
+            if len(reasons) <= 2:
+                text += " — " + " · ".join(reasons)
+            else:
+                text += " — " + " · ".join(reasons[:2]) + f" +{len(reasons) - 2}"
+            self.badge.setToolTip("Atenção em: " + ", ".join(reasons))
+        else:
+            self.badge.setToolTip("")
 
         self.badge.setText(text)
         self.badge.setProperty("pill", variant)
@@ -190,6 +225,15 @@ class ResumoStrip(QFrame):
             f"QFrame#ResumoStrip {{"
             f"  background: {p.surface};"
             f"  border: 1px solid {p.border};"
+            f"  border-radius: {r.card}px;"
+            f"}}"
+            # Flash state — applied for ANIMATION.flash_ms after each
+            # update_from_design fan-out. The tinted background is
+            # ``accent_violet_subtle_bg`` (already in palette) so the
+            # outline reads as "fresh" without needing a new token.
+            f"QFrame#ResumoStrip[flash=\"true\"] {{"
+            f"  background: {p.accent_violet_subtle_bg};"
+            f"  border: 1px solid {p.accent_violet};"
             f"  border-radius: {r.card}px;"
             f"}}"
         )

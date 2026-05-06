@@ -45,6 +45,7 @@ from pfc_inductor.ui.dashboard.cards import (
     ProximosPassosCard,
     Viz3DCard,
 )
+from pfc_inductor.ui.dashboard.protocols import DesignDisplay
 from pfc_inductor.ui.theme import CARD_MIN, get_theme, on_theme_changed
 from pfc_inductor.ui.widgets import ResumoStrip
 
@@ -150,7 +151,9 @@ class DashboardPage(QWidget):
         # ``kpi_strip`` is included so ``update_from_design`` fans out
         # to it via the same loop as the cards. ``ResumoCard`` is no
         # longer mounted here — kept importable for tests/legacy pages.
-        self._cards = [
+        # Typed as ``list[DesignDisplay]`` so mypy/pyright catch a card
+        # that drifts away from the contract.
+        self._cards: list[DesignDisplay] = [
             self.kpi_strip, self.card_formas,
             self.card_nucleo, self.card_viz3d,
             self.card_perdas, self.card_bobinamento,

@@ -144,6 +144,12 @@ class ProjetoPage(QWidget):
         # Tab 0 — Núcleo (selection + inline optimizer)
         self.nucleo_tab = NucleoSelectionPage(materials, cores, wires)
         self.nucleo_tab.selection_applied.connect(self.selection_applied.emit)
+        # When the inline optimizer signals "I just applied — go look
+        # at the waveforms", switch to the Análise tab so the new
+        # design's effects are immediately visible.
+        self.nucleo_tab.suggest_analise_navigation.connect(
+            lambda: self.switch_to("analise"),
+        )
         self.tabs.addTab(self.nucleo_tab, "Núcleo")
 
         # Tab 1 — Análise (waveforms + losses + winding/gap)
@@ -219,6 +225,11 @@ class ProjetoPage(QWidget):
         self.scoreboard.update_from_result(result, spec)
         # Mark "design" done once a result is available.
         self.progress.mark_done("design")
+        # Flash the persistent KPI strip so the user has an unambiguous
+        # signal that the recalc / apply landed — without it, the
+        # values shift silently and small spec tweaks can feel like
+        # nothing happened.
+        self.kpi_strip.flash_applied()
 
     def populate_nucleo(
         self,

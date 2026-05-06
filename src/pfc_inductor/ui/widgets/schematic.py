@@ -97,7 +97,7 @@ class _SchematicPainter:
                  highlighted: bool = True) -> None:
         cx, cy = centre
         x0 = cx - length / 2
-        x1 = cx + length / 2
+        cx + length / 2
         # Glow rectangle behind the inductor
         if highlighted:
             self._qp.setPen(Qt.PenStyle.NoPen)

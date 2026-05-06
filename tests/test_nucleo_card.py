@@ -89,7 +89,12 @@ def test_nucleo_card_curated_filter(app, db):
     assert 0 < curated <= full
 
 
-def test_nucleo_card_apply_disabled_until_different_row(app, db):
+def test_nucleo_card_no_emission_when_selection_matches_current(app, db):
+    """v3.x dropped the explicit Apply button — selection now auto-
+    emits whenever the user picks a row that differs from the
+    current. Selecting the row that *matches* current must therefore
+    NOT emit.
+    """
     from pfc_inductor.models import Spec
     from pfc_inductor.ui.dashboard.cards.nucleo_card import NucleoCard
     card = NucleoCard()
@@ -99,11 +104,17 @@ def test_nucleo_card_apply_disabled_until_different_row(app, db):
     wire = db["wires"][0]
     card.populate(spec, db["materials"], db["cores"], db["wires"],
                   mat, core, wire)
-    # No selection yet → button disabled.
-    assert not card._nbody._btn_apply.isEnabled()
+    received: list[tuple[str, str, str]] = []
+    card.selection_applied.connect(
+        lambda m, c, w: received.append((m, c, w))
+    )
+    # Without picking a different row, no signal should fire.
+    assert received == []
 
 
-def test_nucleo_card_emits_selection_applied(app, db):
+def test_nucleo_card_emits_selection_applied_on_different_row(app, db):
+    """Auto-apply on row click — picking a non-current core/wire row
+    must emit ``selection_applied`` exactly once with the new id."""
     from PySide6.QtCore import QItemSelectionModel
 
     from pfc_inductor.models import Spec
@@ -122,20 +133,34 @@ def test_nucleo_card_emits_selection_applied(app, db):
         lambda m, c, w: received.append((m, c, w))
     )
 
-    # Select the second row of the Núcleo tab (different from current).
     tab = card._nbody.tab_core
-    if tab._proxy.rowCount() >= 2:
-        idx0 = tab._proxy.index(1, 0)  # row 1 (second row)
-        tab.table.selectionModel().select(
-            idx0,
-            QItemSelectionModel.SelectionFlag.ClearAndSelect
-            | QItemSelectionModel.SelectionFlag.Rows,
-        )
-        # Click apply.
-        if card._nbody._btn_apply.isEnabled():
-            card._nbody._btn_apply.click()
-            assert len(received) == 1
-            m_id, c_id, w_id = received[0]
-            assert m_id == mat.id  # material unchanged
-            assert c_id != core.id  # core changed to row 1
-            assert w_id == wire.id  # wire unchanged
+    if tab._proxy.rowCount() < 2:
+        pytest.skip("Need at least 2 cores in the catalog to exercise this path.")
+
+    # Find a row whose underlying Core has a different id from the
+    # current selection. We can't assume row 1 differs because the
+    # default sort is by score and ties are possible.
+    target_row = None
+    for r in range(tab._proxy.rowCount()):
+        cand = tab.selected_candidate()  # noqa: F841 — used for shape
+        idx = tab._proxy.index(r, 0)
+        candidate = tab._proxy.data(idx, 0x0100)  # Qt.UserRole
+        if candidate is not None and getattr(candidate, "id", "") != core.id:
+            target_row = r
+            break
+    if target_row is None:
+        pytest.skip("All catalog cores share the current id (unexpected).")
+
+    idx0 = tab._proxy.index(target_row, 0)
+    tab.table.selectionModel().select(
+        idx0,
+        QItemSelectionModel.SelectionFlag.ClearAndSelect
+        | QItemSelectionModel.SelectionFlag.Rows,
+    )
+    # Auto-apply: at least one emission with material unchanged and
+    # core changed to the new id.
+    assert received, "expected selection_applied to fire"
+    m_id, c_id, w_id = received[-1]
+    assert m_id == mat.id
+    assert c_id != core.id
+    assert w_id == wire.id

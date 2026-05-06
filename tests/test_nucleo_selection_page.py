@@ -88,8 +88,11 @@ def test_nucleo_page_populate_propagates_to_optimizer(app, design_bundle):
     # OptimizerEmbed should now have the spec assigned (which enables
     # the run button).
     assert p.optimizer.btn_run.isEnabled()
-    # NucleoCard tracks the current ids it was populated with.
-    assert p.card_nucleo._nbody._current_material_id == material.id
+    # NucleoCard tracks the current Material/Core/Wire it was
+    # populated with — v3.x stores the objects directly (was string id).
+    assert p.card_nucleo._nbody._current_material is material
+    assert p.card_nucleo._nbody._current_core is core
+    assert p.card_nucleo._nbody._current_wire is wire
 
 
 # ---------------------------------------------------------------------------

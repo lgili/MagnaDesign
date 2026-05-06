@@ -7,7 +7,7 @@ Optional zebra striping.
 """
 from __future__ import annotations
 
-from typing import Iterable, Optional, Sequence
+from typing import Iterable, NamedTuple, Optional, Sequence
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
@@ -21,7 +21,17 @@ from PySide6.QtWidgets import (
 
 from pfc_inductor.ui.theme import get_theme, on_theme_changed
 
-Row = tuple[str, str, Optional[str]]
+
+class Row(NamedTuple):
+    """One row of the key/value/unit table.
+
+    Subclasses :class:`tuple`, so the legacy positional unpacking
+    (``label, value, unit = row``) still works while gaining
+    ``row.label``/``row.value``/``row.unit`` for new callers.
+    """
+    label: str
+    value: str
+    unit: Optional[str] = None
 
 
 class DataTable(QFrame):

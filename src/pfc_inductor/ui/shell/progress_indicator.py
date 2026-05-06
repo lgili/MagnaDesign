@@ -141,6 +141,10 @@ class _ProgressSegment(QFrame):
         self.setObjectName("ProgressSegment")
         self._key = key
         self._state: StepState = "pending"
+        # The strip is informational only — be explicit about it via the
+        # default arrow cursor so the chip-like shape doesn't promise
+        # a click that never happens.
+        self.setCursor(Qt.CursorShape.ArrowCursor)
 
         h = QHBoxLayout(self)
         h.setContentsMargins(0, 0, 0, 0)

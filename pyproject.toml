@@ -74,6 +74,12 @@ ignore = [
     "UP007",  # `Optional[X]` reads better than `X | None` in Pydantic Field defaults.
     "UP045",  # Same — keep `Optional[T]` for non-Pydantic widget signatures.
     "UP035",  # Allow ``typing.X`` aliases (Iterable, etc.) — not worth the churn.
+    # Domain text uses Unicode technical symbols intentionally:
+    # ``×`` for "by" (3×3, A×B), ``–``/``−`` for B–H curves and ±DC busses,
+    # ``μ`` for permeability. ASCII would lose the engineering legibility.
+    "RUF001", # ambiguous Unicode in string literals (e.g. "B–H curve").
+    "RUF002", # ambiguous Unicode in docstrings.
+    "RUF003", # ambiguous Unicode in comments (schematic ASCII art labels).
 ]
 
 [tool.ruff.lint.per-file-ignores]

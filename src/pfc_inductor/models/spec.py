@@ -46,13 +46,46 @@ class Spec(BaseModel):
         description="1 or 3 — only used when topology == 'line_reactor'",
     )
     L_req_mH: float = Field(
-        10.0, ge=0.1, le=1000.0,
-        description="Target inductance for the reactor (mH).",
+        10.0, ge=0.05, le=1000.0,
+        description=(
+            "Target inductance for the reactor (mH). The legacy "
+            "``pct_impedance`` kwarg auto-converts to this field via "
+            "the model_validator below; very low %Z values (0.5 %) "
+            "land near the 0.05 mH floor."
+        ),
     )
     I_rated_Arms: float = Field(
         2.2, gt=0.0,
         description="Rated continuous RMS current at the reactor (line side).",
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _convert_legacy_pct_impedance(cls, data):
+        """Back-compat shim: callers (and tests) that still pass
+        ``pct_impedance=X`` get it auto-converted to the equivalent
+        ``L_req_mH`` from base impedance and rated current. The
+        legacy kwarg is consumed so it doesn't trip Pydantic's
+        ``extra='forbid'`` mode.
+        """
+        if not isinstance(data, dict):
+            return data
+        pct_z = data.pop("pct_impedance", None)
+        if pct_z is None:
+            return data
+        # Don't override an explicit L_req_mH.
+        if "L_req_mH" in data:
+            return data
+        v_nom = float(data.get("Vin_nom_Vrms", 230.0))
+        n_phases = int(data.get("n_phases", 3))
+        v_phase = v_nom / math.sqrt(3.0) if n_phases == 3 else v_nom
+        i_rated = float(data.get("I_rated_Arms", 2.2))
+        f_line = float(data.get("f_line_Hz", 50.0))
+        z_base = v_phase / max(i_rated, 1e-9)
+        z_react = float(pct_z) / 100.0 * z_base
+        l_req_h = z_react / (2.0 * math.pi * max(f_line, 1.0))
+        data["L_req_mH"] = l_req_h * 1000.0
+        return data
 
     @model_validator(mode="after")
     def _check_voltages(self) -> Spec:
@@ -90,3 +123,22 @@ class Spec(BaseModel):
         if self.topology == "line_reactor" and self.n_phases == 3:
             return self.Vin_nom_Vrms / math.sqrt(3.0)
         return self.Vin_nom_Vrms
+
+    @property
+    def pct_impedance(self) -> float:
+        """Derived %Z at rated current from ``L_req_mH``.
+
+        Kept as a read-only computed property for back-compat with
+        callers (e.g. ``topology.line_reactor.reactor_impedance_ohm``)
+        and tests written before the v3.x migration to a direct
+        ``L_req_mH`` field. New code should compute this on demand or
+        use the topology helpers.
+        """
+        if self.topology != "line_reactor":
+            return 0.0
+        omega = 2.0 * math.pi * max(self.f_line_Hz, 1.0)
+        z_react = omega * (self.L_req_mH * 1e-3)
+        z_base = self.phase_voltage_Vrms / max(self.I_rated_Arms, 1e-9)
+        if z_base <= 0:
+            return 0.0
+        return 100.0 * z_react / z_base

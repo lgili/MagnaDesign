@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from pfc_inductor.ui.icons import icon as ui_icon
 from pfc_inductor.ui.theme import get_theme, on_theme_changed
 
 # Threshold above which the counter actually colours itself with the
@@ -169,7 +170,9 @@ class BottomStatusBar(QFrame):
     # Internals
     # ------------------------------------------------------------------
     def _icon_label(self, key: str) -> QLabel:
-        icon = ui_icon(key, color=get_theme().palette.muted, size=16)
+        # ``palette.muted`` doesn't exist in the theme — the canonical
+        # token is ``text_muted`` for low-emphasis foreground.
+        icon = ui_icon(key, color=get_theme().palette.text_muted, size=16)
         label = QLabel()
         label.setPixmap(icon.pixmap(16, 16))
         return label

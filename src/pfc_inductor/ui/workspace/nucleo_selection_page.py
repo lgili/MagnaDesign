@@ -20,13 +20,15 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtCore import QSettings, Qt, Signal
+from PySide6.QtCore import QSettings, Qt, QTimer, Signal
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
+    QPushButton,
     QSizePolicy,
     QStackedWidget,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -35,10 +37,11 @@ from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
 from pfc_inductor.settings import SETTINGS_APP, SETTINGS_ORG
 from pfc_inductor.ui.dashboard.cards import NucleoCard, Viz3DCard
 from pfc_inductor.ui.optimize_dialog import OptimizerEmbed
-from pfc_inductor.ui.theme import CARD_MIN, get_theme, on_theme_changed
+from pfc_inductor.ui.theme import ANIMATION, CARD_MIN, get_theme, on_theme_changed
 from pfc_inductor.ui.widgets import ModeToggle
 
 _QS_MODE_KEY = "ui/projeto/nucleo_mode"  # values: "tabela" | "otimizador"
+_QS_HINT_DISMISSED_KEY = "ui/projeto/nucleo_hint_dismissed"
 
 
 class NucleoSelectionPage(QWidget):
@@ -54,6 +57,12 @@ class NucleoSelectionPage(QWidget):
     """
 
     selection_applied = Signal(str, str, str)
+    # Emitted when the user applied a selection from the inline
+    # OptimizerEmbed. The host (ProjetoPage) listens and switches the
+    # workspace tab to "Análise" so the new design's waveforms are
+    # visible immediately. Manual table-driven applies don't fire this
+    # — those keep the user in context (table + 3D preview).
+    suggest_analise_navigation = Signal()
 
     def __init__(
         self,
@@ -73,19 +82,29 @@ class NucleoSelectionPage(QWidget):
         outer.setContentsMargins(sp.page, sp.page, sp.page, sp.page)
         outer.setSpacing(sp.card_gap)
 
-        # ---- Toolbar row: hint label (L) + mode toggle (R) -------------
+        # ---- Dismissable hint banner (only on first visits) ----------
+        qs = QSettings(SETTINGS_ORG, SETTINGS_APP)
+        if not bool(qs.value(_QS_HINT_DISMISSED_KEY, False, type=bool)):
+            self._hint_banner = self._build_hint_banner()
+            outer.addWidget(self._hint_banner)
+        else:
+            self._hint_banner = None
+
+        # ---- Toolbar row: caption (L) + mode toggle (R) ---------------
         toolbar = QHBoxLayout()
         toolbar.setContentsMargins(0, 0, 0, 0)
         toolbar.setSpacing(8)
 
-        self._hint = QLabel(
-            "Escolha o material, núcleo e fio. Use o "
-            "<b>Otimizador</b> para ranquear todas as combinações.",
+        self._caption = QLabel("Seleção do projeto")
+        # Use a strong-secondary colour: text (8.8:1) and semibold so it
+        # reads as a section heading, not as muted copy.
+        p = get_theme().palette
+        t = get_theme().type
+        self._caption.setStyleSheet(
+            f"color: {p.text}; font-size: {t.title_md}px;"
+            f" font-weight: {t.semibold};"
         )
-        self._hint.setProperty("role", "muted")
-        self._hint.setTextFormat(Qt.TextFormat.RichText)
-        self._hint.setWordWrap(True)
-        toolbar.addWidget(self._hint, 1)
+        toolbar.addWidget(self._caption, 1)
 
         self.toggle = ModeToggle(
             [("tabela", "Tabela"), ("otimizador", "Otimizador")],
@@ -100,8 +119,13 @@ class NucleoSelectionPage(QWidget):
         self._stack.addWidget(self._build_otimizador_page())
         outer.addWidget(self._stack, 1)
 
+        # ---- Nudge banner: appears below the stack for ~4s after the
+        # inline optimizer applies a selection. Hidden by default.
+        self._nudge_banner = self._build_nudge_banner()
+        self._nudge_banner.hide()
+        outer.addWidget(self._nudge_banner)
+
         # ---- Restore last mode from QSettings -------------------------
-        qs = QSettings(SETTINGS_ORG, SETTINGS_APP)
         last = str(qs.value(_QS_MODE_KEY, "tabela"))
         if last not in ("tabela", "otimizador"):
             last = "tabela"
@@ -148,9 +172,80 @@ class NucleoSelectionPage(QWidget):
             cores=self._cores,
             wires=self._wires,
         )
-        self.optimizer.selection_applied.connect(self.selection_applied.emit)
+        # Route the inline-optimizer apply through ``_on_optimizer_applied``
+        # so we can both bubble the signal up AND nudge the user toward
+        # the Análise tab where the waveforms of the new selection live.
+        self.optimizer.selection_applied.connect(self._on_optimizer_applied)
         v.addWidget(self.optimizer, 1)
         return page
+
+    def _build_hint_banner(self) -> QFrame:
+        """First-launch tutorial banner with a dismiss "✕" affordance.
+
+        Persists ``ui/projeto/nucleo_hint_dismissed`` in QSettings so
+        the banner never reappears once the engineer has clicked it
+        away. Lives above the toolbar row, doesn't shift on collapse.
+        """
+        banner = QFrame()
+        banner.setObjectName("HintBanner")
+        h = QHBoxLayout(banner)
+        h.setContentsMargins(14, 10, 8, 10)
+        h.setSpacing(10)
+
+        # Body text — Rich text so we can bold "Otimizador" inline.
+        body = QLabel(
+            "Escolha o material, núcleo e fio na <b>Tabela</b>, ou use "
+            "o <b>Otimizador</b> para ranquear todas as combinações por "
+            "perda, volume, temperatura ou custo."
+        )
+        body.setTextFormat(Qt.TextFormat.RichText)
+        body.setWordWrap(True)
+        body.setObjectName("HintBannerBody")
+        h.addWidget(body, 1)
+
+        # Dismiss button — small ghost "✕". Always 24×24 px so the hit
+        # target stays comfortable at a desktop pointer.
+        dismiss = QToolButton()
+        dismiss.setText("✕")
+        dismiss.setFixedSize(24, 24)
+        dismiss.setCursor(Qt.CursorShape.PointingHandCursor)
+        dismiss.setObjectName("HintBannerDismiss")
+        dismiss.setToolTip("Não mostrar novamente")
+        dismiss.clicked.connect(self._dismiss_hint)
+        h.addWidget(dismiss, 0, Qt.AlignmentFlag.AlignTop)
+
+        self._refresh_hint_qss(banner, body, dismiss)
+        return banner
+
+    def _build_nudge_banner(self) -> QFrame:
+        """Transient post-apply banner suggesting Análise navigation.
+
+        Appears for ANIMATION.nudge_ms after the inline OptimizerEmbed
+        emits ``selection_applied``. The "Ver Análise →" button bubbles
+        a :attr:`suggest_analise_navigation` signal that ProjetoPage
+        catches and uses to ``switch_to("analise")``.
+        """
+        banner = QFrame()
+        banner.setObjectName("NudgeBanner")
+        h = QHBoxLayout(banner)
+        h.setContentsMargins(14, 10, 14, 10)
+        h.setSpacing(10)
+
+        body = QLabel(
+            "Seleção aplicada. Veja as formas de onda do novo design."
+        )
+        body.setObjectName("NudgeBannerBody")
+        h.addWidget(body, 1)
+
+        btn = QPushButton("Ver Análise →")
+        btn.setObjectName("NudgeBannerCta")
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn.setProperty("class", "Tertiary")
+        btn.clicked.connect(self._on_nudge_clicked)
+        h.addWidget(btn, 0)
+
+        self._refresh_nudge_qss(banner, body)
+        return banner
 
     # ------------------------------------------------------------------
     # Public API — called by ProjetoPage / MainWindow on each recalc
@@ -198,7 +293,96 @@ class NucleoSelectionPage(QWidget):
         self._stack.setCurrentIndex(0 if key == "tabela" else 1)
         QSettings(SETTINGS_ORG, SETTINGS_APP).setValue(_QS_MODE_KEY, key)
 
+    def _on_optimizer_applied(
+        self, mat_id: str, core_id: str, wire_id: str,
+    ) -> None:
+        """Bubble the optimizer's selection upward AND surface a nudge
+        toward the Análise tab so the user sees the new waveforms.
+
+        We don't auto-navigate — that strips the user of agency and
+        also breaks the otimizador-then-tweak-then-otimizador-again
+        loop. A 4 s nudge with a clickable CTA is the gentler middle.
+        """
+        self.selection_applied.emit(mat_id, core_id, wire_id)
+        self._nudge_banner.show()
+        QTimer.singleShot(ANIMATION.nudge_ms, self._nudge_banner.hide)
+
+    def _on_nudge_clicked(self) -> None:
+        self._nudge_banner.hide()
+        self.suggest_analise_navigation.emit()
+
+    def _dismiss_hint(self) -> None:
+        if self._hint_banner is None:
+            return
+        QSettings(SETTINGS_ORG, SETTINGS_APP).setValue(
+            _QS_HINT_DISMISSED_KEY, True,
+        )
+        self._hint_banner.hide()
+        self._hint_banner.deleteLater()
+        self._hint_banner = None
+
     def _refresh_qss(self) -> None:
-        # The page itself has no QSS — children handle their own theming.
-        # This hook exists so future palette-bound styling has a place.
-        return
+        # Re-apply theme-bound inline styles on banners (the global
+        # stylesheet doesn't reach #HintBanner / #NudgeBanner).
+        if self._hint_banner is not None:
+            body = self._hint_banner.findChild(QLabel, "HintBannerBody")
+            dismiss = self._hint_banner.findChild(QToolButton, "HintBannerDismiss")
+            if body is not None and dismiss is not None:
+                self._refresh_hint_qss(self._hint_banner, body, dismiss)
+        if hasattr(self, "_nudge_banner"):
+            body = self._nudge_banner.findChild(QLabel, "NudgeBannerBody")
+            if body is not None:
+                self._refresh_nudge_qss(self._nudge_banner, body)
+        # Re-apply caption colour too, in case the palette flipped.
+        p = get_theme().palette
+        t = get_theme().type
+        self._caption.setStyleSheet(
+            f"color: {p.text}; font-size: {t.title_md}px;"
+            f" font-weight: {t.semibold};"
+        )
+
+    @staticmethod
+    def _refresh_hint_qss(banner: QFrame, body: QLabel,
+                          dismiss: QToolButton) -> None:
+        p = get_theme().palette
+        t = get_theme().type
+        r = get_theme().radius
+        banner.setStyleSheet(
+            f"QFrame#HintBanner {{"
+            f"  background: {p.info_bg};"
+            f"  border: 1px solid {p.info};"
+            f"  border-radius: {r.md}px;"
+            f"}}"
+        )
+        body.setStyleSheet(
+            f"color: {p.text}; font-size: {t.body}px;"
+            f" background: transparent;"
+        )
+        dismiss.setStyleSheet(
+            f"QToolButton {{"
+            f"  background: transparent; border: 0;"
+            f"  color: {p.text_secondary};"
+            f"  font-size: {t.body_md}px; font-weight: {t.semibold};"
+            f"  border-radius: {r.sm}px;"
+            f"}}"
+            f"QToolButton:hover {{ background: {p.surface}; "
+            f"color: {p.text}; }}"
+        )
+
+    @staticmethod
+    def _refresh_nudge_qss(banner: QFrame, body: QLabel) -> None:
+        p = get_theme().palette
+        t = get_theme().type
+        r = get_theme().radius
+        banner.setStyleSheet(
+            f"QFrame#NudgeBanner {{"
+            f"  background: {p.accent_violet_subtle_bg};"
+            f"  border: 1px solid {p.accent_violet};"
+            f"  border-radius: {r.md}px;"
+            f"}}"
+        )
+        body.setStyleSheet(
+            f"color: {p.accent_violet_subtle_text};"
+            f" font-size: {t.body}px; font-weight: {t.medium};"
+            f" background: transparent;"
+        )

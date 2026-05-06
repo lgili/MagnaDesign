@@ -30,11 +30,13 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
+    QLabel,
     QScrollArea,
+    QStackedLayout,
     QVBoxLayout,
     QWidget,
 )
@@ -68,6 +70,17 @@ class AnalisePage(QWidget):
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
 
+        # ``_stack`` swaps between the empty placeholder and the live
+        # grid of cards. Before the first ``update_from_design`` we
+        # show the placeholder so the page never reads as broken.
+        self._stack = QStackedLayout()
+        outer.addLayout(self._stack)
+
+        # Empty-state placeholder (page 0).
+        self._empty_state = self._build_empty_state()
+        self._stack.addWidget(self._empty_state)
+
+        # Live grid (page 1) — built lazily by _apply_palette_bg.
         scroll = QScrollArea(self)
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
@@ -76,10 +89,15 @@ class AnalisePage(QWidget):
         inner = QWidget()
         scroll.setWidget(inner)
         self._inner = inner
-        outer.addWidget(scroll, 1)
+        self._stack.addWidget(scroll)
+        # Show empty by default until the first design lands.
+        self._stack.setCurrentIndex(0)
+        self._has_data = False
+
         self._grid_built = False
         self._apply_palette_bg()
         on_theme_changed(self._apply_palette_bg)
+        on_theme_changed(self._refresh_empty_qss)
 
     # ------------------------------------------------------------------
     # Layout
@@ -139,7 +157,72 @@ class AnalisePage(QWidget):
                            material: Material) -> None:
         for card in self._cards:
             card.update_from_design(result, spec, core, wire, material)
+        # First successful update — swap from the empty placeholder to
+        # the live grid. Subsequent updates are no-ops on the stack.
+        if not self._has_data:
+            self._has_data = True
+            self._stack.setCurrentIndex(1)
 
     def clear(self) -> None:
         for card in self._cards:
             card.clear()
+        # Revert to the empty placeholder so the page reads as
+        # "waiting for input" instead of "broken with em-dashes".
+        self._has_data = False
+        self._stack.setCurrentIndex(0)
+
+    # ------------------------------------------------------------------
+    # Empty-state placeholder
+    # ------------------------------------------------------------------
+    def _build_empty_state(self) -> QWidget:
+        page = QFrame()
+        page.setObjectName("AnaliseEmptyState")
+        v = QVBoxLayout(page)
+        v.setContentsMargins(48, 48, 48, 48)
+        v.setSpacing(12)
+        v.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        title = QLabel("Aguardando o primeiro cálculo")
+        title.setObjectName("AnaliseEmptyTitle")
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        body = QLabel(
+            "Ajuste a especificação na coluna esquerda e clique em "
+            "<b>Recalcular</b> no topo. As formas de onda, perdas e "
+            "detalhes do enrolamento aparecem aqui."
+        )
+        body.setObjectName("AnaliseEmptyBody")
+        body.setTextFormat(Qt.TextFormat.RichText)
+        body.setWordWrap(True)
+        body.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        body.setMaximumWidth(520)
+
+        v.addStretch(1)
+        v.addWidget(title, 0, Qt.AlignmentFlag.AlignHCenter)
+        v.addWidget(body, 0, Qt.AlignmentFlag.AlignHCenter)
+        v.addStretch(2)
+
+        self._empty_title = title
+        self._empty_body = body
+        self._refresh_empty_qss()
+        return page
+
+    def _refresh_empty_qss(self) -> None:
+        if not hasattr(self, "_empty_title"):
+            return
+        p = get_theme().palette
+        t = get_theme().type
+        # Theme-tinted background that distinguishes the empty state
+        # from a stuck/loading view but still sits on the same page bg.
+        if hasattr(self, "_empty_state"):
+            self._empty_state.setStyleSheet(
+                f"QFrame#AnaliseEmptyState {{ background: {p.bg};"
+                f" border: 0; }}"
+            )
+        self._empty_title.setStyleSheet(
+            f"color: {p.text}; font-size: {t.title_lg}px;"
+            f" font-weight: {t.semibold};"
+        )
+        self._empty_body.setStyleSheet(
+            f"color: {p.text_secondary}; font-size: {t.body_md}px;"
+        )

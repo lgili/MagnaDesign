@@ -134,6 +134,18 @@ class MetricCard(QFrame):
         self._status = status
         self.setStyleSheet(self._self_qss(status))
 
+    def status(self) -> MetricStatus:
+        """Current status. Public read accessor — prefer this over
+        accessing the private ``_status`` attribute from sibling widgets
+        (e.g. :class:`~pfc_inductor.ui.widgets.resumo_strip.ResumoStrip`)."""
+        return self._status
+
+    def label_text(self) -> str:
+        """Text of the caption label as currently shown (already
+        upper-cased per the constructor). Public read accessor used by
+        the strip's aggregate-status summary."""
+        return self._lbl.text()
+
     def set_trend(self, pct: Optional[float]) -> None:
         self._trend_pct = pct
         if pct is None:
