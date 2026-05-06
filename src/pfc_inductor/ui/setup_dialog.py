@@ -123,7 +123,7 @@ class SetupDepsDialog(QDialog):
         self.lst_steps.clear()
         items = [
             ("FEMMT importável", v.femmt_importable,
-             v.femmt_version and f"v{v.femmt_version}" or ""),
+             (v.femmt_version and f"v{v.femmt_version}") or ""),
             ("ONELAB configurado",
              v.onelab_dir is not None,
              str(v.onelab_dir) if v.onelab_dir else ""),

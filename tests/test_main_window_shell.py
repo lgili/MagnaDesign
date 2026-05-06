@@ -33,10 +33,10 @@ def win(app):
 
 def test_main_window_has_v3_shell_widgets(win):
     from pfc_inductor.ui.shell import Sidebar
-    from pfc_inductor.ui.shell.spec_drawer import SpecDrawer
+    from pfc_inductor.ui.shell.header import WorkspaceHeader
     from pfc_inductor.ui.shell.progress_indicator import ProgressIndicator
     from pfc_inductor.ui.shell.scoreboard import Scoreboard
-    from pfc_inductor.ui.shell.header import WorkspaceHeader
+    from pfc_inductor.ui.shell.spec_drawer import SpecDrawer
     assert isinstance(win.sidebar, Sidebar)
     assert isinstance(win.projeto_page.drawer, SpecDrawer)
     assert isinstance(win.projeto_page.progress, ProgressIndicator)
@@ -56,9 +56,10 @@ def test_main_window_no_legacy_splitter(win):
     where the ranked table sits next to the Pareto plot) are fine
     — they are owned by individual pages, not by the shell."""
     from PySide6.QtWidgets import QSplitter
-    from pfc_inductor.ui.spec_panel import SpecPanel
+
     from pfc_inductor.ui.plot_panel import PlotPanel
     from pfc_inductor.ui.result_panel import ResultPanel
+    from pfc_inductor.ui.spec_panel import SpecPanel
     legacy_panels = (SpecPanel, PlotPanel, ResultPanel)
 
     for sp in win.findChildren(QSplitter):

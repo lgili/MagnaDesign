@@ -13,16 +13,16 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
 
-from pfc_inductor.ui.theme import set_theme, get_theme, SIDEBAR
 from pfc_inductor.ui.style import (
-    make_stylesheet,
     card_qss,
+    chip_qss,
+    make_stylesheet,
     pill_qss,
     sidebar_qss,
-    v2_buttons_qss,
-    chip_qss,
     stepper_qss,
+    v2_buttons_qss,
 )
+from pfc_inductor.ui.theme import SIDEBAR, get_theme, set_theme
 
 
 @pytest.fixture(scope="module")

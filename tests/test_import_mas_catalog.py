@@ -4,6 +4,7 @@ Synthetic NDJSON sources keep these fast and hermetic — they don't touch
 the vendored real catalog under ``vendor/openmagnetics-catalog/``.
 """
 from __future__ import annotations
+
 import json
 import sys
 from pathlib import Path

@@ -6,10 +6,9 @@ with install instructions when no backend is detected.
 """
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Optional
 
-from PySide6.QtCore import QObject, Qt, QThread, Signal
+from PySide6.QtCore import QObject, QThread, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QDialog,
@@ -35,7 +34,6 @@ from pfc_inductor.fea import (
     find_femm_binary,
     install_hint,
     is_femm_available,
-    is_femmt_available,
     select_backend_for_shape,
     validate_design,
 )

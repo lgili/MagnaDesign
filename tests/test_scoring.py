@@ -18,7 +18,10 @@ def app():
 @pytest.fixture
 def db():
     from pfc_inductor.data_loader import (
-        ensure_user_data, load_materials, load_cores, load_wires,
+        ensure_user_data,
+        load_cores,
+        load_materials,
+        load_wires,
     )
     ensure_user_data()
     return {

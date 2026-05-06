@@ -259,18 +259,25 @@ class _CandidateTab(QWidget):
         self.table.setEditTriggers(QTableView.EditTrigger.NoEditTriggers)
         self.table.setSortingEnabled(True)
         self.table.verticalHeader().setVisible(False)
+        # Row height: 28 px keeps ~9 rows visible at a 260 px minHeight,
+        # which is enough to scan a top-N candidate list without scroll.
+        self.table.verticalHeader().setDefaultSectionSize(28)
+        self.table.setMinimumHeight(260)
         # Last column = score, render with delegate
         score_col = self._model.columnCount() - 1
         self.table.setItemDelegateForColumn(score_col, _ScorePillDelegate(self))
         # Default sort by score descending.
         self.table.sortByColumn(score_col, Qt.SortOrder.DescendingOrder)
-        # Header sizing: stretch the first text column, fit the rest.
+        # Header sizing: stretch the first text column, fit the rest. The
+        # score column gets a fixed 80 px so the colour-graded pill never
+        # collapses or jitters as the parent grid resizes.
         h = self.table.horizontalHeader()
+        h.setMinimumSectionSize(64)
         h.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         for i in range(1, score_col):
             h.setSectionResizeMode(i, QHeaderView.ResizeMode.ResizeToContents)
-        h.setSectionResizeMode(score_col,
-                               QHeaderView.ResizeMode.ResizeToContents)
+        h.setSectionResizeMode(score_col, QHeaderView.ResizeMode.Fixed)
+        self.table.setColumnWidth(score_col, 80)
         self.table.setSizePolicy(QSizePolicy.Policy.Expanding,
                                  QSizePolicy.Policy.Expanding)
         v.addWidget(self.table, 1)

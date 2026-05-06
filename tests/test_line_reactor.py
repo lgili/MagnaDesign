@@ -1,5 +1,6 @@
 """Tests for the line-reactor topology (50/60 Hz harmonic mitigation)."""
 from __future__ import annotations
+
 import math
 
 import pytest
@@ -103,7 +104,7 @@ def test_required_inductance_uH_matches_mH():
 def test_engine_design_runs_for_line_reactor():
     """A line-reactor spec must run through the engine without raising and
     populate the new line-reactor fields in DesignResult."""
-    from pfc_inductor.data_loader import load_materials, load_cores, load_wires, find_material
+    from pfc_inductor.data_loader import find_material, load_cores, load_materials, load_wires
     from pfc_inductor.design import design
 
     mats = load_materials()

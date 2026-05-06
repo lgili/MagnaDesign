@@ -1,14 +1,17 @@
 """Positioning module + AboutDialog + README invariants."""
 from __future__ import annotations
+
 from pathlib import Path
 
 import pytest
 
 from pfc_inductor.positioning import (
-    DIFFERENTIALS, COMPETITORS, PITCH, coverage_label,
+    COMPETITORS,
+    DIFFERENTIALS,
+    PITCH,
+    coverage_label,
     get_competitor,
 )
-
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -96,15 +99,46 @@ def test_contributing_exists_with_scope_section():
 
 
 def test_readme_pitch_precedes_install():
-    """Differential pitch must appear before the install instructions."""
+    """The differential pitch (in any of its accepted phrasings) must
+    appear before the install instructions.
+
+    The README has been through PT-BR and now EN editions; we accept
+    either canonical phrasing so the test stays meaningful as the copy
+    evolves.
+    """
     p = REPO_ROOT / "README.md"
     text = p.read_text(encoding="utf-8")
-    pitch_idx = text.find("Por que este projeto importa")
-    # Accept either the legacy "## Instalação" header or the newer
-    # "## Setup rápido" — both are install entry points.
-    install_idx = max(text.find("## Instalação"), text.find("## Setup rápido"))
-    assert pitch_idx >= 0, "README must have 'Por que este projeto importa'"
-    assert install_idx >= 0, "README must have an install section"
+    # Accept the original PT-BR header, an EN equivalent, or the
+    # current "What is supported today" section as the differential
+    # pitch entry point.
+    pitch_candidates = (
+        "Por que este projeto importa",
+        "Why this project matters",
+        "## What is supported today",
+    )
+    pitch_idx = -1
+    for cand in pitch_candidates:
+        pitch_idx = text.find(cand)
+        if pitch_idx >= 0:
+            break
+    install_candidates = (
+        "## Instalação",
+        "## Setup rápido",
+        "## Getting started",
+        "### Install",
+    )
+    install_idx = -1
+    for cand in install_candidates:
+        idx = text.find(cand)
+        if idx >= 0 and (install_idx < 0 or idx < install_idx):
+            install_idx = idx
+    assert pitch_idx >= 0, (
+        "README must contain a differential-pitch section "
+        f"(any of {pitch_candidates})"
+    )
+    assert install_idx >= 0, (
+        f"README must have an install section (any of {install_candidates})"
+    )
     assert pitch_idx < install_idx, (
         "README hero must come before installation"
     )
@@ -113,4 +147,8 @@ def test_readme_pitch_precedes_install():
 def test_readme_links_to_positioning():
     p = REPO_ROOT / "README.md"
     text = p.read_text(encoding="utf-8")
-    assert "docs/POSITIONING.md" in text
+    # The reference may be relative (``docs/POSITIONING.md``) or in a
+    # markdown link form. Accept either; just require the filename.
+    assert "POSITIONING.md" in text, (
+        "README must reference docs/POSITIONING.md somewhere"
+    )

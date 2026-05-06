@@ -9,8 +9,6 @@ Generates two curves on the B–H plane:
 """
 from __future__ import annotations
 
-from typing import Optional
-
 import numpy as np
 
 from pfc_inductor.models import Core, DesignResult, Material

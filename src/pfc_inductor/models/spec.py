@@ -58,7 +58,7 @@ class Spec(BaseModel):
     )
 
     @model_validator(mode="after")
-    def _check_voltages(self) -> "Spec":
+    def _check_voltages(self) -> Spec:
         if self.topology == "boost_ccm":
             if self.Vout_V <= self.Vin_max_Vrms * 1.41:
                 raise ValueError(

@@ -53,7 +53,7 @@ def _loss_plot(result: DesignResult) -> str:
     ax.set_ylabel("Perda [W]")
     ax.set_title(f"Perdas (total = {L.P_total_W:.2f} W)")
     ax.grid(True, axis="y", alpha=0.4)
-    for b, v in zip(bars, values):
+    for b, v in zip(bars, values, strict=False):
         ax.text(b.get_x() + b.get_width() / 2, v + 0.02, f"{v:.2f}",
                 ha="center", va="bottom", fontsize=9)
     return _plot_to_base64(fig)

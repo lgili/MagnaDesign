@@ -1,5 +1,4 @@
 """Boost PFC CCM topology calculations."""
-import math
 import pytest
 
 from pfc_inductor.models import Spec

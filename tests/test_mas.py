@@ -6,23 +6,24 @@ Verifies:
 - Saved MAS files re-load and recompute the same design results.
 """
 from __future__ import annotations
+
 import json
-import tempfile
 from pathlib import Path
 
-import pytest
-
 from pfc_inductor.data_loader import (
-    load_materials, load_cores, load_wires, find_material,
-    save_materials, save_cores, save_wires,
+    find_material,
+    load_cores,
+    load_materials,
+    load_wires,
 )
 from pfc_inductor.models.mas import (
-    MasMaterial, MasCore, MasWire,
-    material_to_mas, material_from_mas,
-    core_to_mas, core_from_mas,
-    wire_to_mas, wire_from_mas,
+    core_from_mas,
+    core_to_mas,
+    material_from_mas,
+    material_to_mas,
+    wire_from_mas,
+    wire_to_mas,
 )
-
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -147,8 +148,8 @@ def test_bundled_mas_files_present_and_valid():
 
 def test_design_runs_unchanged_when_db_loaded_via_mas():
     """End-to-end: design results from MAS-loaded DB equal legacy-loaded."""
-    from pfc_inductor.models import Spec
     from pfc_inductor.design import design
+    from pfc_inductor.models import Spec
 
     mats = load_materials()
     cores = load_cores()
@@ -186,6 +187,6 @@ def test_save_then_reload_mas(tmp_path, monkeypatch):
     dl.save_materials(mats, as_mas=True)
     loaded = dl.load_materials()
     assert len(loaded) == len(mats)
-    for orig, rt in zip(mats, loaded):
+    for orig, rt in zip(mats, loaded, strict=False):
         assert orig.id == rt.id
         assert abs(orig.Bsat_25C_T - rt.Bsat_25C_T) < 1e-9

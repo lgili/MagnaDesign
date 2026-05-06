@@ -11,7 +11,6 @@ from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QDesktopServices, QFont
 from PySide6.QtWidgets import (
     QDialog,
-    QFrame,
     QGroupBox,
     QHBoxLayout,
     QHeaderView,

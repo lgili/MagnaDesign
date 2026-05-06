@@ -22,7 +22,7 @@ mirrors those formulas.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, Literal, Optional
+from typing import Iterable, Literal, Optional
 
 Edition = Literal["4.0", "5.0"]
 
@@ -30,10 +30,10 @@ Edition = Literal["4.0", "5.0"]
 # ---------------------------------------------------------------------------
 # Table 3 — fixed factors and absolute limits for n in {3, 5, 7, 9, 11}
 # ---------------------------------------------------------------------------
-LIMIT_FACTORS_FIXED_MA_W: Dict[int, float] = {
+LIMIT_FACTORS_FIXED_MA_W: dict[int, float] = {
     3: 3.4, 5: 1.9, 7: 1.0, 9: 0.5, 11: 0.35,
 }
-ABS_LIMITS_FIXED_A: Dict[int, float] = {
+ABS_LIMITS_FIXED_A: dict[int, float] = {
     3: 2.30, 5: 1.14, 7: 0.77, 9: 0.40, 11: 0.33,
 }
 
@@ -70,14 +70,14 @@ def absolute_limit_a(n: int) -> float:
 def class_d_limits(
     Pi_W: float, edition: Edition = DEFAULT_EDITION,
     *, harmonics: Optional[Iterable[int]] = None,
-) -> Dict[int, float]:
+) -> dict[int, float]:
     """Per-harmonic Class D limit (A) for the supplied input power.
 
     ``Pi_W`` is the rated input active power. ``harmonics`` defaults to
     odd 3..39.
     """
     orders = list(harmonics) if harmonics is not None else ODD_HARMONICS
-    out: Dict[int, float] = {}
+    out: dict[int, float] = {}
     for n in orders:
         relative = (factor_per_watt_ma(n, edition) / 1000.0) * float(Pi_W)
         out[n] = min(relative, absolute_limit_a(n))
@@ -105,12 +105,12 @@ class ComplianceReport:
     margin_min_pct: float = 0.0    # smallest margin across all harmonics
     passes: bool = True
 
-    def by_order(self) -> Dict[int, HarmonicCheck]:
+    def by_order(self) -> dict[int, HarmonicCheck]:
         return {c.n: c for c in self.checks}
 
 
 def evaluate_compliance(
-    harmonics_A: Dict[int, float],
+    harmonics_A: dict[int, float],
     Pi_W: float,
     edition: Edition = DEFAULT_EDITION,
 ) -> ComplianceReport:

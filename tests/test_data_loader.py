@@ -1,6 +1,9 @@
 """Sanity checks on the bundled JSON databases."""
 from pfc_inductor.data_loader import (
-    load_materials, load_cores, load_wires, load_curated_ids,
+    load_cores,
+    load_curated_ids,
+    load_materials,
+    load_wires,
 )
 
 

@@ -1,4 +1,10 @@
-"""Perdas card — donut + small breakdown table."""
+"""Perdas card — horizontal stacked bar with inline legend.
+
+Replaces the v2 ``DonutChart + DataTable`` body, which couldn't render
+clearly in the bottom-strip column width (~155 px). The new
+``HorizontalStackedBar`` reads at any width down to ~180 px and brings
+total + per-segment value/percent together in a single, compact block.
+"""
 from __future__ import annotations
 
 from typing import Optional
@@ -7,7 +13,7 @@ from PySide6.QtWidgets import QVBoxLayout, QWidget
 
 from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
 from pfc_inductor.ui.theme import get_theme
-from pfc_inductor.ui.widgets import Card, DataTable, DonutChart
+from pfc_inductor.ui.widgets import Card, HorizontalStackedBar
 
 
 class _PerdasBody(QWidget):
@@ -17,35 +23,28 @@ class _PerdasBody(QWidget):
         v.setContentsMargins(0, 0, 0, 0)
         v.setSpacing(10)
 
-        self._donut = DonutChart(centre_caption="W Total")
-        self._table = DataTable(striped=False)
-        v.addWidget(self._donut, 1)
-        v.addWidget(self._table)
+        self._bar = HorizontalStackedBar(
+            total_format="{:.2f}",
+            total_caption="W Total",
+            unit="W",
+        )
+        v.addWidget(self._bar, 1)
 
     def update_from_design(self, result: DesignResult, spec: Spec,
                            core: Core, wire: Wire,
                            material: Material) -> None:
         p = get_theme().palette
         l = result.losses
-        segments = [
-            ("DC", l.P_cu_dc_W, p.accent),
-            ("AC", l.P_cu_ac_W, p.warning),
+        # Segment colours pinned to semantic palette tokens so the bar
+        # reads consistently in both themes.
+        self._bar.set_segments([
+            ("Cu DC", l.P_cu_dc_W, p.accent),
+            ("Cu AC", l.P_cu_ac_W, p.warning),
             ("Núcleo", l.P_core_total_W, p.copper),
-        ]
-        self._donut.set_segments(segments)
-
-        total = l.P_total_W or 1e-9
-        rows = [
-            ("Cu DC", f"{l.P_cu_dc_W:.2f}", f"W ({100*l.P_cu_dc_W/total:.0f}%)"),
-            ("Cu AC", f"{l.P_cu_ac_W:.2f}", f"W ({100*l.P_cu_ac_W/total:.0f}%)"),
-            ("Núcleo", f"{l.P_core_total_W:.2f}",
-             f"W ({100*l.P_core_total_W/total:.0f}%)"),
-        ]
-        self._table.set_rows(rows)
+        ])
 
     def clear(self) -> None:
-        self._donut.set_segments([])
-        self._table.set_rows([])
+        self._bar.set_segments([])
 
 
 class PerdasCard(Card):

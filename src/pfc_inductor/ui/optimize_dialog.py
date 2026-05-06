@@ -16,7 +16,6 @@ from __future__ import annotations
 from typing import Optional
 
 import matplotlib
-import numpy as np
 from PySide6.QtCore import QObject, Qt, QThread, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
@@ -378,11 +377,11 @@ class OptimizerEmbed(QWidget):
         feas = [(r.volume_cm3, r.P_total_W) for r in all_results if r.feasible]
         infeas = [(r.volume_cm3, min(r.P_total_W, 100.0)) for r in all_results if not r.feasible]
         if infeas:
-            xi, yi = zip(*infeas)
+            xi, yi = zip(*infeas, strict=False)
             self.ax.scatter(xi, yi, c=p.plot_pareto_infeasible,
                             s=8, alpha=0.4, label="inviável")
         if feas:
-            xf, yf = zip(*feas)
+            xf, yf = zip(*feas, strict=False)
             self.ax.scatter(xf, yf, c=p.plot_pareto_feasible,
                             s=10, alpha=0.7, label="viável")
         if self._pareto:

@@ -79,10 +79,10 @@ class ReportGenerationError(DesignError):
 
 
 __all__ = [
-    "DesignError",
-    "SpecValidationError",
     "CatalogError",
-    "InfeasibleDesignError",
+    "DesignError",
     "FEABackendError",
+    "InfeasibleDesignError",
     "ReportGenerationError",
+    "SpecValidationError",
 ]

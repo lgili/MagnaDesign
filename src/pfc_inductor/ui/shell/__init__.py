@@ -5,8 +5,10 @@ from pfc_inductor.ui.shell.status_bar import BottomStatusBar
 from pfc_inductor.ui.shell.stepper import STEP_STATES, WorkflowStepper
 
 __all__ = [
-    "Sidebar", "SIDEBAR_AREAS",
-    "WorkspaceHeader",
-    "WorkflowStepper", "STEP_STATES",
+    "SIDEBAR_AREAS",
+    "STEP_STATES",
     "BottomStatusBar",
+    "Sidebar",
+    "WorkflowStepper",
+    "WorkspaceHeader",
 ]

@@ -1,15 +1,16 @@
 """Cost model tests."""
 import pytest
 
-from pfc_inductor.data_loader import load_materials, load_cores, load_wires, find_material
+from pfc_inductor.data_loader import find_material, load_cores, load_materials, load_wires
 from pfc_inductor.models import Spec
-from pfc_inductor.design import design
-from pfc_inductor.physics import (
-    estimate_cost, wire_length_m, wire_mass_per_meter_g,
-    core_mass_g, CU_DENSITY_KG_M3,
-)
 from pfc_inductor.optimize import sweep
 from pfc_inductor.optimize.sweep import rank
+from pfc_inductor.physics import (
+    CU_DENSITY_KG_M3,
+    estimate_cost,
+    wire_length_m,
+    wire_mass_per_meter_g,
+)
 
 
 @pytest.fixture(scope="module")
@@ -103,7 +104,7 @@ def test_optimizer_rank_by_cost(db_curated):
     feasible = [r for r in results if r.feasible]
     by_cost = rank(feasible, by="cost")
     costs = [r.total_cost for r in by_cost if r.total_cost is not None]
-    for a, b in zip(costs, costs[1:]):
+    for a, b in zip(costs, costs[1:], strict=False):
         assert a <= b + 1e-6
 
 

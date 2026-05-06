@@ -27,7 +27,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
-from pfc_inductor.physics.cost import CU_DENSITY_KG_M3, wire_mass_per_meter_g
+from pfc_inductor.physics.cost import CU_DENSITY_KG_M3
 from pfc_inductor.physics.dowell import Rac_over_Rdc_litz, skin_depth_m
 
 # Standard AWG strand diameters (mm) used in Litz construction.

@@ -72,7 +72,6 @@ from pfc_inductor.ui.workspace import (
     ProjetoPage,
 )
 
-
 # Sidebar area_ids in stack order. ``dashboard`` is kept as the first
 # id for QSettings back-compat (the displayed label is "Projeto").
 AREA_PAGES: tuple[str, ...] = (

@@ -187,6 +187,8 @@ def _flatten_single_subdir(target_dir: Path) -> None:
 
 
 __all__ = [
-    "default_onelab_dir", "is_onelab_installed",
-    "download_onelab", "codesign_macos",
+    "codesign_macos",
+    "default_onelab_dir",
+    "download_onelab",
+    "is_onelab_installed",
 ]

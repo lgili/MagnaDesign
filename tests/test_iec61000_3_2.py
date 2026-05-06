@@ -6,6 +6,7 @@ real PDF test reports). Numbers in this file are *the same* numbers
 that drive the lab's pass/fail decisions today.
 """
 from __future__ import annotations
+
 import math
 
 import pytest

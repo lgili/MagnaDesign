@@ -105,8 +105,8 @@ class Sidebar(QFrame):
         header = QFrame()
         header.setObjectName("SidebarHeader")
         header.setStyleSheet(
-            f"QFrame#SidebarHeader {{ background: transparent; "
-            f"border: 0; padding: 0; }}"
+            "QFrame#SidebarHeader { background: transparent; "
+            "border: 0; padding: 0; }"
         )
         h = QHBoxLayout(header)
         h.setContentsMargins(20, 18, 20, 14)

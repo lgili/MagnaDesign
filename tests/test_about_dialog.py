@@ -17,8 +17,8 @@ def app():
 
 
 def test_about_dialog_mounts_and_lists_all_differentials(app):
+    from pfc_inductor.positioning import COMPETITORS, DIFFERENTIALS
     from pfc_inductor.ui.about_dialog import AboutDialog
-    from pfc_inductor.positioning import DIFFERENTIALS, COMPETITORS
 
     dlg = AboutDialog()
     # Find the table widget (only one).

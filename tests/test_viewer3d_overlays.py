@@ -66,9 +66,11 @@ def test_orientation_cube_face_click_emits_signals(app):
     received: list[str] = []
     cube.view_requested.connect(received.append)
     # Synthesise a click at the centre of each visible face polygon.
-    from PySide6.QtGui import QMouseEvent
     from PySide6.QtCore import QEvent, QPointF, Qt
-    for name, poly in cube._face_polygons.items():
+    from PySide6.QtGui import QMouseEvent
+    # ``_face_polygons`` was renamed to ``_slot_polygons`` in the v3
+    # OrientationCube refactor; this test follows the new attribute.
+    for name, poly in cube._slot_polygons.items():
         cx = sum(poly.at(i).x() for i in range(poly.size())) / poly.size()
         cy = sum(poly.at(i).y() for i in range(poly.size())) / poly.size()
         ev = QMouseEvent(
@@ -154,7 +156,7 @@ def test_bottom_actions_explode_emits_bool(app):
 # ---------------------------------------------------------------------------
 
 def test_visual_views_exposed(app):
-    from pfc_inductor.visual import VIEW_CAMERAS, set_camera_to_view, ViewName
+    from pfc_inductor.visual import VIEW_CAMERAS
     assert set(VIEW_CAMERAS.keys()) == {"front", "top", "side", "iso"}
     # Each entry is (dir, up) where up is non-zero in some axis.
     for name, (cam_dir, up_vec) in VIEW_CAMERAS.items():

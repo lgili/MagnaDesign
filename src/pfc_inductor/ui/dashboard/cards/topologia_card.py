@@ -18,17 +18,15 @@ from typing import Optional
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
-    QFrame,
     QHBoxLayout,
     QLabel,
     QPushButton,
-    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
 
 from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
-from pfc_inductor.ui.theme import get_theme, on_theme_changed
+from pfc_inductor.ui.theme import get_theme
 from pfc_inductor.ui.widgets import Card, TopologySchematicWidget
 
 _TOPOLOGY_LABELS = {
@@ -75,7 +73,7 @@ class _TopologyBody(QWidget):
         v.addWidget(self._btn_change, 0, Qt.AlignmentFlag.AlignLeft)
 
     # ------------------------------------------------------------------
-    def schematic_widget(self) -> "TopologySchematicWidget":
+    def schematic_widget(self) -> TopologySchematicWidget:
         """Expose the embedded schematic for tests / wiring."""
         return self._schematic
 

@@ -15,13 +15,13 @@ from pfc_inductor.ui.dashboard.cards.topologia_card import TopologiaCard
 from pfc_inductor.ui.dashboard.cards.viz3d_card import Viz3DCard
 
 __all__ = [
-    "TopologiaCard",
-    "ResumoCard",
-    "FormasOndaCard",
-    "NucleoCard",
-    "Viz3DCard",
-    "PerdasCard",
     "BobinamentoCard",
     "EntreferroCard",
+    "FormasOndaCard",
+    "NucleoCard",
+    "PerdasCard",
     "ProximosPassosCard",
+    "ResumoCard",
+    "TopologiaCard",
+    "Viz3DCard",
 ]

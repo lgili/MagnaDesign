@@ -25,10 +25,17 @@ from pfc_inductor.fea.probe import (
 from pfc_inductor.fea.runner import validate_design
 
 __all__ = [
-    "is_femm_available", "is_femmt_available",
-    "find_femm_binary", "femm_version", "femmt_version",
-    "active_backend", "select_backend_for_shape", "backend_fidelity",
+    "FEAValidation",
+    "FEMMNotAvailable",
+    "FEMMSolveError",
+    "active_backend",
+    "backend_fidelity",
+    "femm_version",
+    "femmt_version",
+    "find_femm_binary",
     "install_hint",
-    "FEAValidation", "FEMMNotAvailable", "FEMMSolveError",
+    "is_femm_available",
+    "is_femmt_available",
+    "select_backend_for_shape",
     "validate_design",
 ]

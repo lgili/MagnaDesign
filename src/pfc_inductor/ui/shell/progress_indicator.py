@@ -21,12 +21,10 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QSizePolicy,
-    QVBoxLayout,
     QWidget,
 )
 
 from pfc_inductor.ui.theme import get_theme, on_theme_changed
-
 
 StepState = Literal["pending", "current", "done"]
 StepKey = Literal["spec", "design", "validar", "exportar"]
@@ -48,9 +46,14 @@ class ProgressIndicator(QFrame):
         self.setObjectName("ProgressIndicator")
         self.setSizePolicy(QSizePolicy.Policy.Expanding,
                            QSizePolicy.Policy.Fixed)
+        # Compact: ~36 px tall (was ~56 with the inner segment paddings).
+        # The strip is informational only, so we don't need the extra
+        # breathing room.
+        self.setFixedHeight(36)
 
         h = QHBoxLayout(self)
-        h.setContentsMargins(20, 10, 20, 10)
+        # Trimmed vertical padding 10→6, horizontal 20→16 to match.
+        h.setContentsMargins(16, 6, 16, 6)
         h.setSpacing(0)
 
         self._segments: dict[StepKey, _ProgressSegment] = {}
@@ -124,7 +127,13 @@ class ProgressIndicator(QFrame):
 
 
 class _ProgressSegment(QFrame):
-    """One numbered dot + label."""
+    """One status dot + label, laid out horizontally (compact mode).
+
+    The original v3 design stacked dot above label which doubled the
+    strip height. Inline keeps the same visual hierarchy (dot draws
+    the eye, label provides context on hover/scan) at half the
+    vertical cost.
+    """
 
     def __init__(self, key: StepKey, label: str,
                  parent: Optional[QWidget] = None) -> None:
@@ -133,22 +142,22 @@ class _ProgressSegment(QFrame):
         self._key = key
         self._state: StepState = "pending"
 
-        v = QVBoxLayout(self)
-        v.setContentsMargins(0, 0, 0, 0)
-        v.setSpacing(2)
-        v.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
+        h = QHBoxLayout(self)
+        h.setContentsMargins(0, 0, 0, 0)
+        h.setSpacing(6)
+        h.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignHCenter)
 
         self._dot = QLabel("●")
         self._dot.setObjectName("ProgressDot")
         self._dot.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._dot.setFixedHeight(14)
+        self._dot.setFixedSize(14, 14)
 
         self._label = QLabel(label)
         self._label.setObjectName("ProgressLabel")
-        self._label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._label.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
-        v.addWidget(self._dot)
-        v.addWidget(self._label)
+        h.addWidget(self._dot, 0, Qt.AlignmentFlag.AlignVCenter)
+        h.addWidget(self._label, 0, Qt.AlignmentFlag.AlignVCenter)
 
     def set_state(self, state: StepState) -> None:
         self._state = state

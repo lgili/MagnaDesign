@@ -3,13 +3,15 @@
 Run with PyVista in off-screen mode (no QtInteractor) so they work in CI/headless.
 """
 import os
+
 os.environ.setdefault("PYVISTA_OFF_SCREEN", "true")
 
 import pyvista as pv
+
 pv.OFF_SCREEN = True
 
 from pfc_inductor.data_loader import load_cores, load_wires
-from pfc_inductor.visual import make_core_mesh, make_winding_mesh, infer_shape
+from pfc_inductor.visual import infer_shape, make_core_mesh, make_winding_mesh
 
 
 def _first_with_shape(cores, shape_predicate, min_volume_mm3=5000.0):

@@ -324,12 +324,12 @@ def _render_line_reactor_3ph(p: _SchematicPainter, accent: QColor,
                              neutral: QColor, glow: QColor) -> None:
     """L1/L2/L3 → 3 inductors → 6-pulse bridge → Cbus → load."""
     y_l1, y_l2, y_l3 = 60, 130, 200
-    for y, label in zip((y_l1, y_l2, y_l3), ("L1", "L2", "L3")):
+    for y, label in zip((y_l1, y_l2, y_l3), ("L1", "L2", "L3"), strict=False):
         p.text((30, y), label, neutral, size=10, weight=600)
         p.wire((50, y), (140, y), neutral)
     # Three inductors
     sub = ["L_a", "L_b", "L_c"]
-    for y, lbl in zip((y_l1, y_l2, y_l3), sub):
+    for y, lbl in zip((y_l1, y_l2, y_l3), sub, strict=False):
         p.inductor((200, y), length=100, accent=accent, glow_bg=glow,
                    highlighted=True)
         p.text((200, y - 22), lbl, accent, size=9, weight=600)

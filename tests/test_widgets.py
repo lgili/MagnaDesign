@@ -22,6 +22,7 @@ def app():
 
 def test_card_constructs_with_title_and_body(app):
     from PySide6.QtWidgets import QLabel
+
     from pfc_inductor.ui.widgets import Card
     body = QLabel("body")
     c = Card("Resumo do Projeto", body, badge="Aprovado",
@@ -34,6 +35,7 @@ def test_card_constructs_with_title_and_body(app):
 
 def test_card_set_badge_updates_text(app):
     from PySide6.QtWidgets import QLabel
+
     from pfc_inductor.ui.widgets import Card
     c = Card("X", QLabel(), badge="Aprovado", badge_variant="success")
     c.set_badge("Verificar", "warning")
@@ -43,6 +45,7 @@ def test_card_set_badge_updates_text(app):
 
 def test_card_with_overflow_actions(app):
     from PySide6.QtWidgets import QLabel
+
     from pfc_inductor.ui.widgets import Card
     fired = []
     c = Card(
@@ -76,8 +79,8 @@ def test_metric_card_set_value(app):
 
 
 def test_metric_card_trend_lower_better_neg_pct_is_success(app):
-    from pfc_inductor.ui.widgets import MetricCard
     from pfc_inductor.ui.theme import get_theme
+    from pfc_inductor.ui.widgets import MetricCard
     m = MetricCard("T_rise", "58", "°C",
                    trend_pct=-10.8, trend_better="lower", status="ok")
     assert "▼" in m._trend_lbl.text()
@@ -86,8 +89,8 @@ def test_metric_card_trend_lower_better_neg_pct_is_success(app):
 
 
 def test_metric_card_trend_higher_better_pos_pct_is_success(app):
-    from pfc_inductor.ui.widgets import MetricCard
     from pfc_inductor.ui.theme import get_theme
+    from pfc_inductor.ui.widgets import MetricCard
     m = MetricCard("Eficiência", "97.2", "%",
                    trend_pct=+1.5, trend_better="higher")
     assert "▲" in m._trend_lbl.text()
@@ -95,8 +98,8 @@ def test_metric_card_trend_higher_better_pos_pct_is_success(app):
 
 
 def test_metric_card_status_changes_left_bar(app):
-    from pfc_inductor.ui.widgets import MetricCard
     from pfc_inductor.ui.theme import get_theme
+    from pfc_inductor.ui.widgets import MetricCard
     m = MetricCard("X", "1", "")
     p = get_theme().palette
     m.set_status("err")
@@ -185,7 +188,7 @@ def test_donut_chart_set_segments(app):
 # ---------------------------------------------------------------------------
 
 def test_next_steps_card_count_and_set(app):
-    from pfc_inductor.ui.widgets import NextStepsCard, ActionItem
+    from pfc_inductor.ui.widgets import ActionItem, NextStepsCard
     n = NextStepsCard([
         ActionItem("Validar FEM", "todo"),
         ActionItem("Otimizar Litz", "pending"),
@@ -197,7 +200,7 @@ def test_next_steps_card_count_and_set(app):
 
 
 def test_next_steps_card_todo_callback_fires(app):
-    from pfc_inductor.ui.widgets import NextStepsCard, ActionItem
+    from pfc_inductor.ui.widgets import ActionItem, NextStepsCard
     fired = []
     n = NextStepsCard([
         ActionItem("Validar FEM", "todo", lambda: fired.append("fem")),

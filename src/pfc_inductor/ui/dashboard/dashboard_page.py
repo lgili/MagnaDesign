@@ -1,8 +1,26 @@
-"""Dashboard page — 3-row card grid with the 9 MagnaDesign cards.
+"""Dashboard page — 12-column bento grid for the Projeto workspace.
 
-Row 0 (3 cols):  Topologia │ Resumo │ Formas de Onda
-Row 1 (3 cols):  Núcleo (1)  │ Visualização 3D (col-span 2)
-Row 2 (4 sub-cols spanning 3 outer cols): Perdas │ Bobinamento │ Entreferro │ Próximos Passos
+Layout (col 1-12, top to bottom):
+
+    +-----------------------------------------------------------+
+    |  ResumoStrip (col 1-12, fixed 96 px)                       |
+    +----------------------------------+------------------------+
+    |  Núcleo (col 1-7)                 |  Visualização 3D (col 8-12) |
+    |  minHeight 380                     |  minHeight 360         |
+    +-----------------------------------------------------------+
+    |  Formas de Onda (col 1-12)                                 |
+    +-------------+----------+----------+--------------+--------+
+    |  Perdas (3) | Bobi (3) | Entref(3)| Próximos (3) |
+    +-------------+----------+----------+--------------+
+
+Why bento, not a fixed 2-col grid:
+- A 2-col uniform grid forces a 480 px-wide table to share width with
+  a metric tile that wants 130 px — both end up wrong. The bento lets
+  each card claim its natural span (Núcleo 7/12, Viz3D 5/12, etc.)
+  without competing.
+- Resumo is now an inline ``ResumoStrip`` (no card chrome) at the top
+  rather than a 2×3 ``ResumoCard`` block — recovers ~120 px of vertical
+  room for the table-and-3D row.
 """
 from __future__ import annotations
 
@@ -25,10 +43,10 @@ from pfc_inductor.ui.dashboard.cards import (
     NucleoCard,
     PerdasCard,
     ProximosPassosCard,
-    ResumoCard,
     Viz3DCard,
 )
-from pfc_inductor.ui.theme import get_theme, on_theme_changed
+from pfc_inductor.ui.theme import CARD_MIN, get_theme, on_theme_changed
+from pfc_inductor.ui.widgets import ResumoStrip
 
 
 class DashboardPage(QWidget):
@@ -71,49 +89,55 @@ class DashboardPage(QWidget):
         )
         self._inner.setStyleSheet(f"background: {bg};")
 
+        # Avoid re-creating the grid on every theme toggle.
+        if getattr(self, "_grid_built", False):
+            return
+        self._grid_built = True
+
         sp = get_theme().spacing
         grid = QGridLayout(self._inner)
         grid.setContentsMargins(sp.page, sp.page, sp.page, sp.page)
         grid.setHorizontalSpacing(sp.card_gap)
         grid.setVerticalSpacing(sp.card_gap)
 
-        # Two-column outer grid: Resumo + Formas de Onda on row 0;
-        # Núcleo + 3D below; metric strip at the bottom. Topology lives
-        # in the SpecDrawer in v3, so the dashboard is one card lighter.
-        for c in range(2):
+        # 12-column bento grid. Each card claims a natural span:
+        # Núcleo 7, Viz3D 5, Resumo 12, FormasOnda 12, bottom strip 3+3+3+3.
+        for c in range(12):
             grid.setColumnStretch(c, 1)
 
-        # ---- row 0: Resumo | Formas de Onda ---------------------------
-        self.card_resumo = ResumoCard()
-        self.card_formas = FormasOndaCard()
-        grid.addWidget(self.card_resumo, 0, 0)
-        grid.addWidget(self.card_formas, 0, 1)
+        # ---- row 0: ResumoStrip (full width, no card chrome) ----------
+        self.kpi_strip = ResumoStrip()
+        grid.addWidget(self.kpi_strip, 0, 0, 1, 12)
 
-        # ---- row 1: Núcleo | Visualização 3D --------------------------
+        # ---- row 1: Núcleo (7) | Visualização 3D (5) ------------------
         self.card_nucleo = NucleoCard()
+        self.card_nucleo.setMinimumSize(*CARD_MIN.nucleo)
         self.card_viz3d = Viz3DCard()
-        grid.addWidget(self.card_nucleo, 1, 0)
-        grid.addWidget(self.card_viz3d, 1, 1)
-        grid.setRowStretch(1, 1)
+        self.card_viz3d.setMinimumSize(*CARD_MIN.viz3d)
+        grid.addWidget(self.card_nucleo, 1, 0, 1, 7)
+        grid.addWidget(self.card_viz3d, 1, 7, 1, 5)
+        grid.setRowMinimumHeight(1, 380)
+        grid.setRowStretch(1, 2)
 
-        # ---- row 2: 4 sub-cards spanning 2 outer cols -----------------
-        bottom_strip = QFrame()
-        bs = QGridLayout(bottom_strip)
-        bs.setContentsMargins(0, 0, 0, 0)
-        bs.setHorizontalSpacing(sp.card_gap)
-        bs.setVerticalSpacing(0)
+        # ---- row 2: Formas de Onda (full width) -----------------------
+        self.card_formas = FormasOndaCard()
+        self.card_formas.setMinimumSize(*CARD_MIN.formas)
+        grid.addWidget(self.card_formas, 2, 0, 1, 12)
+        grid.setRowStretch(2, 1)
 
+        # ---- row 3: 4 sub-cards (3/3/3/3 on the 12-col grid) ---------
         self.card_perdas = PerdasCard()
         self.card_bobinamento = BobinamentoCard()
         self.card_entreferro = EntreferroCard()
         self.card_proximos = ProximosPassosCard()
-        for c in range(4):
-            bs.setColumnStretch(c, 1)
-        bs.addWidget(self.card_perdas, 0, 0)
-        bs.addWidget(self.card_bobinamento, 0, 1)
-        bs.addWidget(self.card_entreferro, 0, 2)
-        bs.addWidget(self.card_proximos, 0, 3)
-        grid.addWidget(bottom_strip, 2, 0, 1, 2)
+        self.card_perdas.setMinimumSize(*CARD_MIN.perdas)
+        self.card_bobinamento.setMinimumSize(*CARD_MIN.bobinam)
+        self.card_entreferro.setMinimumSize(*CARD_MIN.entreferro)
+        self.card_proximos.setMinimumSize(*CARD_MIN.proximos)
+        grid.addWidget(self.card_perdas, 3, 0, 1, 3)
+        grid.addWidget(self.card_bobinamento, 3, 3, 1, 3)
+        grid.addWidget(self.card_entreferro, 3, 6, 1, 3)
+        grid.addWidget(self.card_proximos, 3, 9, 1, 3)
 
         # ---- forward Próximos-Passos signals --------------------------
         self.card_proximos.fea_requested.connect(self.fea_requested.emit)
@@ -123,8 +147,11 @@ class DashboardPage(QWidget):
         self.card_proximos.similar_requested.connect(self.similar_requested.emit)
 
         # ---- collect cards for batch operations -----------------------
+        # ``kpi_strip`` is included so ``update_from_design`` fans out
+        # to it via the same loop as the cards. ``ResumoCard`` is no
+        # longer mounted here — kept importable for tests/legacy pages.
         self._cards = [
-            self.card_resumo, self.card_formas,
+            self.kpi_strip, self.card_formas,
             self.card_nucleo, self.card_viz3d,
             self.card_perdas, self.card_bobinamento,
             self.card_entreferro, self.card_proximos,

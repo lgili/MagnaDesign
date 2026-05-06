@@ -38,7 +38,10 @@ class WorkspaceHeader(QFrame):
     report_requested = Signal()
     recalculate_requested = Signal()
 
-    HEIGHT = 64
+    # Lowered from 64 to 56 px to recover vertical room for the bento
+    # below — the project name + 3 CTAs comfortably fit at this height
+    # and it matches the Linear/Stripe shell density target.
+    HEIGHT = 56
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -47,7 +50,8 @@ class WorkspaceHeader(QFrame):
         self.setStyleSheet(self._self_qss())
 
         h = QHBoxLayout(self)
-        h.setContentsMargins(24, 12, 24, 12)
+        # Vertical margin trimmed 12 → 8 px to match the new 56 px height.
+        h.setContentsMargins(24, 8, 24, 8)
         h.setSpacing(12)
 
         # ---- left: project-name editor + pencil ------------------------

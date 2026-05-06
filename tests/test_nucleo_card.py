@@ -18,7 +18,10 @@ def app():
 @pytest.fixture
 def db():
     from pfc_inductor.data_loader import (
-        ensure_user_data, load_materials, load_cores, load_wires,
+        ensure_user_data,
+        load_cores,
+        load_materials,
+        load_wires,
     )
     ensure_user_data()
     return {
@@ -101,9 +104,10 @@ def test_nucleo_card_apply_disabled_until_different_row(app, db):
 
 
 def test_nucleo_card_emits_selection_applied(app, db):
+    from PySide6.QtCore import QItemSelectionModel
+
     from pfc_inductor.models import Spec
     from pfc_inductor.ui.dashboard.cards.nucleo_card import NucleoCard
-    from PySide6.QtCore import QItemSelectionModel
 
     card = NucleoCard()
     spec = Spec()

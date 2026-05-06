@@ -72,8 +72,8 @@ def test_picker_accept_returns_accepted_code(app):
 def test_main_window_topology_picker_applies_to_spec_panel(app, monkeypatch):
     """Simulate the user clicking "Alterar Topologia" → picker selects
     passive_choke → spec panel's topology combo should reflect that."""
-    from pfc_inductor.ui.main_window import MainWindow
     from pfc_inductor.ui.dialogs import TopologyPickerDialog
+    from pfc_inductor.ui.main_window import MainWindow
 
     w = MainWindow()
     # Force-apply: stub TopologyPickerDialog.exec to return Accepted

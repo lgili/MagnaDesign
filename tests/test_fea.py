@@ -4,20 +4,26 @@ from pathlib import Path
 
 import pytest
 
-from pfc_inductor.data_loader import load_materials, load_cores, find_material
+from pfc_inductor.data_loader import find_material, load_cores, load_materials
+from pfc_inductor.design import design
 from pfc_inductor.fea import (
-    is_femm_available, is_femmt_available, active_backend,
-    FEMMNotAvailable, validate_design,
+    FEMMNotAvailable,
+    active_backend,
+    is_femm_available,
+    is_femmt_available,
+    validate_design,
 )
-from pfc_inductor.fea.probe import find_femm_binary, install_hint
 from pfc_inductor.fea.legacy.femm_geometry import (
-    FEAJobInputs, build_lua_script, write_lua_script,
+    FEAJobInputs,
+    build_lua_script,
+    write_lua_script,
 )
 from pfc_inductor.fea.legacy.femm_postprocess import (
-    parse_results_file, ResultsParseError,
+    ResultsParseError,
+    parse_results_file,
 )
+from pfc_inductor.fea.probe import install_hint
 from pfc_inductor.models import Spec
-from pfc_inductor.design import design
 
 
 @pytest.fixture(scope="module")
@@ -161,6 +167,7 @@ def test_signal_silence_unblocks_worker_thread():
     """
     import signal
     import threading
+
     from pfc_inductor.fea.femmt_runner import _silence_signal_in_worker_thread
 
     captured: list[BaseException] = []
@@ -178,7 +185,7 @@ def test_signal_silence_unblocks_worker_thread():
                 pass
             else:
                 captured.append(RuntimeError("signal.signal not restored"))
-        except BaseException as e:  # noqa: BLE001
+        except BaseException as e:
             captured.append(e)
 
     t = threading.Thread(target=worker)

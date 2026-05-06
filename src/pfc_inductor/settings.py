@@ -11,4 +11,4 @@ from __future__ import annotations
 SETTINGS_ORG = "indutor"
 SETTINGS_APP = "PFCInductorDesigner"
 
-__all__ = ["SETTINGS_ORG", "SETTINGS_APP"]
+__all__ = ["SETTINGS_APP", "SETTINGS_ORG"]

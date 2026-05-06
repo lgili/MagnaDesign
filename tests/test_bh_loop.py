@@ -2,11 +2,13 @@
 import numpy as np
 import pytest
 
-from pfc_inductor.data_loader import load_materials, load_cores, load_wires, find_material
-from pfc_inductor.models import Spec
+from pfc_inductor.data_loader import find_material, load_cores, load_materials, load_wires
 from pfc_inductor.design import design
+from pfc_inductor.models import Spec
 from pfc_inductor.physics.rolloff import (
-    B_anhysteretic_T, B_anhysteretic_array_T, mu_pct_array,
+    B_anhysteretic_array_T,
+    B_anhysteretic_T,
+    mu_pct_array,
 )
 from pfc_inductor.visual import compute_bh_trajectory
 
@@ -57,7 +59,7 @@ def test_mu_pct_array_matches_scalar(db):
     m = find_material(mats, "magnetics-60_highflux")
     H_arr = [0.1, 10.0, 80.0, 200.0, 500.0]
     arr = mu_pct_array(m, H_arr)
-    for h, a in zip(H_arr, arr):
+    for h, a in zip(H_arr, arr, strict=False):
         assert abs(a - mu_pct(m, h)) < 1e-9
 
 

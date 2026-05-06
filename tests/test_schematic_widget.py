@@ -63,8 +63,8 @@ def test_schematic_unknown_topology_raises(app):
 def test_schematic_inductor_uses_accent_colour(app):
     """Sample a pixel inside the inductor's bounding region and assert
     it is closer to the accent colour than to the neutral colour."""
-    from pfc_inductor.ui.widgets import TopologySchematicWidget
     from pfc_inductor.ui.theme import get_theme, set_theme
+    from pfc_inductor.ui.widgets import TopologySchematicWidget
     set_theme("light")
     w = TopologySchematicWidget()
     w.resize(600, 140)

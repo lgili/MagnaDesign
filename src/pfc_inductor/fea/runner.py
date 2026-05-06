@@ -8,7 +8,7 @@ from typing import Optional
 from pfc_inductor.fea.legacy.femm_geometry import FEAJobInputs, write_lua_script
 from pfc_inductor.fea.legacy.femm_postprocess import parse_results_file
 from pfc_inductor.fea.legacy.femm_solver import solve_lua
-from pfc_inductor.fea.models import FEAValidation, FEMMNotAvailable, FEMMSolveError
+from pfc_inductor.fea.models import FEAValidation, FEMMNotAvailable
 from pfc_inductor.fea.probe import select_backend_for_shape
 from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
 from pfc_inductor.visual.core_3d import infer_shape

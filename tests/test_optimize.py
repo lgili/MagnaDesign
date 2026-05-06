@@ -1,9 +1,12 @@
 """Sweep optimizer tests."""
 from pfc_inductor.data_loader import (
-    load_materials, load_cores, load_wires, load_curated_ids,
+    load_cores,
+    load_curated_ids,
+    load_materials,
+    load_wires,
 )
 from pfc_inductor.models import Spec
-from pfc_inductor.optimize import sweep, pareto_front
+from pfc_inductor.optimize import pareto_front, sweep
 from pfc_inductor.optimize.sweep import rank
 
 
@@ -48,7 +51,7 @@ def test_pareto_is_subset_and_ordered():
     feasible = [r for r in results if r.feasible]
     assert all(p in feasible for p in pareto)
     # Pareto sorted by volume ascending => loss should be non-increasing as volume grows
-    for a, b in zip(pareto, pareto[1:]):
+    for a, b in zip(pareto, pareto[1:], strict=False):
         assert a.volume_cm3 <= b.volume_cm3
         assert a.P_total_W >= b.P_total_W - 1e-6
 
@@ -59,7 +62,7 @@ def test_rank_by_loss_orders_correctly():
                     material_id="magnetics-60_highflux")
     feasible = [r for r in results if r.feasible]
     sorted_ = rank(feasible, by="loss")
-    for a, b in zip(sorted_, sorted_[1:]):
+    for a, b in zip(sorted_, sorted_[1:], strict=False):
         assert a.P_total_W <= b.P_total_W + 1e-6
 
 

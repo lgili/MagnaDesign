@@ -21,10 +21,14 @@ def design_bundle():
     in-tree spec/core/wire/material combo. Reuses the same data path as
     the application so tests catch model-shape regressions early."""
     from pfc_inductor.data_loader import (
-        ensure_user_data, load_materials, load_cores, load_wires, find_material,
+        ensure_user_data,
+        find_material,
+        load_cores,
+        load_materials,
+        load_wires,
     )
-    from pfc_inductor.models import Spec
     from pfc_inductor.design import design as run_design
+    from pfc_inductor.models import Spec
 
     ensure_user_data()
     materials = load_materials()
@@ -51,8 +55,9 @@ def test_dashboard_has_eight_cards(app):
 
 
 def test_dashboard_grid_positions(app):
-    """v3 layout: row 0 has 2 cards (Resumo, Formas), row 1 has 2 cards
-    (Núcleo + Viz3D), row 2 has 4 cards (Perdas/Bobinamento/Entreferro/Próximos)."""
+    """v3 bento layout: row 0 = ResumoStrip (full width); row 1 =
+    Núcleo + Viz3D; row 2 = FormasOnda (full width); row 3 = 4 sub-cards
+    (Perdas/Bobinamento/Entreferro/Próximos)."""
     from pfc_inductor.ui.dashboard import DashboardPage
     p = DashboardPage()
     # Smoke: every card has a non-null geometry parent.
@@ -69,17 +74,18 @@ def test_update_from_design_populates_resumo(app, design_bundle):
     p = DashboardPage()
     result, spec, core, wire, material = design_bundle
     p.update_from_design(result, spec, core, wire, material)
-    # Resumo's L value should be the formatted L_actual_uH.
-    assert p.card_resumo._rbody.m_L._val.text() == f"{result.L_actual_uH:.0f}"
+    # The KPI strip's L tile should show the formatted L_actual_uH.
+    assert p.kpi_strip.m_L._val.text() == f"{result.L_actual_uH:.0f}"
 
 
-def test_update_from_design_populates_perdas_donut(app, design_bundle):
+def test_update_from_design_populates_perdas_bar(app, design_bundle):
     from pfc_inductor.ui.dashboard import DashboardPage
     p = DashboardPage()
     result, spec, core, wire, material = design_bundle
     p.update_from_design(result, spec, core, wire, material)
     expected_total = result.losses.P_total_W
-    assert abs(p.card_perdas._pbody._donut.total() - expected_total) < 1e-6
+    # v3: PerdasCard now uses HorizontalStackedBar instead of DonutChart.
+    assert abs(p.card_perdas._pbody._bar.total() - expected_total) < 1e-6
 
 
 def test_update_from_design_populates_bobinamento_table(app, design_bundle):
@@ -107,8 +113,8 @@ def test_dashboard_clear_resets_every_card(app, design_bundle):
     result, spec, core, wire, material = design_bundle
     p.update_from_design(result, spec, core, wire, material)
     p.clear()
-    assert p.card_resumo._rbody.m_L._val.text() == "—"
-    assert p.card_perdas._pbody._donut.total() == 0
+    assert p.kpi_strip.m_L._val.text() == "—"
+    assert p.card_perdas._pbody._bar.total() == 0
 
 
 # ---------------------------------------------------------------------------
@@ -120,7 +126,7 @@ def test_resumo_aggregate_badge_reflects_metric_statuses(app, design_bundle):
     p = DashboardPage()
     result, spec, core, wire, material = design_bundle
     p.update_from_design(result, spec, core, wire, material)
-    badge = p.card_resumo._badge.text()
+    badge = p.kpi_strip.badge.text()
     assert badge in ("Aprovado", "Verificar", "Reprovado", "—")
 
 

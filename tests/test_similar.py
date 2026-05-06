@@ -1,9 +1,10 @@
 """Similar-parts finder tests."""
 import pytest
 
-from pfc_inductor.data_loader import load_cores, load_materials, find_material
+from pfc_inductor.data_loader import find_material, load_cores, load_materials
 from pfc_inductor.optimize import (
-    SimilarityCriteria, find_equivalents,
+    SimilarityCriteria,
+    find_equivalents,
 )
 from pfc_inductor.optimize.similar import _distance, _normalize_shape
 

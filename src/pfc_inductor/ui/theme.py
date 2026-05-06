@@ -397,6 +397,51 @@ class Typography:
 
 
 # ---------------------------------------------------------------------------
+# Card minimum sizes (per-card class) and viewport breakpoints
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class CardMinSize:
+    """Per-card class minimums enforced by the dashboard grid.
+
+    Each entry is ``(min_width_px, min_height_px)``. Tuned for the v3
+    Projeto bento grid (12 columns) at the 1280 px baseline window
+    width minus the 250 px sidebar and 360 px spec drawer. Keeping
+    these as a single dataclass instead of magic numbers per card
+    means a future "density" toggle can swap one ``CardMinSize`` for
+    another without touching widget code.
+    """
+    nucleo:     tuple[int, int] = (480, 380)
+    viz3d:      tuple[int, int] = (320, 360)
+    formas:     tuple[int, int] = (520, 280)
+    perdas:     tuple[int, int] = (220, 220)
+    bobinam:    tuple[int, int] = (180, 200)
+    entreferro: tuple[int, int] = (180, 200)
+    proximos:   tuple[int, int] = (200, 220)
+    metric:     tuple[int, int] = (132, 80)
+    metric_compact: tuple[int, int] = (108, 64)
+
+
+CARD_MIN = CardMinSize()
+
+
+@dataclass(frozen=True)
+class Breakpoint:
+    """Viewport width thresholds used by responsive layout decisions.
+
+    The window auto-collapses the spec drawer below ``sm``, falls back
+    to a 6-column grid between ``sm`` and ``md``, and only enables the
+    full 12-column bento at ``md`` and above.
+    """
+    sm: int = 1024
+    md: int = 1280
+    lg: int = 1600
+
+
+BP = Breakpoint()
+
+
+# ---------------------------------------------------------------------------
 # Theme state singleton
 # ---------------------------------------------------------------------------
 

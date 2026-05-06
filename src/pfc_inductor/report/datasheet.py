@@ -83,7 +83,7 @@ def _loss_plot(result: DesignResult) -> str:
     ax.set_ylabel("Loss [W]")
     ax.set_title(f"Loss breakdown — total {L.P_total_W:.2f} W", fontsize=10)
     ax.grid(True, axis="y", alpha=0.35)
-    for b, v in zip(bars, values):
+    for b, v in zip(bars, values, strict=False):
         ax.text(b.get_x() + b.get_width()/2, v + 0.02, f"{v:.2f}",
                 ha="center", va="bottom", fontsize=8)
     return _b64(fig)
@@ -138,7 +138,7 @@ def _harmonic_plot(spec: Spec, result: DesignResult) -> Optional[str]:
     plot_orders = [1] + iec.ODD_HARMONICS
     plot_amps_mA = [harmonics_A.get(h, 0.0) * 1000 for h in plot_orders]
     colors = []
-    for h, amp_mA in zip(plot_orders, plot_amps_mA):
+    for h, amp_mA in zip(plot_orders, plot_amps_mA, strict=False):
         if h == 1:
             colors.append("#1c7c3b")
         else:
@@ -507,7 +507,7 @@ def generate_datasheet(
         + '<h3>Mechanical dimensions</h3>'
         + _dim_table(dims)
         + '<h3>Construction</h3>'
-        + f'<table class="dim"><tr><td class="lbl">Core shape</td>'
+        + '<table class="dim"><tr><td class="lbl">Core shape</td>'
         + f'<td>{escape(core.shape.upper())}</td></tr>'
         + f'<tr><td class="lbl">Air gap</td><td>{core.lgap_mm:.2f} mm</td></tr>'
         + f'<tr><td class="lbl">Wire</td><td>{escape(wire.id)}</td></tr>'

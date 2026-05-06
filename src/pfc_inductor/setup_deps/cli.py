@@ -92,7 +92,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         print(f"  FEMMT importável  : {'sim' if v.femmt_importable else 'não'}"
               + (f"  (v{v.femmt_version})" if v.femmt_version else ""))
         print(f"  ONELAB configurado: {v.onelab_dir or '(não definido)'}")
-        print(f"  Pronto para usar  : "
+        print("  Pronto para usar  : "
               + ("sim" if v.fea_ready else "NÃO"))
         for note in v.notes:
             print(f"  - {note}")

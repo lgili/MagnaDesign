@@ -104,7 +104,7 @@ class PlotPanel(QWidget):
         ax.set_ylabel("Perda [W]")
         ax.set_title(f"Perdas (total = {L.P_total_W:.2f} W)")
         ax.grid(True, axis="y", alpha=0.4)
-        for b, v in zip(bars, values):
+        for b, v in zip(bars, values, strict=False):
             ax.text(b.get_x() + b.get_width() / 2, v + 0.02, f"{v:.2f}",
                     ha="center", va="bottom", fontsize=9)
         self.canvas_loss.draw()
@@ -235,7 +235,7 @@ class PlotPanel(QWidget):
 
         # Color: fundamental green, others by pass/fail vs limit.
         colors: list[str] = []
-        for h, amp in zip(plot_orders, plot_amps):
+        for h, amp in zip(plot_orders, plot_amps, strict=False):
             if h == 1:
                 colors.append("#1c7c3b")
             else:
@@ -280,7 +280,7 @@ class PlotPanel(QWidget):
         ax_bot.grid(True, axis="y", alpha=0.4)
         ax_bot.legend(loc="upper right", fontsize=8)
         # Annotate the dominant harmonics with their value
-        for b, h, v_mA in zip(bars, plot_orders, plot_amps_mA):
+        for b, h, v_mA in zip(bars, plot_orders, plot_amps_mA, strict=False):
             if v_mA < 5:
                 continue   # skip negligible bars
             ax_bot.text(b.get_x() + b.get_width()/2, v_mA * 1.02,

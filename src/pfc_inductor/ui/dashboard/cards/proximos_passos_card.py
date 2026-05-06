@@ -1,7 +1,7 @@
 """Próximos Passos card — actionable workflow next-steps."""
 from __future__ import annotations
 
-from typing import Callable, Optional
+from typing import Optional
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QWidget

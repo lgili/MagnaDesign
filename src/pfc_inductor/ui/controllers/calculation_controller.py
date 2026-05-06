@@ -18,7 +18,6 @@ from pfc_inductor.data_loader import find_material
 from pfc_inductor.design import design
 from pfc_inductor.errors import (
     CatalogError,
-    DesignError,
     SpecValidationError,
 )
 from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire

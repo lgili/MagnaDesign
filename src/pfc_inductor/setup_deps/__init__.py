@@ -35,9 +35,13 @@ from pfc_inductor.setup_deps.verify import VerifyReport, verify_fea_setup
 from pfc_inductor.setup_deps.workaround import install_path_workaround
 
 __all__ = [
-    "setup_fea", "check_fea_setup",
-    "SetupReport", "SetupStep", "VerifyReport",
-    "PlatformInfo", "UnsupportedPlatform",
+    "PlatformInfo",
+    "SetupReport",
+    "SetupStep",
+    "UnsupportedPlatform",
+    "VerifyReport",
+    "check_fea_setup",
+    "setup_fea",
 ]
 
 

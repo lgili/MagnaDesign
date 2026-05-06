@@ -10,7 +10,6 @@ Computes Pareto front across (volume, total loss) for visualization.
 """
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 from typing import Callable, Iterable, Optional
 

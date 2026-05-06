@@ -10,9 +10,15 @@ from pfc_inductor.models.spec import Spec, Topology
 from pfc_inductor.models.wire import Wire, WireType
 
 __all__ = [
-    "Material", "RolloffParams", "SteinmetzParams", "LossDatapoint",
     "Core",
-    "Wire", "WireType",
-    "Topology", "Spec",
-    "DesignResult", "LossBreakdown",
+    "DesignResult",
+    "LossBreakdown",
+    "LossDatapoint",
+    "Material",
+    "RolloffParams",
+    "Spec",
+    "SteinmetzParams",
+    "Topology",
+    "Wire",
+    "WireType",
 ]

@@ -39,7 +39,6 @@ from pfc_inductor.ui.icons import icon as ui_icon
 from pfc_inductor.ui.spec_panel import SpecPanel
 from pfc_inductor.ui.theme import get_theme, on_theme_changed
 
-
 _DRAWER_KEY = "shell/spec_drawer_collapsed"
 _EXPANDED_WIDTH = 360
 _COLLAPSED_WIDTH = 44

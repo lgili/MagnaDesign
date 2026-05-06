@@ -14,7 +14,6 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 BASELINE = REPO_ROOT / "tests" / "baselines" / "dashboard_default.png"
 SIZE = (1140, 820)
@@ -28,8 +27,8 @@ def app():
 
 
 def _render_dashboard():
-    from pfc_inductor.ui.theme import set_theme
     from pfc_inductor.ui.dashboard import DashboardPage
+    from pfc_inductor.ui.theme import set_theme
     set_theme("light")
     p = DashboardPage()
     p.resize(*SIZE)

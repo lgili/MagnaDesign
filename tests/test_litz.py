@@ -3,14 +3,16 @@ import math
 
 import pytest
 
-from pfc_inductor.data_loader import load_materials, load_cores, load_wires, find_material
+from pfc_inductor.data_loader import find_material, load_cores, load_materials, load_wires
 from pfc_inductor.models import Spec
 from pfc_inductor.optimize import (
-    optimal_strand_diameter_mm, closest_strand_AWG,
-    strand_count_for_current, bundle_diameter_mm,
-    make_litz_wire, recommend_litz,
+    bundle_diameter_mm,
+    closest_strand_AWG,
+    make_litz_wire,
+    optimal_strand_diameter_mm,
+    recommend_litz,
+    strand_count_for_current,
 )
-from pfc_inductor.physics.dowell import Rac_over_Rdc_litz
 
 
 @pytest.fixture(scope="module")

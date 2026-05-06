@@ -5,14 +5,16 @@ from pathlib import Path
 
 import pytest
 
-from pfc_inductor.compare import CompareSlot, METRICS, categorize
-from pfc_inductor.compare.slot import CompareSlot as _SlotCls
+from pfc_inductor.compare import METRICS, CompareSlot, categorize
 from pfc_inductor.compare.diff import _DIRECTION_BY_KEY
 from pfc_inductor.data_loader import (
-    load_materials, load_cores, load_wires, find_material,
+    find_material,
+    load_cores,
+    load_materials,
+    load_wires,
 )
-from pfc_inductor.models import Spec
 from pfc_inductor.design import design
+from pfc_inductor.models import Spec
 
 
 @pytest.fixture(scope="module")

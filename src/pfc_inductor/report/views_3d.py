@@ -18,8 +18,6 @@ import os
 from io import BytesIO
 from typing import Optional
 
-import numpy as np
-
 from pfc_inductor.models import Core, Material, Wire
 from pfc_inductor.visual import (
     infer_shape,
@@ -104,9 +102,6 @@ def _add_to_scene(plotter, core: Core, wire: Wire, N_turns: int,
 # (``ui.viewer3d.view_chips``). The canonical definition lives in
 # :mod:`pfc_inductor.visual.views` so both renderers consume the same
 # directions and up-vectors.
-from pfc_inductor.visual.views import (
-    VIEW_CAMERAS as _VIEW_CAMERAS,
-)
 from pfc_inductor.visual.views import (
     set_camera_to_view as _set_view_helper,
 )

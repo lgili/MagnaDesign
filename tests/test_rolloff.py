@@ -1,8 +1,7 @@
 """DC bias rolloff sanity tests."""
-import pytest
 
 from pfc_inductor.models import Material, RolloffParams, SteinmetzParams
-from pfc_inductor.physics.rolloff import H_from_NI, mu_pct, inductance_uH
+from pfc_inductor.physics.rolloff import H_from_NI, inductance_uH, mu_pct
 
 
 def make_material(rolloff: RolloffParams | None = None) -> Material:

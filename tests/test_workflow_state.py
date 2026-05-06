@@ -23,7 +23,7 @@ def app():
 # ---------------------------------------------------------------------------
 
 def test_set_current_step_clamps_to_valid_range(app):
-    from pfc_inductor.ui.state import WorkflowState, WORKFLOW_STEPS
+    from pfc_inductor.ui.state import WORKFLOW_STEPS, WorkflowState
     s = WorkflowState()
     s.set_current_step(99)
     assert s.current_step == len(WORKFLOW_STEPS) - 1
@@ -80,6 +80,7 @@ def test_snapshot_returns_independent_copy(app):
 
 def test_settings_round_trip(app):
     from PySide6.QtCore import QSettings
+
     from pfc_inductor.ui.state import WorkflowState
 
     with tempfile.NamedTemporaryFile(suffix=".ini", delete=False) as tmp:
@@ -114,6 +115,7 @@ def test_settings_round_trip(app):
 
 def test_runtime_counters_are_not_persisted(app):
     from PySide6.QtCore import QSettings
+
     from pfc_inductor.ui.state import WorkflowState
 
     with tempfile.NamedTemporaryFile(suffix=".ini", delete=False) as tmp:

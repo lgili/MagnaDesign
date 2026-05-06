@@ -36,6 +36,7 @@ class MetricCard(QFrame):
         trend_pct: Optional[float] = None,
         trend_better: Literal["lower", "higher"] = "lower",
         status: MetricStatus = "neutral",
+        compact: bool = False,
         parent: Optional[QWidget] = None,
     ) -> None:
         super().__init__(parent)
@@ -43,11 +44,18 @@ class MetricCard(QFrame):
         self.setFrameShape(QFrame.Shape.NoFrame)
         self.setSizePolicy(QSizePolicy.Policy.Expanding,
                            QSizePolicy.Policy.Preferred)
+        self._compact = compact
         self.setStyleSheet(self._self_qss(status))
 
         outer = QVBoxLayout(self)
-        outer.setContentsMargins(14, 12, 14, 12)
-        outer.setSpacing(2)
+        # Compact tiles trim 6 px off each axis so a strip of 6 fits
+        # into ~84 px of total height with the surrounding chrome.
+        if compact:
+            outer.setContentsMargins(10, 8, 10, 8)
+            outer.setSpacing(0)
+        else:
+            outer.setContentsMargins(14, 12, 14, 12)
+            outer.setSpacing(2)
 
         # ---- label (caption) ------------------------------------------
         self._lbl = QLabel(label.upper())
@@ -67,7 +75,12 @@ class MetricCard(QFrame):
             "JetBrains Mono", "SF Mono", "Menlo", "Cascadia Code",
             "Consolas", "monospace",
         ])
-        font.setPixelSize(get_theme().type.title_lg + 2)
+        # Compact uses the title_md ramp (14 px) instead of title_lg+2 (18)
+        # so values stay readable but the strip is half the height.
+        if compact:
+            font.setPixelSize(get_theme().type.title_md)
+        else:
+            font.setPixelSize(get_theme().type.title_lg + 2)
         font.setWeight(QFont.Weight.DemiBold)
         # ``QFont.setFeature`` for tabular-nums is Qt 6.7+ and requires a
         # ``QFont.Tag`` instance — best-effort try, no-op when unavailable.
@@ -88,7 +101,13 @@ class MetricCard(QFrame):
         # ---- trend chip (optional) ------------------------------------
         self._trend_lbl = QLabel("")
         self._trend_lbl.setProperty("role", "muted")
-        outer.addWidget(self._trend_lbl)
+        # In compact mode the trend chip is hidden — there's no vertical
+        # room. Callers can still call ``set_trend()``; the value is
+        # cached and surfaced when the card is rebuilt non-compact.
+        if not compact:
+            outer.addWidget(self._trend_lbl)
+        else:
+            self._trend_lbl.hide()
 
         # State storage
         self._trend_better = trend_better

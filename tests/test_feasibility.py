@@ -2,11 +2,15 @@
 from __future__ import annotations
 
 from pfc_inductor.data_loader import (
-    load_materials, load_cores, load_wires, find_material,
+    find_material,
+    load_cores,
+    load_materials,
+    load_wires,
 )
 from pfc_inductor.models import Spec
 from pfc_inductor.optimize.feasibility import (
-    core_quick_check, filter_viable_cores,
+    core_quick_check,
+    filter_viable_cores,
 )
 
 

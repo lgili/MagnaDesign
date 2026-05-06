@@ -1,12 +1,12 @@
 """Core-loss model tests including iGSE Jensen factor."""
 import numpy as np
 
-from pfc_inductor.data_loader import load_materials, find_material
+from pfc_inductor.data_loader import find_material, load_materials
 from pfc_inductor.physics.core_loss import (
-    steinmetz_volumetric_mWcm3,
+    core_loss_W_pfc,
     core_loss_W_pfc_ripple_iGSE,
     core_loss_W_sinusoidal,
-    core_loss_W_pfc,
+    steinmetz_volumetric_mWcm3,
 )
 
 

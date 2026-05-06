@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QGridLayout, QVBoxLayout, QWidget
 
 from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire

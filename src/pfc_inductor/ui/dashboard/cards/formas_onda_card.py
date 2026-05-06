@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Optional
 
 import numpy as np
-from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QSizePolicy, QVBoxLayout, QWidget
 
 from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
 from pfc_inductor.ui.theme import get_theme
@@ -22,10 +22,18 @@ class _FormasOndaBody(QWidget):
         super().__init__(parent)
         Canvas, Figure = _figure_imports()
         p = get_theme().palette
-        self._fig = Figure(figsize=(4.0, 1.6), dpi=100,
-                           facecolor=p.surface, tight_layout=True)
+        # NB: no ``figsize`` — the canvas inherits its size from the
+        # surrounding layout and we want it to follow the v3 bento
+        # row's available width, not a hard-coded 4×1.6 inch grid.
+        # ``tight_layout=True`` still wraps the axes safely as the
+        # widget resizes.
+        self._fig = Figure(dpi=100, facecolor=p.surface, tight_layout=True)
         self._ax = self._fig.add_subplot(1, 1, 1)
         self._canvas = Canvas(self._fig)
+        self._canvas.setSizePolicy(QSizePolicy.Policy.Expanding,
+                                   QSizePolicy.Policy.Expanding)
+        # Preserve a usable plot height even when the card is short.
+        self._canvas.setMinimumHeight(200)
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
@@ -35,10 +43,10 @@ class _FormasOndaBody(QWidget):
         # ---- 4 small metric tiles ------------------------------------
         row = QHBoxLayout()
         row.setSpacing(8)
-        self.m_Irms = MetricCard("Irms", "—", "A")
-        self.m_Ipk = MetricCard("Ipk", "—", "A")
-        self.m_THD = MetricCard("THD", "—", "%")
-        self.m_CF = MetricCard("Crest", "—", "")
+        self.m_Irms = MetricCard("Irms", "—", "A", compact=True)
+        self.m_Ipk = MetricCard("Ipk", "—", "A", compact=True)
+        self.m_THD = MetricCard("THD", "—", "%", compact=True)
+        self.m_CF = MetricCard("Crest", "—", "", compact=True)
         for mc in (self.m_Irms, self.m_Ipk, self.m_THD, self.m_CF):
             row.addWidget(mc)
         outer.addLayout(row)
@@ -73,15 +81,20 @@ class _FormasOndaBody(QWidget):
         if result.waveform_t_s and result.waveform_iL_A:
             t = np.array(result.waveform_t_s) * 1e3  # ms
             i = np.array(result.waveform_iL_A)
-            self._ax.plot(t, i, color=p.accent, linewidth=1.4)
+            self._ax.plot(t, i, color=p.accent, linewidth=1.6)
             self._ax.axhline(0, color=p.border, linewidth=0.6, linestyle="--")
-            self._ax.set_xlabel("t (ms)", fontsize=8, color=p.text_muted)
-            self._ax.set_ylabel("iL (A)", fontsize=8, color=p.text_muted)
+            # 8 px labels were illegible at high-DPI and below WCAG
+            # large-text threshold; bump to 10 px and use the higher-
+            # contrast ``text_secondary`` token instead of ``text_muted``.
+            self._ax.set_xlabel("t (ms)", fontsize=10,
+                                color=p.text_secondary)
+            self._ax.set_ylabel("iL (A)", fontsize=10,
+                                color=p.text_secondary)
         for spine in ("top", "right"):
             self._ax.spines[spine].set_visible(False)
         for spine in ("left", "bottom"):
             self._ax.spines[spine].set_color(p.border)
-        self._ax.tick_params(colors=p.text_muted, labelsize=8, length=3)
+        self._ax.tick_params(colors=p.text_secondary, labelsize=10, length=3)
         self._ax.grid(True, color=p.border, linewidth=0.4, alpha=0.6)
         self._canvas.draw_idle()
 

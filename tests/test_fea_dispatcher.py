@@ -1,12 +1,11 @@
 """Per-shape FEA backend dispatcher tests."""
 from __future__ import annotations
-import os
-
-import pytest
 
 from pfc_inductor.fea import (
-    select_backend_for_shape, backend_fidelity,
-    is_femmt_available, is_femm_available,
+    backend_fidelity,
+    is_femm_available,
+    is_femmt_available,
+    select_backend_for_shape,
 )
 
 

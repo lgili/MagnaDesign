@@ -5,19 +5,21 @@ need a real macOS machine and bandwidth, and we cover them manually as
 part of the release checklist.
 """
 from __future__ import annotations
+
 import json
 import sys
 from pathlib import Path
 
 import pytest
 
+from pfc_inductor.setup_deps import femmt_config, workaround
+from pfc_inductor.setup_deps.onelab import is_onelab_installed
 from pfc_inductor.setup_deps.platform_info import (
-    PlatformInfo, UnsupportedPlatform, detect_platform,
+    PlatformInfo,
+    UnsupportedPlatform,
+    detect_platform,
 )
 from pfc_inductor.setup_deps.urls import onelab_archive_url
-from pfc_inductor.setup_deps import femmt_config
-from pfc_inductor.setup_deps.onelab import is_onelab_installed
-from pfc_inductor.setup_deps import workaround
 
 
 # ---------------------------------------------------------------------------
