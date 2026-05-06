@@ -36,10 +36,11 @@ from __future__ import annotations
 
 from typing import Literal, Optional
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
+    QScrollArea,
     QSizePolicy,
     QTabWidget,
     QVBoxLayout,
@@ -157,12 +158,15 @@ class ProjetoPage(QWidget):
         self.tabs.addTab(self.analise_tab, "Análise")
 
         # Tab 2 — Validar
+        # Wrap in a QScrollArea so the tab's tall content (≈ 800 px
+        # min from the FEA panes) doesn't push the whole window past
+        # the screen on 1366×768 laptops.
         self.validar_tab = ValidarTab()
         self.validar_tab.fea_requested.connect(self.fea_requested.emit)
         self.validar_tab.compare_requested.connect(self.compare_requested.emit)
-        self.tabs.addTab(self.validar_tab, "Validar")
+        self.tabs.addTab(self._wrap_scrollable(self.validar_tab), "Validar")
 
-        # Tab 3 — Exportar
+        # Tab 3 — Exportar (wrap for the same reason).
         self.exportar_tab = ExportarTab()
         self.exportar_tab.export_html_requested.connect(
             self.export_html_requested.emit,
@@ -170,7 +174,7 @@ class ProjetoPage(QWidget):
         self.exportar_tab.export_compare_requested.connect(
             self.export_compare_requested.emit,
         )
-        self.tabs.addTab(self.exportar_tab, "Exportar")
+        self.tabs.addTab(self._wrap_scrollable(self.exportar_tab), "Exportar")
 
         self.tabs.currentChanged.connect(self._on_tab_changed)
 
@@ -291,3 +295,27 @@ class ProjetoPage(QWidget):
             self.kpi_strip.parent().setStyleSheet(
                 f"QFrame#KpiHolder {{ background: {p.bg}; border: 0; }}"
             )
+
+    @staticmethod
+    def _wrap_scrollable(widget: QWidget) -> QScrollArea:
+        """Wrap a tab body in a vertical-only QScrollArea.
+
+        The Projeto page mounts four tabs of varying density —
+        Validar in particular (FEA + supporting plots) reports a
+        minimumSizeHint of ~810 px tall, which on a 1366×768 laptop
+        forces Qt to grow the window past the screen edge and hides
+        the bottom Scoreboard. Wrapping each tab body in a scroll
+        area keeps the page's minimum manageable: the tab itself
+        scrolls when the window is short.
+
+        Horizontal scrolling is disabled because the bento and form
+        layouts inside the tabs are designed to flex horizontally.
+        """
+        scroll = QScrollArea()
+        scroll.setWidget(widget)
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setSizePolicy(QSizePolicy.Policy.Expanding,
+                             QSizePolicy.Policy.Expanding)
+        return scroll
