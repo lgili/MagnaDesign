@@ -85,7 +85,8 @@ def test_main_window_topology_picker_applies_to_spec_panel(app, monkeypatch):
     monkeypatch.setattr(TopologyPickerDialog, "exec", fake_exec)
     w._open_topology_picker()
 
-    # The spec panel's combo should now read passive_choke.
-    sp = w.spec_panel
+    # The spec panel (now hosted inside the SpecDrawer) should reflect
+    # the chosen topology.
+    sp = w.projeto_page.spec_panel
     assert sp.cmb_topology.currentData() == "passive_choke"
     w.close()

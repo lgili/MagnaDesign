@@ -17,7 +17,8 @@ Estrutura de propostas e tarefas para evoluir o aplicativo. Convenção
 | Change ID                | Tamanho | Descrição |
 |--------------------------|---------|-----------|
 | `add-circuit-export`     | M       | Emitir subcircuitos LTspice / PSIM / Modelica do indutor projetado (deferred desde v2) |
-| `ui-refactor-followups`  | M       | Tail-end items dos 5 refactors v2 — Núcleo score table, animations 3D, docs UI |
+| `redesign-ui-flow-v3`    | XL      | Reescreve a shell em torno de Spec drawer persistente + 3 tabs no workspace + 4 áreas reais na sidebar; remove Modo Clássico e o stepper de 8 segmentos |
+| `ui-refactor-followups`  | M       | Tail-end items dos 5 refactors v2 — animations 3D, docs UI (Núcleo score table foi entregue) |
 
 ### Mudanças arquivadas (17 em `archive/`)
 

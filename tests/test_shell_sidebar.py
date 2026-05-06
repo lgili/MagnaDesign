@@ -15,11 +15,16 @@ def app():
     yield inst
 
 
-def test_sidebar_has_eight_nav_items(app):
+def test_sidebar_has_four_nav_items(app):
+    """v3 reduced the sidebar from 8 to 4 areas. The 4 destinations are
+    real (Projeto / Otimizador / Catálogo / Configurações), not just
+    navigation back to dashboard subsets."""
     from pfc_inductor.ui.shell import Sidebar, SIDEBAR_AREAS
     sb = Sidebar()
-    assert len(SIDEBAR_AREAS) == 8
-    assert len(sb._nav_buttons) == 8
+    assert len(SIDEBAR_AREAS) == 4
+    assert len(sb._nav_buttons) == 4
+    keys = [a[0] for a in SIDEBAR_AREAS]
+    assert keys == ["dashboard", "otimizador", "catalogo", "configuracoes"]
 
 
 def test_sidebar_default_active_is_dashboard(app):
@@ -49,9 +54,9 @@ def test_sidebar_set_active_does_not_emit(app):
     sb = Sidebar()
     received: list[str] = []
     sb.navigation_requested.connect(received.append)
-    sb.set_active_area("nucleos")
+    sb.set_active_area("catalogo")
     assert received == []
-    assert sb._nav_buttons["nucleos"].isChecked()
+    assert sb._nav_buttons["catalogo"].isChecked()
 
 
 def test_sidebar_overflow_menu_lists_legacy_tools(app):

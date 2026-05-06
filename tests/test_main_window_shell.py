@@ -1,10 +1,11 @@
-"""Integration: MainWindow boots with the new MagnaDesign shell.
+"""Integration: MainWindow boots with the v3 MagnaDesign shell.
 
-Smoke-test that:
-- the sidebar, header, stepper, stack, and bottom status bar all exist;
-- nav signals route to the QStackedWidget;
-- a successful design()/calc fans the result counts into the bottom bar
-  via WorkflowState.
+v3 contract:
+- 4 sidebar areas (dashboard / otimizador / catalogo / configuracoes)
+- ProjetoPage owns SpecDrawer + WorkspaceHeader + ProgressIndicator +
+  3 workspace tabs + Scoreboard.
+- No QToolBar, no 8-step stepper, no Modo Clássico, no QSplitter
+  mounting SpecPanel|PlotPanel|ResultPanel.
 """
 from __future__ import annotations
 
@@ -30,52 +31,68 @@ def win(app):
     w.close()
 
 
-def test_main_window_has_shell_widgets(win):
-    from pfc_inductor.ui.shell import (
-        Sidebar, WorkspaceHeader, WorkflowStepper, BottomStatusBar,
-    )
+def test_main_window_has_v3_shell_widgets(win):
+    from pfc_inductor.ui.shell import Sidebar
+    from pfc_inductor.ui.shell.spec_drawer import SpecDrawer
+    from pfc_inductor.ui.shell.progress_indicator import ProgressIndicator
+    from pfc_inductor.ui.shell.scoreboard import Scoreboard
+    from pfc_inductor.ui.shell.header import WorkspaceHeader
     assert isinstance(win.sidebar, Sidebar)
-    assert isinstance(win.header, WorkspaceHeader)
-    assert isinstance(win.stepper, WorkflowStepper)
-    assert isinstance(win.status_bar, BottomStatusBar)
+    assert isinstance(win.projeto_page.drawer, SpecDrawer)
+    assert isinstance(win.projeto_page.progress, ProgressIndicator)
+    assert isinstance(win.projeto_page.scoreboard, Scoreboard)
+    assert isinstance(win.projeto_page.header, WorkspaceHeader)
 
 
 def test_main_window_no_legacy_qtoolbar(win):
-    """The old QToolBar should be gone — actions live on the header CTAs
-    and the sidebar overflow menu now."""
     from PySide6.QtWidgets import QToolBar
     bars = win.findChildren(QToolBar)
     assert bars == []
 
 
+def test_main_window_no_legacy_splitter(win):
+    """v3 removed the legacy 3-column splitter from the shell."""
+    from PySide6.QtWidgets import QSplitter
+    splitters = win.findChildren(QSplitter)
+    # Compare dialog (cached) may have a splitter, but it isn't a
+    # child of MainWindow until the dialog is shown. We assert the
+    # shell tree itself has zero splitters.
+    splitter_in_shell = [s for s in splitters
+                         if s.parent() and s.window() is win]
+    assert splitter_in_shell == []
+
+
 def test_sidebar_navigation_routes_to_stack(win):
     from pfc_inductor.ui.main_window import AREA_PAGES
+    assert AREA_PAGES == (
+        "dashboard", "otimizador", "catalogo", "configuracoes",
+    )
     for area in AREA_PAGES:
         win.sidebar._on_nav_clicked(area)
         idx = AREA_PAGES.index(area)
         assert win.stack.currentIndex() == idx
 
 
-def test_calc_populates_status_pills(win):
-    """After the construction-time _on_calculate, the validations pill
-    should be > 0 (we count 12 - len(warnings) as validations passed)."""
-    n_val = int(win.status_bar.validations_text().split()[0])
-    assert n_val >= 1
+def test_calc_populates_scoreboard(win):
+    """After the construction-time _on_calculate, the Scoreboard's KPI
+    strip should show L=… text. Replaces the old "validations pill"."""
+    text = win.projeto_page.scoreboard.kpi_text()
+    assert text and text != "—"
+    # Smoke: the L= prefix is the first token.
+    assert "L=" in text
 
 
-def test_workflow_step_calculo_marked_done_after_calc(win):
-    """A completed calculation should mark steps 0..3 as done."""
-    completed = win._workflow_state.completed_steps
-    assert 0 in completed and 1 in completed and 2 in completed and 3 in completed
+def test_progress_indicator_marks_design_done_after_calc(win):
+    """After a successful calc, the Design state moves from current
+    to done (Spec stayed done from construction)."""
+    pi = win.projeto_page.progress
+    assert pi.state("design") == "done"
+    # Spec is also done by default since the drawer is filled.
+    assert pi.state("spec") == "done"
 
 
 def test_theme_toggle_does_not_change_sidebar_palette(win, app):
-    """SIDEBAR is theme-invariant — the sidebar QFrame's stylesheet must
-    not mention the *workspace* surface colour after toggling."""
     from pfc_inductor.ui.theme import SIDEBAR
     win._toggle_theme()
-    # The sidebar's bg is set via the global QSS, not inline. The
-    # easiest invariant: the SIDEBAR module-level constants are
-    # unchanged.
     assert SIDEBAR.bg == "#0F1729"
     win._toggle_theme()  # restore

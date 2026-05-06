@@ -42,15 +42,17 @@ def design_bundle():
 # Page structure
 # ---------------------------------------------------------------------------
 
-def test_dashboard_has_nine_cards(app):
+def test_dashboard_has_eight_cards(app):
+    """v3 dropped the TopologiaCard (topology lives in SpecDrawer).
+    Layout shrinks from 9 cards to 8."""
     from pfc_inductor.ui.dashboard import DashboardPage
     p = DashboardPage()
-    assert len(p._cards) == 9
+    assert len(p._cards) == 8
 
 
 def test_dashboard_grid_positions(app):
-    """Spot-check the 3-row layout: row 0 has 3 cards, row 1 has 2 cards
-    (Núcleo + Viz3D spanning), row 2 has 4 cards."""
+    """v3 layout: row 0 has 2 cards (Resumo, Formas), row 1 has 2 cards
+    (Núcleo + Viz3D), row 2 has 4 cards (Perdas/Bobinamento/Entreferro/Próximos)."""
     from pfc_inductor.ui.dashboard import DashboardPage
     p = DashboardPage()
     # Smoke: every card has a non-null geometry parent.
