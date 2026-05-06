@@ -11,23 +11,28 @@ Public entry points:
 Importing this module never triggers a download or any network access.
 """
 from __future__ import annotations
+
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Optional
 
-from pfc_inductor.setup_deps.platform_info import (
-    PlatformInfo, detect_platform, UnsupportedPlatform,
+from pfc_inductor.setup_deps.femmt_config import (
+    read_configured_onelab,
+    write_femmt_config,
 )
 from pfc_inductor.setup_deps.onelab import (
-    default_onelab_dir, is_onelab_installed,
-    download_onelab, codesign_macos,
+    codesign_macos,
+    default_onelab_dir,
+    download_onelab,
+    is_onelab_installed,
 )
-from pfc_inductor.setup_deps.femmt_config import (
-    write_femmt_config, read_configured_onelab,
+from pfc_inductor.setup_deps.platform_info import (
+    PlatformInfo,
+    UnsupportedPlatform,
+    detect_platform,
 )
+from pfc_inductor.setup_deps.verify import VerifyReport, verify_fea_setup
 from pfc_inductor.setup_deps.workaround import install_path_workaround
-from pfc_inductor.setup_deps.verify import verify_fea_setup, VerifyReport
-
 
 __all__ = [
     "setup_fea", "check_fea_setup",

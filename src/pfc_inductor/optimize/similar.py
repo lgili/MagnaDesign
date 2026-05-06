@@ -17,12 +17,12 @@ The distance metric is a weighted Euclidean over per-parameter % deltas
 normalised by their tolerances; smaller is closer.
 """
 from __future__ import annotations
+
 from dataclasses import dataclass, field
 from typing import Optional
 
-from pfc_inductor.models import Core, Material
 from pfc_inductor.data_loader import find_material
-
+from pfc_inductor.models import Core, Material
 
 _PARAM_KEYS = ("Ae", "Wa", "AL", "mu_r", "Bsat")
 

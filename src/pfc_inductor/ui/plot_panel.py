@@ -1,17 +1,18 @@
 """Plot panel: current waveform, loss breakdown, rolloff and 3D core view."""
 from __future__ import annotations
+
 import math
 from typing import Optional
 
-import numpy as np
 import matplotlib
+import numpy as np
+
 matplotlib.use("QtAgg")
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
+from PySide6.QtWidgets import QTabWidget, QVBoxLayout, QWidget
 
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QTabWidget
-
-from pfc_inductor.models import DesignResult, Core, Wire, Material
+from pfc_inductor.models import Core, DesignResult, Material, Wire
 from pfc_inductor.ui.core_view_3d import CoreView3D
 from pfc_inductor.visual import compute_bh_trajectory
 
@@ -189,8 +190,8 @@ class PlotPanel(QWidget):
         """Top: i_a(t) over 2 line cycles. Bottom: harmonics in Amps RMS
         with IEC 61000-3-2 Class D limits overlaid for pass/fail readout.
         """
-        from pfc_inductor.topology import line_reactor as lr
         from pfc_inductor.standards import iec61000_3_2 as iec
+        from pfc_inductor.topology import line_reactor as lr
 
         t_arr = np.array(r.waveform_t_s)
         i_a = np.array(r.waveform_iL_A)

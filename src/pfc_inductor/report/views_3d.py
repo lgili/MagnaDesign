@@ -12,6 +12,7 @@ generate procedurally); the datasheet lists dimensions in a table
 adjacent to the views.
 """
 from __future__ import annotations
+
 import base64
 import os
 from io import BytesIO
@@ -19,11 +20,12 @@ from typing import Optional
 
 import numpy as np
 
-from pfc_inductor.models import Core, Wire, Material
+from pfc_inductor.models import Core, Material, Wire
 from pfc_inductor.visual import (
-    make_core_mesh, make_winding_mesh, infer_shape,
+    infer_shape,
+    make_core_mesh,
+    make_winding_mesh,
 )
-
 
 # Colour palette mirrors ``ui/core_view_3d.py``.
 _CORE_COLORS = {
@@ -104,6 +106,8 @@ def _add_to_scene(plotter, core: Core, wire: Wire, N_turns: int,
 # directions and up-vectors.
 from pfc_inductor.visual.views import (
     VIEW_CAMERAS as _VIEW_CAMERAS,
+)
+from pfc_inductor.visual.views import (
     set_camera_to_view as _set_view_helper,
 )
 
@@ -157,7 +161,9 @@ def derive_dimensions(core: Core) -> dict[str, str]:
     strings ready for the table.
     """
     from pfc_inductor.visual.core_3d import (
-        _toroid_dims, _bobbin_dims, _ee_proportions,
+        _bobbin_dims,
+        _ee_proportions,
+        _toroid_dims,
     )
     kind = infer_shape(core)
     out: dict[str, str] = {}

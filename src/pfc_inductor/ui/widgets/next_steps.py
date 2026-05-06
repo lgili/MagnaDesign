@@ -7,14 +7,19 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable, Literal, Optional, Sequence
 
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
-    QFrame, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QWidget, QSizePolicy,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QSizePolicy,
+    QVBoxLayout,
+    QWidget,
 )
 
 from pfc_inductor.ui.icons import icon as ui_icon
 from pfc_inductor.ui.theme import get_theme, on_theme_changed
-
 
 ActionStatus = Literal["done", "pending", "todo"]
 

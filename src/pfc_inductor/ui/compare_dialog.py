@@ -1,20 +1,31 @@
 """Multi-column compare dialog: 1..4 designs side by side with diff colouring."""
 from __future__ import annotations
+
 from typing import Optional
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QFrame,
-    QWidget, QMessageBox, QFileDialog, QGroupBox, QSizePolicy,
+    QDialog,
+    QFileDialog,
+    QFrame,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QMessageBox,
+    QPushButton,
+    QSizePolicy,
+    QVBoxLayout,
+    QWidget,
 )
 
-from pfc_inductor.compare import CompareSlot, categorize, METRICS
+from pfc_inductor.compare import METRICS, CompareSlot, categorize
+from pfc_inductor.ui.theme import get_theme
 
 MAX_SLOTS = 4
 
-_BG_BETTER = "#dff5e3"
-_BG_WORSE = "#fbe2e2"
+# Compare-row backgrounds resolve from the active theme at row-render
+# time so light↔dark transitions don't leave stale tints behind.
 _BG_NEUTRAL = "transparent"
 
 
@@ -47,9 +58,10 @@ class _ColumnWidget(QFrame):
         header.addWidget(header_label, 1)
         if is_leftmost:
             ref_pill = QLabel("REF")
+            p = get_theme().palette
             ref_pill.setStyleSheet(
-                "background:#3a78b5; color:white; padding:1px 6px; "
-                "border-radius:6px; font-size:10px;"
+                f"background:{p.accent}; color:{p.text_inverse}; "
+                f"padding:1px 6px; border-radius:6px; font-size:10px;"
             )
             header.addWidget(ref_pill)
         btn_close = QPushButton("✕")
@@ -67,7 +79,9 @@ class _ColumnWidget(QFrame):
             row = QHBoxLayout()
             row.setSpacing(2)
             lbl = QLabel(f"{metric.label}:")
-            lbl.setStyleSheet("color:#555; font-size:11px;")
+            lbl.setStyleSheet(
+                f"color:{get_theme().palette.text_secondary}; font-size:11px;"
+            )
             lbl.setFixedWidth(120)
             row.addWidget(lbl)
 
@@ -103,7 +117,8 @@ class _ColumnWidget(QFrame):
             kind = categorize(metric.key, ref_val, this_val)
         except Exception:
             kind = "neutral"
-        bg = {"better": _BG_BETTER, "worse": _BG_WORSE,
+        p = get_theme().palette
+        bg = {"better": p.compare_better_bg, "worse": p.compare_worse_bg,
               "neutral": _BG_NEUTRAL}[kind]
         return f"padding:2px 4px; background:{bg}; border-radius:3px;"
 
@@ -159,7 +174,9 @@ class CompareDialog(QDialog):
 
     def _build_status(self) -> QLabel:
         self._status = QLabel("Adicione um design para começar.")
-        self._status.setStyleSheet("color:#555; padding:4px;")
+        self._status.setStyleSheet(
+            f"color:{get_theme().palette.text_secondary}; padding:4px;"
+        )
         return self._status
 
     # ------------------------------------------------------------------

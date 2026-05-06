@@ -10,6 +10,7 @@ The inductor sees mostly line-frequency current. Core saturation set by peak
 line current. No HF ripple (no switching).
 """
 from __future__ import annotations
+
 import math
 
 from pfc_inductor.models import Spec

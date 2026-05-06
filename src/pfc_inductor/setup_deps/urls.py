@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from pfc_inductor.setup_deps.platform_info import PlatformInfo
 
-
 # Pinned to the build we tested against. Bump when upstream releases a
 # new gmsh/getdp combo and we re-validate.
 ONELAB_VERSION = "4.13.0"

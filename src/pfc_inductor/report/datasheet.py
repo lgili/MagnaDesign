@@ -17,6 +17,7 @@ All copy is in English, optimised for an engineer-reader who scans
 specs first and reads narrative only on demand.
 """
 from __future__ import annotations
+
 import base64
 import hashlib
 import math
@@ -26,14 +27,15 @@ from io import BytesIO
 from pathlib import Path
 from typing import Optional
 
-import numpy as np
 import matplotlib
+import numpy as np
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from pfc_inductor.models import Spec, Core, Wire, Material, DesignResult
+from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
 from pfc_inductor.physics import rolloff as rf
-from pfc_inductor.report.views_3d import render_views, derive_dimensions
+from pfc_inductor.report.views_3d import derive_dimensions, render_views
 
 
 # ---------------------------------------------------------------------------
@@ -117,8 +119,8 @@ def _harmonic_plot(spec: Spec, result: DesignResult) -> Optional[str]:
         return None
     if not result.waveform_t_s or not result.waveform_iL_A:
         return None
-    from pfc_inductor.topology import line_reactor as lr
     from pfc_inductor.standards import iec61000_3_2 as iec
+    from pfc_inductor.topology import line_reactor as lr
 
     t = np.array(result.waveform_t_s)
     i = np.array(result.waveform_iL_A)

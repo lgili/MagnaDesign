@@ -8,13 +8,15 @@ Generates two curves on the B–H plane:
   located at the line phase where ripple peaks.
 """
 from __future__ import annotations
+
 from typing import Optional
 
 import numpy as np
 
-from pfc_inductor.models import Core, Material, DesignResult
+from pfc_inductor.models import Core, DesignResult, Material
 from pfc_inductor.physics.rolloff import (
-    OE_PER_AM, B_anhysteretic_array_T,
+    OE_PER_AM,
+    B_anhysteretic_array_T,
 )
 
 

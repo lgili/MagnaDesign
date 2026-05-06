@@ -17,44 +17,51 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtCore import Qt, Signal, QSize
+from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
-    QFrame, QHBoxLayout, QVBoxLayout, QLabel, QPushButton, QButtonGroup,
-    QWidget, QToolButton, QMenu, QSizePolicy,
+    QButtonGroup,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QMenu,
+    QPushButton,
+    QSizePolicy,
+    QToolButton,
+    QVBoxLayout,
+    QWidget,
 )
 
-from pfc_inductor.ui.theme import SIDEBAR, get_theme
 from pfc_inductor.ui.icons import icon as ui_icon
-
+from pfc_inductor.ui.theme import SIDEBAR, get_theme
 
 # ---------------------------------------------------------------------------
 # Canonical nav definition
 # ---------------------------------------------------------------------------
 
 # (area_id, label, lucide_icon_name)
+#
+# v3: 4 real destinations. The legacy 8-area split was just navigating
+# back to subsets of the dashboard — extra clicks for less information.
+# The Projeto area now hosts the entire design workspace (SpecDrawer +
+# Design/Validar/Exportar tabs); the other three areas are first-class
+# tools that used to be hidden in the overflow menu.
+#
+# ``area_id`` keys are kept stable for ``QSettings`` compatibility:
+# - ``dashboard`` → display label "Projeto" (ID preserved so saved
+#   geometry / state survives the rename)
 SIDEBAR_AREAS: tuple[tuple[str, str, str], ...] = (
-    ("dashboard",   "Dashboard",       "layout-dashboard"),
-    ("topologia",   "Topologia",       "git-branch"),
-    ("nucleos",     "Núcleos",         "cpu"),
-    ("bobinamento", "Bobinamento",     "activity"),
-    ("simulacao",   "Simulação",       "gauge"),
-    ("mecanico",    "Mecânico",        "box"),
-    ("relatorios",  "Relatórios",      "file-text"),
+    ("dashboard",     "Projeto",       "layout-dashboard"),
+    ("otimizador",    "Otimizador",    "sliders"),
+    ("catalogo",      "Catálogo",      "database"),
     ("configuracoes", "Configurações", "cog"),
 )
 
-# Overflow menu — legacy tools that don't get top-level real estate.
+# Overflow menu — kept lean for the few tools that don't deserve a
+# sidebar slot but need a discoverable home anyway.
 OVERFLOW_ACTIONS: tuple[tuple[str, str, str], ...] = (
-    ("optimizer",  "Otimizador",        "sliders"),
-    ("compare",    "Comparar designs",  "compare"),
-    ("similar",    "Buscar similares",  "search"),
-    ("litz",       "Otimizador Litz",   "braid"),
-    ("fea",        "Validar (FEA)",     "cube"),
-    ("db_editor",  "Base de dados",     "database"),
-    ("catalog",    "Atualizar catálogo", "download-cloud"),
-    ("setup_fea",  "Instalar FEA",      "cog"),
-    ("about",      "Sobre",             "info"),
+    ("compare", "Comparar designs", "compare"),
+    ("about",   "Sobre",            "info"),
 )
 
 

@@ -1,18 +1,30 @@
 """Dialog: find equivalent cores/materials for the current selection."""
 from __future__ import annotations
+
 from typing import Optional
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
-    QTableWidget, QTableWidgetItem, QHeaderView, QGroupBox, QFormLayout,
-    QDoubleSpinBox, QCheckBox,
+    QCheckBox,
+    QDialog,
+    QDoubleSpinBox,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
 )
 
 from pfc_inductor.models import Core, Material
 from pfc_inductor.optimize import (
-    SimilarityCriteria, SimilarMatch, find_equivalents,
+    SimilarityCriteria,
+    SimilarMatch,
+    find_equivalents,
 )
 
 

@@ -9,14 +9,15 @@ Returns SweepResult objects sorted by user-chosen score (default: P_total).
 Computes Pareto front across (volume, total loss) for visualization.
 """
 from __future__ import annotations
-from dataclasses import dataclass
-from typing import Optional, Iterable
-import math
 
-from pfc_inductor.models import Spec, Core, Wire, Material, DesignResult
-from pfc_inductor.design import design
+import math
+from dataclasses import dataclass
+from typing import Callable, Iterable, Optional
+
 from pfc_inductor.data_loader import find_material
-from pfc_inductor.physics import estimate_cost, CostBreakdown
+from pfc_inductor.design import design
+from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
+from pfc_inductor.physics import CostBreakdown, estimate_cost
 
 
 @dataclass
@@ -91,7 +92,7 @@ def sweep(
     only_compatible_cores: bool = True,
     only_round_wires: bool = True,
     feasible_only: bool = False,
-    progress_cb=None,
+    progress_cb: Optional[Callable[[int, int], None]] = None,
 ) -> list[SweepResult]:
     """Sweep across cores × wires (with optional fixed material).
 
@@ -186,7 +187,7 @@ def rank(
         key = lambda r: r.T_winding_C
     elif by == "cost":
         # Designs without cost go to the end.
-        def _cost_key(r):
+        def _cost_key(r: SweepResult) -> tuple[bool, float]:
             c = r.total_cost
             return (c is None, c if c is not None else float("inf"))
         key = _cost_key
@@ -206,7 +207,7 @@ def rank(
         max_vol = max(r.volume_cm3 for r in results) or 1.0
         costs = [r.total_cost for r in results if r.total_cost is not None]
         max_cost = max(costs) if costs else 1.0
-        def _composite(r):
+        def _composite(r: SweepResult) -> float:
             c = r.total_cost if r.total_cost is not None else max_cost
             return (
                 0.4 * (r.P_total_W / max_loss)

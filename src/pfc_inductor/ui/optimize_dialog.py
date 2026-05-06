@@ -1,27 +1,38 @@
 """Optimizer dialog: sweep cores × wires for the selected material, show Pareto."""
 from __future__ import annotations
+
 from typing import Optional
 
+import matplotlib
 import numpy as np
-from PySide6.QtCore import Qt, Signal, QObject, QThread
+from PySide6.QtCore import QObject, Qt, QThread, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QSplitter,
-    QTableWidget, QTableWidgetItem, QHeaderView, QComboBox,
-    QCheckBox, QProgressBar, QGroupBox, QFormLayout, QMessageBox,
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QMessageBox,
+    QProgressBar,
+    QPushButton,
+    QSplitter,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
 )
-import matplotlib
+
 matplotlib.use("QtAgg")
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 
-from pfc_inductor.models import Spec, Core, Wire, Material
-from pfc_inductor.optimize import sweep, pareto_front, SweepResult
+from pfc_inductor.models import Core, Material, Spec, Wire
+from pfc_inductor.optimize import SweepResult, pareto_front, sweep
 from pfc_inductor.optimize.sweep import rank
-
-
-_OK = "#1c7c3b"
-_BAD = "#a01818"
+from pfc_inductor.ui.theme import get_theme
 
 
 class _SweepWorker(QObject):
@@ -302,19 +313,23 @@ class OptimizerDialog(QDialog):
 
     def _refresh_plot(self):
         self.ax.clear()
+        p = get_theme().palette
         all_results = self._results
         feas = [(r.volume_cm3, r.P_total_W) for r in all_results if r.feasible]
         infeas = [(r.volume_cm3, min(r.P_total_W, 100.0)) for r in all_results if not r.feasible]
         if infeas:
             xi, yi = zip(*infeas)
-            self.ax.scatter(xi, yi, c="#aaa", s=8, alpha=0.4, label="inviável")
+            self.ax.scatter(xi, yi, c=p.plot_pareto_infeasible,
+                            s=8, alpha=0.4, label="inviável")
         if feas:
             xf, yf = zip(*feas)
-            self.ax.scatter(xf, yf, c="#3a78b5", s=10, alpha=0.7, label="viável")
+            self.ax.scatter(xf, yf, c=p.plot_pareto_feasible,
+                            s=10, alpha=0.7, label="viável")
         if self._pareto:
             xp = [r.volume_cm3 for r in self._pareto]
             yp = [r.P_total_W for r in self._pareto]
-            self.ax.plot(xp, yp, "-o", c="#d04040", label="Pareto", linewidth=2, markersize=8)
+            self.ax.plot(xp, yp, "-o", c=p.plot_pareto_frontier,
+                         label="Pareto", linewidth=2, markersize=8)
         self.ax.set_xlabel("Volume [cm³]")
         self.ax.set_ylabel("P_total [W]")
         self.ax.set_xscale("log")

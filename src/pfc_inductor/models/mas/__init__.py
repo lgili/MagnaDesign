@@ -9,14 +9,24 @@ Public:
     pfc_inductor.models.mas.types       — subset of MAS as pydantic v2
     pfc_inductor.models.mas.adapters    — material/core/wire ↔ MAS
 """
-from pfc_inductor.models.mas.types import (
-    MasMaterial, MasCore, MasWire, MasPermeability, MasSaturation,
-    MasCoreLoss, MasSteinmetzCoeffs, MasCoreShape, MasCoreDimensions,
-)
 from pfc_inductor.models.mas.adapters import (
-    material_from_mas, material_to_mas,
-    core_from_mas, core_to_mas,
-    wire_from_mas, wire_to_mas,
+    core_from_mas,
+    core_to_mas,
+    material_from_mas,
+    material_to_mas,
+    wire_from_mas,
+    wire_to_mas,
+)
+from pfc_inductor.models.mas.types import (
+    MasCore,
+    MasCoreDimensions,
+    MasCoreLoss,
+    MasCoreShape,
+    MasMaterial,
+    MasPermeability,
+    MasSaturation,
+    MasSteinmetzCoeffs,
+    MasWire,
 )
 
 __all__ = [

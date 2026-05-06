@@ -11,12 +11,12 @@ Auto-derivations:
 - Wire mass per metre is derived from `A_cu_mm2 · rho_Cu` if not provided.
 """
 from __future__ import annotations
+
 from typing import Optional
 
 from pydantic import BaseModel
 
-from pfc_inductor.models import Core, Wire, Material
-
+from pfc_inductor.models import Core, Material, Wire
 
 CU_DENSITY_KG_M3 = 8960.0  # copper
 

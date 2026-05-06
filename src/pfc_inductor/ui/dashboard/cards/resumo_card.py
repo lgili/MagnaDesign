@@ -4,9 +4,9 @@ from __future__ import annotations
 from typing import Optional
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QWidget, QGridLayout, QVBoxLayout
+from PySide6.QtWidgets import QGridLayout, QVBoxLayout, QWidget
 
-from pfc_inductor.models import Spec, Material, Core, Wire, DesignResult
+from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
 from pfc_inductor.ui.widgets import Card, MetricCard, MetricStatus
 
 

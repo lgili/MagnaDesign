@@ -5,18 +5,20 @@ For PDF: open the HTML in a browser and use Print -> Save as PDF, or run a
 headless converter (weasyprint/wkhtmltopdf) externally.
 """
 from __future__ import annotations
+
 import base64
 from datetime import datetime
 from html import escape
 from io import BytesIO
 from pathlib import Path
 
-import numpy as np
 import matplotlib
+import numpy as np
+
 matplotlib.use("Agg")  # non-interactive
 import matplotlib.pyplot as plt
 
-from pfc_inductor.models import Spec, Core, Wire, Material, DesignResult
+from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
 from pfc_inductor.physics import rolloff as rf
 
 

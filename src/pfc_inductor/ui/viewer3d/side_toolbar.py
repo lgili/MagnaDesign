@@ -3,15 +3,19 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtCore import Qt, Signal, QSize
+from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtWidgets import (
-    QFrame, QVBoxLayout, QToolButton, QWidget, QMenu, QCheckBox,
+    QCheckBox,
+    QFrame,
+    QMenu,
+    QToolButton,
+    QVBoxLayout,
+    QWidget,
     QWidgetAction,
 )
 
 from pfc_inductor.ui.icons import icon as ui_icon
 from pfc_inductor.ui.theme import get_theme, on_theme_changed
-
 
 # (icon-name, signal-attr, tooltip)
 _BUTTONS = (

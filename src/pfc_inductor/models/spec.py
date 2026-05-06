@@ -1,6 +1,8 @@
 from __future__ import annotations
+
 import math
 from typing import Literal
+
 from pydantic import BaseModel, Field, model_validator
 
 Topology = Literal["boost_ccm", "passive_choke", "line_reactor"]

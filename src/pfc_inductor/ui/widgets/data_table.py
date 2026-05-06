@@ -12,11 +12,14 @@ from typing import Iterable, Optional, Sequence
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
-    QFrame, QGridLayout, QLabel, QWidget, QSizePolicy,
+    QFrame,
+    QGridLayout,
+    QLabel,
+    QSizePolicy,
+    QWidget,
 )
 
 from pfc_inductor.ui.theme import get_theme, on_theme_changed
-
 
 Row = tuple[str, str, Optional[str]]
 

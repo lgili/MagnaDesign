@@ -1,16 +1,24 @@
 """Spec input panel: all fields of `Spec` plus core/material/wire selectors."""
 from __future__ import annotations
+
 from typing import Optional
 
-from PySide6.QtCore import Signal, Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
-    QWidget, QFormLayout, QDoubleSpinBox, QComboBox,
-    QGroupBox, QVBoxLayout, QPushButton, QHBoxLayout, QCheckBox,
+    QCheckBox,
+    QComboBox,
     QCompleter,
+    QDoubleSpinBox,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
 )
 
 from pfc_inductor.data_loader import load_curated_ids
-from pfc_inductor.models import Spec, Core, Wire, Material
+from pfc_inductor.models import Core, Material, Spec, Wire
 
 
 def _make_searchable(combo: QComboBox) -> None:
@@ -48,7 +56,7 @@ class SpecPanel(QWidget):
         self._cores = cores
         self._wires = wires
 
-        from PySide6.QtWidgets import QLabel, QScrollArea, QFrame
+        from PySide6.QtWidgets import QFrame, QLabel, QScrollArea
         # Outer fixed: scroll area on top, primary CTA pinned at bottom.
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
@@ -337,8 +345,8 @@ class SpecPanel(QWidget):
         cores were filtered out".
         """
         try:
-            from pfc_inductor.optimize.feasibility import filter_viable_cores
             from pfc_inductor.data_loader import find_material
+            from pfc_inductor.optimize.feasibility import filter_viable_cores
             spec = self.get_spec()
             material = find_material(self._materials, material_id)
             wire_id = self.cmb_wire.currentData()

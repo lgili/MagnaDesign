@@ -42,6 +42,7 @@ working. New fields are introduced for the dashboard refactor:
   ``numeric_family`` (mono with ``tnum`` hint).
 """
 from __future__ import annotations
+
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -72,6 +73,41 @@ class Sidebar:
 
 # Module-level singleton so callers can `from theme import SIDEBAR`.
 SIDEBAR = Sidebar()
+
+
+# ---------------------------------------------------------------------------
+# Viz3D (theme-invariant material/scene realism)
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class Viz3D:
+    """3D viewer realism palette — does NOT change between light and dark.
+
+    Magnetic materials look the same regardless of UI theme: a powder
+    core is always sandy-iron, a ferrite is always anthracite. Same for
+    bobbin (cream PA66) and copper. Keeping these out of :class:`Palette`
+    avoids the trap of dark-mode tinting a render that should match what
+    the user will see on their bench.
+    """
+    # Material colours by ``Material.type``.
+    material_powder: str = "#B9A98C"          # warm sandy iron
+    material_ferrite: str = "#3A3838"         # dark anthracite
+    material_nanocrystalline: str = "#5D6C7A" # bluish steel
+    material_amorphous: str = "#6E7178"       # gunmetal
+    material_silicon_steel: str = "#A4A39E"   # rolled GO/NGO sheet
+    material_default: str = "#888888"
+    # Bobbin (PA66 / Mylar former).
+    bobbin: str = "#E8E2D0"
+    # Scene background gradient (top → bottom).
+    bg_top: str = "#CDD6E0"
+    bg_bottom: str = "#F0F3F7"
+    # HUD text overlays.
+    text_dim: str = "#666666"
+    text_error: str = "#A01818"
+
+
+# Module-level singleton so callers can `from theme import VIZ3D`.
+VIZ3D = Viz3D()
 
 
 # ---------------------------------------------------------------------------
@@ -147,6 +183,17 @@ class Palette:
     plot_ripple: str
     plot_static: str
 
+    # Pareto / scatter plots (matplotlib, no theme rebuild on the fly —
+    # read at dialog construction time).
+    plot_pareto_infeasible: str
+    plot_pareto_feasible: str
+    plot_pareto_frontier: str
+
+    # Compare-dialog row backgrounds (subtle wash, distinct from semantic
+    # success_bg/danger_bg which are designed to host pill text).
+    compare_better_bg: str
+    compare_worse_bg: str
+
     # Card shadows (3 elevations)
     card_shadow_sm: ShadowSpec
     card_shadow_md: ShadowSpec
@@ -196,6 +243,13 @@ LIGHT = Palette(
     plot_ripple="#F59E0B",
     plot_static="#A1A1AA",
 
+    plot_pareto_infeasible="#A1A1AA",
+    plot_pareto_feasible="#3A78B5",
+    plot_pareto_frontier="#D04040",
+
+    compare_better_bg="#DFF5E3",
+    compare_worse_bg="#FBE2E2",
+
     # Light theme: low-alpha black shadow.
     card_shadow_sm=ShadowSpec(color="#14000000", blur=10, dx=0, dy=1),
     card_shadow_md=ShadowSpec(color="#1F000000", blur=24, dx=0, dy=4),
@@ -243,6 +297,15 @@ DARK = Palette(
     plot_envelope="#60A5FA",
     plot_ripple="#FBBF24",
     plot_static="#52525B",
+
+    plot_pareto_infeasible="#52525B",
+    plot_pareto_feasible="#60A5FA",
+    plot_pareto_frontier="#F87171",
+
+    # Subtle washes tuned for dark theme — saturated enough to read
+    # over surface (#16181D) without competing with pill backgrounds.
+    compare_better_bg="#0F2818",
+    compare_worse_bg="#2A1414",
 
     # Dark theme: higher alpha so shadows still read on near-black surfaces.
     card_shadow_sm=ShadowSpec(color="#52000000", blur=12, dx=0, dy=1),
@@ -345,6 +408,7 @@ class ThemeState:
     radius: Radius = field(default_factory=Radius)
     type: Typography = field(default_factory=Typography)
     sidebar: Sidebar = field(default_factory=lambda: SIDEBAR)
+    viz3d: Viz3D = field(default_factory=lambda: VIZ3D)
 
 
 _state = ThemeState()
@@ -363,6 +427,7 @@ def set_theme(name: ThemeName) -> ThemeState:
         radius=_state.radius,
         type=_state.type,
         sidebar=SIDEBAR,  # invariant
+        viz3d=VIZ3D,      # invariant
     )
     _broadcaster.theme_changed.emit()
     return _state

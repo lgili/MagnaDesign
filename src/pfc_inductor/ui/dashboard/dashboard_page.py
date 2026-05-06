@@ -10,16 +10,25 @@ from typing import Optional
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-    QWidget, QGridLayout, QVBoxLayout, QScrollArea, QFrame,
+    QFrame,
+    QGridLayout,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
 )
 
-from pfc_inductor.models import Spec, Material, Core, Wire, DesignResult
-from pfc_inductor.ui.theme import get_theme, on_theme_changed
+from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
 from pfc_inductor.ui.dashboard.cards import (
-    TopologiaCard, ResumoCard, FormasOndaCard, NucleoCard,
-    Viz3DCard, PerdasCard, BobinamentoCard, EntreferroCard,
+    BobinamentoCard,
+    EntreferroCard,
+    FormasOndaCard,
+    NucleoCard,
+    PerdasCard,
     ProximosPassosCard,
+    ResumoCard,
+    Viz3DCard,
 )
+from pfc_inductor.ui.theme import get_theme, on_theme_changed
 
 
 class DashboardPage(QWidget):
@@ -36,7 +45,6 @@ class DashboardPage(QWidget):
     litz_requested = Signal()
     report_requested = Signal()
     similar_requested = Signal()
-    topology_change_requested = Signal()
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -69,27 +77,26 @@ class DashboardPage(QWidget):
         grid.setHorizontalSpacing(sp.card_gap)
         grid.setVerticalSpacing(sp.card_gap)
 
-        # Equal-width 3 outer columns
-        for c in range(3):
+        # Two-column outer grid: Resumo + Formas de Onda on row 0;
+        # Núcleo + 3D below; metric strip at the bottom. Topology lives
+        # in the SpecDrawer in v3, so the dashboard is one card lighter.
+        for c in range(2):
             grid.setColumnStretch(c, 1)
 
-        # ---- row 0: Topologia | Resumo | Formas de Onda ---------------
-        self.card_topologia = TopologiaCard()
+        # ---- row 0: Resumo | Formas de Onda ---------------------------
         self.card_resumo = ResumoCard()
         self.card_formas = FormasOndaCard()
-        grid.addWidget(self.card_topologia, 0, 0)
-        grid.addWidget(self.card_resumo, 0, 1)
-        grid.addWidget(self.card_formas, 0, 2)
+        grid.addWidget(self.card_resumo, 0, 0)
+        grid.addWidget(self.card_formas, 0, 1)
 
-        # ---- row 1: Núcleo (1 col) | Visualização 3D (2 cols) --------
+        # ---- row 1: Núcleo | Visualização 3D --------------------------
         self.card_nucleo = NucleoCard()
         self.card_viz3d = Viz3DCard()
         grid.addWidget(self.card_nucleo, 1, 0)
-        grid.addWidget(self.card_viz3d, 1, 1, 1, 2)
-        # Make row 1 taller to accommodate the 3D viewer.
+        grid.addWidget(self.card_viz3d, 1, 1)
         grid.setRowStretch(1, 1)
 
-        # ---- row 2: 4 sub-cards inside one row that spans 3 cols ------
+        # ---- row 2: 4 sub-cards spanning 2 outer cols -----------------
         bottom_strip = QFrame()
         bs = QGridLayout(bottom_strip)
         bs.setContentsMargins(0, 0, 0, 0)
@@ -106,7 +113,7 @@ class DashboardPage(QWidget):
         bs.addWidget(self.card_bobinamento, 0, 1)
         bs.addWidget(self.card_entreferro, 0, 2)
         bs.addWidget(self.card_proximos, 0, 3)
-        grid.addWidget(bottom_strip, 2, 0, 1, 3)
+        grid.addWidget(bottom_strip, 2, 0, 1, 2)
 
         # ---- forward Próximos-Passos signals --------------------------
         self.card_proximos.fea_requested.connect(self.fea_requested.emit)
@@ -114,13 +121,10 @@ class DashboardPage(QWidget):
         self.card_proximos.litz_requested.connect(self.litz_requested.emit)
         self.card_proximos.report_requested.connect(self.report_requested.emit)
         self.card_proximos.similar_requested.connect(self.similar_requested.emit)
-        self.card_topologia.topology_change_requested.connect(
-            self.topology_change_requested.emit
-        )
 
         # ---- collect cards for batch operations -----------------------
         self._cards = [
-            self.card_topologia, self.card_resumo, self.card_formas,
+            self.card_resumo, self.card_formas,
             self.card_nucleo, self.card_viz3d,
             self.card_perdas, self.card_bobinamento,
             self.card_entreferro, self.card_proximos,

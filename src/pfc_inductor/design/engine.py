@@ -14,18 +14,25 @@ Workflow:
 6. Generate waveforms for plotting.
 """
 from __future__ import annotations
+
 import math
 from typing import Optional
+
 import numpy as np
 
 from pfc_inductor.models import (
-    Spec, Core, Wire, Material, DesignResult, LossBreakdown,
+    Core,
+    DesignResult,
+    LossBreakdown,
+    Material,
+    Spec,
+    Wire,
 )
-from pfc_inductor.physics import rolloff as rf
 from pfc_inductor.physics import copper as cp
 from pfc_inductor.physics import core_loss as cl
+from pfc_inductor.physics import rolloff as rf
 from pfc_inductor.physics import thermal as th
-from pfc_inductor.topology import boost_ccm, passive_choke, line_reactor
+from pfc_inductor.topology import boost_ccm, line_reactor, passive_choke
 
 
 def _solve_N(
@@ -60,13 +67,38 @@ def _line_envelope_B_pk_T(
     return rf.B_dc_T(N, I_line_pk_A, AL_nH, Ae_mm2, mu_pct_at_peak)
 
 
+# Initial guess for the iterative thermal solver. The first ``total_loss``
+# evaluation needs *some* temperature; +30 K above ambient is a reasonable
+# midpoint between "design works comfortably" and "near thermal runaway"
+# for typical PFC chokes — it converges in 2–4 iterations from there.
+# Exposed as a module constant so tweaks are visible to git blame.
+_T_INIT_RISE_K_DEFAULT: float = 30.0
+
+
 def design(
     spec: Spec,
     core: Core,
     wire: Wire,
     material: Material,
     Vin_design_Vrms: Optional[float] = None,
+    *,
+    T_init_rise_K: float = _T_INIT_RISE_K_DEFAULT,
 ) -> DesignResult:
+    """Run the full design pipeline.
+
+    Parameters
+    ----------
+    spec, core, wire, material
+        Inputs as documented at module level.
+    Vin_design_Vrms
+        Override for the worst-case input voltage used in current
+        calculations. Defaults to ``spec.Vin_min_Vrms``.
+    T_init_rise_K
+        Initial winding-temperature rise above ambient handed to the
+        thermal solver. Pure tuning knob — does not change the converged
+        answer, only the iteration count. Keep at the module default
+        unless profiling a slow case.
+    """
     warnings: list[str] = []
 
     # Worst-case for current is low line.
@@ -176,7 +208,7 @@ def design(
         )
         return P_cu_dc + P_cu_ac + P_line + P_ripple
 
-    T_init = T_amb + 30.0
+    T_init = T_amb + T_init_rise_K
     T_final, conv, _ = th.converge_temperature(
         total_loss_at_T, A_surface, T_amb, T_init_C=T_init,
     )

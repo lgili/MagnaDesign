@@ -11,6 +11,7 @@ The result is a structured ``VerifyReport`` so the UI can show each
 sub-check with its own status icon.
 """
 from __future__ import annotations
+
 import importlib
 from dataclasses import dataclass, field
 from pathlib import Path

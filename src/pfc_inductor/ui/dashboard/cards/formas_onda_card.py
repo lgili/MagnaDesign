@@ -4,11 +4,11 @@ from __future__ import annotations
 from typing import Optional
 
 import numpy as np
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout
+from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
 
-from pfc_inductor.models import Spec, Material, Core, Wire, DesignResult
-from pfc_inductor.ui.widgets import Card, MetricCard
+from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
 from pfc_inductor.ui.theme import get_theme
+from pfc_inductor.ui.widgets import Card, MetricCard
 
 
 def _figure_imports():

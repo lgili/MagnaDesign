@@ -22,7 +22,6 @@ from typing import Optional
 
 from PySide6.QtCore import QObject, QSettings, Signal
 
-
 # ---------------------------------------------------------------------------
 # Workflow definition
 # ---------------------------------------------------------------------------

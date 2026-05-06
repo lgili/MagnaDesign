@@ -5,10 +5,10 @@ the setup pipeline doesn't sprinkle ``platform.system()`` checks
 everywhere.
 """
 from __future__ import annotations
+
 import platform as _pyplatform
 from dataclasses import dataclass
 from typing import Literal
-
 
 OS = Literal["darwin", "linux", "windows"]
 Arch = Literal["arm64", "x86_64"]

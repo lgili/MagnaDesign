@@ -5,17 +5,25 @@ Contents (left → right):
 - "Salvo" / "Não salvo" pill that reflects ``WorkflowState.unsaved``.
 - Spacer.
 - Secondary CTA: "Comparar soluções".
-- Primary CTA: "Gerar Relatório".
+- Secondary CTA: "Gerar Relatório".
+- Primary CTA: "Recalcular" — main loop action; users hit it after
+  any spec change because auto-recalc is intentionally off (see
+  ``MainWindow._auto_calc``). One primary per surface, by design.
 """
 from __future__ import annotations
 
 from datetime import datetime
 from typing import Optional
 
-from PySide6.QtCore import Qt, Signal, QSize
+from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtWidgets import (
-    QFrame, QHBoxLayout, QLabel, QLineEdit, QPushButton,
-    QWidget, QToolButton,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QToolButton,
+    QWidget,
 )
 
 from pfc_inductor.ui.icons import icon as ui_icon
@@ -28,6 +36,7 @@ class WorkspaceHeader(QFrame):
     name_changed = Signal(str)
     compare_requested = Signal()
     report_requested = Signal()
+    recalculate_requested = Signal()
 
     HEIGHT = 64
 
@@ -81,14 +90,30 @@ class WorkspaceHeader(QFrame):
         self._apply_dynamic_property_refresh(self._btn_compare)
 
         self._btn_report = QPushButton("Gerar Relatório")
-        self._btn_report.setProperty("class", "Primary")
+        # Demoted from Primary → Secondary so "Recalcular" can hold the
+        # single Primary slot. Report is a one-shot end-of-flow action;
+        # Recalcular is the inner-loop action the engineer hits dozens
+        # of times per session.
+        self._btn_report.setProperty("class", "Secondary")
         self._btn_report.setIcon(
-            ui_icon("file-text", color=get_theme().palette.text_inverse, size=16)
+            ui_icon("file-text", color=get_theme().palette.text, size=16)
         )
         self._btn_report.setIconSize(QSize(16, 16))
         self._btn_report.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_report.clicked.connect(self.report_requested.emit)
         self._apply_dynamic_property_refresh(self._btn_report)
+
+        self._btn_recalc = QPushButton("Recalcular")
+        self._btn_recalc.setProperty("class", "Primary")
+        self._btn_recalc.setIcon(
+            ui_icon("refresh", color=get_theme().palette.text_inverse, size=16)
+        )
+        self._btn_recalc.setIconSize(QSize(16, 16))
+        self._btn_recalc.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_recalc.setShortcut("Ctrl+R")
+        self._btn_recalc.setToolTip("Recalcular o design (Ctrl+R)")
+        self._btn_recalc.clicked.connect(self.recalculate_requested.emit)
+        self._apply_dynamic_property_refresh(self._btn_recalc)
 
         # ---- compose ---------------------------------------------------
         h.addWidget(self._name_edit, 0, Qt.AlignmentFlag.AlignVCenter)
@@ -98,6 +123,7 @@ class WorkspaceHeader(QFrame):
         h.addStretch(1)
         h.addWidget(self._btn_compare, 0, Qt.AlignmentFlag.AlignVCenter)
         h.addWidget(self._btn_report, 0, Qt.AlignmentFlag.AlignVCenter)
+        h.addWidget(self._btn_recalc, 0, Qt.AlignmentFlag.AlignVCenter)
 
         # Subscribe to theme changes so inline QSS refreshes.
         on_theme_changed(self._refresh_qss)
@@ -107,10 +133,13 @@ class WorkspaceHeader(QFrame):
     def _refresh_qss(self) -> None:
         self.setStyleSheet(self._self_qss())
         self._name_edit.setStyleSheet(self._name_edit_qss())
+        p = get_theme().palette
         # Re-apply pencil button + status pill colours.
-        self._btn_pencil.setIcon(
-            ui_icon("pencil", color=get_theme().palette.text_muted, size=14)
-        )
+        self._btn_pencil.setIcon(ui_icon("pencil", color=p.text_muted, size=14))
+        # CTA button icons follow text/text_inverse depending on class.
+        self._btn_compare.setIcon(ui_icon("compare", color=p.text, size=16))
+        self._btn_report.setIcon(ui_icon("file-text", color=p.text, size=16))
+        self._btn_recalc.setIcon(ui_icon("refresh", color=p.text_inverse, size=16))
         # Refresh the save-status pill (which uses palette via QSS).
         self.set_save_status(
             unsaved=self._unsaved_state, last_saved_at=self._last_saved_at,

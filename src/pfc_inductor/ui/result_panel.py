@@ -1,11 +1,18 @@
 """Right-side result panel: KPI groups + warnings + status pill."""
 from __future__ import annotations
+
 from typing import Optional
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLabel, QGroupBox,
-    QScrollArea, QFrame,
+    QFormLayout,
+    QFrame,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
 )
 
 from pfc_inductor.models import DesignResult

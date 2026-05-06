@@ -24,6 +24,7 @@ magnetic components employed in power electronic systems," IEEE TPE, 2012.
 from __future__ import annotations
 
 import numpy as np
+from numpy.typing import ArrayLike
 
 from pfc_inductor.models import Material
 
@@ -55,7 +56,7 @@ def core_loss_W_sinusoidal(
 def core_loss_W_pfc_ripple_iGSE(
     material: Material,
     f_sw_kHz: float,
-    delta_B_pp_T_array,
+    delta_B_pp_T_array: ArrayLike,
     Ve_mm3: float,
 ) -> float:
     """Time-averaged ripple loss over the line cycle (iGSE-style).
@@ -83,7 +84,7 @@ def core_loss_W_pfc(
     B_pk_line_T: float,
     delta_B_ripple_avg_T: float,
     Ve_mm3: float,
-    delta_B_pp_T_array=None,
+    delta_B_pp_T_array: ArrayLike | None = None,
 ) -> tuple[float, float]:
     """Return (P_line_W, P_ripple_W).
 

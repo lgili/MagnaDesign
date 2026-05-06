@@ -10,9 +10,11 @@ integrating the small-signal permeability over H. Used for the operating-loop
 visualization at the design point.
 """
 from __future__ import annotations
+
 import math
 
 import numpy as np
+from numpy.typing import ArrayLike
 
 from pfc_inductor.models import Material
 
@@ -69,7 +71,7 @@ def B_dc_T(N: int, I_dc_A: float, AL_nH: float, Ae_mm2: float, mu_fraction: floa
     return L_H * I_dc_A / (N * Ae_m2)
 
 
-def mu_pct_array(material: Material, H_Oe_arr) -> np.ndarray:
+def mu_pct_array(material: Material, H_Oe_arr: ArrayLike) -> np.ndarray:
     """Vectorized version of `mu_pct` for an array of H values."""
     H = np.maximum(np.abs(np.asarray(H_Oe_arr, dtype=float)), 1e-6)
     if material.rolloff is None:
@@ -79,7 +81,7 @@ def mu_pct_array(material: Material, H_Oe_arr) -> np.ndarray:
     return np.clip(val, 0.0, 1.0)
 
 
-def B_anhysteretic_array_T(material: Material, H_Oe_arr) -> np.ndarray:
+def B_anhysteretic_array_T(material: Material, H_Oe_arr: ArrayLike) -> np.ndarray:
     """Anhysteretic B(H) [T] for an array of H values [Oe], in either sign.
 
     Computes the cumulative integral

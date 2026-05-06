@@ -21,14 +21,14 @@ Reference: C. Sullivan, "Optimal Choice for Number of Strands in a
 Litz-Wire Transformer Winding", IEEE Trans. PE, vol. 14, no. 2, 1999.
 """
 from __future__ import annotations
+
 import math
 from dataclasses import dataclass, field
 from typing import Optional
 
-from pfc_inductor.models import Spec, Core, Wire, Material, DesignResult
-from pfc_inductor.physics.dowell import skin_depth_m, Rac_over_Rdc_litz
-from pfc_inductor.physics.cost import wire_mass_per_meter_g, CU_DENSITY_KG_M3
-
+from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
+from pfc_inductor.physics.cost import CU_DENSITY_KG_M3, wire_mass_per_meter_g
+from pfc_inductor.physics.dowell import Rac_over_Rdc_litz, skin_depth_m
 
 # Standard AWG strand diameters (mm) used in Litz construction.
 _AWG_STRAND_TABLE_MM: dict[int, float] = {
@@ -228,7 +228,14 @@ def recommend(
 
     feasible = [c for c in rec.candidates if c.feasible and c.result is not None]
     if feasible:
-        feasible.sort(key=lambda c: c.result.losses.P_total_W)
+        # ``c.result`` is non-None by the comprehension's predicate, but
+        # mypy can't carry that narrowing into the sort lambda — the
+        # ``assert`` re-establishes it without runtime cost beyond a
+        # cheap None check we've already done conceptually.
+        def _loss(c: LitzCandidate) -> float:
+            assert c.result is not None
+            return c.result.losses.P_total_W
+        feasible.sort(key=_loss)
         rec.best = feasible[0]
 
     # Round-wire baseline: pick the round wire that minimizes P_total
@@ -239,6 +246,9 @@ def recommend(
         if c.feasible and c.result is not None:
             rw_cands.append(c)
     if rw_cands:
-        rw_cands.sort(key=lambda c: c.result.losses.P_total_W)
+        def _loss_rw(c: LitzCandidate) -> float:
+            assert c.result is not None
+            return c.result.losses.P_total_W
+        rw_cands.sort(key=_loss_rw)
         rec.round_wire_baseline = rw_cands[0]
     return rec

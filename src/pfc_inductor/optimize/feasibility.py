@@ -19,12 +19,12 @@ positives (showing one that turns out infeasible after the user clicks
   wire.
 """
 from __future__ import annotations
+
 import math
 from typing import Literal
 
-from pfc_inductor.models import Spec, Core, Wire, Material
-from pfc_inductor.topology import boost_ccm, passive_choke, line_reactor
-
+from pfc_inductor.models import Core, Material, Spec, Wire
+from pfc_inductor.topology import boost_ccm, line_reactor, passive_choke
 
 N_HARD_CAP = 250
 KU_HEADROOM = 0.7    # quick-check cap; engine has its own user-set Ku_max
@@ -35,8 +35,13 @@ B_HEADROOM = 1.6     # accept B_pk up to 1.6 × Bsat in heuristic — engine
 Verdict = Literal["ok", "too_small_L", "window_overflow", "saturates"]
 
 
-def _required_L_uH(spec: Spec) -> float:
-    """Pre-design L target (no rolloff, just topology math)."""
+def required_L_uH(spec: Spec) -> float:
+    """Pre-design L target (no rolloff, just topology math).
+
+    Public helper used by both the feasibility filter and the scoring
+    layer. Dispatches to the topology module that owns the analytical
+    formula for the requested topology.
+    """
     if spec.topology == "line_reactor":
         return line_reactor.required_inductance_uH(spec)
     if spec.topology == "boost_ccm":
@@ -44,12 +49,26 @@ def _required_L_uH(spec: Spec) -> float:
     return passive_choke.required_inductance_uH(spec, spec.Vin_min_Vrms)
 
 
-def _peak_current_A(spec: Spec) -> float:
+def peak_current_A(spec: Spec) -> float:
+    """Worst-case peak inductor current for the spec's topology.
+
+    Public helper used by feasibility checks, scoring heuristics, and
+    any caller that needs a quick I_pk estimate without spinning the
+    full ``design()`` pipeline.
+    """
     if spec.topology == "line_reactor":
         return line_reactor.line_pk_current_A(spec)
     if spec.topology == "boost_ccm":
         return boost_ccm.line_peak_current_A(spec, spec.Vin_min_Vrms)
     return passive_choke.line_peak_current_A(spec, spec.Vin_min_Vrms)
+
+
+# Back-compat aliases — leading underscore previously implied "private",
+# but ``optimize.scoring`` had to import them anyway. Keep the old names
+# pointing to the new public functions so any external caller (or test)
+# that was reaching in still works while we migrate.
+_required_L_uH = required_L_uH
+_peak_current_A = peak_current_A
 
 
 def core_quick_check(
@@ -61,7 +80,7 @@ def core_quick_check(
     or a one-word reason otherwise. Designed for combo-box filtering
     where running the full engine would be too slow.
     """
-    L_req_uH = _required_L_uH(spec)
+    L_req_uH = required_L_uH(spec)
     if L_req_uH <= 0:
         return "ok"
 
@@ -99,7 +118,7 @@ def core_quick_check(
         Ae_m2 = max(core.Ae_mm2 * 1e-6, 1e-12)
         B_pk = math.sqrt(2.0) * V_L_rms / (omega * N_estimate * Ae_m2)
     else:
-        I_pk = _peak_current_A(spec)
+        I_pk = peak_current_A(spec)
         Ae_m2 = max(core.Ae_mm2 * 1e-6, 1e-12)
         le_m = max(core.le_mm * 1e-3, 1e-9)
         # B = μ₀ · μᵣ · N · I / le (powder/ferrite) before rolloff

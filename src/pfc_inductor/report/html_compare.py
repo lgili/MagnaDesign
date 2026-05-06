@@ -4,12 +4,12 @@ One row per metric, one column per slot. Cells coloured in light green
 (better) or light red (worse) relative to column 0.
 """
 from __future__ import annotations
+
 from datetime import datetime
 from html import escape
 from pathlib import Path
 
-from pfc_inductor.compare import CompareSlot, METRICS, categorize
-
+from pfc_inductor.compare import METRICS, CompareSlot, categorize
 
 _BG = {
     "better": "#dff5e3",

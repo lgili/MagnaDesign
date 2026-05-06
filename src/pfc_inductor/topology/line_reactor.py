@@ -43,6 +43,7 @@ The reactor sees the fundamental V across it. From V = N·dΦ/dt:
 where V_L_rms = (pct/100) · V_phase_rms.
 """
 from __future__ import annotations
+
 import math
 
 import numpy as np

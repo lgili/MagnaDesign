@@ -24,12 +24,16 @@ from typing import Literal, Optional
 
 from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import (
-    QPainter, QPen, QColor, QBrush, QPainterPath, QFont,
+    QBrush,
+    QColor,
+    QFont,
+    QPainter,
+    QPainterPath,
+    QPen,
 )
 from PySide6.QtWidgets import QSizePolicy, QWidget
 
 from pfc_inductor.ui.theme import get_theme, on_theme_changed
-
 
 TopologyKind = Literal[
     "boost_ccm",

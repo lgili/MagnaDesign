@@ -9,10 +9,9 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtCore import Qt, QPointF, QRectF, Signal
-from PySide6.QtGui import QColor, QPainter, QPolygonF, QPen, QBrush
+from PySide6.QtCore import QPointF, QRectF, Qt, Signal
+from PySide6.QtGui import QBrush, QColor, QPainter, QPen, QPolygonF
 from PySide6.QtWidgets import QWidget
-
 
 # Axis colours echo VTK's defaults — easy to recognise in 3D apps.
 _AXIS_COLORS = {

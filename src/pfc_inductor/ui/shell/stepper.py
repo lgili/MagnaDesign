@@ -6,15 +6,19 @@ The QSS for these states ships in :mod:`pfc_inductor.ui.style`.
 """
 from __future__ import annotations
 
-from typing import Optional, Iterable
+from typing import Iterable, Optional
 
-from PySide6.QtCore import Qt, Signal, QEvent
+from PySide6.QtCore import QEvent, Qt, Signal
 from PySide6.QtWidgets import (
-    QFrame, QHBoxLayout, QVBoxLayout, QLabel, QWidget, QSizePolicy,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QSizePolicy,
+    QVBoxLayout,
+    QWidget,
 )
 
 from pfc_inductor.ui.state import WORKFLOW_STEPS
-
 
 # Public alias so callers don't import the inner constant by mistake.
 STEP_STATES = ("done", "active", "pending")

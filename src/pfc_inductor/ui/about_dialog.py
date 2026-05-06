@@ -4,18 +4,31 @@ Reads from `pfc_inductor.positioning` so the in-app view never drifts
 from the docs source of truth.
 """
 from __future__ import annotations
+
 from typing import Optional
 
 from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QDesktopServices, QFont
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QGroupBox,
-    QTableWidget, QTableWidgetItem, QHeaderView, QWidget, QFrame,
+    QDialog,
+    QFrame,
+    QGroupBox,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
 )
 
 from pfc_inductor import __version__
 from pfc_inductor.positioning import (
-    DIFFERENTIALS, COMPETITORS, PITCH, coverage_label,
+    COMPETITORS,
+    DIFFERENTIALS,
+    PITCH,
+    coverage_label,
 )
 
 

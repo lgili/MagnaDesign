@@ -26,11 +26,12 @@ from __future__ import annotations
 import math
 from typing import Iterable
 
-from pfc_inductor.models import Spec, Material, Core, Wire
+from pfc_inductor.models import Core, Material, Spec, Wire
 from pfc_inductor.optimize.feasibility import (
-    core_quick_check, _required_L_uH, _peak_current_A,
+    core_quick_check,
+    peak_current_A,
+    required_L_uH,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -167,8 +168,8 @@ def score_core(
         score = 8.0
 
     # Volume efficiency (Ve relative to "ideal").
-    L_req_uH = max(_required_L_uH(spec), 1e-9)
-    I_pk = _peak_current_A(spec)
+    L_req_uH = max(required_L_uH(spec), 1e-9)
+    I_pk = peak_current_A(spec)
     # Stored energy ≈ ½ L I² (J). Empirically a packing factor
     # relating volume (mm³) to stored energy gives a sanity-check
     # band: Ve [mm³] / E [µJ] in [200, 2000] is reasonable.
@@ -221,7 +222,7 @@ def score_wire(
     score = 0.0
 
     # Current density
-    I_rms = _peak_current_A(spec) / math.sqrt(2.0)
+    I_rms = peak_current_A(spec) / math.sqrt(2.0)
     if I_rms > 0 and wire.A_cu_mm2 > 0:
         J_actual = I_rms / wire.A_cu_mm2
         # Penalty grows quickly as J deviates from target.

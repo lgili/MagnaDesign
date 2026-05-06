@@ -20,9 +20,9 @@ spreadsheet in ``../extrator_harmonicos/src/logic/iec.py``; this module
 mirrors those formulas.
 """
 from __future__ import annotations
+
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, Literal, Optional
-
 
 Edition = Literal["4.0", "5.0"]
 

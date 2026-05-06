@@ -20,6 +20,8 @@ dependencies = [
 dev = [
     "pytest>=8.0",
     "pytest-cov>=5.0",
+    "ruff>=0.6",
+    "mypy>=1.10",
 ]
 # FEA validation backend (FEMMT). Pinned because FEMMT 0.5.x has hard
 # constraints on scipy and setuptools that conflict with newer wheels.
@@ -42,8 +44,87 @@ build-backend = "setuptools.build_meta"
 where = ["src"]
 
 [tool.setuptools.package-data]
-pfc_inductor = ["data/*.json"]
+# ``py.typed`` (PEP 561) tells type-checkers that the package ships
+# inline annotations; without it, mypy/pyright in downstream projects
+# treat ``pfc_inductor`` as untyped third-party.
+pfc_inductor = ["data/*.json", "py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+addopts = "-ra --strict-markers"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = [
+    "vendor",
+    "src/pfc_inductor/fea/legacy",
+    ".venv",
+]
+
+[tool.ruff.lint]
+# Defaults (E/F/W) plus: bugbear, isort, pyupgrade, ruff-specific.
+extend-select = ["B", "I", "UP", "RUF"]
+ignore = [
+    "E501",   # line length handled by formatter; long QSS strings are fine.
+    "B008",   # Qt accepts `def f(x=QObject())` as a UI factory pattern.
+    "UP007",  # `Optional[X]` reads better than `X | None` in Pydantic Field defaults.
+    "UP045",  # Same — keep `Optional[T]` for non-Pydantic widget signatures.
+    "UP035",  # Allow ``typing.X`` aliases (Iterable, etc.) — not worth the churn.
+]
+
+[tool.ruff.lint.per-file-ignores]
+# UI uses lazy imports inside methods to avoid pulling Qt at module import.
+"src/pfc_inductor/ui/*" = ["E402"]
+# Tests freely poke private members for regression coverage.
+"tests/*" = ["B011", "RUF001"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unreachable = true
+disallow_untyped_defs = false  # ramp up gradually; UI is not yet fully typed.
+no_implicit_optional = true
+check_untyped_defs = true
+exclude = [
+    "tests/",
+    "vendor/",
+    "src/pfc_inductor/fea/legacy/",
+    ".venv/",
+]
+
+# Domain layer is pure Python — hold it to a higher bar.
+[[tool.mypy.overrides]]
+module = [
+    "pfc_inductor.models.*",
+    "pfc_inductor.physics.*",
+    "pfc_inductor.topology.*",
+    "pfc_inductor.design.*",
+    "pfc_inductor.optimize.*",
+    "pfc_inductor.standards.*",
+    "pfc_inductor.errors",
+]
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+
+# MAS adapter bridges OpenMagnetics' camelCase Pydantic schema; the
+# vendored type stubs disagree with the field-alias usage at runtime.
+# Loosen rather than fight the third-party shape.
+[[tool.mypy.overrides]]
+module = ["pfc_inductor.models.mas.adapters"]
+ignore_errors = true
+
+# Third-party libs without stubs — silence missing-imports for these only.
+[[tool.mypy.overrides]]
+module = [
+    "PySide6.*",
+    "pyvista.*",
+    "pyvistaqt.*",
+    "matplotlib.*",
+    "scipy.*",
+    "femmt.*",
+    "openpyxl.*",
+]
+ignore_missing_imports = true

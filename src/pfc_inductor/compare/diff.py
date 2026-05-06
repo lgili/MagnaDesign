@@ -7,11 +7,11 @@ no preference (e.g. raw line current — that's a function of spec, not a
 design choice).
 """
 from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Literal
 
 from pfc_inductor.compare.slot import CompareSlot
-
 
 DiffKind = Literal["better", "worse", "neutral"]
 

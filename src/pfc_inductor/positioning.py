@@ -8,9 +8,9 @@ cost models, etc.). When a competitor closes a gap, mark coverage to
 "partial" or "yes" and re-think the differential's strategic value.
 """
 from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Literal
-
 
 Coverage = Literal["yes", "partial", "no", "na"]
 

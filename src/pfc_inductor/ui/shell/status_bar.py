@@ -18,11 +18,13 @@ from typing import Optional
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
-    QFrame, QHBoxLayout, QLabel, QWidget,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QWidget,
 )
 
 from pfc_inductor.ui.theme import get_theme, on_theme_changed
-
 
 # Threshold above which the counter actually colours itself with the
 # semantic variant. Below threshold (i.e. zero) we use the neutral pill.

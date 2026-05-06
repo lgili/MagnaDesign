@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+# Cancel any in-flight job for the same ref when a new commit lands.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Quality gates (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      # Don't fail the whole matrix if one Python version flakes — we
+      # want to see all results.
+      fail-fast: false
+      matrix:
+        # pyproject pins requires-python = ">=3.11,<3.13"; mirror that.
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install Qt offscreen runtime deps
+        # PySide6 import-time imports OpenGL/X libs even under
+        # QT_QPA_PLATFORM=offscreen on Linux. Install the minimal set
+        # the wheel needs so test imports don't fail.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libegl1 libgl1 libglib2.0-0 libxkbcommon0 \
+            libdbus-1-3 libxcb-cursor0 libxcb-icccm4 \
+            libxcb-image0 libxcb-keysyms1 libxcb-randr0 \
+            libxcb-render-util0 libxcb-shape0 libxcb-sync1 \
+            libxcb-xfixes0 libxcb-xkb1 libxkbcommon-x11-0
+
+      - name: Install package + dev extras
+        run: |
+          python -m pip install --upgrade pip
+          # ".[dev]" pulls ruff, mypy, pytest, pytest-cov.
+          # Skip ".[fea]" — FEMMT needs ONELAB which we don't ship in CI.
+          pip install -e ".[dev]"
+
+      - name: Ruff format check
+        run: ruff format --check .
+
+      - name: Ruff lint
+        run: ruff check .
+
+      - name: Mypy (domain layer only)
+        # The override in pyproject.toml enforces strict typing on
+        # ``models``, ``physics``, ``topology``, ``design``, ``optimize``,
+        # ``standards``, and ``errors`` — UI is intentionally relaxed.
+        run: mypy src/pfc_inductor
+
+      - name: Pytest
+        env:
+          # Qt widgets need a display; offscreen platform avoids the
+          # "no DISPLAY" failure without pulling in xvfb.
+          QT_QPA_PLATFORM: offscreen
+        run: pytest -ra

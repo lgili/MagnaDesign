@@ -9,7 +9,9 @@ A Magnetics-style empirical formula for toroid temperature rise is:
 We use the lumped-h form for transparency.
 """
 from __future__ import annotations
+
 import math
+from typing import Callable
 
 from pfc_inductor.models import Core
 
@@ -40,7 +42,7 @@ T_HARD_MAX_C = 300.0  # physical sanity ceiling: copper enamel fails ~200C, this
 
 
 def converge_temperature(
-    P_loss_at_T,
+    P_loss_at_T: Callable[[float], float],
     A_m2: float,
     T_amb_C: float,
     T_init_C: float = 60.0,

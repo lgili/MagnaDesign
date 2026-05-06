@@ -8,6 +8,7 @@ References:
 Skin depth in copper: delta = sqrt(rho / (pi * f * mu0)), with rho_cu(20C) = 1.724e-8 ohm.m.
 """
 from __future__ import annotations
+
 import math
 
 MU_0 = 4 * math.pi * 1e-7

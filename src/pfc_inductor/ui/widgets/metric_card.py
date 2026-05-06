@@ -11,11 +11,15 @@ from typing import Literal, Optional
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
-    QFrame, QVBoxLayout, QHBoxLayout, QLabel, QWidget, QSizePolicy,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QSizePolicy,
+    QVBoxLayout,
+    QWidget,
 )
 
 from pfc_inductor.ui.theme import get_theme, on_theme_changed
-
 
 MetricStatus = Literal["ok", "warn", "err", "neutral"]
 

@@ -24,21 +24,35 @@ from __future__ import annotations
 from typing import Optional, Sequence
 
 from PySide6.QtCore import (
-    Qt, QAbstractTableModel, QModelIndex, QSortFilterProxyModel, Signal,
+    QAbstractTableModel,
+    QModelIndex,
+    QSortFilterProxyModel,
+    Qt,
+    Signal,
 )
 from PySide6.QtGui import QPainter
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QTabWidget, QTableView,
-    QHeaderView, QLineEdit, QCheckBox, QPushButton, QStyledItemDelegate,
-    QStyleOptionViewItem, QSizePolicy,
+    QCheckBox,
+    QHBoxLayout,
+    QHeaderView,
+    QLineEdit,
+    QPushButton,
+    QSizePolicy,
+    QStyledItemDelegate,
+    QStyleOptionViewItem,
+    QTableView,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
 )
 
-from pfc_inductor.models import Spec, Material, Core, Wire, DesignResult
+from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
 from pfc_inductor.optimize.scoring import (
-    rank_materials, rank_cores, rank_wires,
+    rank_cores,
+    rank_materials,
+    rank_wires,
 )
 from pfc_inductor.ui.widgets import Card, ScorePill
-
 
 # Vendors we have curated cost data + calibration for.
 _CURATED_VENDORS = {

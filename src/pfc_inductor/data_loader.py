@@ -22,6 +22,7 @@ Entries with the same ``id`` collapse: only the highest-precedence copy
 is returned. The auto-detect for MAS shape vs legacy is per-file.
 """
 from __future__ import annotations
+
 import json
 import shutil
 from pathlib import Path

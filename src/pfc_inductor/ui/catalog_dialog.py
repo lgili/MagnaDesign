@@ -5,13 +5,19 @@ Runs ``scripts/import_mas_catalog.py`` (the ``run_import`` function) on a
 the caller can reload the in-memory database when it's done.
 """
 from __future__ import annotations
+
 from pathlib import Path
 from typing import Optional
 
 from PySide6.QtCore import QObject, QThread, Signal
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QProgressBar, QPlainTextEdit,
+    QDialog,
+    QHBoxLayout,
+    QLabel,
+    QPlainTextEdit,
+    QProgressBar,
     QPushButton,
+    QVBoxLayout,
 )
 
 # The import script is intentionally outside the package so it can run as

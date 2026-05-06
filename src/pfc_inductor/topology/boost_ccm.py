@@ -13,7 +13,9 @@ Max ripple occurs when d/dt[delta_iL_pp] = 0, i.e. when vin_inst = Vout/2.
 At that point delta_iL_pp_max = Vout / (4 * L * fsw).
 """
 from __future__ import annotations
+
 import math
+
 import numpy as np
 
 from pfc_inductor.models import Spec

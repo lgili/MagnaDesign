@@ -13,6 +13,7 @@ so we can write JSON with the MAS canonical names and read it via
 PEP-8-friendly Python attribute names.
 """
 from __future__ import annotations
+
 from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field

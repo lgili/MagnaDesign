@@ -5,30 +5,43 @@ when only that is installed. Gracefully degrades to a disabled run button
 with install instructions when no backend is detected.
 """
 from __future__ import annotations
+
 from pathlib import Path
 from typing import Optional
 
-from PySide6.QtCore import Qt, Signal, QObject, QThread
+from PySide6.QtCore import QObject, Qt, QThread, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QGroupBox,
-    QFormLayout, QPlainTextEdit, QProgressBar, QMessageBox,
+    QDialog,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QMessageBox,
+    QPlainTextEdit,
+    QProgressBar,
+    QPushButton,
+    QVBoxLayout,
 )
 
-from pfc_inductor.models import Spec, Core, Wire, Material, DesignResult
 from pfc_inductor.fea import (
-    active_backend, select_backend_for_shape, backend_fidelity,
-    is_femmt_available, is_femm_available,
-    find_femm_binary, femm_version, femmt_version, install_hint,
-    FEAValidation, validate_design,
-    FEMMNotAvailable, FEMMSolveError,
+    FEAValidation,
+    FEMMNotAvailable,
+    FEMMSolveError,
+    active_backend,
+    backend_fidelity,
+    femm_version,
+    femmt_version,
+    find_femm_binary,
+    install_hint,
+    is_femm_available,
+    is_femmt_available,
+    select_backend_for_shape,
+    validate_design,
 )
+from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
+from pfc_inductor.ui.theme import get_theme
 from pfc_inductor.visual import infer_shape
-
-
-_OK = "#1c7c3b"
-_BAD = "#a01818"
-_WARN = "#a06700"
 
 
 class _ValidationWorker(QObject):
@@ -168,6 +181,7 @@ class FEAValidationDialog(QDialog):
 
     def _on_initial_state(self):
         from pfc_inductor.fea.probe import is_femmt_onelab_configured
+        p = get_theme().palette
         shape = infer_shape(self._core)
         chosen = select_backend_for_shape(shape)
         fidelity = backend_fidelity(shape, chosen)
@@ -176,7 +190,7 @@ class FEAValidationDialog(QDialog):
             ver = femmt_version() or "?"
             if not is_femmt_onelab_configured():
                 self.lbl_status.setText(
-                    f'<span style="color:{_WARN}">●</span> '
+                    f'<span style="color:{p.warning}">●</span> '
                     f'<b>FEMMT</b> {ver} importável, mas <b>ONELAB ainda não '
                     f'está configurado</b>.<br>'
                     f'<i>Veja <code>docs/fea-install.md</code> para configurar '
@@ -186,7 +200,7 @@ class FEAValidationDialog(QDialog):
                 return
             if fidelity == "high":
                 self.lbl_status.setText(
-                    f'<span style="color:{_OK}">●</span> '
+                    f'<span style="color:{p.success}">●</span> '
                     f'<b>FEMMT</b> {ver} — geometria nativa para '
                     f'<b>{shape.upper()}</b> (fidelidade alta)'
                 )
@@ -199,7 +213,7 @@ class FEAValidationDialog(QDialog):
                         '(<code>brew install xfemm</code> ou Wine).</i>'
                     )
                 self.lbl_status.setText(
-                    f'<span style="color:{_WARN}">●</span> '
+                    f'<span style="color:{p.warning}">●</span> '
                     f'<b>FEMMT</b> {ver} — toroide via PQ-equivalente '
                     f'(<i>aproximado</i>, divergência típica 1.5–6×){hint}'
                 )
@@ -212,7 +226,7 @@ class FEAValidationDialog(QDialog):
                 ' — axissimétrico nativo (fidelidade alta)'
                 if fidelity == "high" else ' (fidelidade aproximada)'
             )
-            color = _OK if fidelity == "high" else _WARN
+            color = p.success if fidelity == "high" else p.warning
             self.lbl_status.setText(
                 f'<span style="color:{color}">●</span> '
                 f'<b>FEMM</b> em <code>{find_femm_binary()}</code>'
@@ -223,7 +237,7 @@ class FEAValidationDialog(QDialog):
             return
 
         self.lbl_status.setText(
-            f'<span style="color:{_BAD}">●</span> Nenhum backend FEA disponível para '
+            f'<span style="color:{p.danger}">●</span> Nenhum backend FEA disponível para '
             f'forma <b>{shape.upper()}</b>.<br>'
             f'<i>{install_hint()}</i>'
         )
@@ -265,6 +279,7 @@ class FEAValidationDialog(QDialog):
         QMessageBox.warning(self, "Validação falhou", msg)
 
     def _show_validation(self, v: FEAValidation):
+        pal = get_theme().palette
         self.l_L.setText(
             f"{v.L_FEA_uH:8.1f} µH  vs  {v.L_analytic_uH:.1f} µH    "
             f"({self._color_pct(v.L_pct_error)})"
@@ -274,7 +289,8 @@ class FEAValidationDialog(QDialog):
             f"({self._color_pct(v.B_pct_error)})"
         )
         self.l_solve.setText(f"{v.solve_time_s:.1f} s  ({v.femm_binary})")
-        color = {"alta": _OK, "média": _WARN, "baixa": _BAD}[v.confidence]
+        color = {"alta": pal.success, "média": pal.warning,
+                 "baixa": pal.danger}[v.confidence]
         self.l_confidence.setText(
             f'<span style="color:{color};font-weight:bold">{v.confidence}</span>'
         )
@@ -290,7 +306,10 @@ class FEAValidationDialog(QDialog):
 
     @staticmethod
     def _color_pct(p: float) -> str:
+        # Reads palette at call time so light↔dark transitions reflect
+        # in any subsequent re-render of the validation table.
+        pal = get_theme().palette
         sign = "+" if p >= 0 else ""
         ap = abs(p)
-        color = _OK if ap <= 5 else _WARN if ap <= 15 else _BAD
+        color = pal.success if ap <= 5 else pal.warning if ap <= 15 else pal.danger
         return f'<span style="color:{color}">{sign}{p:.1f}%</span>'

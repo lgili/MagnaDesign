@@ -22,12 +22,12 @@ can use the upstream Lucide naming directly (``check-circle``) without
 losing back-compat with the v1 names (``check_circle``).
 """
 from __future__ import annotations
+
 from functools import lru_cache
 
 from PySide6.QtCore import QByteArray, Qt
-from PySide6.QtGui import QIcon, QPixmap, QPainter
+from PySide6.QtGui import QIcon, QPainter, QPixmap
 from PySide6.QtSvg import QSvgRenderer
-
 
 # ---------------------------------------------------------------------------
 # Icon strings
@@ -297,6 +297,15 @@ _ICONS: dict[str, str] = {
     "trending-down": _svg(
         '<polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/>',
         '<polyline points="16 17 22 17 22 11"/>',
+    ),
+    # Lucide ``refresh-cw`` — circular arrow pair. Used by the
+    # WorkspaceHeader "Recalcular" CTA. Aliased as ``refresh`` so calling
+    # sites read naturally.
+    "refresh": _svg(
+        '<polyline points="23 4 23 10 17 10"/>',
+        '<polyline points="1 20 1 14 7 14"/>',
+        '<path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/>',
+        '<path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"/>',
     ),
 }
 

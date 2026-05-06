@@ -1,10 +1,13 @@
 """DC and AC copper loss for an inductor winding."""
 from __future__ import annotations
+
 import math
 
 from pfc_inductor.models import Wire
 from pfc_inductor.physics.dowell import (
-    rho_cu, Rac_over_Rdc_round, Rac_over_Rdc_litz,
+    Rac_over_Rdc_litz,
+    Rac_over_Rdc_round,
+    rho_cu,
 )
 
 

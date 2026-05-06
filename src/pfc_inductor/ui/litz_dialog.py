@@ -6,22 +6,36 @@ baseline. The recommendation can be saved to the user-data wires.json so
 it persists in the wire combobox.
 """
 from __future__ import annotations
+
 from typing import Optional
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QGroupBox,
-    QFormLayout, QDoubleSpinBox, QSpinBox, QTableWidget, QTableWidgetItem,
-    QHeaderView, QMessageBox, QInputDialog,
+    QDialog,
+    QDoubleSpinBox,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QHeaderView,
+    QInputDialog,
+    QLabel,
+    QMessageBox,
+    QPushButton,
+    QSpinBox,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
 )
 
-from pfc_inductor.models import Spec, Core, Material, Wire
-from pfc_inductor.optimize import (
-    LitzRecommendation, recommend_litz, optimal_strand_diameter_mm,
-    closest_strand_AWG,
-)
 from pfc_inductor.data_loader import load_wires, save_wires
+from pfc_inductor.models import Core, Material, Spec, Wire
+from pfc_inductor.optimize import (
+    LitzRecommendation,
+    closest_strand_AWG,
+    optimal_strand_diameter_mm,
+    recommend_litz,
+)
 
 
 class LitzOptimizerDialog(QDialog):

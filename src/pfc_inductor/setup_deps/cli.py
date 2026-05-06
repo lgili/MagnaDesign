@@ -4,15 +4,18 @@ Runs the cross-platform installer with sensible defaults. Suitable for
 CI, headless boxes and users who prefer the terminal.
 """
 from __future__ import annotations
+
 import argparse
 import sys
 from pathlib import Path
 from typing import Optional
 
 from pfc_inductor.setup_deps import (
-    check_fea_setup, setup_fea, SetupReport, SetupStep,
+    SetupReport,
+    SetupStep,
+    check_fea_setup,
+    setup_fea,
 )
-
 
 _RESET = "\033[0m"
 _GREEN = "\033[32m"

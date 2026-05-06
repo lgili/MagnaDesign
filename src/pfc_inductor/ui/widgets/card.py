@@ -20,15 +20,22 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve
+from PySide6.QtCore import QEasingCurve, QPropertyAnimation, Qt
 from PySide6.QtGui import QColor, QEnterEvent
 from PySide6.QtWidgets import (
-    QFrame, QVBoxLayout, QHBoxLayout, QLabel, QToolButton, QWidget, QMenu,
-    QGraphicsDropShadowEffect, QSizePolicy,
+    QFrame,
+    QGraphicsDropShadowEffect,
+    QHBoxLayout,
+    QLabel,
+    QMenu,
+    QSizePolicy,
+    QToolButton,
+    QVBoxLayout,
+    QWidget,
 )
 
-from pfc_inductor.ui.theme import get_theme, ShadowSpec
 from pfc_inductor.ui.icons import icon as ui_icon
+from pfc_inductor.ui.theme import ShadowSpec, get_theme
 
 
 def _make_drop_shadow(parent: QWidget, spec: ShadowSpec) -> QGraphicsDropShadowEffect:

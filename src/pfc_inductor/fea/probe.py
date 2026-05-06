@@ -1,5 +1,6 @@
 """Detect available FEM backends (FEMMT preferred; FEMM/xfemm legacy)."""
 from __future__ import annotations
+
 import importlib
 import os
 import platform
@@ -7,7 +8,6 @@ import shutil
 import subprocess
 from pathlib import Path
 from typing import Literal, Optional
-
 
 Backend = Literal["femmt", "femm", "none"]
 

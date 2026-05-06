@@ -5,6 +5,7 @@ helper Python module ``onelab.py``. FEMMT 0.5.x just needs the parent
 directory in its ``config.json``.
 """
 from __future__ import annotations
+
 import shutil
 import subprocess
 import tarfile
@@ -16,7 +17,6 @@ from typing import Callable, Optional
 
 from pfc_inductor.setup_deps.platform_info import PlatformInfo, detect_platform
 from pfc_inductor.setup_deps.urls import onelab_archive_url
-
 
 ProgressCb = Optional[Callable[[str, float], None]]
 """``cb(message, fraction_0_to_1)`` — used by the UI for progress bars."""

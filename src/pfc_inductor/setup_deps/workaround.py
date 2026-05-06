@@ -11,11 +11,11 @@ the symlink target survives) and prepend that to ``sys.path`` before
 ``import femmt`` happens.
 """
 from __future__ import annotations
+
 import os
 import sys
 from pathlib import Path
 from typing import Optional
-
 
 SHIM_DIR = Path("/tmp/pfc_femmt_shim")
 

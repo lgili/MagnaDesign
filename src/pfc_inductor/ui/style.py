@@ -32,7 +32,6 @@ from __future__ import annotations
 
 from pfc_inductor.ui.theme import Sidebar, ThemeState, get_theme
 
-
 # ---------------------------------------------------------------------------
 # Public composers
 # ---------------------------------------------------------------------------
@@ -254,6 +253,19 @@ QPushButton[ghost="true"] {{
     border-color: transparent;
 }}
 QPushButton[ghost="true"]:hover {{
+    background-color: {p.bg};
+}}
+
+/* Keyboard focus ring — applies to every QPushButton variant. Qt6 QSS
+ * does not support `outline` on QWidget reliably, so we widen the
+ * border to 2px and switch its colour to the focus token. The border
+ * is already 1px on every button, so this only nudges the layout by
+ * a single pixel — acceptable since focus is a transient state. */
+QPushButton:focus {{
+    border: 2px solid {p.focus_ring};
+}}
+QPushButton[ghost="true"]:focus {{
+    border: 2px solid {p.focus_ring};
     background-color: {p.bg};
 }}
 """
@@ -798,6 +810,16 @@ QPushButton[class~="Tertiary"]:hover {{
     background-color: {p.bg};
     color: {p.text};
     border-color: {p.border};
+}}
+
+/* v2 focus rings — same accessibility rationale as the v1 block above.
+ * We re-declare here because the [class~="..."] selector has higher
+ * specificity than bare ``QPushButton:focus`` and would otherwise lose
+ * the focus visual to the v2 button colour rules. */
+QPushButton[class~="Primary"]:focus,
+QPushButton[class~="Secondary"]:focus,
+QPushButton[class~="Tertiary"]:focus {{
+    border: 2px solid {p.focus_ring};
 }}
 """
 

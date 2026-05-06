@@ -21,6 +21,7 @@ All dimensions in millimetres. Centre at origin, bobbin axis along +Z
 (both half-cores split symmetrically at z=0). Toroid axis is +Z.
 """
 from __future__ import annotations
+
 import math
 from typing import Literal, Optional
 
@@ -28,7 +29,6 @@ import numpy as np
 import pyvista as pv
 
 from pfc_inductor.models import Core, Wire
-
 
 ShapeKind = Literal["toroid", "ee", "etd", "pq", "generic"]
 

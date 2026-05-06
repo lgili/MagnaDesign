@@ -18,14 +18,18 @@ from typing import Optional
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
     QSizePolicy,
+    QVBoxLayout,
+    QWidget,
 )
 
-from pfc_inductor.models import Spec, Material, Core, Wire, DesignResult
-from pfc_inductor.ui.widgets import Card, TopologySchematicWidget
+from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
 from pfc_inductor.ui.theme import get_theme, on_theme_changed
-
+from pfc_inductor.ui.widgets import Card, TopologySchematicWidget
 
 _TOPOLOGY_LABELS = {
     "boost_ccm":     "Boost CCM Active",

@@ -33,6 +33,7 @@ Worker-thread workaround:
   we never expose that UI, so the trade-off is invisible to the user.
 """
 from __future__ import annotations
+
 import contextlib
 import os
 import sys
@@ -41,7 +42,6 @@ import threading
 import time
 from pathlib import Path
 from typing import Optional
-
 
 _NO_SPACE_LINK = Path("/tmp/femmt")
 
@@ -118,13 +118,16 @@ def _install_no_space_femmt_shim() -> None:
         # Best-effort; if we fail, the import will surface the real error.
         pass
 
-from pfc_inductor.models import (
-    Spec, Core, Wire, Material, DesignResult,
-)
 from pfc_inductor.fea.models import FEAValidation, FEMMNotAvailable, FEMMSolveError
+from pfc_inductor.models import (
+    Core,
+    DesignResult,
+    Material,
+    Spec,
+    Wire,
+)
 from pfc_inductor.physics.rolloff import mu_pct
-from pfc_inductor.visual.core_3d import infer_shape, _toroid_dims
-
+from pfc_inductor.visual.core_3d import _toroid_dims, infer_shape
 
 _TECH_AIR_GAP_M = 1e-5  # 10 µm "technical" gap; FEMMT requires non-zero
 

@@ -15,13 +15,18 @@ from typing import Optional
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QGridLayout, QLabel,
-    QFrame, QWidget, QSizePolicy, QDialogButtonBox,
+    QDialog,
+    QDialogButtonBox,
+    QFrame,
+    QGridLayout,
+    QLabel,
+    QSizePolicy,
+    QVBoxLayout,
+    QWidget,
 )
 
 from pfc_inductor.ui.theme import get_theme
 from pfc_inductor.ui.widgets import TopologySchematicWidget
-
 
 # (key, label, n_phases-or-None, description)
 _OPTIONS: list[tuple[str, str, Optional[int], str]] = [

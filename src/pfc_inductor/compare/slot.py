@@ -1,8 +1,9 @@
 """A snapshot of one design for side-by-side comparison."""
 from __future__ import annotations
+
 from dataclasses import dataclass
 
-from pfc_inductor.models import Spec, Core, Wire, Material, DesignResult
+from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
 
 
 @dataclass

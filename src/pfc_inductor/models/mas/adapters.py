@@ -5,16 +5,27 @@ preserved under the `x-pfc-inductor` namespace, so a round-trip
 (internal → MAS → internal) is faithful.
 """
 from __future__ import annotations
+
 from typing import Any
 
 from pfc_inductor.models import (
-    Material, Core, Wire,
-    SteinmetzParams, RolloffParams, LossDatapoint,
+    Core,
+    LossDatapoint,
+    Material,
+    RolloffParams,
+    SteinmetzParams,
+    Wire,
 )
 from pfc_inductor.models.mas.types import (
-    MasMaterial, MasCore, MasWire,
-    MasPermeability, MasSaturation, MasCoreLoss, MasSteinmetzCoeffs,
-    MasCoreShape, MasCoreDimensions,
+    MasCore,
+    MasCoreDimensions,
+    MasCoreLoss,
+    MasCoreShape,
+    MasMaterial,
+    MasPermeability,
+    MasSaturation,
+    MasSteinmetzCoeffs,
+    MasWire,
 )
 
 

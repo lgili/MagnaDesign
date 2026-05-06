@@ -5,11 +5,14 @@ from typing import Optional
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
-    QFrame, QHBoxLayout, QToolButton, QButtonGroup, QWidget,
+    QButtonGroup,
+    QFrame,
+    QHBoxLayout,
+    QToolButton,
+    QWidget,
 )
 
 from pfc_inductor.ui.theme import get_theme, on_theme_changed
-
 
 _VIEWS = (
     ("front", "Frente"),

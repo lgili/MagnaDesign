@@ -11,6 +11,7 @@ from PySide6.QtWidgets import QVBoxLayout, QWidget
 
 from pfc_inductor.ui.theme import get_theme, on_theme_changed
 
+
 # Lazy-import matplotlib so test discovery doesn't pay the cost.
 def _figure_imports():
     from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as Canvas

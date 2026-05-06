@@ -4,22 +4,37 @@ Uses a JSON text editor per entry (validated against pydantic model on save).
 Power-user friendly without writing 200 lines of generic form generators.
 """
 from __future__ import annotations
+
 import json
 from typing import Optional
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QTabWidget,
-    QListWidget, QListWidgetItem, QTextEdit, QWidget, QSplitter, QMessageBox,
+    QDialog,
+    QHBoxLayout,
     QInputDialog,
+    QLabel,
+    QListWidget,
+    QListWidgetItem,
+    QMessageBox,
+    QPushButton,
+    QSplitter,
+    QTabWidget,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
 )
 
-from pfc_inductor.models import Material, Core, Wire
 from pfc_inductor.data_loader import (
-    load_materials, load_cores, load_wires,
-    save_materials, save_cores, save_wires,
+    load_cores,
+    load_materials,
+    load_wires,
+    save_cores,
+    save_materials,
+    save_wires,
 )
+from pfc_inductor.models import Core, Material, Wire
 
 
 class _ListJsonEditor(QWidget):

@@ -7,19 +7,29 @@ The setup runs in a worker thread so the UI stays responsive — a 50 MB
 download over a slow link can take a couple of minutes.
 """
 from __future__ import annotations
+
 from pathlib import Path
 from typing import Optional
 
 from PySide6.QtCore import QObject, QThread, Signal
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QProgressBar, QPlainTextEdit,
-    QPushButton, QListWidget, QListWidgetItem, QWidget,
+    QDialog,
+    QHBoxLayout,
+    QLabel,
+    QListWidget,
+    QListWidgetItem,
+    QPlainTextEdit,
+    QProgressBar,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
 )
 
 from pfc_inductor.setup_deps import (
-    SetupReport, check_fea_setup, setup_fea,
+    SetupReport,
+    check_fea_setup,
+    setup_fea,
 )
-
 
 _OK = "#1c7c3b"
 _BAD = "#a01818"

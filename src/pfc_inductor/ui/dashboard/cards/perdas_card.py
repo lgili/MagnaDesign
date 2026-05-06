@@ -3,11 +3,11 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtWidgets import QWidget, QVBoxLayout
+from PySide6.QtWidgets import QVBoxLayout, QWidget
 
-from pfc_inductor.models import Spec, Material, Core, Wire, DesignResult
-from pfc_inductor.ui.widgets import Card, DonutChart, DataTable
+from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
 from pfc_inductor.ui.theme import get_theme
+from pfc_inductor.ui.widgets import Card, DataTable, DonutChart
 
 
 class _PerdasBody(QWidget):

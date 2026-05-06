@@ -5,10 +5,10 @@ FEMMT 0.5.x reads its config from
 also honour ``~/.femmt_settings.json``. We write both for safety.
 """
 from __future__ import annotations
+
 import json
 from pathlib import Path
 from typing import Optional
-
 
 HOME_CONFIG = Path.home() / ".femmt_settings.json"
 

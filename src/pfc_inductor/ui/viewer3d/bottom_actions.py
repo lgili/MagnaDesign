@@ -3,9 +3,13 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtCore import Qt, Signal, QSize
+from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtWidgets import (
-    QFrame, QHBoxLayout, QPushButton, QWidget, QMenu,
+    QFrame,
+    QHBoxLayout,
+    QMenu,
+    QPushButton,
+    QWidget,
 )
 
 from pfc_inductor.ui.icons import icon as ui_icon

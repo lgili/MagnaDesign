@@ -21,21 +21,31 @@ events outside the overlay rectangles still fall through to the
 ``QtInteractor`` so the user can drag the scene normally.
 """
 from __future__ import annotations
+
 import os
 from typing import Optional
 
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QLabel, QFileDialog,
+    QFileDialog,
+    QLabel,
+    QVBoxLayout,
+    QWidget,
 )
 
-from pfc_inductor.models import Core, Wire, Material
-from pfc_inductor.visual import (
-    make_core_mesh, make_winding_mesh, make_bobbin_mesh,
-    set_camera_to_view,
-)
+from pfc_inductor.models import Core, Material, Wire
+from pfc_inductor.ui.theme import get_theme
 from pfc_inductor.ui.viewer3d import (
-    ViewChips, OrientationCube, SideToolbar, BottomActions,
+    BottomActions,
+    OrientationCube,
+    SideToolbar,
+    ViewChips,
+)
+from pfc_inductor.visual import (
+    make_bobbin_mesh,
+    make_core_mesh,
+    make_winding_mesh,
+    set_camera_to_view,
 )
 
 
@@ -47,18 +57,20 @@ def _can_use_3d() -> bool:
     return True
 
 
-# Material colours (RGB hex). Powder cores: dusty silver-grey.
-# Ferrites: dark anthracite. Nanocrystalline: bluish steel.
-_COLORS = {
-    "powder": "#b9a98c",         # warm sandy iron
-    "ferrite": "#3a3838",
-    "nanocrystalline": "#5d6c7a",
-    "amorphous": "#6e7178",
-    "silicon-steel": "#a4a39e",
-    "default": "#888888",
-}
-_COPPER = "#c98a4b"
-_COPPER_BRIGHT = "#ff9a5a"
+def _material_colors() -> dict[str, str]:
+    """Map ``Material.type`` → RGB hex, sourced from the theme-invariant
+    :class:`Viz3D <pfc_inductor.ui.theme.Viz3D>` palette so a powder core
+    looks the same in light and dark themes (it should — the colour is a
+    property of the magnetic material, not the UI)."""
+    v = get_theme().viz3d
+    return {
+        "powder": v.material_powder,
+        "ferrite": v.material_ferrite,
+        "nanocrystalline": v.material_nanocrystalline,
+        "amorphous": v.material_amorphous,
+        "silicon-steel": v.material_silicon_steel,
+        "default": v.material_default,
+    }
 
 
 class CoreView3D(QWidget):
@@ -124,7 +136,8 @@ class CoreView3D(QWidget):
     # Initial scene setup
     # ==================================================================
     def _setup_renderer(self):
-        self.plotter.set_background("#f0f3f7", top="#cdd6e0")
+        v = get_theme().viz3d
+        self.plotter.set_background(v.bg_bottom, top=v.bg_top)
         self.plotter.enable_anti_aliasing("ssaa")
         try:
             self.plotter.enable_lightkit()
@@ -138,7 +151,9 @@ class CoreView3D(QWidget):
         self.plotter.clear()
         self.plotter.add_text(
             "Selecione um núcleo para visualizar em 3D.",
-            position="upper_edge", color="#666666", font_size=10,
+            position="upper_edge",
+            color=get_theme().viz3d.text_dim,
+            font_size=10,
         )
 
     # ==================================================================
@@ -285,11 +300,14 @@ class CoreView3D(QWidget):
         except Exception as e:
             self.plotter.add_text(
                 f"Erro ao gerar mesh:\n{e}",
-                position="upper_edge", color="#a01818", font_size=10,
+                position="upper_edge",
+                color=get_theme().viz3d.text_error,
+                font_size=10,
             )
             return
 
-        core_color = _COLORS.get(material.type, _COLORS["default"])
+        colors = _material_colors()
+        core_color = colors.get(material.type, colors["default"])
         is_closed_shell = kind in ("ee", "etd", "pq")
         if material.type == "silicon-steel":
             core_kwargs = dict(metallic=0.65, roughness=0.45,
@@ -325,7 +343,7 @@ class CoreView3D(QWidget):
                     continue
                 act = self.plotter.add_mesh(
                     blk,
-                    color="#e8e2d0",
+                    color=get_theme().viz3d.bobbin,
                     smooth_shading=True,
                     ambient=0.30, diffuse=0.80,
                     specular=0.20, specular_power=12,
@@ -337,7 +355,7 @@ class CoreView3D(QWidget):
         if wnd is not None and self._layer_state["winding"]:
             self._actor_winding = self.plotter.add_mesh(
                 wnd,
-                color=_COPPER,
+                color=get_theme().palette.copper,
                 smooth_shading=True,
                 ambient=0.22, diffuse=0.55,
                 specular=0.95, specular_power=40,

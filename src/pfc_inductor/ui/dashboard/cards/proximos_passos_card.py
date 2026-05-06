@@ -6,9 +6,12 @@ from typing import Callable, Optional
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QWidget
 
-from pfc_inductor.models import Spec, Material, Core, Wire, DesignResult
+from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
 from pfc_inductor.ui.widgets import (
-    Card, NextStepsCard, ActionItem, ActionStatus,
+    ActionItem,
+    ActionStatus,
+    Card,
+    NextStepsCard,
 )
 
 
