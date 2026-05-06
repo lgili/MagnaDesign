@@ -14,6 +14,7 @@ from PySide6.QtWidgets import QVBoxLayout, QWidget
 from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
 from pfc_inductor.ui.theme import get_theme
 from pfc_inductor.ui.widgets import Card, HorizontalStackedBar
+from pfc_inductor.ui.widgets.stacked_bar import Segment
 
 
 class _PerdasBody(QWidget):
@@ -38,9 +39,9 @@ class _PerdasBody(QWidget):
         # Segment colours pinned to semantic palette tokens so the bar
         # reads consistently in both themes.
         self._bar.set_segments([
-            ("Cu DC", losses.P_cu_dc_W, p.accent),
-            ("Cu AC", losses.P_cu_ac_W, p.warning),
-            ("Núcleo", losses.P_core_total_W, p.copper),
+            Segment("Cu DC", losses.P_cu_dc_W, p.accent),
+            Segment("Cu AC", losses.P_cu_ac_W, p.warning),
+            Segment("Núcleo", losses.P_core_total_W, p.copper),
         ])
 
     def clear(self) -> None:

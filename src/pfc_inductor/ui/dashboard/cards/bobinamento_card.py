@@ -7,6 +7,7 @@ from PySide6.QtWidgets import QVBoxLayout, QWidget
 
 from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
 from pfc_inductor.ui.widgets import Card, DataTable
+from pfc_inductor.ui.widgets.data_table import Row
 
 
 class _BobinamentoBody(QWidget):
@@ -26,13 +27,15 @@ class _BobinamentoBody(QWidget):
         d_mm = getattr(wire, "OD_mm", None) or getattr(wire, "diameter_mm", None) or 0.0
         strands = getattr(wire, "strands", 1) or 1
         rows = [
-            ("Espiras (N)", f"{result.N_turns}", None),
-            ("Preenchimento", f"{result.Ku_actual * 100:.1f}", "%"),
-            ("AWG", str(awg), None),
-            ("Diâmetro fio", f"{d_mm:.3f}" if isinstance(d_mm, (int, float)) else str(d_mm), "mm"),
-            ("Estrandes", f"{strands}", None),
-            ("R_DC", f"{result.R_dc_ohm * 1000:.1f}", "mΩ"),
-            ("R_AC@fsw", f"{result.R_ac_ohm * 1000:.1f}", "mΩ"),
+            Row("Espiras (N)", f"{result.N_turns}"),
+            Row("Preenchimento", f"{result.Ku_actual * 100:.1f}", "%"),
+            Row("AWG", str(awg)),
+            Row("Diâmetro fio",
+                f"{d_mm:.3f}" if isinstance(d_mm, (int, float)) else str(d_mm),
+                "mm"),
+            Row("Estrandes", f"{strands}"),
+            Row("R_DC", f"{result.R_dc_ohm * 1000:.1f}", "mΩ"),
+            Row("R_AC@fsw", f"{result.R_ac_ohm * 1000:.1f}", "mΩ"),
         ]
         self._table.set_rows(rows)
 
