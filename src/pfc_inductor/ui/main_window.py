@@ -27,7 +27,8 @@ importable for tests but do not appear on screen.
 """
 from __future__ import annotations
 
-from PySide6.QtCore import QSettings
+from PySide6.QtCore import QSettings, QTimer
+from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
     QApplication,
     QHBoxLayout,
@@ -440,6 +441,21 @@ class MainWindow(QMainWindow):
         dlg.exec()
 
     def _maybe_offer_fea_setup(self) -> None:
+        """Schedule the FEA-setup prompt without blocking ``__init__``.
+
+        A blocking ``dlg.exec()`` here would (a) freeze the constructor
+        until the user dismisses the dialog — surfacing the setup prompt
+        *before* the main window is even visible — and (b) deadlock
+        headless/offscreen sessions (CI, tests) where there is no user
+        to dismiss it. We defer to the next event-loop iteration so the
+        window paints first, and short-circuit on non-interactive Qt
+        platforms.
+        """
+        if QGuiApplication.platformName() in ("offscreen", "minimal"):
+            return
+        QTimer.singleShot(0, self._offer_fea_setup_now)
+
+    def _offer_fea_setup_now(self) -> None:
         try:
             v = check_fea_setup()
         except (OSError, RuntimeError):
