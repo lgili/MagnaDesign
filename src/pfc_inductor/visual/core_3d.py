@@ -178,7 +178,9 @@ def _toroidal_winding(OD_mm: float, ID_mm: float, HT_mm: float,
     y = R * np.sin(phi)
     points = np.column_stack([x, y, z])
     spline = pv.Spline(points, n_pts)
-    return spline.tube(radius=wire_d_mm / 2.0, n_sides=14)
+    # n_sides bumped 14 → 22 to match the EE/PQ/ETD windings —
+    # consistent roundness across all core shapes at typical zoom.
+    return spline.tube(radius=wire_d_mm / 2.0, n_sides=22)
 
 
 # ---------------------------------------------------------------------------
@@ -821,6 +823,86 @@ def make_winding_mesh(
             N_turns, wire_d, bobbin_wall_t=wall_t,
         )
         return tube
+    return None
+
+
+def make_winding_leads(
+    core: Core,
+    wire: Wire,
+    N_turns: int,
+    info: Optional[dict] = None,
+) -> Optional[pv.MultiBlock]:
+    """Generate the two short stubs of wire that terminate the helix.
+
+    Real magnet wire has 30–80 mm of lead extending from the bobbin
+    so the assembly can be soldered to the PCB. The renderer omitted
+    these — the helix simply started/ended in mid-air against the
+    flange, which read as "printed pattern" instead of "wound part".
+
+    Two ``pv.Cylinder`` stubs are emitted:
+
+    * **Start lead** — vertical stub on top of the inner-most layer,
+      exiting through the top flange.
+    * **End lead** — horizontal stub on the outer-most layer,
+      exiting tangentially through the bobbin window.
+
+    Returns ``None`` for toroidal cores (where the helix is one
+    continuous loop without a "start/end" exit) or when ``N_turns``
+    is zero.
+    """
+    if N_turns <= 0:
+        return None
+    kind = infer_shape(core)
+    if kind == "toroid":
+        return None
+    info = info or {}
+    wire_d = max(wire.outer_diameter_mm(), 0.3)
+    wall_t = _bobbin_wall_for(wire_d)
+    winding_h = info.get("winding_h", 10.0)
+    lead_len = max(winding_h * 0.45, 6.0)            # 6 mm minimum stub
+
+    mb = pv.MultiBlock()
+    if kind in ("etd", "pq"):
+        col_r = info.get("col_r", 5.0)
+        # Start lead: at the inner layer, exits straight up out of
+        # the top flange.
+        r_start = col_r + wall_t + wire_d * 0.5
+        mb.append(pv.Cylinder(
+            center=(r_start, 0.0, winding_h / 2 + lead_len / 2),
+            direction=(0, 0, 1),
+            radius=wire_d * 0.45, height=lead_len,
+            capping=True, resolution=22,
+        ), name="lead_start")
+        # End lead: on the outer-most layer (radial), exits sideways
+        # along +x (typical "tap" direction in real bobbins).
+        r_end = r_start + wire_d * 0.5
+        mb.append(pv.Cylinder(
+            center=(r_end + lead_len / 2, 0.0, winding_h / 2 - wire_d * 0.5),
+            direction=(1, 0, 0),
+            radius=wire_d * 0.45, height=lead_len,
+            capping=True, resolution=22,
+        ), name="lead_end")
+        return mb
+
+    if kind == "ee":
+        leg_w = info.get("leg_w", 8.0)
+        # Start lead: on the right side of the leg, exits up.
+        x_start = leg_w / 2 + wall_t + wire_d * 0.5
+        mb.append(pv.Cylinder(
+            center=(x_start, 0.0, winding_h / 2 + lead_len / 2),
+            direction=(0, 0, 1),
+            radius=wire_d * 0.45, height=lead_len,
+            capping=True, resolution=22,
+        ), name="lead_start")
+        # End lead: on the left side, exits up.
+        x_end = -x_start
+        mb.append(pv.Cylinder(
+            center=(x_end, 0.0, winding_h / 2 + lead_len / 2),
+            direction=(0, 0, 1),
+            radius=wire_d * 0.45, height=lead_len,
+            capping=True, resolution=22,
+        ), name="lead_end")
+        return mb
     return None
 
 

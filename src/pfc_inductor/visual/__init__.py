@@ -3,6 +3,7 @@ from pfc_inductor.visual.core_3d import (
     infer_shape,
     make_bobbin_mesh,
     make_core_mesh,
+    make_winding_leads,
     make_winding_mesh,
     winding_fit_info,
 )
@@ -15,6 +16,7 @@ __all__ = [
     "infer_shape",
     "make_bobbin_mesh",
     "make_core_mesh",
+    "make_winding_leads",
     "make_winding_mesh",
     "set_camera_to_view",
     "winding_fit_info",

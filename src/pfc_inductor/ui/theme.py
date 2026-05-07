@@ -98,6 +98,14 @@ class Viz3D:
     material_default: str = "#888888"
     # Bobbin (PA66 / Mylar former).
     bobbin: str = "#E8E2D0"
+    # Magnet-wire colours. Real enameled magnet wire is satin-brown
+    # (Class-130 polyamide / Class-180 polyurethane), NOT the bare
+    # copper one sees in textbooks — that's the conductor underneath
+    # the lacquer, only visible at cut ends. We keep both tokens so
+    # the renderer can show the enamel for the helix and the bare
+    # copper for any visible end-stubs / cut-aways.
+    wire_enamel: str = "#A0522D"              # sienna brown — coated wire
+    wire_copper: str = "#B87333"              # bare copper — end stubs
     # Scene background gradient (top → bottom).
     bg_top: str = "#CDD6E0"
     bg_bottom: str = "#F0F3F7"

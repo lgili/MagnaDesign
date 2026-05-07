@@ -50,6 +50,7 @@ from pfc_inductor.ui.viewer3d import (
 from pfc_inductor.visual import (
     make_bobbin_mesh,
     make_core_mesh,
+    make_winding_leads,
     make_winding_mesh,
     set_camera_to_view,
     winding_fit_info,
@@ -308,6 +309,10 @@ class CoreView3D(QWidget):
         try:
             mb, kind, info = make_core_mesh(core)
             wnd = make_winding_mesh(core, wire, N_turns, info)
+            leads = (
+                make_winding_leads(core, wire, N_turns, info)
+                if self._layer_state.get("winding", True) else None
+            )
             bobbin = (
                 make_bobbin_mesh(core, wire, N_turns, info)
                 if self._layer_state.get("bobbin", False) else None
@@ -376,18 +381,43 @@ class CoreView3D(QWidget):
             # overflowed the bobbin window — gives the engineer a
             # one-glance "this design doesn't fit" signal that the
             # tabular Bobinamento card can't deliver.
-            wire_color = get_theme().palette.copper
+            #
+            # Default colour comes from ``viz3d.wire_enamel`` (theme-
+            # invariant) — real magnet wire is satin sienna brown,
+            # not the polished-copper one would see on bare conductor.
+            # ``palette.copper`` is reserved for cut-end stubs where
+            # the lacquer is intentionally stripped.
+            wire_color = get_theme().viz3d.wire_enamel
             if not fit["fits"]:
                 wire_color = get_theme().palette.danger
+            # Material kwargs tuned for **enameled** copper, not raw:
+            #   metallic 0.85 → 0.55  (lacquer breaks the metal sheen)
+            #   roughness 0.18 → 0.45 (satin, not glossy)
+            #   specular  0.95 → 0.55 (no harsh highlight)
             self._actor_winding = self.plotter.add_mesh(
                 wnd,
                 color=wire_color,
                 smooth_shading=True,
-                ambient=0.22, diffuse=0.55,
-                specular=0.95, specular_power=40,
-                metallic=0.85, roughness=0.18,
+                ambient=0.25, diffuse=0.70,
+                specular=0.55, specular_power=24,
+                metallic=0.55, roughness=0.45,
                 pbr=False,
             )
+            # Wire leads — short stubs poking out of the bobbin so the
+            # winding reads as "wound part" instead of "printed pattern".
+            if leads is not None:
+                for blk in leads:
+                    if blk is None:
+                        continue
+                    self.plotter.add_mesh(
+                        blk,
+                        color=wire_color,
+                        smooth_shading=True,
+                        ambient=0.25, diffuse=0.70,
+                        specular=0.55, specular_power=24,
+                        metallic=0.55, roughness=0.45,
+                        pbr=False,
+                    )
             if not fit["fits"]:
                 self.plotter.add_text(
                     f"⚠ {fit['actual']} de {fit['requested']} voltas cabem "
