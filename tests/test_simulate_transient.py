@@ -56,17 +56,23 @@ def _spec_at_pout(Pout_W: float = 800.0) -> Spec:
 
 # ─── Topology guard ────────────────────────────────────────────────
 
-def test_simulate_transient_rejects_unsupported_topologies(db):
-    """Step 2 ships boost-CCM only; other topologies must raise
-    `NotImplementedError` so the orchestrator surfaces a clean
-    fallback message."""
+def test_simulate_transient_passive_topologies_delegate_to_step1(db):
+    """Phase B Step 3: passive topologies use the imposed-trajectory
+    answer (Step 1) — `simulate_transient` for them returns a
+    `Waveform` shaped exactly like `simulate_to_steady_state`'s
+    output, with no PWM ripple of its own to add."""
     spec = _spec_at_pout(Pout_W=400.0).model_copy(
         update={"topology": "passive_choke"},
     )
     model = PassiveChokeModel(spec)
     inductor = _ref_inductor(db)
-    with pytest.raises(NotImplementedError, match="boost_ccm"):
-        simulate_transient(model, inductor)
+
+    wf_step1 = simulate_to_steady_state(model, inductor)
+    wf_step2 = simulate_transient(model, inductor)
+
+    assert wf_step1.i_pk_A == pytest.approx(wf_step2.i_pk_A, rel=1e-9)
+    assert wf_step1.B_pk_T == pytest.approx(wf_step2.B_pk_T, rel=1e-9)
+    assert wf_step1.t_s.shape == wf_step2.t_s.shape
 
 
 # ─── CCM steady-state agreement with Step 1 ───────────────────────

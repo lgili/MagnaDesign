@@ -63,77 +63,126 @@ def simulate_to_steady_state(
     *,
     config: SimulationConfig | None = None,
 ) -> Waveform:
-    """Steady-state imposed-trajectory simulation for PFC topologies.
+    """Steady-state imposed-trajectory simulator (topology-aware).
 
-    For boost-CCM and other current-controlled PFC front-ends, the
-    inductor's line-frequency current is dictated by the regulator,
-    not by the open-loop plant equation. We impose the rectified-
-    sinusoid envelope `i_L(t) = I_pk · |sin(ω · t)|` and add the
-    HF ripple analytically on top. The non-linear inductance is
-    evaluated at every instantaneous current, which is the entire
-    point of running Tier 2 over Tier 1.
+    The trajectory shape is dictated by the topology:
 
-    Returns a `Waveform` whose `cycle_stats.converged` is always
-    True (no integration error to converge) and whose `i_L_A` /
-    `B_T` arrays already include HF ripple at each line-cycle
-    sample.
+    - **boost_ccm** — rectified sinusoid `I_pk · |sin(ω · t)|` with
+      analytical HF ripple `ΔI_PP = v_in · d · T_sw / L(i_L)` added
+      at each line-cycle sample. The PFC controller forces this
+      shape in steady state.
+    - **passive_choke** — bidirectional AC sinusoid; no PWM, no
+      ripple. The line voltage and load impedance fix the current
+      shape.
+    - **line_reactor** — the diode-bridge-aware waveform from
+      ``topology.line_reactor.line_current_waveform`` (handles 1φ
+      and 3φ cases natively, including commutation overlap).
 
-    Phase B Step 2 will swap this for an RK4 ODE driver in the
-    cases where the imposed-trajectory assumption fails (DCM, BCM,
-    transient startup). The Tier-2 protocol hook
-    `state_derivatives` is already implemented on the boost-CCM
-    model in anticipation.
+    For passive topologies Step 1 IS the answer — there's no
+    PWM-driven HF ripple to capture and no controller transient to
+    settle. The `simulate_transient` driver (Step 2) for these
+    topologies just delegates back to this function.
     """
     cfg = config or SimulationConfig()
+    if model.name == "boost_ccm":
+        return _simulate_boost_ccm_imposed(model, inductor, cfg)
+    if model.name == "passive_choke":
+        return _simulate_passive_choke_imposed(model, inductor, cfg)
+    if model.name == "line_reactor":
+        return _simulate_line_reactor_imposed(model, inductor, cfg)
+    raise NotImplementedError(
+        f"simulate_to_steady_state: no imposed-trajectory implementation "
+        f"for topology {model.name!r}",
+    )
 
+
+def _simulate_boost_ccm_imposed(
+    model: Tier2ConverterModel,
+    inductor: NonlinearInductor,
+    cfg: SimulationConfig,
+) -> Waveform:
     spec = model.spec
     f_line_Hz = float(spec.f_line_Hz)
     T_line = 1.0 / max(f_line_Hz, 1e-9)
     omega = 2.0 * math.pi * f_line_Hz
 
-    # ── Line-frequency envelope ────────────────────────────────
-    # We sample one full line cycle. The imposed trajectory is
-    # already in steady state by construction, so multiple cycles
-    # would be redundant for Tier 2 metrics.
     n_samples = max(cfg.samples_per_line_cycle_minimum, 200)
     t = np.linspace(0.0, T_line, n_samples)
     I_pk_line = peak_current_A(spec)
     i_L_line = I_pk_line * np.abs(np.sin(omega * t))
 
-    # ── HF ripple envelope (boost-CCM at switching frequency) ──
-    # During the switch-ON portion of each PWM cycle, di_L/dt =
-    # v_in / L(i_L). The peak-to-peak ripple over one PWM period
-    # is ΔI_PP = (v_in · d · T_sw) / L(i_L), evaluated locally at
-    # each line-cycle sample.
-    f_sw_Hz = float(getattr(spec, "f_sw_kHz", 0.0)) * 1000.0
+    # HF ripple from PFC PWM at f_sw.
+    f_sw_Hz = float(spec.f_sw_kHz) * 1000.0
     V_in_pk = math.sqrt(2.0) * float(spec.Vin_min_Vrms)
-    V_out = float(getattr(spec, "Vout_V", 0.0))
+    V_out = float(spec.Vout_V)
     if f_sw_Hz > 0 and V_out > 0:
         v_in_inst = V_in_pk * np.abs(np.sin(omega * t))
-        # Steady-state CCM duty: d = 1 - v_in/V_out.
         duty = np.clip(1.0 - v_in_inst / V_out, 0.0, 1.0)
         T_sw = 1.0 / f_sw_Hz
         L_inst = inductor.L_H_array(i_L_line)
         delta_I_pp = v_in_inst * duty * T_sw / np.maximum(L_inst, 1e-15)
-        # Apply the upper edge of the HF ripple — it's the peak
-        # current the engineer actually has to design for.
         i_L_with_ripple = i_L_line + 0.5 * delta_I_pp
     else:
-        # Line-frequency-only model: no PWM ripple to add.
         i_L_with_ripple = i_L_line
 
-    # ── B(t) at the ripple peak — this is what saturation cares about ──
-    B_T = inductor.B_T_array(i_L_with_ripple)
+    return _waveform_from_trace(t, i_L_with_ripple, inductor, f_line_Hz, cfg)
 
-    # ── Per-cycle metadata for Waveform compat. We have one cycle. ──
-    i_pk_cycle = float(np.max(np.abs(i_L_with_ripple)))
-    B_pk_cycle = float(np.max(np.abs(B_T)))
 
+def _simulate_passive_choke_imposed(
+    model: Tier2ConverterModel,
+    inductor: NonlinearInductor,
+    cfg: SimulationConfig,
+) -> Waveform:
+    """Bidirectional AC sinusoid; no PWM ripple."""
+    spec = model.spec
+    f_line_Hz = float(spec.f_line_Hz)
+    T_line = 1.0 / max(f_line_Hz, 1e-9)
+    omega = 2.0 * math.pi * f_line_Hz
+
+    n_samples = max(cfg.samples_per_line_cycle_minimum, 200)
+    t = np.linspace(0.0, T_line, n_samples)
+    # `peak_current_A` for passive_choke returns the line peak from the
+    # spec's Pout_W and Vin_min_Vrms (worst case for sizing).
+    I_pk = peak_current_A(spec)
+    i_L = I_pk * np.sin(omega * t)
+    return _waveform_from_trace(t, i_L, inductor, f_line_Hz, cfg)
+
+
+def _simulate_line_reactor_imposed(
+    model: Tier2ConverterModel,
+    inductor: NonlinearInductor,
+    cfg: SimulationConfig,
+) -> Waveform:
+    """Reuse the existing diode-bridge-aware waveform generator."""
+    # Local import — `topology.line_reactor` pulls in `physics`, so
+    # importing it lazily keeps `simulate.integrator` cheap.
+    from pfc_inductor.topology import line_reactor as lr
+
+    spec = model.spec
+    f_line_Hz = float(spec.f_line_Hz)
+    n_samples = max(cfg.samples_per_line_cycle_minimum, 200)
+    L_actual_mH = inductor.L_uH(0.0) / 1000.0
+    t, i_L = lr.line_current_waveform(
+        spec, L_actual_mH, n_cycles=1, n_points=n_samples,
+    )
+    return _waveform_from_trace(t, i_L, inductor, f_line_Hz, cfg)
+
+
+def _waveform_from_trace(
+    t: np.ndarray,
+    i_L: np.ndarray,
+    inductor: NonlinearInductor,
+    f_line_Hz: float,
+    cfg: SimulationConfig,
+) -> Waveform:
+    """Wrap a sampled (t, i_L) trace into a `Waveform` with B(t)
+    and cycle stats. Single-cycle, always converged by construction
+    — the imposed trajectory has no integration error to settle."""
+    B_T = inductor.B_T_array(i_L)
+    i_pk_cycle = float(np.max(np.abs(i_L))) if i_L.size > 0 else 0.0
+    B_pk_cycle = float(np.max(np.abs(B_T))) if B_T.size > 0 else 0.0
     return Waveform(
-        t_s=t,
-        i_L_A=i_L_with_ripple,
-        B_T=B_T,
-        f_line_Hz=f_line_Hz,
+        t_s=t, i_L_A=i_L, B_T=B_T, f_line_Hz=f_line_Hz,
         cycle_stats=CycleStats(
             i_pk_per_cycle_A=np.array([i_pk_cycle]),
             B_pk_per_cycle_T=np.array([B_pk_cycle]),
@@ -206,14 +255,24 @@ def simulate_transient(
         we auto-tune for a closed-loop bandwidth of f_sw / 40
         based on the inductor's at-rest inductance.
     """
+    cfg = config or SimulationConfig()
+
+    # ── Topology dispatch ───────────────────────────────────────
+    # For passive topologies the imposed-trajectory simulator IS
+    # the steady-state answer — no PWM ripple to capture, no
+    # controller transient to settle, no DCM to detect. Calling
+    # `simulate_transient` on them just hands back to Step 1 so
+    # the same `cascade.tier2.evaluate_candidate` flow works for
+    # every topology without orchestrator-level branching.
+    if model.name in ("passive_choke", "line_reactor"):
+        return simulate_to_steady_state(model, inductor, config=cfg)
+
     if model.name != "boost_ccm":
         raise NotImplementedError(
-            f"simulate_transient: only 'boost_ccm' is implemented yet "
-            f"(got {model.name!r}). Other topologies extend this in "
-            f"Phase B Step 3.",
+            f"simulate_transient: no transient driver for topology "
+            f"{model.name!r}. Add one to `simulate.integrator` and "
+            f"register in this dispatch.",
         )
-
-    cfg = config or SimulationConfig()
     spec = model.spec
 
     f_line_Hz = float(spec.f_line_Hz)

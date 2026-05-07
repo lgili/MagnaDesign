@@ -61,22 +61,22 @@ def test_boost_ccm_model_advertises_tier2_capability():
     assert supports_tier2(model) is True
 
 
-def test_passive_choke_model_does_not_advertise_tier2_yet():
-    """Phase B Step 1 ships boost-CCM only; the others remain Tier-1
-    only until their state-space lands."""
+def test_passive_choke_model_advertises_tier2_capability():
+    """Phase B Step 3: passive_choke gains Tier 2 support."""
     spec = _spec().model_copy(update={"topology": "passive_choke"})
     model = PassiveChokeModel(spec)
-    assert isinstance(model, Tier2ConverterModel) is False
-    assert supports_tier2(model) is False
+    assert isinstance(model, Tier2ConverterModel) is True
+    assert supports_tier2(model) is True
 
 
-def test_line_reactor_model_does_not_advertise_tier2_yet():
+def test_line_reactor_model_advertises_tier2_capability():
+    """Phase B Step 3: line_reactor gains Tier 2 support."""
     spec = Spec(topology="line_reactor", Vin_nom_Vrms=400.0,
                 f_line_Hz=60.0, n_phases=3,
                 L_req_mH=1.0, I_rated_Arms=30.0)
     model = LineReactorModel(spec)
-    assert isinstance(model, Tier2ConverterModel) is False
-    assert supports_tier2(model) is False
+    assert isinstance(model, Tier2ConverterModel) is True
+    assert supports_tier2(model) is True
 
 
 # ─── Reference design — Tier 2 vs Tier 1 ────────────────────────
@@ -165,14 +165,59 @@ def test_tier2_saturation_flag_trips_when_B_exceeds_margin(db):
     assert r.saturation_t2 is True
 
 
-# ─── Topologies without state-space support return None ───────
+# ─── Tier 2 on passive topologies (Phase B Step 3) ─────────────
 
-def test_tier2_returns_none_for_topology_without_state_space(db):
+def test_tier2_passive_choke_returns_result(db):
+    """Passive topologies now run Tier 2 via the imposed-trajectory
+    path (no PWM, no DCM) — the result must be populated, not None."""
     spec = _spec().model_copy(update={"topology": "passive_choke", "Pout_W": 400.0})
     model = PassiveChokeModel(spec)
     cand, core, material, wire = _ref(db)
     r = evaluate_candidate(model, cand, core, material, wire)
-    assert r is None
+    assert r is not None
+    assert r.i_pk_A > 0
+    assert r.L_avg_uH > 0
+
+
+def test_tier2_passive_choke_has_bidirectional_current(db):
+    """Passive AC inductor: current is bidirectional (sine), so the
+    captured trace must contain negative samples."""
+    spec = _spec().model_copy(update={"topology": "passive_choke", "Pout_W": 400.0})
+    model = PassiveChokeModel(spec)
+    _cand, core, material, wire = _ref(db)
+    inductor_N = model.steady_state(core, material, wire).N_turns
+
+    from pfc_inductor.simulate import (
+        NonlinearInductor,
+        simulate_to_steady_state,
+    )
+    inductor = NonlinearInductor(core=core, material=material, N=inductor_N)
+    wf = simulate_to_steady_state(model, inductor)
+    assert (wf.i_L_A < 0).any(), (
+        "passive choke current must dip below zero "
+        f"(min = {wf.i_L_A.min():.3f} A)"
+    )
+    assert (wf.i_L_A > 0).any()
+
+
+def test_tier2_line_reactor_returns_result(db):
+    """Line reactor uses the existing diode-bridge waveform generator;
+    Tier 2 must surface the same signal as a `Waveform`."""
+    spec = Spec(
+        topology="line_reactor",
+        Vin_nom_Vrms=400.0, f_line_Hz=60.0, n_phases=3,
+        L_req_mH=1.0, I_rated_Arms=30.0,
+    )
+    model = LineReactorModel(spec)
+    cand, core, material, wire = _ref(db)
+    r = evaluate_candidate(model, cand, core, material, wire)
+    assert r is not None
+    # Peak current should be near sqrt(2) · I_rated_Arms = 42.4 A; the
+    # diode-bridge waveform clips a bit, so accept anywhere in the
+    # 30–55 A band.
+    assert 30.0 <= r.i_pk_A <= 55.0, (
+        f"unexpected line-reactor peak current: {r.i_pk_A:.2f} A"
+    )
 
 
 # ─── Safe wrapper swallows exceptions ──────────────────────────
