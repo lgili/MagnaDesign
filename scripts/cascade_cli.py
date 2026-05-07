@@ -359,6 +359,9 @@ def cmd_run(args: argparse.Namespace) -> int:
         tier3_top_k=args.tier3,
         tier3_timeout_s=args.tier3_timeout,
         tier3_disagree_pct=args.tier3_disagree,
+        tier4_top_k=args.tier4,
+        tier4_timeout_s=args.tier4_timeout,
+        tier4_n_points=args.tier4_n_points,
         only_compatible_cores=not args.no_compat_filter,
         only_round_wires=not args.allow_litz,
     )
@@ -603,6 +606,26 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Tier 3 / Tier 1 disagreement threshold in percent "
              "(default 15). Rows above the threshold are flagged in "
              "the Tier-3 notes for the engineer to inspect.",
+    )
+    p_run.add_argument(
+        "--tier4", type=int, default=0, metavar="K",
+        help="Run Tier 4 (swept-magnetostatic FEA) on the top-K "
+             "Tier-3 / Tier-2 / Tier-1 survivors. Each candidate is "
+             "swept at N bias points (see --tier4-n-points), so wall "
+             "is N × Tier 3. Default 0 (off). Skipped silently if no "
+             "FEA backend is installed.",
+    )
+    p_run.add_argument(
+        "--tier4-n-points", type=int, default=5, metavar="N",
+        help="Number of bias-current samples per Tier-4 candidate "
+             "(default 5; clamped to [1, 5]). Higher = better cycle-"
+             "averaged L_FEA, slower per candidate.",
+    )
+    p_run.add_argument(
+        "--tier4-timeout", type=int, default=600, metavar="SECONDS",
+        help="Per-candidate Tier-4 wall budget in seconds (default "
+             "600 = 10 min). The whole sweep — N points — must "
+             "finish within this budget.",
     )
     p_run.add_argument("--top", type=int, default=10,
                        help="Top-N rows printed at the end (default 10)")

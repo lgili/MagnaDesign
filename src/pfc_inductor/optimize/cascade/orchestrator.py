@@ -57,6 +57,13 @@ from pfc_inductor.optimize.cascade.tier3 import (
 from pfc_inductor.optimize.cascade.tier3 import (
     supports_tier3,
 )
+from pfc_inductor.optimize.cascade.tier4 import (
+    DEFAULT_SWEEP_FRACTIONS,
+    supports_tier4,
+)
+from pfc_inductor.optimize.cascade.tier4 import (
+    evaluate_candidate_safe as evaluate_tier4_safe,
+)
 from pfc_inductor.topology.registry import model_for
 
 # ─── Public configuration & progress types ────────────────────────
@@ -76,6 +83,9 @@ class CascadeConfig:
     tier3_top_k: int = 0
     tier3_timeout_s: int = 300
     tier3_disagree_pct: float = 15.0
+    tier4_top_k: int = 0
+    tier4_timeout_s: int = 600
+    tier4_n_points: int = 5
     only_compatible_cores: bool = True
     only_round_wires: bool = True
 
@@ -86,6 +96,9 @@ class CascadeConfig:
             "tier3_top_k": self.tier3_top_k,
             "tier3_timeout_s": self.tier3_timeout_s,
             "tier3_disagree_pct": self.tier3_disagree_pct,
+            "tier4_top_k": self.tier4_top_k,
+            "tier4_timeout_s": self.tier4_timeout_s,
+            "tier4_n_points": self.tier4_n_points,
             "only_compatible_cores": self.only_compatible_cores,
             "only_round_wires": self.only_round_wires,
         }
@@ -166,6 +179,65 @@ def _row_from_tier0(t0: Tier0Result) -> CandidateRow:
         highest_tier=0,
         feasible_t0=t0.envelope.feasible,
         notes={"reasons": t0.envelope.reasons} if t0.envelope.reasons else None,
+    )
+
+
+def _row_with_tier4(
+    base: CandidateRow,
+    tier4,  # Tier4Result | None
+    error: Optional[str],
+) -> CandidateRow:
+    """Return a copy of `base` with Tier 4 columns + notes filled.
+
+    `L_t4_uH` (the existing schema column) holds `L_avg_FEA_uH` from
+    the multi-point sweep — Tier 4's headline number. The full sweep
+    payload (per-point currents / L / B, saturation flag, backend,
+    cost) goes into `notes['tier4']` for the CLI / UI to surface.
+    """
+    notes_in = dict(base.notes) if base.notes else {}
+    if tier4 is None:
+        if error is not None:
+            notes_in["tier4_error"] = error
+        else:
+            notes_in["tier4_skipped"] = True
+        return CandidateRow(
+            candidate_key=base.candidate_key,
+            core_id=base.core_id, material_id=base.material_id,
+            wire_id=base.wire_id, N=base.N, gap_mm=base.gap_mm,
+            highest_tier=base.highest_tier, feasible_t0=base.feasible_t0,
+            loss_t1_W=base.loss_t1_W, temp_t1_C=base.temp_t1_C,
+            cost_t1_USD=base.cost_t1_USD,
+            loss_t2_W=base.loss_t2_W, saturation_t2=base.saturation_t2,
+            L_t3_uH=base.L_t3_uH, Bpk_t3_T=base.Bpk_t3_T,
+            L_t4_uH=base.L_t4_uH,
+            notes=notes_in or None,
+        )
+    notes_in["tier4"] = {
+        "backend": tier4.backend,
+        "L_min_FEA_uH": tier4.L_min_FEA_uH,
+        "L_max_FEA_uH": tier4.L_max_FEA_uH,
+        "B_pk_FEA_T": tier4.B_pk_FEA_T,
+        "saturation_t4": tier4.saturation_t4,
+        "n_points_simulated": tier4.n_points_simulated,
+        "solve_time_s": tier4.solve_time_s,
+        "L_avg_relative_to_tier3_pct": tier4.L_avg_relative_to_tier3_pct,
+        "sample_currents_A": list(tier4.sample_currents_A),
+        "sample_L_uH": list(tier4.sample_L_uH),
+        "sample_B_T": list(tier4.sample_B_T),
+    }
+    return CandidateRow(
+        candidate_key=base.candidate_key,
+        core_id=base.core_id, material_id=base.material_id,
+        wire_id=base.wire_id, N=base.N, gap_mm=base.gap_mm,
+        highest_tier=max(base.highest_tier, 4),
+        feasible_t0=base.feasible_t0,
+        loss_t1_W=base.loss_t1_W, temp_t1_C=base.temp_t1_C,
+        cost_t1_USD=base.cost_t1_USD,
+        loss_t2_W=base.loss_t2_W,
+        saturation_t2=base.saturation_t2,
+        L_t3_uH=base.L_t3_uH, Bpk_t3_T=base.Bpk_t3_T,
+        L_t4_uH=tier4.L_avg_FEA_uH,
+        notes=notes_in or None,
     )
 
 
@@ -465,6 +537,18 @@ class CascadeOrchestrator:
                 run_id, spec, materials, cores, wires, cfg, progress_cb,
             )
 
+        # ── Tier 4 — swept-magnetostatic FEA on top-K survivors ──
+        # Tier 4 reruns the same FEA solver Tier 3 uses but at N
+        # bias points across the half-cycle, producing a real
+        # cycle-averaged L_FEA. Wall is N × Tier 3, so the default
+        # `tier4_top_k = 0` keeps it opt-in. Same backend probe;
+        # same temp-dir serialisation; same skip-cleanly-on-no-FEA
+        # contract Tier 3 has.
+        if cfg.tier4_top_k > 0 and not self._cancel.is_set():
+            self._run_tier4_top_k(
+                run_id, spec, materials, cores, wires, cfg, progress_cb,
+            )
+
         if self._cancel.is_set():
             self.store.update_status(run_id, "cancelled")
         else:
@@ -673,9 +757,100 @@ class CascadeOrchestrator:
         if progress_cb is not None:
             progress_cb(TierProgress(tier=3, done=total, total=total))
 
+    # ─── Tier 4 execution path ───────────────────────────────────
+
+    def _run_tier4_top_k(
+        self,
+        run_id: str,
+        spec: Spec,
+        materials: list[Material],
+        cores: list[Core],
+        wires: list[Wire],
+        cfg: CascadeConfig,
+        progress_cb: Optional[ProgressCallback],
+    ) -> None:
+        """Run Tier 4 (swept magnetostatic) on the top-K survivors.
+
+        Order-by mirrors Tier 3's: prefer the most-refined existing
+        ranking. The sweep fractions are clipped to the highest-bias
+        portion of the default schedule so saturation is always
+        probed even when the user dials `tier4_n_points` down.
+        """
+        if not supports_tier4():
+            top_rows = self.store.top_candidates(
+                run_id, n=cfg.tier4_top_k,
+                order_by=_tier4_order_column(cfg),
+            )
+            for row in top_rows:
+                self.store.write_candidate(
+                    run_id, _row_with_tier4(row, None, "tier4_unavailable: no FEA backend"),
+                )
+            if progress_cb is not None:
+                progress_cb(TierProgress(
+                    tier=4, done=len(top_rows), total=len(top_rows),
+                ))
+            return
+
+        model = model_for(spec)
+        top_rows = self.store.top_candidates(
+            run_id, n=cfg.tier4_top_k, order_by=_tier4_order_column(cfg),
+        )
+        if not top_rows:
+            return
+
+        materials_by_id = {m.id: m for m in materials}
+        cores_by_id = {c.id: c for c in cores}
+        wires_by_id = {w.id: w for w in wires}
+        total = len(top_rows)
+        n_points = max(1, min(cfg.tier4_n_points, len(DEFAULT_SWEEP_FRACTIONS)))
+        sweep_fractions = DEFAULT_SWEEP_FRACTIONS[-n_points:]
+
+        for i, row in enumerate(top_rows):
+            if self._cancel.is_set():
+                return
+            mat = materials_by_id.get(row.material_id)
+            core = cores_by_id.get(row.core_id)
+            wire = wires_by_id.get(row.wire_id)
+            if mat is None or core is None or wire is None:
+                self.store.write_candidate(
+                    run_id, _row_with_tier4(row, None, "missing_db_entry"),
+                )
+                continue
+            cand = Candidate(
+                core_id=row.core_id, material_id=row.material_id,
+                wire_id=row.wire_id, N=row.N, gap_mm=row.gap_mm,
+            )
+            t4, err = evaluate_tier4_safe(
+                model, cand, core, mat, wire,
+                sweep_fractions=sweep_fractions,
+                timeout_s=cfg.tier4_timeout_s,
+            )
+            self.store.write_candidate(
+                run_id, _row_with_tier4(row, t4, err),
+            )
+            if progress_cb is not None:
+                progress_cb(TierProgress(tier=4, done=i + 1, total=total))
+        if progress_cb is not None:
+            progress_cb(TierProgress(tier=4, done=total, total=total))
+
 
 def _tier3_order_column(cfg: CascadeConfig) -> str:
     """Pick the Tier-3 ranking source: prefer Tier 2's loss when
     Tier 2 was scheduled (it's the better filter), otherwise the
     analytical Tier 1 loss."""
     return "loss_t2_W" if cfg.tier2_top_k > 0 else "loss_t1_W"
+
+
+def _tier4_order_column(cfg: CascadeConfig) -> str:
+    """Tier-4 ranking source: Tier 3's `L_t3_uH` (FEA-corrected) is
+    the most accurate column we have; fall back through Tier 2 and
+    Tier 1 when those weren't scheduled."""
+    if cfg.tier3_top_k > 0:
+        # Order on the Tier-3 inductance is fine — the FEA-corrected
+        # designs that landed at the top by analytical loss almost
+        # always also have valid `L_t3_uH`. If a row has `L_t3_uH = NULL`
+        # it's pushed to the end by `top_candidates`'s NOT NULL filter.
+        return "loss_t2_W" if cfg.tier2_top_k > 0 else "loss_t1_W"
+    if cfg.tier2_top_k > 0:
+        return "loss_t2_W"
+    return "loss_t1_W"

@@ -30,22 +30,28 @@ the page is purely a view / controller around that.
 """
 from __future__ import annotations
 
+import time
 from pathlib import Path
 from typing import Optional
 
 from platformdirs import user_data_dir
-from PySide6.QtCore import QObject, QThread, QTimer, Signal
+from PySide6.QtCore import QObject, Qt, QThread, QTimer, Signal
 from PySide6.QtWidgets import (
+    QDialog,
+    QDialogButtonBox,
     QFrame,
     QHBoxLayout,
     QHeaderView,
     QLabel,
+    QListWidget,
+    QListWidgetItem,
     QProgressBar,
     QPushButton,
     QSizePolicy,
     QSpinBox,
     QTableWidget,
     QTableWidgetItem,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -58,6 +64,7 @@ from pfc_inductor.optimize.cascade import (
     RunStore,
     TierProgress,
 )
+from pfc_inductor.optimize.cascade.store import RunRecord
 from pfc_inductor.optimize.cascade.tier3 import supports_tier3
 from pfc_inductor.ui.widgets import Card, wrap_scrollable
 
@@ -141,16 +148,21 @@ class _RunConfigCard(QWidget):
 
         self.tier2_spin = self._make_spin(0, 1000, 50)
         self.tier3_spin = self._make_spin(0, 200, 0)
+        # Tier 4 is N × Tier 3 wall, so the practical ceiling is
+        # ~10 even on fast workstations. Default 0 (off).
+        self.tier4_spin = self._make_spin(0, 50, 0)
         import os as _os
         self.workers_spin = self._make_spin(1, max(_os.cpu_count() or 1, 1),
                                             min(4, _os.cpu_count() or 1))
-        for spin in (self.tier2_spin, self.tier3_spin, self.workers_spin):
+        for spin in (self.tier2_spin, self.tier3_spin, self.tier4_spin,
+                     self.workers_spin):
             # QSpinBox.valueChanged passes the int value; our signal
             # is parameter-less, so wrap with a lambda.
             spin.valueChanged.connect(lambda _value: self.config_changed.emit())
 
         layout.addLayout(self._labelled("Tier 2 (top-K)", self.tier2_spin))
         layout.addLayout(self._labelled("Tier 3 (top-K)", self.tier3_spin))
+        layout.addLayout(self._labelled("Tier 4 (top-K)", self.tier4_spin))
         layout.addLayout(self._labelled("Workers", self.workers_spin))
 
         # FEA backend badge — informational; refresh on Run.
@@ -196,13 +208,15 @@ class _RunConfigCard(QWidget):
         return CascadeConfig(
             tier2_top_k=int(self.tier2_spin.value()),
             tier3_top_k=int(self.tier3_spin.value()),
+            tier4_top_k=int(self.tier4_spin.value()),
         )
 
     def workers(self) -> int:
         return int(self.workers_spin.value())
 
     def set_busy(self, busy: bool) -> None:
-        for spin in (self.tier2_spin, self.tier3_spin, self.workers_spin):
+        for spin in (self.tier2_spin, self.tier3_spin, self.tier4_spin,
+                     self.workers_spin):
             spin.setEnabled(not busy)
 
 
@@ -213,7 +227,8 @@ class _TierProgressGrid(QWidget):
         (0, "Tier 0  Feasibility"),
         (1, "Tier 1  Analítico"),
         (2, "Tier 2  Transitório"),
-        (3, "Tier 3  FEA"),
+        (3, "Tier 3  FEA estática"),
+        (4, "Tier 4  FEA varrida"),
     )
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
@@ -290,9 +305,11 @@ class _StatsCard(QWidget):
         self._t1_evaluated = self._stat_block("TIER 1")
         self._t2_evaluated = self._stat_block("TIER 2")
         self._t3_evaluated = self._stat_block("TIER 3")
+        self._t4_evaluated = self._stat_block("TIER 4")
 
         for block in (self._t0_total, self._t0_feasible, self._t0_rejected,
-                      self._t1_evaluated, self._t2_evaluated, self._t3_evaluated):
+                      self._t1_evaluated, self._t2_evaluated,
+                      self._t3_evaluated, self._t4_evaluated):
             layout.addLayout(block[0])
         layout.addWidget(self._reasons, 1)
 
@@ -311,7 +328,7 @@ class _StatsCard(QWidget):
     def reset(self) -> None:
         for _, label in (self._t0_total, self._t0_feasible, self._t0_rejected,
                          self._t1_evaluated, self._t2_evaluated,
-                         self._t3_evaluated):
+                         self._t3_evaluated, self._t4_evaluated):
             label.setText("0")
         self._reasons.setText("—")
 
@@ -343,6 +360,10 @@ class _StatsCard(QWidget):
                 "SELECT COUNT(*) AS n FROM candidates "
                 "WHERE run_id=? AND highest_tier>=3", (run_id,),
             ).fetchone()["n"]
+            t4 = conn.execute(
+                "SELECT COUNT(*) AS n FROM candidates "
+                "WHERE run_id=? AND highest_tier>=4", (run_id,),
+            ).fetchone()["n"]
             reason_rows = conn.execute(
                 "SELECT notes FROM candidates "
                 "WHERE run_id=? AND feasible_t0=0 AND notes IS NOT NULL",
@@ -355,6 +376,7 @@ class _StatsCard(QWidget):
         self._t1_evaluated[1].setText(str(t1))
         self._t2_evaluated[1].setText(str(t2))
         self._t3_evaluated[1].setText(str(t3))
+        self._t4_evaluated[1].setText(str(t4))
         # Reasons.
         import json
         from collections import Counter
@@ -374,6 +396,145 @@ class _StatsCard(QWidget):
             self._reasons.setText("Tier 0 rejects: " + " · ".join(parts))
         else:
             self._reasons.setText("—")
+
+
+def _figure_imports():
+    from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as Canvas
+    from matplotlib.figure import Figure
+    return Canvas, Figure
+
+
+class _ParetoChart(QWidget):
+    """Loss × volume Pareto chart for the top-N candidates.
+
+    Each candidate is a scatter point at (volume, loss); the
+    non-dominated set (lower loss AND lower volume than any peer)
+    is highlighted as the Pareto frontier connecting Vmin–Vmax.
+    Clicking a point emits `selection_changed(candidate_key)`,
+    so it stays in lock-step with the sibling top-N table.
+
+    The chart depends on `Core` lookup to read `Ve_mm3` (volume),
+    so callers pass a `cores_by_id` map alongside the rows.
+    """
+
+    selection_changed = Signal(str)
+
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        Canvas, Figure = _figure_imports()
+        self._fig = Figure(figsize=(5.4, 3.6), dpi=100, tight_layout=True)
+        self._ax = self._fig.add_subplot(1, 1, 1)
+        self._canvas = Canvas(self._fig)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding,
+                           QSizePolicy.Policy.Expanding)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.addWidget(self._canvas)
+
+        self._row_keys: list[str] = []  # parallel to scatter point indexes
+        self._render_empty()
+        # Picker on the scatter points → fire the selection signal.
+        self._canvas.mpl_connect("pick_event", self._on_pick)
+
+    # ─── Public API ──────────────────────────────────────────────
+
+    def populate(
+        self,
+        rows: list[CandidateRow],
+        cores_by_id: dict[str, Core],
+    ) -> None:
+        """Re-render with a fresh row set.
+
+        Rows missing a `loss_t1_W` or whose core is not in
+        `cores_by_id` are skipped — the chart only plots feasible
+        Tier-1 results we can place on both axes.
+        """
+        self._ax.clear()
+        self._row_keys = []
+        xs: list[float] = []
+        ys: list[float] = []
+        for r in rows:
+            if r.loss_t1_W is None:
+                continue
+            core = cores_by_id.get(r.core_id)
+            if core is None:
+                continue
+            volume_cm3 = float(core.Ve_mm3) / 1000.0
+            xs.append(volume_cm3)
+            ys.append(float(r.loss_t1_W))
+            self._row_keys.append(r.candidate_key)
+        if not xs:
+            self._render_empty()
+            return
+
+        # All-points scatter.
+        self._ax.scatter(
+            xs, ys, s=42, c="#7c8696", alpha=0.65,
+            edgecolors="#3a4351", linewidths=0.6, picker=8,
+            label="Candidates",
+        )
+        # Compute Pareto front: lower loss AND lower (or equal) volume.
+        pareto = _pareto_indices(xs, ys)
+        if pareto:
+            xp = [xs[i] for i in pareto]
+            yp = [ys[i] for i in pareto]
+            # Sort along volume axis to draw a clean frontier line.
+            order = sorted(range(len(xp)), key=lambda i: xp[i])
+            xp_sorted = [xp[i] for i in order]
+            yp_sorted = [yp[i] for i in order]
+            self._ax.plot(
+                xp_sorted, yp_sorted, color="#ee7c2b", linewidth=1.4,
+                marker="o", markersize=7, markerfacecolor="#ee7c2b",
+                markeredgecolor="#a85013", label="Pareto",
+            )
+        self._ax.set_xlabel("Volume Ve [cm³]")
+        self._ax.set_ylabel("Loss total [W]")
+        self._ax.grid(True, alpha=0.25, linestyle=":")
+        self._ax.legend(loc="upper right", frameon=False, fontsize=9)
+        self._canvas.draw_idle()
+
+    # ─── Internals ──────────────────────────────────────────────
+
+    def _render_empty(self) -> None:
+        self._ax.clear()
+        self._ax.text(
+            0.5, 0.5,
+            "Sem resultados Tier 1 ainda.\n"
+            "Rode uma cascade para popular o gráfico.",
+            transform=self._ax.transAxes, ha="center", va="center",
+            color="#7c8696", fontsize=10,
+        )
+        self._ax.set_xticks([])
+        self._ax.set_yticks([])
+        self._canvas.draw_idle()
+
+    def _on_pick(self, event) -> None:
+        ind = getattr(event, "ind", None)
+        if ind is None or len(ind) == 0:
+            return
+        first = int(ind[0])
+        if 0 <= first < len(self._row_keys):
+            self.selection_changed.emit(self._row_keys[first])
+
+
+def _pareto_indices(xs: list[float], ys: list[float]) -> list[int]:
+    """Return indices of the Pareto-optimal points (lower-is-better
+    on both axes). O(n²) — fine for the cascade's top-N (<= ~50)."""
+    n = len(xs)
+    pareto: list[int] = []
+    for i in range(n):
+        dominated = False
+        for j in range(n):
+            if i == j:
+                continue
+            if (xs[j] <= xs[i] and ys[j] <= ys[i]
+                    and (xs[j] < xs[i] or ys[j] < ys[i])):
+                dominated = True
+                break
+        if not dominated:
+            pareto.append(i)
+    return pareto
 
 
 class _TopNTable(QTableWidget):
@@ -476,12 +637,130 @@ class _TopNTable(QTableWidget):
         self.selection_changed.emit(key or "")
 
 
+# ─── Run history dialog ───────────────────────────────────────────
+
+
+class _RunHistoryDialog(QDialog):
+    """Modal dialog listing past cascade runs from the SQLite store.
+
+    Each row shows timestamp + status + candidate count + topology
+    + spec-hash prefix. Selecting a row and confirming returns the
+    `run_id`; CascadePage hydrates its table + stats from the
+    store without re-running anything.
+    """
+
+    def __init__(
+        self,
+        store: RunStore,
+        *,
+        parent: Optional[QWidget] = None,
+    ) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Histórico de runs")
+        self.setMinimumSize(640, 360)
+        self._store = store
+        self._selected_run_id: Optional[str] = None
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(10)
+
+        intro = QLabel(
+            "Selecione uma run anterior para carregar seus resultados "
+            "(top-N + estatísticas). Nenhum candidate é re-avaliado.",
+        )
+        intro.setProperty("role", "muted")
+        intro.setWordWrap(True)
+        layout.addWidget(intro)
+
+        self._list = QListWidget()
+        self._list.itemDoubleClicked.connect(self._on_double_click)
+        layout.addWidget(self._list, 1)
+
+        self._buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Open
+            | QDialogButtonBox.StandardButton.Cancel,
+        )
+        self._buttons.button(QDialogButtonBox.StandardButton.Open).setEnabled(False)
+        self._buttons.accepted.connect(self.accept)
+        self._buttons.rejected.connect(self.reject)
+        self._list.itemSelectionChanged.connect(self._update_button_state)
+        layout.addWidget(self._buttons)
+
+        self._populate()
+
+    # ─── Populate from store ────────────────────────────────────
+
+    def _populate(self) -> None:
+        runs = self._store.list_runs()
+        self._list.clear()
+        if not runs:
+            placeholder = QListWidgetItem("(no runs in store)")
+            placeholder.setFlags(
+                placeholder.flags() & ~Qt.ItemFlag.ItemIsSelectable,
+            )
+            self._list.addItem(placeholder)
+            return
+        for record in runs:
+            n_cand = self._store.candidate_count(record.run_id)
+            label = self._format_label(record, n_cand)
+            item = QListWidgetItem(label)
+            item.setData(0x0100, record.run_id)  # Qt.UserRole
+            self._list.addItem(item)
+        # Default selection on the most recent run.
+        self._list.setCurrentRow(0)
+
+    @staticmethod
+    def _format_label(record: RunRecord, n_cand: int) -> str:
+        ts = time.strftime(
+            "%Y-%m-%d %H:%M",
+            time.localtime(record.started_at),
+        )
+        try:
+            topology = record.spec().topology
+        except Exception:
+            topology = "?"
+        short_id = record.run_id[-12:]  # truncated; full id available on hover
+        return (
+            f"{ts}  ·  {topology:<14}  ·  {record.status:<10}  ·  "
+            f"{n_cand:>5} cand  ·  spec {record.spec_hash[:8]}…  "
+            f"·  {short_id}"
+        )
+
+    # ─── Slots ──────────────────────────────────────────────────
+
+    def _update_button_state(self) -> None:
+        item = self._list.currentItem()
+        ok = item is not None and item.data(0x0100) is not None
+        self._buttons.button(QDialogButtonBox.StandardButton.Open).setEnabled(bool(ok))
+
+    def _on_double_click(self, item: QListWidgetItem) -> None:
+        if item.data(0x0100) is not None:
+            self.accept()
+
+    # ─── Public API ────────────────────────────────────────────
+
+    def selected_run_id(self) -> Optional[str]:
+        item = self._list.currentItem()
+        if item is None:
+            return None
+        rid = item.data(0x0100)
+        return rid if isinstance(rid, str) else None
+
+
 # ─── Worker thread ────────────────────────────────────────────────
 
 
 class _CascadeWorker(QObject):
     progress = Signal(int, int, int)
+    # Public signal — listeners (including the page itself and tests)
+    # connect here. We re-emit this from the main thread (see
+    # `CascadePage._relay_finished`) so direct slots like test
+    # lambdas run *after* the page-side cleanup, not racing past it.
     finished = Signal(str)
+    # Private signal — worker → page only, used to hop into the
+    # main thread before re-emitting `finished` publicly.
+    _done = Signal(str)
 
     def __init__(
         self,
@@ -515,7 +794,9 @@ class _CascadeWorker(QObject):
             status = record.status if record is not None else "error: no record"
         except Exception as exc:
             status = f"error: {type(exc).__name__}: {exc}"
-        self.finished.emit(status)
+        # Hop to the main thread first; the page's relay slot will
+        # re-emit `finished` once it has done its own cleanup.
+        self._done.emit(status)
 
 
 # ─── Page ─────────────────────────────────────────────────────────
@@ -613,14 +894,21 @@ class CascadePage(QWidget):
         self._btn_cancel = QPushButton("■  Cancel")
         self._btn_cancel.setEnabled(False)
         self._btn_cancel.setMinimumHeight(32)
+        self._btn_history = QPushButton("Histórico")
+        self._btn_history.setMinimumHeight(32)
+        self._btn_history.setToolTip(
+            "Carrega resultados de uma run anterior do store (sem re-avaliar)",
+        )
         self._btn_run.clicked.connect(self.run)
         self._btn_cancel.clicked.connect(self.cancel)
+        self._btn_history.clicked.connect(self._open_history)
 
         self._status_label = QLabel("idle")
         self._status_label.setProperty("role", "muted")
 
         action_row.addWidget(self._btn_run)
         action_row.addWidget(self._btn_cancel)
+        action_row.addWidget(self._btn_history)
         action_row.addSpacing(20)
         action_row.addWidget(self._status_label, 1)
 
@@ -636,11 +924,16 @@ class CascadePage(QWidget):
         self._stats = _StatsCard()
         inner.addWidget(Card("Estatísticas do run", self._stats))
 
-        # Top-N table.
+        # Top-N — table + Pareto chart in a tab widget.
         self._table = _TopNTable()
         self._table.itemDoubleClicked.connect(self._on_row_activated)
         self._table.selection_changed.connect(self._on_selection_changed)
-        inner.addWidget(Card(f"Top {self.TOP_N} por loss", self._table), 1)
+        self._chart = _ParetoChart()
+        self._chart.selection_changed.connect(self._on_chart_pick)
+        self._results_tabs = QTabWidget()
+        self._results_tabs.addTab(self._table, "Lista")
+        self._results_tabs.addTab(self._chart, "Pareto")
+        inner.addWidget(Card(f"Top {self.TOP_N} por loss", self._results_tabs), 1)
 
         # Selection actions.
         sel_row = QHBoxLayout()
@@ -711,6 +1004,10 @@ class CascadePage(QWidget):
             self._scheduled_tiers.add(3)
         else:
             self._tiers.mark_skipped(3)
+        if config.tier4_top_k > 0:
+            self._scheduled_tiers.add(4)
+        else:
+            self._tiers.mark_skipped(4)
 
         self._status_label.setText(f"running · run_id={run_id}")
 
@@ -722,10 +1019,19 @@ class CascadePage(QWidget):
         self._worker.moveToThread(self._thread)
         self._thread.started.connect(self._worker.run)
         self._worker.progress.connect(self._on_progress)
-        self._worker.finished.connect(self._on_finished)
+        # Two-stage finish: the worker's private `_done` signal
+        # crosses into the main thread (queued), `_relay_finished`
+        # does the page-side cleanup *and then* re-emits the public
+        # `finished` signal from the main thread. Test lambdas
+        # connected to `worker.finished` then run direct on the main
+        # thread — *after* the button has been re-enabled — so the
+        # `_wait_until` race in cascade_page tests can't observe a
+        # half-cleaned UI.
+        self._worker._done.connect(
+            self._relay_finished, Qt.ConnectionType.QueuedConnection,
+        )
         self._worker.finished.connect(self._thread.quit)
-        self._worker.finished.connect(self._worker.deleteLater)
-        self._thread.finished.connect(self._thread.deleteLater)
+        self._thread.finished.connect(self._on_thread_finished)
 
         self._btn_run.setEnabled(False)
         self._btn_cancel.setEnabled(True)
@@ -738,25 +1044,114 @@ class CascadePage(QWidget):
         self._btn_cancel.setEnabled(False)
         self._status_label.setText("cancelando…")
 
+    # ─── Run history loading ─────────────────────────────────────
+
+    def _open_history(self) -> None:
+        """Pop the modal, load the chosen run's data into the page."""
+        if self._thread is not None and self._thread.isRunning():
+            return
+        dialog = _RunHistoryDialog(self._store, parent=self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        run_id = dialog.selected_run_id()
+        if not run_id:
+            return
+        self._load_run_id(run_id)
+
+    def _load_run_id(self, run_id: str) -> None:
+        """Hydrate the page from an existing store run (no execution).
+
+        - Stats card pulls from SQLite.
+        - Top-N table populates from the same store query as a live run.
+        - Tier progress bars all snap to `done` since this is historical
+          data (we don't know the exact pre-prune candidate counts;
+          showing them as 1/1 done keeps the UI honest).
+        - Spec strip refreshes from the run's stored canonical spec
+          so the engineer sees what *that* run was optimised for.
+        """
+        record = self._store.get_run(run_id)
+        if record is None:
+            return
+        try:
+            historical_spec = record.spec()
+            self._spec_strip.update_from_spec(historical_spec)
+        except Exception:
+            pass
+        self._run_id = run_id
+        self._tiers.reset()
+        for t in (0, 1, 2, 3, 4):
+            self._tiers.update_tier(t, 1, 1)
+        self._refresh_dynamic()
+        self._status_label.setText(
+            f"loaded · {record.status} · run_id={run_id}",
+        )
+
     # ─── Slots ───────────────────────────────────────────────────
 
     def _on_progress(self, tier: int, done: int, total: int) -> None:
         self._tiers.update_tier(tier, done, total)
 
+    def _on_thread_finished(self) -> None:
+        """Final cleanup once the QThread has actually exited.
+
+        Schedules the worker + thread for deletion *after* the
+        main-thread slot ran — keeps the queued connection alive
+        long enough for `_on_finished` to fire.
+        """
+        worker = self._worker
+        thread = self._thread
+        self._worker = None
+        self._thread = None
+        if worker is not None:
+            worker.deleteLater()
+        if thread is not None:
+            thread.deleteLater()
+
+    def _relay_finished(self, status: str) -> None:
+        """Run page-side cleanup, then re-emit `finished` publicly.
+
+        Called on the main thread via a queued connection from
+        `worker._done`. Doing the UI work first guarantees that any
+        external slot/lambda hooked into `worker.finished` observes
+        a fully-cleaned page state — no Run-disabled race in tests.
+        """
+        self._on_finished(status)
+        if self._worker is not None:
+            self._worker.finished.emit(status)
+
     def _on_finished(self, status: str) -> None:
-        self._poll_timer.stop()
-        self._refresh_dynamic()
+        # Reset the button state BEFORE everything else so even if a
+        # subsequent step raises (matplotlib quirks, killTimer-from-
+        # other-thread warnings, etc.) the UI doesn't stay stuck with
+        # Run disabled. Each step is wrapped defensively because
+        # `_on_finished` is queued from a worker thread and we cannot
+        # let any exception leak — Qt would silently swallow it and
+        # the page would lock up.
         self._btn_run.setEnabled(True)
         self._btn_cancel.setEnabled(False)
         self._cfg.set_busy(False)
-        self._thread = None
-        self._worker = None
+        # Don't drop _thread / _worker here — `_on_thread_finished`
+        # owns final cleanup once the QThread really exits. If we
+        # nulled them out now, the queued deleteLater chain we hooked
+        # into `thread.finished` would lose its handles.
+        try:
+            self._poll_timer.stop()
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            self._refresh_dynamic()
+        except Exception:  # noqa: BLE001
+            import traceback
+            traceback.print_exc()
         # Make sure tiers that got no progress events are visibly
         # done (the orchestrator can finish a tier without firing a
         # final 100 % event when the candidate set is empty).
-        for t in self._scheduled_tiers:
-            self._tiers.update_tier(t, 1, 1)
-        self._status_label.setText(f"{status} · run_id={self._run_id}")
+        try:
+            for t in self._scheduled_tiers:
+                self._tiers.update_tier(t, 1, 1)
+            self._status_label.setText(f"{status} · run_id={self._run_id}")
+        except Exception:  # noqa: BLE001
+            pass
 
     def _refresh_dynamic(self) -> None:
         """Refresh the parts of the UI that read from the store."""
@@ -767,6 +1162,23 @@ class CascadePage(QWidget):
             self._run_id, n=self.TOP_N, order_by="loss_t1_W",
         )
         self._table.populate(rows)
+        # Pareto chart needs core volumes — provide the live DB lookup.
+        cores_by_id = {c.id: c for c in self._cores}
+        self._chart.populate(rows, cores_by_id)
+
+    def _on_chart_pick(self, candidate_key: str) -> None:
+        """Sync the table selection with whatever the user clicked
+        in the Pareto chart, then re-emit the page-level selection
+        signal so Apply / Open buttons enable."""
+        if not candidate_key:
+            return
+        for row in range(self._table.rowCount()):
+            cell = self._table.item(row, 0)
+            if cell is None:
+                continue
+            if cell.data(_USER_ROLE_KEY) == candidate_key:
+                self._table.selectRow(row)
+                break
 
     def _on_selection_changed(self, candidate_key: str) -> None:
         self._btn_apply.setEnabled(bool(candidate_key))

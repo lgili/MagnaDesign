@@ -5,6 +5,7 @@ from pfc_inductor.models.cascade import (
     Tier1Result,
     Tier2Result,
     Tier3Result,
+    Tier4Result,
 )
 from pfc_inductor.models.core import Core
 from pfc_inductor.models.material import (
@@ -32,6 +33,7 @@ __all__ = [
     "Tier1Result",
     "Tier2Result",
     "Tier3Result",
+    "Tier4Result",
     "Topology",
     "Wire",
     "WireType",

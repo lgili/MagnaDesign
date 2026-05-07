@@ -128,11 +128,12 @@ def test_run_config_card_fea_badge_reflects_backend(app):
 # ─── _TierProgressGrid ────────────────────────────────────────────
 
 
-def test_tier_progress_grid_has_four_rows(app):
+def test_tier_progress_grid_has_five_rows(app):
+    """Phase D added the Tier 4 row; the grid now spans 0–4."""
     from pfc_inductor.ui.workspace.cascade_page import _TierProgressGrid
 
     grid = _TierProgressGrid()
-    assert set(grid._bars.keys()) == {0, 1, 2, 3}
+    assert set(grid._bars.keys()) == {0, 1, 2, 3, 4}
     for status in grid._statuses.values():
         assert status.text() == "idle"
 

@@ -94,6 +94,48 @@ class Tier1Result(BaseModel):
         return len(self.design.warnings)
 
 
+class Tier4Result(BaseModel):
+    """Outcome of the Tier 4 swept-magnetostatic FEA on one candidate.
+
+    Phase D Step 1 ships a *swept-magnetostatic* implementation: the
+    same FEMMT/FEMM 2-D solver Tier 3 uses, executed at N bias
+    points across the half-cycle. The samples produce a cycle-
+    averaged L from real FEA (vs Tier 3's single-point peak L) and
+    surface the L_min..L_max spread driven by core geometry +
+    rolloff calibration. Step 2 will swap the multi-point sweep
+    for FEMMT's transient mode when the per-candidate wall budget
+    can absorb 5–60 minutes; the Pydantic shape stays the same.
+
+    Saturation flag: True when *any* sampled point's `B_FEA` exceeds
+    `Bsat · (1 − margin)`. Tier 4 is the strongest saturation guard
+    in the cascade — it sees the actual flux density predicted by
+    the FEM solver, not the linear `L · i / (N · Ae)` approximation
+    Tier 1 / Tier 2 use.
+    """
+
+    candidate: Candidate
+
+    # Aggregate metrics across the sweep.
+    L_min_FEA_uH: float
+    L_max_FEA_uH: float
+    L_avg_FEA_uH: float
+    B_pk_FEA_T: float                 # max |B| across all sampled points
+    saturation_t4: bool
+
+    # Per-sample arrays (parallel; same length).
+    sample_currents_A: list[float]
+    sample_L_uH: list[float]
+    sample_B_T: list[float]
+
+    # Cost + provenance.
+    n_points_simulated: int
+    solve_time_s: float
+    backend: str
+
+    # Cross-tier consistency check vs Tier 3 (set when Tier 3 ran).
+    L_avg_relative_to_tier3_pct: Optional[float] = None
+
+
 class Tier3Result(BaseModel):
     """Outcome of the Tier 3 magnetostatic FEA validation for one candidate.
 
