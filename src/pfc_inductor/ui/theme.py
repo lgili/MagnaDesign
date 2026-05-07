@@ -411,13 +411,17 @@ class CardMinSize:
     means a future "density" toggle can swap one ``CardMinSize`` for
     another without touching widget code.
     """
-    nucleo:     tuple[int, int] = (480, 380)
-    viz3d:      tuple[int, int] = (320, 360)
-    formas:     tuple[int, int] = (520, 280)
-    perdas:     tuple[int, int] = (220, 220)
-    bobinam:    tuple[int, int] = (180, 200)
-    entreferro: tuple[int, int] = (180, 200)
-    proximos:   tuple[int, int] = (200, 220)
+    # Heights tightened across the board so the Análise tab fits on a
+    # 1366×768 laptop without scroll. The minimums kept widgets from
+    # collapsing on narrow viewports — they didn't need to also pin a
+    # tall stretch ceiling.
+    nucleo:     tuple[int, int] = (480, 320)   # was (480, 380)
+    viz3d:      tuple[int, int] = (320, 300)   # was (320, 360)
+    formas:     tuple[int, int] = (520, 240)   # was (520, 280)
+    perdas:     tuple[int, int] = (220, 200)   # was (220, 220)
+    bobinam:    tuple[int, int] = (180, 180)   # was (180, 200)
+    entreferro: tuple[int, int] = (180, 180)   # was (180, 200)
+    proximos:   tuple[int, int] = (200, 200)   # was (200, 220)
     metric:     tuple[int, int] = (132, 80)
     metric_compact: tuple[int, int] = (108, 64)
 

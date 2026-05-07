@@ -72,10 +72,14 @@ class Card(QFrame):
         outer.setSpacing(0)
 
         # ---- header ---------------------------------------------------
+        # Margins trimmed top/bottom 14 → 8 to recover ~12 px of vertical
+        # space on the Análise tab. The 1 px CardHeader bottom border in
+        # QSS already creates enough visual separation; the extra 14 px
+        # padding was air, not hierarchy.
         self._header = QFrame()
         self._header.setObjectName("CardHeader")
         h = QHBoxLayout(self._header)
-        h.setContentsMargins(20, 14, 14, 14)
+        h.setContentsMargins(20, 8, 14, 8)
         h.setSpacing(10)
 
         self._title_label = QLabel(title)
@@ -116,10 +120,14 @@ class Card(QFrame):
             self._overflow = None
 
         # ---- body -----------------------------------------------------
+        # Body padding tightened 16/20 → 12/14 (top/bottom). Saves another
+        # ~10 px per card without affecting the L/R rhythm. Internal
+        # widgets (DataTable, MetricCard, ScrollAreas) carry their own
+        # padding so the body chrome was double-counted.
         self._body_frame = QFrame()
         self._body_frame.setObjectName("CardBody")
         body_lay = QVBoxLayout(self._body_frame)
-        body_lay.setContentsMargins(20, 16, 20, 20)
+        body_lay.setContentsMargins(20, 12, 20, 14)
         body_lay.setSpacing(12)
         body_lay.addWidget(body)
         self._body_widget = body

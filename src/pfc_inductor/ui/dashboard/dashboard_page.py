@@ -117,7 +117,10 @@ class DashboardPage(QWidget):
         self.card_viz3d.setMinimumSize(*CARD_MIN.viz3d)
         grid.addWidget(self.card_nucleo, 1, 0, 1, 7)
         grid.addWidget(self.card_viz3d, 1, 7, 1, 5)
-        grid.setRowMinimumHeight(1, 380)
+        # Lowered 380 → 320 to match the new CARD_MIN.nucleo height.
+        # The cards still pin their own minimums; this row floor only
+        # mattered to keep stretching tall on bigger displays.
+        grid.setRowMinimumHeight(1, 320)
         grid.setRowStretch(1, 2)
 
         # ---- row 2: Formas de Onda (full width) -----------------------
