@@ -2,8 +2,10 @@
 
 v3 contract:
 - 4 sidebar areas (dashboard / otimizador / catalogo / configuracoes)
-- ProjetoPage owns SpecDrawer + WorkspaceHeader + ProgressIndicator +
-  3 workspace tabs + Scoreboard.
+- ProjetoPage owns SpecDrawer + WorkspaceHeader + 4 workspace tabs +
+  Scoreboard. (ProgressIndicator was retired in favour of letting the
+  QTabWidget itself communicate the active phase — see commit
+  c3bbbd5.)
 - No QToolBar, no 8-step stepper, no Modo Clássico, no QSplitter
   mounting SpecPanel|PlotPanel|ResultPanel.
 """
@@ -34,14 +36,14 @@ def win(app):
 def test_main_window_has_v3_shell_widgets(win):
     from pfc_inductor.ui.shell import Sidebar
     from pfc_inductor.ui.shell.header import WorkspaceHeader
-    from pfc_inductor.ui.shell.progress_indicator import ProgressIndicator
     from pfc_inductor.ui.shell.scoreboard import Scoreboard
     from pfc_inductor.ui.shell.spec_drawer import SpecDrawer
     assert isinstance(win.sidebar, Sidebar)
     assert isinstance(win.projeto_page.drawer, SpecDrawer)
-    assert isinstance(win.projeto_page.progress, ProgressIndicator)
     assert isinstance(win.projeto_page.scoreboard, Scoreboard)
     assert isinstance(win.projeto_page.header, WorkspaceHeader)
+    # ProgressIndicator retired in c3bbbd5 — its own unit tests still
+    # live in ``tests/test_shell_stepper.py`` for any future caller.
 
 
 def test_main_window_no_legacy_qtoolbar(win):
@@ -93,13 +95,11 @@ def test_calc_populates_scoreboard(win):
     assert "L=" in text
 
 
-def test_progress_indicator_marks_design_done_after_calc(win):
-    """After a successful calc, the Design state moves from current
-    to done (Spec stayed done from construction)."""
-    pi = win.projeto_page.progress
-    assert pi.state("design") == "done"
-    # Spec is also done by default since the drawer is filled.
-    assert pi.state("spec") == "done"
+# test_progress_indicator_marks_design_done_after_calc removed:
+# the ProgressIndicator was retired from ProjetoPage in favour of
+# letting the QTabWidget itself communicate the active phase (see
+# commit c3bbbd5). The ProgressIndicator widget keeps its own unit
+# tests in ``tests/test_shell_stepper.py`` for any future caller.
 
 
 def test_theme_toggle_does_not_change_sidebar_palette(win, app):
