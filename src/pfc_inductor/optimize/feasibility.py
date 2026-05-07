@@ -26,10 +26,35 @@ from typing import Literal
 from pfc_inductor.models import Core, Material, Spec, Wire
 from pfc_inductor.topology import boost_ccm, line_reactor, passive_choke
 
-N_HARD_CAP = 250
+# Per-topology cap on the heuristic's estimated turn count. PFC
+# chokes are HF (≥ 50 kHz) so their L sits in the µH band — even a
+# 2 kW design rarely needs more than ~150 turns. Line-frequency
+# inductors (passive_choke at 50/60 Hz, line_reactor 1φ/3φ) sit
+# in the mH band; with the same AL nH/turn² the wire count to
+# reach a few mH naturally lands in the 300–800 range. A single
+# global cap rejected every passive-choke candidate in the
+# curated DB; topology-aware caps keep the boost path tight while
+# letting AC chokes through.
+N_HARD_CAP_BY_TOPOLOGY: dict[str, int] = {
+    "boost_ccm": 250,
+    "passive_choke": 1000,
+    "line_reactor": 1000,
+}
+N_HARD_CAP_DEFAULT = 250
+
+# Back-compat: external code (and tests) read `N_HARD_CAP` as a
+# constant. We keep the name pointing at the boost-CCM cap, which
+# was the only value the constant ever held in practice.
+N_HARD_CAP = N_HARD_CAP_BY_TOPOLOGY["boost_ccm"]
+
 KU_HEADROOM = 0.7    # quick-check cap; engine has its own user-set Ku_max
 B_HEADROOM = 1.6     # accept B_pk up to 1.6 × Bsat in heuristic — engine
                      # may still produce feasible after rolloff/saturation
+
+
+def _n_hard_cap(spec: Spec) -> int:
+    """Heuristic turn-count cap for `spec.topology`."""
+    return N_HARD_CAP_BY_TOPOLOGY.get(spec.topology, N_HARD_CAP_DEFAULT)
 
 
 Verdict = Literal["ok", "too_small_L", "window_overflow", "saturates"]
@@ -84,19 +109,21 @@ def core_quick_check(
     if L_req_uH <= 0:
         return "ok"
 
-    # 1. Can we reach L_required with at most N_HARD_CAP turns,
+    n_cap = _n_hard_cap(spec)
+
+    # 1. Can we reach L_required with at most `n_cap` turns,
     #    assuming the worst-case rolloff penalty?
     AL_nH = max(core.AL_nH, 1e-9)
     # Worst-case rolloff: powder cores with high DC bias drop to ~30 %
     # of initial μ. We use 0.5 as a generous heuristic so we don't
     # exclude cores that could survive moderate bias.
-    L_max_uH = (N_HARD_CAP ** 2) * AL_nH * 0.5 * 1e-3
+    L_max_uH = (n_cap ** 2) * AL_nH * 0.5 * 1e-3
     if L_max_uH < L_req_uH:
         return "too_small_L"
 
     # 2. Estimate N at unit μ_pct (lower bound on N).
-    N_estimate = int(math.ceil(math.sqrt(L_req_uH / (AL_nH * 1e-3))))
-    if N_estimate > N_HARD_CAP:
+    N_estimate = math.ceil(math.sqrt(L_req_uH / (AL_nH * 1e-3)))
+    if N_estimate > n_cap:
         return "too_small_L"
 
     # 3. Window check at the estimated N. Single-layer wire area;
