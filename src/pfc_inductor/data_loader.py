@@ -246,17 +246,19 @@ def _merge_with_catalog(file_name: str, key: str, kind: str) -> list:
 
     extras: list = []
 
-    # Layer 1: MAS catalog (cores excluded — see module docstring).
-    if file_name != "cores.json":
-        mas_payload = _open_catalog(file_name)
-        if mas_payload is not None:
-            mas_raw = [
-                e for e in mas_payload.get(key, [])
-                if _entry_id(e) not in seen_ids
-            ]
-            mas_entries = _decode_entries(mas_raw, kind)
-            extras.extend(mas_entries)
-            seen_ids.update(getattr(e, "id", None) for e in mas_entries)
+    # Layer 1: MAS catalog. ``materials.json`` and ``wires.json`` are
+    # produced by ``import_mas_catalog.py``; ``cores.json`` is now
+    # produced by ``import_mas_cores.py`` (so the previous "exclude
+    # cores" carve-out has been dropped).
+    mas_payload = _open_catalog(file_name)
+    if mas_payload is not None:
+        mas_raw = [
+            e for e in mas_payload.get(key, [])
+            if _entry_id(e) not in seen_ids
+        ]
+        mas_entries = _decode_entries(mas_raw, kind)
+        extras.extend(mas_entries)
+        seen_ids.update(getattr(e, "id", None) for e in mas_entries)
 
     # Layer 2: PyETK catalog (covers both materials and cores).
     pyetk_payload = _open_pyetk(file_name)
