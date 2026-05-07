@@ -41,7 +41,13 @@ from pfc_inductor.ui.theme import get_theme, on_theme_changed
 
 _DRAWER_KEY = "shell/spec_drawer_collapsed"
 _EXPANDED_WIDTH = 360
-_COLLAPSED_WIDTH = 44
+# Collapsed width trimmed 44 → 24 — when the drawer is folded the only
+# affordance the user needs is the chevron to expand it again. The
+# previous 44 px column doubled as a rail of 5 shortcut icons (topology
+# / entrada AC / conversor / térmico / seleção) which duplicated
+# functions already in the spec form *and* visually competed with the
+# 220 px sidebar one column to its left, creating a "two-sidebars" look.
+_COLLAPSED_WIDTH = 24
 
 
 class SpecDrawer(QFrame):
@@ -104,30 +110,14 @@ class SpecDrawer(QFrame):
         self._spec_panel.calculate_requested.connect(self.calculate_requested.emit)
         outer.addWidget(self._spec_panel, 1)
 
-        # ---- Collapsed icon stub (hidden when expanded) ------------------
+        # Collapsed state has no extra body — the chevron toggle in the
+        # header is enough to re-expand. ``_collapsed_stub`` is kept as
+        # an empty frame so ``_apply_state`` can show/hide a single
+        # widget instead of branching on every layout child. The
+        # previous version stacked 5 shortcut icons here that
+        # duplicated form sections; users prefer expanding the drawer.
         self._collapsed_stub = QFrame()
         self._collapsed_stub.setVisible(False)
-        cs_lay = QVBoxLayout(self._collapsed_stub)
-        cs_lay.setContentsMargins(8, 14, 8, 8)
-        cs_lay.setSpacing(12)
-        cs_lay.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
-        for icon_name, tip in (
-            ("git-branch", "Topologia"),
-            ("activity", "Entrada AC"),
-            ("cpu", "Conversor"),
-            ("gauge", "Térmico"),
-            ("box", "Seleção"),
-        ):
-            lbl = QLabel()
-            lbl.setPixmap(
-                ui_icon(icon_name,
-                        color=get_theme().palette.text_muted, size=18)
-                .pixmap(18, 18),
-            )
-            lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            lbl.setToolTip(tip)
-            cs_lay.addWidget(lbl, 0, Qt.AlignmentFlag.AlignHCenter)
-        cs_lay.addStretch(1)
         outer.addWidget(self._collapsed_stub, 1)
 
         # Restore previous state
@@ -179,6 +169,15 @@ class SpecDrawer(QFrame):
         self._spec_panel.setVisible(not self._collapsed)
         self._topo_row.setVisible(not self._collapsed)
         self._collapsed_stub.setVisible(self._collapsed)
+        # Tighten header margins when collapsed so the chevron has room
+        # to centre inside the 24 px rail (the expanded margins of
+        # 14/8 would clip it).
+        header_lay = self._header.layout()
+        if header_lay is not None:
+            if self._collapsed:
+                header_lay.setContentsMargins(3, 10, 3, 10)
+            else:
+                header_lay.setContentsMargins(14, 10, 8, 10)
         self._refresh_chevron_icon()
 
     def _refresh_chevron_icon(self) -> None:
