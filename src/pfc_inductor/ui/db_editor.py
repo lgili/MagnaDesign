@@ -75,10 +75,34 @@ class _ListJsonEditor(QWidget):
 
         splitter.addWidget(left)
 
-        # Right: JSON editor + save
+        # Right: summary banner + JSON editor + save
         right = QWidget()
         rv = QVBoxLayout(right)
         rv.setContentsMargins(0, 0, 0, 0)
+
+        # Summary read-only header — tells the user what they're
+        # looking at WITHOUT making them parse JSON. Updated whenever
+        # selection changes; remains visible even after edits.
+        self._summary = QLabel()
+        self._summary.setObjectName("DbEntrySummary")
+        self._summary.setWordWrap(True)
+        self._summary.setTextFormat(Qt.TextFormat.RichText)
+        self._summary.setStyleSheet(self._summary_qss())
+        rv.addWidget(self._summary)
+
+        # Caveat banner — flags JSON editing as advanced so casual
+        # users don't fear breaking things. The banner is dismissable
+        # in the future; for now it's always-on.
+        warn = QLabel(
+            "⚠ Edição avançada em JSON. Validamos no <b>Aplicar "
+            "alteração</b> antes de salvar — JSON inválido fica preso "
+            "no campo até ser corrigido.",
+        )
+        warn.setObjectName("DbEditorWarning")
+        warn.setWordWrap(True)
+        warn.setStyleSheet(self._warn_qss())
+        rv.addWidget(warn)
+
         self.editor = QTextEdit()
         f = QFont()
         f.setStyleHint(QFont.StyleHint.Monospace)
@@ -130,13 +154,69 @@ class _ListJsonEditor(QWidget):
     def _on_select(self, current: QListWidgetItem, _prev):
         if current is None:
             self.editor.clear()
+            self._summary.setText("Nenhum registro selecionado.")
             return
         eid = current.data(Qt.ItemDataRole.UserRole)
         for e in self.entries:
             if e.id == eid:
                 txt = json.dumps(e.model_dump(mode="json"), indent=2, ensure_ascii=False)
                 self.editor.setPlainText(txt)
+                self._summary.setText(self._summary_for(e))
                 return
+
+    def _summary_for(self, e) -> str:
+        """Plain-language synopsis of the entry — human-readable
+        alternative to scanning the JSON. Bold key facts so the user
+        can recognise the part without parsing the full record.
+        """
+        if isinstance(e, Material):
+            return (
+                f"<b>{e.vendor} — {e.name}</b><br>"
+                f"<span style='color:#71717A'>{e.family} · {e.type} · "
+                f"μ_initial = {e.mu_initial:.0f} · "
+                f"Bsat@25°C = {e.Bsat_25C_T:.2f} T</span>"
+            )
+        if isinstance(e, Core):
+            return (
+                f"<b>{e.vendor} — {e.part_number}</b> "
+                f"<span style='color:#71717A'>({e.shape})</span><br>"
+                f"<span style='color:#71717A'>"
+                f"Ae = {e.Ae_mm2:.0f} mm² · le = {e.le_mm:.0f} mm · "
+                f"Wa = {e.Wa_mm2:.0f} mm² · AL = {e.AL_nH:.0f} nH/N²</span>"
+            )
+        if isinstance(e, Wire):
+            d = e.outer_diameter_mm() if hasattr(e, "outer_diameter_mm") else 0.0
+            return (
+                f"<b>{e.id}</b> "
+                f"<span style='color:#71717A'>({e.type})</span><br>"
+                f"<span style='color:#71717A'>"
+                f"A_cu = {e.A_cu_mm2:.3f} mm² · OD ≈ {d:.3f} mm</span>"
+            )
+        return str(e)
+
+    @staticmethod
+    def _summary_qss() -> str:
+        return (
+            "QLabel#DbEntrySummary {"
+            "  background: transparent;"
+            "  border: 0;"
+            "  padding: 8px 4px 12px 4px;"
+            "  font-size: 13px;"
+            "}"
+        )
+
+    @staticmethod
+    def _warn_qss() -> str:
+        return (
+            "QLabel#DbEditorWarning {"
+            "  background: #FFFBEB;"
+            "  border: 1px solid #FCD34D;"
+            "  border-radius: 8px;"
+            "  padding: 8px 12px;"
+            "  color: #92400E;"
+            "  font-size: 11px;"
+            "}"
+        )
 
     def _on_add(self):
         new_id, ok = QInputDialog.getText(
