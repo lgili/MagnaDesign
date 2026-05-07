@@ -147,13 +147,13 @@ def validate_design_femmt(
         import femmt as ft
     except Exception as e:
         raise FEMMNotAvailable(
-            f"FEMMT não pôde ser importado: {type(e).__name__}: {e}\n"
+            f"FEMMT não pôde ser importado: {type(e).__name__}: {e}"
             "Instale com `uv pip install pfc-inductor-designer[fea]` "
             "(requer Python 3.12 e scipy<1.14)."
         ) from e
     if not _femmt_onelab_configured():
         raise FEMMSolveError(
-            "FEMMT está instalado mas o solver ONELAB não está configurado.\n"
+            "FEMMT está instalado mas o solver ONELAB não está configurado."
             f"Edite `{Path(ft.__file__).parent}/config.json` adicionando "
             '`{"onelab": "/caminho/para/pasta_onelab"}` (a pasta deve conter '
             "`onelab.py`, `getdp` e `gmsh`)."
@@ -179,107 +179,113 @@ def _toroid_validation(spec, core, wire, material, result, output_dir, timeout_s
         raise FEMMSolveError("Toroide sem dimensões deriváveis (precisa Wa/le/Ae).")
     OD, ID, HT = dims  # mm
     cwd = _ensure_dir(output_dir)
-    started = time.monotonic()
+    original_cwd = os.getcwd()
+    os.chdir(cwd)
+    try:
+        started = time.monotonic()
 
-    # Operating-point small-signal permeability at the worst-case DC bias
-    le_m = max(core.le_mm * 1e-3, 1e-9)
-    H_Am = result.N_turns * result.I_line_pk_A / le_m
-    H_Oe = H_Am / 79.5774715459
-    mu_eff = float(material.mu_initial * mu_pct(material, H_Oe))
+        # Operating-point small-signal permeability at the worst-case DC bias
+        le_m = max(core.le_mm * 1e-3, 1e-9)
+        H_Am = result.N_turns * result.I_line_pk_A / le_m
+        H_Oe = H_Am / 79.5774715459
+        mu_eff = float(material.mu_initial * mu_pct(material, H_Oe))
 
-    fsw_Hz = max(spec.f_sw_kHz * 1000.0, 1.0)
+        fsw_Hz = max(spec.f_sw_kHz * 1000.0, 1.0)
 
-    geo = ft.MagneticComponent(
-        simulation_type=ft.SimulationType.FreqDomain,
-        component_type=ft.ComponentType.Inductor,
-        working_directory=str(cwd),
-        verbosity=ft.Verbosity.Silent,
-        is_gui=True,
-    )
-
-    # FEMMT 0.5.x doesn't have a native toroid primitive. We use Single
-    # with axisymmetric flux equivalent. Inflate the window if the real
-    # cross-section is too tight to physically pack the turns — L is
-    # dominated by le, so window inflation barely affects accuracy.
-    import math
-    wire_diam_m = (wire.d_iso_mm or wire.d_cu_mm or 1.0) * 1e-3
-    insulation_m = 5e-4
-    pitch_m = wire_diam_m + insulation_m
-    needed_area_m2 = result.N_turns * pitch_m * pitch_m
-    real_window_w_m = (OD - ID) / 2 * 1e-3
-    real_window_h_m = HT * 1e-3
-    real_area = real_window_w_m * real_window_h_m
-    inflate = max(1.0, math.sqrt(needed_area_m2 / real_area) * 1.25)
-    window_w_m = real_window_w_m * inflate
-    window_h_m = real_window_h_m * inflate
-
-    core_dimensions = ft.dtos.SingleCoreDimensions(
-        core_inner_diameter=ID * 1e-3,
-        window_w=window_w_m,
-        window_h=window_h_m,
-        core_h=HT * 1e-3,
-    )
-    core_obj = ft.Core(
-        core_type=ft.CoreType.Single,
-        core_dimensions=core_dimensions,
-        detailed_core_model=False,
-        mu_r_abs=mu_eff,
-        phi_mu_deg=0.0,
-        sigma=0.0,
-        permeability_datasource=ft.MaterialDataSource.Custom,
-        permittivity_datasource=ft.MaterialDataSource.Custom,
-        mdb_verbosity=ft.Verbosity.Silent,
-    )
-    geo.set_core(core_obj)
-
-    air_gaps = ft.AirGaps(ft.AirGapMethod.Percent, core_obj)
-    air_gaps.add_air_gap(ft.AirGapLegPosition.CenterLeg, _TECH_AIR_GAP_M, 50)
-    geo.set_air_gaps(air_gaps)
-
-    insulation = ft.Insulation(flag_insulation=True)
-    insulation.add_core_insulations(1e-3, 1e-3, 3e-3, 1e-3)
-    insulation.add_winding_insulations([[5e-4]])
-    geo.set_insulation(insulation)
-
-    winding_window = ft.WindingWindow(core_obj, insulation)
-    vww = winding_window.split_window(ft.WindingWindowSplit.NoSplit)
-
-    winding = ft.Conductor(0, ft.Conductivity.Copper,
-                           winding_material_temperature=45)
-    if wire.type == "litz" and wire.d_strand_mm and wire.n_strands:
-        winding.set_litz_round_conductor(
-            conductor_radius=(wire.d_bundle_mm or wire.A_cu_mm2 ** 0.5 * 0.6) * 0.5e-3,
-            number_strands=wire.n_strands,
-            strand_radius=wire.d_strand_mm * 0.5e-3,
-            fill_factor=None,
-            conductor_arrangement=ft.ConductorArrangement.Square,
+        geo = ft.MagneticComponent(
+            simulation_type=ft.SimulationType.FreqDomain,
+            component_type=ft.ComponentType.Inductor,
+            working_directory=str(cwd),
+            verbosity=ft.Verbosity.Info,
+            is_gui=True,
         )
-    else:
-        winding.set_solid_round_conductor(
-            conductor_radius=(wire.d_cu_mm or 1.0) * 0.5e-3,
-            conductor_arrangement=ft.ConductorArrangement.Square,
+
+        # FEMMT 0.5.x doesn't have a native toroid primitive. We use Single
+        # with axisymmetric flux equivalent. Inflate the window if the real
+        # cross-section is too tight to physically pack the turns — L is
+        # dominated by le, so window inflation barely affects accuracy.
+        import math
+        wire_diam_m = (wire.d_iso_mm or wire.d_cu_mm or 1.0) * 1e-3
+        insulation_m = 5e-4
+        pitch_m = wire_diam_m + insulation_m
+        needed_area_m2 = result.N_turns * pitch_m * pitch_m
+        real_window_w_m = (OD - ID) / 2 * 1e-3
+        real_window_h_m = HT * 1e-3
+        real_area = real_window_w_m * real_window_h_m
+        inflate = max(1.0, math.sqrt(needed_area_m2 / real_area) * 1.25)
+        window_w_m = real_window_w_m * inflate
+        window_h_m = real_window_h_m * inflate
+
+        core_dimensions = ft.dtos.SingleCoreDimensions(
+            core_inner_diameter=ID * 1e-3,
+            window_w=window_w_m,
+            window_h=window_h_m,
+            core_h=HT * 1e-3,
         )
-    winding.parallel = False
+        core_obj = ft.Core(
+            core_type=ft.CoreType.Single,
+            core_dimensions=core_dimensions,
+            detailed_core_model=False,
+            mu_r_abs=mu_eff,
+            phi_mu_deg=0.0,
+            sigma=0.0,
+            permeability_datasource=ft.MaterialDataSource.Custom,
+            permittivity_datasource=ft.MaterialDataSource.Custom,
+            mdb_verbosity=ft.Verbosity.Silent,
+        )
+        geo.set_core(core_obj)
 
-    vww.set_winding(
-        winding, result.N_turns, None,
-        ft.Align.ToEdges,
-        placing_strategy=ft.ConductorDistribution.HorizontalRightward_VerticalUpward,
-        zigzag=True,
-    )
-    geo.set_winding_windows([winding_window])
+        air_gaps = ft.AirGaps(ft.AirGapMethod.Percent, core_obj)
+        air_gaps.add_air_gap(ft.AirGapLegPosition.CenterLeg, _TECH_AIR_GAP_M, 50)
+        geo.set_air_gaps(air_gaps)
 
-    geo.create_model(
-        freq=fsw_Hz, pre_visualize_geometry=False, save_png=False,
-    )
-    geo.single_simulation(
-        freq=fsw_Hz,
-        current=[float(result.I_line_pk_A)],
-        plot_interpolation=False,
-        show_fem_simulation_results=False,
-    )
+        insulation = ft.Insulation(flag_insulation=True)
+        insulation.add_core_insulations(1e-3, 1e-3, 3e-3, 1e-3)
+        insulation.add_winding_insulations([[5e-4]])
+        geo.set_insulation(insulation)
 
-    log = geo.read_log()
+        winding_window = ft.WindingWindow(core_obj, insulation)
+        vww = winding_window.split_window(ft.WindingWindowSplit.NoSplit)
+
+        winding = ft.Conductor(0, ft.Conductivity.Copper,
+                               winding_material_temperature=45)
+        if wire.type == "litz" and wire.d_strand_mm and wire.n_strands:
+            winding.set_litz_round_conductor(
+                conductor_radius=(wire.d_bundle_mm or wire.A_cu_mm2 ** 0.5 * 0.6) * 0.5e-3,
+                number_strands=wire.n_strands,
+                strand_radius=wire.d_strand_mm * 0.5e-3,
+                fill_factor=None,
+                conductor_arrangement=ft.ConductorArrangement.Square,
+            )
+        else:
+            winding.set_solid_round_conductor(
+                conductor_radius=(wire.d_cu_mm or 1.0) * 0.5e-3,
+                conductor_arrangement=ft.ConductorArrangement.Square,
+            )
+        winding.parallel = False
+
+        vww.set_winding(
+            winding, result.N_turns, None,
+            ft.Align.ToEdges,
+            placing_strategy=ft.ConductorDistribution.HorizontalRightward_VerticalUpward,
+            zigzag=True,
+        )
+        geo.set_winding_windows([winding_window])
+
+        geo.create_model(
+            freq=fsw_Hz, pre_visualize_geometry=False, save_png=False,
+        )
+        geo.single_simulation(
+            freq=fsw_Hz,
+            current=[float(result.I_line_pk_A)],
+            plot_interpolation=False,
+            show_fem_simulation_results=False,
+        )
+
+        log = geo.read_log()
+    finally:
+        os.chdir(original_cwd)
+
     L_FEA_H = _extract_L_H(log)
     flux_FEA_Wb = _extract_flux(log)
     # B_pk derived from flux linkage: λ = N·Φ, B = Φ/Ae = λ/(N·Ae).
@@ -412,86 +418,92 @@ def _bobbin_validation(spec, core, wire, material, result, output_dir, timeout_s
 
     fsw_Hz = max(spec.f_sw_kHz * 1000.0, 1.0)
     cwd = _ensure_dir(output_dir)
-    started = time.monotonic()
+    original_cwd = os.getcwd()
+    os.chdir(cwd)
+    try:
+        started = time.monotonic()
 
-    geo = ft.MagneticComponent(
-        simulation_type=ft.SimulationType.FreqDomain,
-        component_type=ft.ComponentType.Inductor,
-        working_directory=str(cwd),
-        verbosity=ft.Verbosity.Silent,
-        is_gui=True,
-    )
-
-    core_dimensions = ft.dtos.SingleCoreDimensions(
-        core_inner_diameter=core_inner_diameter_m,
-        window_w=window_w_m,
-        window_h=window_h_m,
-        core_h=core_h_m,
-    )
-    core_obj = ft.Core(
-        core_type=ft.CoreType.Single,
-        core_dimensions=core_dimensions,
-        detailed_core_model=False,
-        mu_r_abs=mu_eff,
-        phi_mu_deg=0.0,
-        sigma=0.0,
-        permeability_datasource=ft.MaterialDataSource.Custom,
-        permittivity_datasource=ft.MaterialDataSource.Custom,
-        mdb_verbosity=ft.Verbosity.Silent,
-    )
-    geo.set_core(core_obj)
-
-    # Honour the analytic gap. FEMMT requires a non-zero gap so we use
-    # the technical 10 µm minimum even for ungapped cores.
-    gap_m = max((core.lgap_mm or 0.0) * 1e-3, _TECH_AIR_GAP_M)
-    air_gaps = ft.AirGaps(ft.AirGapMethod.Percent, core_obj)
-    air_gaps.add_air_gap(ft.AirGapLegPosition.CenterLeg, gap_m, 50)
-    geo.set_air_gaps(air_gaps)
-
-    insulation = ft.Insulation(flag_insulation=True)
-    insulation.add_core_insulations(1e-3, 1e-3, 3e-3, 1e-3)
-    insulation.add_winding_insulations([[5e-4]])
-    geo.set_insulation(insulation)
-
-    winding_window = ft.WindingWindow(core_obj, insulation)
-    vww = winding_window.split_window(ft.WindingWindowSplit.NoSplit)
-
-    winding = ft.Conductor(0, ft.Conductivity.Copper,
-                           winding_material_temperature=45)
-    if wire.type == "litz" and wire.d_strand_mm and wire.n_strands:
-        winding.set_litz_round_conductor(
-            conductor_radius=(wire.d_bundle_mm or wire.A_cu_mm2 ** 0.5 * 0.6) * 0.5e-3,
-            number_strands=wire.n_strands,
-            strand_radius=wire.d_strand_mm * 0.5e-3,
-            fill_factor=None,
-            conductor_arrangement=ft.ConductorArrangement.Square,
+        geo = ft.MagneticComponent(
+            simulation_type=ft.SimulationType.FreqDomain,
+            component_type=ft.ComponentType.Inductor,
+            working_directory=str(cwd),
+            verbosity=ft.Verbosity.Info,
+            is_gui=True,
         )
-    else:
-        winding.set_solid_round_conductor(
-            conductor_radius=(wire.d_cu_mm or 1.0) * 0.5e-3,
-            conductor_arrangement=ft.ConductorArrangement.Square,
+
+        core_dimensions = ft.dtos.SingleCoreDimensions(
+            core_inner_diameter=core_inner_diameter_m,
+            window_w=window_w_m,
+            window_h=window_h_m,
+            core_h=core_h_m,
         )
-    winding.parallel = False
+        core_obj = ft.Core(
+            core_type=ft.CoreType.Single,
+            core_dimensions=core_dimensions,
+            detailed_core_model=False,
+            mu_r_abs=mu_eff,
+            phi_mu_deg=0.0,
+            sigma=0.0,
+            permeability_datasource=ft.MaterialDataSource.Custom,
+            permittivity_datasource=ft.MaterialDataSource.Custom,
+            mdb_verbosity=ft.Verbosity.Silent,
+        )
+        geo.set_core(core_obj)
 
-    vww.set_winding(
-        winding, result.N_turns, None,
-        ft.Align.ToEdges,
-        placing_strategy=ft.ConductorDistribution.HorizontalRightward_VerticalUpward,
-        zigzag=True,
-    )
-    geo.set_winding_windows([winding_window])
+        # Honour the analytic gap. FEMMT requires a non-zero gap so we use
+        # the technical 10 µm minimum even for ungapped cores.
+        gap_m = max((core.lgap_mm or 0.0) * 1e-3, _TECH_AIR_GAP_M)
+        air_gaps = ft.AirGaps(ft.AirGapMethod.Percent, core_obj)
+        air_gaps.add_air_gap(ft.AirGapLegPosition.CenterLeg, gap_m, 50)
+        geo.set_air_gaps(air_gaps)
 
-    geo.create_model(
-        freq=fsw_Hz, pre_visualize_geometry=False, save_png=False,
-    )
-    geo.single_simulation(
-        freq=fsw_Hz,
-        current=[float(result.I_line_pk_A)],
-        plot_interpolation=False,
-        show_fem_simulation_results=False,
-    )
+        insulation = ft.Insulation(flag_insulation=True)
+        insulation.add_core_insulations(1e-3, 1e-3, 3e-3, 1e-3)
+        insulation.add_winding_insulations([[5e-4]])
+        geo.set_insulation(insulation)
 
-    log = geo.read_log()
+        winding_window = ft.WindingWindow(core_obj, insulation)
+        vww = winding_window.split_window(ft.WindingWindowSplit.NoSplit)
+
+        winding = ft.Conductor(0, ft.Conductivity.Copper,
+                               winding_material_temperature=45)
+        if wire.type == "litz" and wire.d_strand_mm and wire.n_strands:
+            winding.set_litz_round_conductor(
+                conductor_radius=(wire.d_bundle_mm or wire.A_cu_mm2 ** 0.5 * 0.6) * 0.5e-3,
+                number_strands=wire.n_strands,
+                strand_radius=wire.d_strand_mm * 0.5e-3,
+                fill_factor=None,
+                conductor_arrangement=ft.ConductorArrangement.Square,
+            )
+        else:
+            winding.set_solid_round_conductor(
+                conductor_radius=(wire.d_cu_mm or 1.0) * 0.5e-3,
+                conductor_arrangement=ft.ConductorArrangement.Square,
+            )
+        winding.parallel = False
+
+        vww.set_winding(
+            winding, result.N_turns, None,
+            ft.Align.ToEdges,
+            placing_strategy=ft.ConductorDistribution.HorizontalRightward_VerticalUpward,
+            zigzag=True,
+        )
+        geo.set_winding_windows([winding_window])
+
+        geo.create_model(
+            freq=fsw_Hz, pre_visualize_geometry=False, save_png=False,
+        )
+        geo.single_simulation(
+            freq=fsw_Hz,
+            current=[float(result.I_line_pk_A)],
+            plot_interpolation=False,
+            show_fem_simulation_results=False,
+        )
+
+        log = geo.read_log()
+    finally:
+        os.chdir(original_cwd)
+        
     L_FEA_H = _extract_L_H(log)
     flux_FEA_Wb = _extract_flux(log)
     if abs(flux_FEA_Wb) > 0 and result.N_turns > 0 and Ae_m2 > 0:

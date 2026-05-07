@@ -53,6 +53,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 CORES_FILE = REPO_ROOT / "data" / "mas" / "cores.json"
+MATERIALS_FILE = REPO_ROOT / "data" / "materials.json"
 
 # The data loader reads ``<user_data_dir>/cores.json`` first and only
 # falls back to the bundled MAS file if the user copy is missing — so
@@ -68,7 +69,11 @@ def _user_cores_file() -> Path | None:
     return Path(user_data_dir("PFCInductorDesigner", "indutor")) / "cores.json"
 
 MU0 = 4 * math.pi * 1e-7
-MU_EFF_NGO = 165.0          # averaged from EI28-17 / EI41-17 / EI60-20
+# This is the effective permeability, averaged from the 3 existing calibrated
+# cores. We use the 50H800 as the reference material for scaling.
+MU_EFF_REF = 165.0
+MU_INITIAL_REF = 4500.0  # mu_initial of the reference material (50H800)
+
 RHO_SI_STEEL_G_CM3 = 7.65
 COST_PER_CM3_USD = 0.17
 
@@ -87,12 +92,21 @@ class EIBlank:
 # existing Dongxing entries: EI28→65, EI41→80, EI60→117 — fits le ≈
 # 5.85 · tongue with ±5 % deviation).
 EI_BLANKS: list[EIBlank] = [
+    EIBlank(size=19, tongue_mm=6.3, le_mm=36.9),
+    EIBlank(size=25, tongue_mm=8.3, le_mm=48.5),
+    EIBlank(size=30, tongue_mm=10.0, le_mm=58.5),
     EIBlank(size=33, tongue_mm=11.0, le_mm=64.0),
+    EIBlank(size=40, tongue_mm=13.3, le_mm=77.8),
     EIBlank(size=48, tongue_mm=16.0, le_mm=94.0),
+    EIBlank(size=50, tongue_mm=16.7, le_mm=97.7),
     EIBlank(size=57, tongue_mm=19.0, le_mm=112.0),
+    EIBlank(size=60, tongue_mm=20.0, le_mm=117.0),
     EIBlank(size=66, tongue_mm=22.0, le_mm=129.0),
+    EIBlank(size=70, tongue_mm=23.3, le_mm=136.3),
     EIBlank(size=76, tongue_mm=25.0, le_mm=147.0),
+    EIBlank(size=80, tongue_mm=26.7, le_mm=156.2),
     EIBlank(size=85, tongue_mm=28.0, le_mm=164.0),
+    EIBlank(size=90, tongue_mm=30.0, le_mm=175.5),
     EIBlank(size=96, tongue_mm=32.0, le_mm=187.0),
 ]
 
@@ -134,10 +148,10 @@ def _ei_geometry(blank: EIBlank, stack_mm: float) -> dict:
     }
 
 
-def _AL_nH(geom: dict) -> float:
+def _AL_nH(geom: dict, mu_eff: float) -> float:
     Ae_m2 = geom["effectiveArea"] * 1e-6
     le_m = geom["effectiveMagneticPathLength"] * 1e-3
-    AL_H = MU0 * MU_EFF_NGO * Ae_m2 / le_m
+    AL_H = MU0 * mu_eff * Ae_m2 / le_m
     return round(AL_H * 1e9, 1)
 
 
@@ -150,7 +164,7 @@ def _cost_usd(Ve_mm3: float) -> float:
 
 
 def _build_record(blank: EIBlank, stack_mm: float,
-                  material_name: str, material_id: str) -> dict:
+                  material_name: str, material_id: str, mu_eff: float) -> dict:
     name = f"EI{blank.size}-{int(round(stack_mm))}"
     geom = _ei_geometry(blank, stack_mm)
     mat_short = material_name.lower().replace("/", "")
@@ -161,12 +175,12 @@ def _build_record(blank: EIBlank, stack_mm: float,
         "shape": {"name": name, "family": "EI"},
         "dimensions": geom,
         "materialName": material_id,
-        "inductanceFactor": _AL_nH(geom),
+        "inductanceFactor": _AL_nH(geom, mu_eff),
         "gapLength": 0.0,
         "notes": (
             "Dongxing harmonic-reactor lamination set, JIS C2535 standard "
             "geometry. AL extrapolated from DX60346/414/415 calibration "
-            f"(μ_eff ≈ {MU_EFF_NGO:.0f}); verify against datasheet for "
+            f"(μ_eff ≈ {mu_eff:.0f}); verify against datasheet for "
             "production designs."
         ),
         "x-pfc-inductor": {
@@ -214,6 +228,17 @@ def main() -> int:
     if not CORES_FILE.exists():
         print(f"error: {CORES_FILE} not found", file=sys.stderr)
         return 1
+    if not MATERIALS_FILE.exists():
+        print(f"error: {MATERIALS_FILE} not found", file=sys.stderr)
+        return 1
+
+    # Load material permeabilities to scale the AL factor calculation.
+    materials_data = json.loads(MATERIALS_FILE.read_text(encoding="utf-8"))
+    mu_map = {
+        m["id"]: m.get("mu_initial", 1.0)
+        for m in materials_data.get("materials", []) if "id" in m
+    }
+
 
     # Build the full set of records once, then merge into both the
     # bundled MAS catalogue (source of truth for new installs) and
@@ -223,8 +248,10 @@ def main() -> int:
         for ratio in STACK_RATIOS:
             stack_mm = round(blank.tongue_mm * ratio)
             for mat_name, mat_id in MATERIALS:
+                mu_initial = mu_map.get(mat_id, MU_INITIAL_REF)
+                mu_eff = MU_EFF_REF * (mu_initial / MU_INITIAL_REF)
                 new_records.append(
-                    _build_record(blank, stack_mm, mat_name, mat_id)
+                    _build_record(blank, stack_mm, mat_name, mat_id, mu_eff)
                 )
 
     added_bundled, total_bundled = _merge_into(CORES_FILE, new_records)

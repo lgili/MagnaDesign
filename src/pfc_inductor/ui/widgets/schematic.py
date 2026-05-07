@@ -62,7 +62,7 @@ class _SchematicPainter:
         self._qp = qp
 
     # ---- pen helpers --------------------------------------------------
-    def _pen(self, color: QColor, width: float = 1.5) -> QPen:
+    def _pen(self, color: QColor, width: float = 1.6) -> QPen:
         pen = QPen(color)
         pen.setWidthF(width)
         pen.setCapStyle(Qt.PenCapStyle.RoundCap)
@@ -71,7 +71,7 @@ class _SchematicPainter:
 
     # ---- primitives ---------------------------------------------------
     def wire(self, p1: tuple[float, float], p2: tuple[float, float],
-             color: QColor, width: float = 1.5) -> None:
+             color: QColor, width: float = 1.6) -> None:
         self._qp.setPen(self._pen(color, width))
         self._qp.drawLine(QPointF(*p1), QPointF(*p2))
 
@@ -97,7 +97,6 @@ class _SchematicPainter:
                  highlighted: bool = True) -> None:
         cx, cy = centre
         x0 = cx - length / 2
-        cx + length / 2
         # Glow rectangle behind the inductor
         if highlighted:
             self._qp.setPen(Qt.PenStyle.NoPen)
@@ -105,11 +104,11 @@ class _SchematicPainter:
             self._qp.drawRoundedRect(
                 QRectF(x0 - 8, cy - 18, length + 16, 36), 10, 10,
             )
-        # Four humps
+        # Classic coil symbol: 3 semi-circles
         color = accent if highlighted else QColor("#000000")
         self._qp.setPen(self._pen(color, 1.8))
         self._qp.setBrush(Qt.BrushStyle.NoBrush)
-        n_humps = 4
+        n_humps = 3
         hump_w = length / n_humps
         path = QPainterPath()
         path.moveTo(x0, cy)
@@ -120,57 +119,45 @@ class _SchematicPainter:
                        180, -180)
         self._qp.drawPath(path)
 
-    # ---- diode bridge -------------------------------------------------
-    def bridge_4_diode(self, centre: tuple[float, float], size: float,
-                       color: QColor, label: str = "BR") -> None:
-        cx, cy = centre
-        s = size
-        # Diamond
-        path = QPainterPath()
-        path.moveTo(cx, cy - s)
-        path.lineTo(cx + s, cy)
-        path.lineTo(cx, cy + s)
-        path.lineTo(cx - s, cy)
-        path.lineTo(cx, cy - s)
-        self._qp.setPen(self._pen(color, 1.6))
-        self._qp.setBrush(Qt.BrushStyle.NoBrush)
-        self._qp.drawPath(path)
-        # Cross inside (the four diodes form an X plus)
-        self._qp.drawLine(QPointF(cx - s, cy), QPointF(cx + s, cy))
-        self._qp.drawLine(QPointF(cx, cy - s), QPointF(cx, cy + s))
-        self.text((cx, cy + s + 14), label, color, size=9, weight=600)
-
     # ---- transistor (MOSFET symbol simplified) -----------------------
     def mosfet(self, centre: tuple[float, float], color: QColor,
                label: str = "Q1") -> None:
         cx, cy = centre
         self._qp.setPen(self._pen(color, 1.5))
         self._qp.setBrush(Qt.BrushStyle.NoBrush)
-        # Draw a transistor body: vertical line + two diagonal lines.
-        self._qp.drawLine(QPointF(cx - 10, cy - 18), QPointF(cx - 10, cy + 18))
-        self._qp.drawLine(QPointF(cx - 10, cy - 8), QPointF(cx + 12, cy - 18))
-        self._qp.drawLine(QPointF(cx - 10, cy + 8), QPointF(cx + 12, cy + 18))
+        # Gate plate
+        self._qp.drawLine(QPointF(cx - 18, cy - 12), QPointF(cx - 18, cy + 12))
         # Gate stub
-        self._qp.drawLine(QPointF(cx - 22, cy), QPointF(cx - 13, cy))
+        self._qp.drawLine(QPointF(cx - 28, cy), QPointF(cx - 18, cy))
+        # Drain/source plates
+        self._qp.drawLine(QPointF(cx - 8, cy - 18), QPointF(cx - 8, cy - 8))
+        self._qp.drawLine(QPointF(cx - 8, cy + 8), QPointF(cx - 8, cy + 18))
+        self._qp.drawLine(QPointF(cx - 8, cy - 8), QPointF(cx + 4, cy - 8))
+        self._qp.drawLine(QPointF(cx - 8, cy + 8), QPointF(cx + 4, cy + 8))
+        # Channel
+        self._qp.drawLine(QPointF(cx + 4, cy - 8), QPointF(cx + 4, cy + 8))
         self.text((cx + 16, cy - 22), label, color, size=9, weight=600)
 
     # ---- diode --------------------------------------------------------
-    def diode(self, centre: tuple[float, float], color: QColor,
-              label: str = "D") -> None:
-        cx, cy = centre
+    def diode(self, p1: tuple[float, float], p2: tuple[float, float],
+              color: QColor, label: Optional[str] = None) -> None:
         self._qp.setPen(self._pen(color, 1.5))
-        self._qp.setBrush(QBrush(color))
-        # Triangle
+        self._qp.setBrush(Qt.BrushStyle.NoBrush)
+        # Line
+        self._qp.drawLine(QPointF(*p1), QPointF(*p2))
+        # Triangle (arrow) at the midpoint
+        cx = (p1[0] + p2[0]) / 2
+        cy = (p1[1] + p2[1]) / 2
         path = QPainterPath()
         path.moveTo(cx - 8, cy - 8)
         path.lineTo(cx + 8, cy)
         path.lineTo(cx - 8, cy + 8)
         path.lineTo(cx - 8, cy - 8)
         self._qp.drawPath(path)
-        self._qp.setBrush(Qt.BrushStyle.NoBrush)
-        # Bar
+        # Bar at the end
         self._qp.drawLine(QPointF(cx + 8, cy - 8), QPointF(cx + 8, cy + 8))
-        self.text((cx, cy - 18), label, color, size=9, weight=600)
+        if label:
+            self.text((cx, cy - 18), label, color, size=9, weight=600)
 
     # ---- capacitor ----------------------------------------------------
     def capacitor(self, centre: tuple[float, float], color: QColor,
@@ -179,18 +166,18 @@ class _SchematicPainter:
         self._qp.setPen(self._pen(color, 1.5))
         self._qp.setBrush(Qt.BrushStyle.NoBrush)
         # Flat plate
-        self._qp.drawLine(QPointF(cx - 10, cy - 10), QPointF(cx + 10, cy - 10))
+        self._qp.drawLine(QPointF(cx - 12, cy - 6), QPointF(cx + 12, cy - 6))
         # Curved or flat plate
         if polarised:
             path = QPainterPath()
-            path.moveTo(cx - 10, cy + 6)
-            path.quadTo(cx, cy + 18, cx + 10, cy + 6)
+            path.moveTo(cx - 12, cy + 6)
+            path.quadTo(cx, cy + 18, cx + 12, cy + 6)
             self._qp.drawPath(path)
         else:
-            self._qp.drawLine(QPointF(cx - 10, cy + 4),
-                              QPointF(cx + 10, cy + 4))
+            self._qp.drawLine(QPointF(cx - 12, cy + 6),
+                              QPointF(cx + 12, cy + 6))
         # Leads
-        self._qp.drawLine(QPointF(cx, cy - 18), QPointF(cx, cy - 10))
+        self._qp.drawLine(QPointF(cx, cy - 18), QPointF(cx, cy - 6))
         self._qp.drawLine(QPointF(cx, cy + 6), QPointF(cx, cy + 18))
         self.text((cx + 22, cy), label, color, size=9, weight=600)
 
@@ -211,7 +198,7 @@ class _SchematicPainter:
     # ---- DC bus rail (heavy line) ------------------------------------
     def dc_bus(self, p1: tuple[float, float], p2: tuple[float, float],
                color: QColor, label: str = "+VDC") -> None:
-        self.wire(p1, p2, color, width=2.4)
+        self.wire(p1, p2, color, width=2.0)
         mid_x = (p1[0] + p2[0]) / 2
         mid_y = (p1[1] + p2[1]) / 2 - 12
         self.text((mid_x, mid_y), label, color, size=9, weight=600)
@@ -225,134 +212,174 @@ def _render_boost_ccm(p: _SchematicPainter, accent: QColor,
                       neutral: QColor, glow: QColor) -> None:
     """Vac → bridge → L → Q1 / D → Cbus → load."""
     y_top, y_bot = 80, 180
-    # Vac source (left)
-    p.voltage_source_ac((90, (y_top + y_bot) / 2), neutral, "Vac")
-    # Connect AC source to bridge
-    p.wire((104, y_top), (180, y_top), neutral)
-    p.wire((104, y_bot), (180, y_bot), neutral)
-    # Bridge
-    p.bridge_4_diode((230, (y_top + y_bot) / 2), 50, neutral, "BR")
-    p.wire((180, y_top), (230, 80), neutral)
-    p.wire((180, y_bot), (230, 180), neutral)
+    x_ac, x_br_in, x_br_out, x_L, x_sw, x_cap, x_load = [80, 180, 280, 400, 540, 720, 880]
+
+    # AC Source and connections to bridge
+    p.voltage_source_ac((x_ac, (y_top + y_bot) / 2), neutral, "Vac")
+    p.wire((x_ac + 14, y_top), (x_br_in, y_top), neutral)
+    p.wire((x_ac + 14, y_bot), (x_br_in, y_bot), neutral)
+
+    # Diode Bridge (drawn as 4 individual diodes)
+    p.diode((x_br_in, y_top), (x_br_in + 40, (y_top + y_bot) / 2), neutral)
+    p.diode((x_br_in, y_bot), (x_br_in + 40, (y_top + y_bot) / 2), neutral)
+    p.diode((x_br_out - 40, (y_top + y_bot) / 2), (x_br_out, y_top), neutral)
+    p.diode((x_br_out - 40, (y_top + y_bot) / 2), (x_br_out, y_bot), neutral)
+    p.junction_dot((x_br_in + 40, (y_top + y_bot) / 2), neutral)
+    p.junction_dot((x_br_out - 40, (y_top + y_bot) / 2), neutral)
+    p.wire((x_br_in + 40, (y_top + y_bot) / 2), (x_br_out - 40, (y_top + y_bot) / 2), neutral)
+    p.text((230, 194), "BR", neutral, size=9, weight=600)
+
     # Bridge DC outputs
-    p.wire((280, 80), (340, 80), neutral)        # +DC out (top)
-    p.wire((280, 180), (700, 180), neutral)      # −DC bus
-    # Inductor on +DC rail
-    p.inductor((400, 80), length=110, accent=accent, glow_bg=glow,
-               highlighted=True)
-    p.text((400, 50), "L", accent, size=11, weight=700)
-    p.wire((455, 80), (520, 80), neutral)
-    # MOSFET (drain at +Vbus rail, source to ground)
-    p.mosfet((540, 110), neutral, "Q1")
-    p.wire((540, 92), (540, 80), neutral)
-    p.wire((540, 128), (540, 180), neutral)
-    p.junction_dot((540, 80), neutral)
-    # Diode after the inductor
-    p.diode((620, 80), neutral, "D")
-    p.wire((520, 80), (612, 80), neutral)
-    p.wire((628, 80), (700, 80), neutral)
+    p.wire((x_br_out, y_top), (x_L - 55, y_top), neutral)  # +DC out
+    p.wire((x_br_out, y_bot), (x_cap, y_bot), neutral)    # -DC bus
+
+    # Inductor, Switch, Diode
+    p.inductor((x_L, y_top), length=110, accent=accent, glow_bg=glow, highlighted=True)
+    p.text((x_L, y_top - 30), "L", accent, size=11, weight=700)
+    p.wire((x_L + 55, y_top), (x_sw, y_top), neutral)
+    p.mosfet((x_sw, 115), neutral, "Q1")
+    p.wire((x_sw, y_top), (x_sw, 97), neutral)
+    p.wire((x_sw, 133), (x_sw, y_bot), neutral)
+    p.junction_dot((x_sw, y_top), neutral)
+    p.junction_dot((x_sw, y_bot), neutral)
+    p.diode((x_sw + 40, y_top), (x_cap, y_top), neutral, "D")
+    p.junction_dot((x_sw + 40, y_top), neutral)
+    p.wire((x_sw, y_top), (x_sw + 40, y_top), neutral)
+
+
     # Output capacitor + DC bus
-    p.capacitor((720, 130), neutral, "C_bus", polarised=True)
-    p.wire((700, 80), (720, 80), neutral)
-    p.wire((720, 80), (720, 112), neutral)
-    p.wire((720, 148), (720, 180), neutral)
-    p.junction_dot((720, 80), neutral)
-    p.junction_dot((720, 180), neutral)
-    p.dc_bus((760, 80), (910, 80), neutral, "+VDC")
-    p.wire((760, 180), (910, 180), neutral)
-    p.text((910, 130), "load", neutral, size=9, weight=500)
+    p.capacitor((x_cap, 130), neutral, "C_bus", polarised=True)
+    p.wire((x_cap, y_top), (x_cap, 112), neutral)
+    p.wire((x_cap, 148), (x_cap, y_bot), neutral)
+    p.junction_dot((x_cap, y_top), neutral)
+    p.junction_dot((x_cap, y_bot), neutral)
+    p.dc_bus((x_cap + 40, y_top), (x_load + 30, y_top), neutral, "+VDC")
+    p.wire((x_cap + 40, y_bot), (x_load + 30, y_bot), neutral)
+    p.text((x_load + 30, 130), "load", neutral, size=9, weight=500)
 
 
 def _render_passive_choke(p: _SchematicPainter, accent: QColor,
                           neutral: QColor, glow: QColor) -> None:
     """Vac → bridge → L → Cbus → load."""
     y_top, y_bot = 80, 180
-    p.voltage_source_ac((90, (y_top + y_bot) / 2), neutral, "Vac")
-    p.wire((104, y_top), (180, y_top), neutral)
-    p.wire((104, y_bot), (180, y_bot), neutral)
-    p.bridge_4_diode((230, (y_top + y_bot) / 2), 50, neutral, "BR")
-    p.wire((180, y_top), (230, 80), neutral)
-    p.wire((180, y_bot), (230, 180), neutral)
-    p.wire((280, 80), (350, 80), neutral)
-    p.inductor((430, 80), length=160, accent=accent, glow_bg=glow,
-               highlighted=True)
-    p.text((430, 50), "L", accent, size=11, weight=700)
-    p.wire((510, 80), (610, 80), neutral)
-    p.wire((280, 180), (610, 180), neutral)
-    p.capacitor((630, 130), neutral, "C_bus", polarised=True)
-    p.wire((610, 80), (630, 80), neutral)
-    p.wire((630, 80), (630, 112), neutral)
-    p.wire((630, 148), (630, 180), neutral)
-    p.junction_dot((630, 80), neutral)
-    p.junction_dot((630, 180), neutral)
-    p.dc_bus((670, 80), (910, 80), neutral, "+VDC")
-    p.wire((670, 180), (910, 180), neutral)
-    p.text((910, 130), "load", neutral, size=9, weight=500)
+    x_ac, x_br_in, x_br_out, x_L, x_cap, x_load = [80, 180, 280, 430, 680, 880]
+
+    # AC Source and connections to bridge
+    p.voltage_source_ac((x_ac, (y_top + y_bot) / 2), neutral, "Vac")
+    p.wire((x_ac + 14, y_top), (x_br_in, y_top), neutral)
+    p.wire((x_ac + 14, y_bot), (x_br_in, y_bot), neutral)
+
+    # Diode Bridge
+    p.diode((x_br_in, y_top), (x_br_in + 40, (y_top + y_bot) / 2), neutral)
+    p.diode((x_br_in, y_bot), (x_br_in + 40, (y_top + y_bot) / 2), neutral)
+    p.diode((x_br_out - 40, (y_top + y_bot) / 2), (x_br_out, y_top), neutral)
+    p.diode((x_br_out - 40, (y_top + y_bot) / 2), (x_br_out, y_bot), neutral)
+    p.junction_dot((x_br_in + 40, (y_top + y_bot) / 2), neutral)
+    p.junction_dot((x_br_out - 40, (y_top + y_bot) / 2), neutral)
+    p.wire((x_br_in + 40, (y_top + y_bot) / 2), (x_br_out - 40, (y_top + y_bot) / 2), neutral)
+    p.text((230, 194), "BR", neutral, size=9, weight=600)
+
+    # Inductor
+    p.wire((x_br_out, y_top), (x_L-80, y_top), neutral)
+    p.inductor((x_L, y_top), length=160, accent=accent, glow_bg=glow, highlighted=True)
+    p.text((x_L, y_top - 30), "L", accent, size=11, weight=700)
+    p.wire((x_L + 80, y_top), (x_cap, y_top), neutral)
+
+    # DC Bus
+    p.wire((x_br_out, y_bot), (x_cap, y_bot), neutral)
+
+    # Output Cap and Load
+    p.capacitor((x_cap, 130), neutral, "C_bus", polarised=True)
+    p.wire((x_cap, y_top), (x_cap, 112), neutral)
+    p.wire((x_cap, 148), (x_cap, y_bot), neutral)
+    p.junction_dot((x_cap, y_top), neutral)
+    p.junction_dot((x_cap, y_bot), neutral)
+    p.dc_bus((x_cap + 40, y_top), (x_load + 30, y_top), neutral, "+VDC")
+    p.wire((x_cap + 40, y_bot), (x_load + 30, y_bot), neutral)
+    p.text((x_load + 30, 130), "load", neutral, size=9, weight=500)
 
 
 def _render_line_reactor_1ph(p: _SchematicPainter, accent: QColor,
                              neutral: QColor, glow: QColor) -> None:
     """Vac → L (AC side) → bridge → Cbus → load."""
     y_top, y_bot = 80, 180
-    p.voltage_source_ac((80, (y_top + y_bot) / 2), neutral, "Vac")
+    x_ac, x_L, x_br_in, x_br_out, x_cap, x_load = [80, 230, 380, 480, 720, 880]
+
+    p.voltage_source_ac((x_ac, (y_top + y_bot) / 2), neutral, "Vac")
     # Inductor on the top AC line
-    p.wire((94, y_top), (160, y_top), neutral)
-    p.inductor((230, y_top), length=120, accent=accent, glow_bg=glow,
-               highlighted=True)
-    p.text((230, 50), "L", accent, size=11, weight=700)
-    p.wire((290, y_top), (380, y_top), neutral)
-    p.wire((94, y_bot), (380, y_bot), neutral)
-    # Bridge
-    p.bridge_4_diode((430, (y_top + y_bot) / 2), 50, neutral, "BR")
-    p.wire((380, y_top), (430, 80), neutral)
-    p.wire((380, y_bot), (430, 180), neutral)
+    p.wire((x_ac + 14, y_top), (x_L - 60, y_top), neutral)
+    p.inductor((x_L, y_top), length=120, accent=accent, glow_bg=glow, highlighted=True)
+    p.text((x_L, 50), "L", accent, size=11, weight=700)
+    p.wire((x_L + 60, y_top), (x_br_in, y_top), neutral)
+    p.wire((x_ac + 14, y_bot), (x_br_in, y_bot), neutral)
+    # Diode Bridge
+    p.diode((x_br_in, y_top), (x_br_in + 40, (y_top + y_bot) / 2), neutral)
+    p.diode((x_br_in, y_bot), (x_br_in + 40, (y_top + y_bot) / 2), neutral)
+    p.diode((x_br_out - 40, (y_top + y_bot) / 2), (x_br_out, y_top), neutral)
+    p.diode((x_br_out - 40, (y_top + y_bot) / 2), (x_br_out, y_bot), neutral)
+    p.junction_dot((x_br_in + 40, (y_top + y_bot) / 2), neutral)
+    p.junction_dot((x_br_out - 40, (y_top + y_bot) / 2), neutral)
+    p.wire((x_br_in + 40, (y_top + y_bot) / 2), (x_br_out - 40, (y_top + y_bot) / 2), neutral)
+    p.text((430, 194), "BR", neutral, size=9, weight=600)
+
     # Output capacitor + bus
-    p.wire((480, y_top), (700, y_top), neutral)
-    p.wire((480, y_bot), (700, y_bot), neutral)
-    p.capacitor((720, 130), neutral, "C_bus", polarised=True)
-    p.wire((700, y_top), (720, y_top), neutral)
-    p.wire((720, y_top), (720, 112), neutral)
-    p.wire((720, 148), (720, y_bot), neutral)
-    p.junction_dot((720, y_top), neutral)
-    p.junction_dot((720, y_bot), neutral)
-    p.dc_bus((760, y_top), (910, y_top), neutral, "+VDC")
-    p.wire((760, y_bot), (910, y_bot), neutral)
-    p.text((910, 130), "load", neutral, size=9, weight=500)
+    p.wire((x_br_out, y_top), (x_cap, y_top), neutral)
+    p.wire((x_br_out, y_bot), (x_cap, y_bot), neutral)
+    p.capacitor((x_cap, 130), neutral, "C_bus", polarised=True)
+    p.wire((x_cap, y_top), (x_cap, 112), neutral)
+    p.wire((x_cap, 148), (x_cap, y_bot), neutral)
+    p.junction_dot((x_cap, y_top), neutral)
+    p.junction_dot((x_cap, y_bot), neutral)
+    p.dc_bus((x_cap + 40, y_top), (x_load + 30, y_top), neutral, "+VDC")
+    p.wire((x_cap + 40, y_bot), (x_load + 30, y_bot), neutral)
+    p.text((x_load + 30, 130), "load", neutral, size=9, weight=500)
 
 
 def _render_line_reactor_3ph(p: _SchematicPainter, accent: QColor,
                              neutral: QColor, glow: QColor) -> None:
     """L1/L2/L3 → 3 inductors → 6-pulse bridge → Cbus → load."""
     y_l1, y_l2, y_l3 = 60, 130, 200
+    x_in, x_L, x_br_in, x_br_out, x_cap, x_load = [30, 200, 370, 490, 720, 880]
+
     for y, label in zip((y_l1, y_l2, y_l3), ("L1", "L2", "L3"), strict=False):
-        p.text((30, y), label, neutral, size=10, weight=600)
-        p.wire((50, y), (140, y), neutral)
+        p.text((x_in, y), label, neutral, size=10, weight=600)
+        p.wire((x_in + 20, y), (x_L - 50, y), neutral)
     # Three inductors
     sub = ["L_a", "L_b", "L_c"]
     for y, lbl in zip((y_l1, y_l2, y_l3), sub, strict=False):
-        p.inductor((200, y), length=100, accent=accent, glow_bg=glow,
-                   highlighted=True)
-        p.text((200, y - 22), lbl, accent, size=9, weight=600)
-    for y in (y_l1, y_l2, y_l3):
-        p.wire((250, y), (370, y), neutral)
-    # 6-pulse bridge
-    p.bridge_4_diode((420, 130), 70, neutral, "BR (6-pulse)")
-    p.wire((370, y_l1), (420, 60), neutral)
-    p.wire((370, y_l2), (370, 130), neutral)
-    p.wire((370, 130), (420, 130), neutral)
-    p.wire((370, y_l3), (420, 200), neutral)
+        p.inductor((x_L, y), length=100, accent=accent, glow_bg=glow, highlighted=True)
+        p.text((x_L, y - 28), lbl, accent, size=9, weight=600)
+        p.wire((x_L + 50, y), (x_br_in, y), neutral)
+
+    # 6-pulse bridge (conceptual block)
+    s = 70
+    cx, cy = 420, 130
+    path = QPainterPath()
+    path.moveTo(cx, cy - s)
+    path.lineTo(cx + s, cy)
+    path.lineTo(cx, cy + s)
+    path.lineTo(cx - s, cy)
+    path.lineTo(cx, cy - s)
+    p._qp.setPen(p._pen(neutral, 1.6))
+    p._qp.setBrush(Qt.BrushStyle.NoBrush)
+    p._qp.drawPath(path)
+    p.text((cx, cy + s + 14), "BR (6-pulse)", neutral, size=9, weight=600)
+    p.wire((x_br_in, y_l1), (cx, cy-s), neutral)
+    p.wire((x_br_in, y_l2), (cx-s, cy), neutral)
+    p.wire((x_br_in, y_l3), (cx, cy+s), neutral)
+
+
     # +DC / −DC bus
-    p.wire((490, 60), (700, 60), neutral)
-    p.wire((490, 200), (700, 200), neutral)
-    p.capacitor((720, 130), neutral, "C_bus", polarised=True)
-    p.wire((700, 60), (720, 60), neutral)
-    p.wire((720, 60), (720, 112), neutral)
-    p.wire((720, 148), (720, 200), neutral)
-    p.junction_dot((720, 60), neutral)
-    p.junction_dot((720, 200), neutral)
-    p.dc_bus((760, 60), (920, 60), neutral, "+VDC")
-    p.wire((760, 200), (920, 200), neutral)
-    p.text((920, 130), "load", neutral, size=9, weight=500)
+    p.wire((x_br_out, y_l1), (x_cap, y_l1), neutral)
+    p.wire((x_br_out, y_l3), (x_cap, y_l3), neutral)
+    p.capacitor((x_cap, 130), neutral, "C_bus", polarised=True)
+    p.wire((x_cap, y_l1), (x_cap, 112), neutral)
+    p.wire((x_cap, 148), (x_cap, y_l3), neutral)
+    p.junction_dot((x_cap, y_l1), neutral)
+    p.junction_dot((x_cap, y_l3), neutral)
+    p.dc_bus((x_cap + 40, y_l1), (x_load + 40, y_l1), neutral, "+VDC")
+    p.wire((x_cap + 40, y_l3), (x_load + 40, y_l3), neutral)
+    p.text((x_load + 40, 130), "load", neutral, size=9, weight=500)
 
 
 _TOPOLOGY_RENDERERS = {

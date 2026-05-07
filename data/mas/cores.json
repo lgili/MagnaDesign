@@ -22442,81 +22442,6 @@
       }
     },
     {
-      "name": "EI60-20",
-      "manufacturer": "Dongxing",
-      "shape": {
-        "name": "EI60-20",
-        "family": "EI"
-      },
-      "dimensions": {
-        "effectiveArea": 400.0,
-        "effectiveMagneticPathLength": 117.0,
-        "effectiveVolume": 46800.0,
-        "windingWindowArea": 300.0,
-        "meanLengthTurn": 152.0,
-        "height": 58.0
-      },
-      "materialName": "dongxing-50h800",
-      "inductanceFactor": 672.0,
-      "gapLength": 0.0,
-      "notes": "Dongxing harmonic-reactor lamination set, calibrated against datasheets DX60346/414/415.",
-      "x-pfc-inductor": {
-        "id": "dongxing-ei6020-50h800",
-        "mass_g": 660.0,
-        "cost_per_piece": 8.0
-      }
-    },
-    {
-      "name": "EI41-17",
-      "manufacturer": "Dongxing",
-      "shape": {
-        "name": "EI41-17",
-        "family": "EI"
-      },
-      "dimensions": {
-        "effectiveArea": 240.0,
-        "effectiveMagneticPathLength": 80.0,
-        "effectiveVolume": 19200.0,
-        "windingWindowArea": 125.0,
-        "meanLengthTurn": 97.0,
-        "height": 36.5
-      },
-      "materialName": "dongxing-50cs1300",
-      "inductanceFactor": 510.0,
-      "gapLength": 0.0,
-      "notes": "Dongxing harmonic-reactor lamination set, calibrated against datasheets DX60346/414/415.",
-      "x-pfc-inductor": {
-        "id": "dongxing-ei4117-50cs1300",
-        "mass_g": 280.0,
-        "cost_per_piece": 8.0
-      }
-    },
-    {
-      "name": "EI28-17",
-      "manufacturer": "Dongxing",
-      "shape": {
-        "name": "EI28-17",
-        "family": "EI"
-      },
-      "dimensions": {
-        "effectiveArea": 170.0,
-        "effectiveMagneticPathLength": 65.0,
-        "effectiveVolume": 11050.0,
-        "windingWindowArea": 80.0,
-        "meanLengthTurn": 96.0,
-        "height": 31.6
-      },
-      "materialName": "dongxing-50h1300",
-      "inductanceFactor": 694.0,
-      "gapLength": 0.0,
-      "notes": "Dongxing harmonic-reactor lamination set, calibrated against datasheets DX60346/414/415.",
-      "x-pfc-inductor": {
-        "id": "dongxing-ei2817-50h1300",
-        "mass_g": 180.0,
-        "cost_per_piece": 8.0
-      }
-    },
-    {
       "name": "EI33-11",
       "manufacturer": "Dongxing",
       "shape": {
@@ -23564,6 +23489,1356 @@
         "id": "dongxing-ei9648-50cs1300",
         "mass_g": 2197.3,
         "cost_per_piece": 48.83
+      }
+    },
+    {
+      "name": "EI19-6",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI19-6",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 37.8,
+        "effectiveMagneticPathLength": 36.9,
+        "effectiveVolume": 1394.8,
+        "windingWindowArea": 29.8,
+        "meanLengthTurn": 43.9,
+        "height": 24.9
+      },
+      "materialName": "dongxing-50h800",
+      "inductanceFactor": 212.4,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei196-50h800",
+        "mass_g": 10.7,
+        "cost_per_piece": 0.24
+      }
+    },
+    {
+      "name": "EI19-6",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI19-6",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 37.8,
+        "effectiveMagneticPathLength": 36.9,
+        "effectiveVolume": 1394.8,
+        "windingWindowArea": 29.8,
+        "meanLengthTurn": 43.9,
+        "height": 24.9
+      },
+      "materialName": "dongxing-50h1300",
+      "inductanceFactor": 212.4,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei196-50h1300",
+        "mass_g": 10.7,
+        "cost_per_piece": 0.24
+      }
+    },
+    {
+      "name": "EI19-6",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI19-6",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 37.8,
+        "effectiveMagneticPathLength": 36.9,
+        "effectiveVolume": 1394.8,
+        "windingWindowArea": 29.8,
+        "meanLengthTurn": 43.9,
+        "height": 24.9
+      },
+      "materialName": "dongxing-50cs1300",
+      "inductanceFactor": 212.4,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei196-50cs1300",
+        "mass_g": 10.7,
+        "cost_per_piece": 0.24
+      }
+    },
+    {
+      "name": "EI19-9",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI19-9",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 56.7,
+        "effectiveMagneticPathLength": 36.9,
+        "effectiveVolume": 2092.2,
+        "windingWindowArea": 29.8,
+        "meanLengthTurn": 54.6,
+        "height": 27.9
+      },
+      "materialName": "dongxing-50h800",
+      "inductanceFactor": 318.6,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei199-50h800",
+        "mass_g": 16.0,
+        "cost_per_piece": 0.36
+      }
+    },
+    {
+      "name": "EI19-9",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI19-9",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 56.7,
+        "effectiveMagneticPathLength": 36.9,
+        "effectiveVolume": 2092.2,
+        "windingWindowArea": 29.8,
+        "meanLengthTurn": 54.6,
+        "height": 27.9
+      },
+      "materialName": "dongxing-50h1300",
+      "inductanceFactor": 318.6,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei199-50h1300",
+        "mass_g": 16.0,
+        "cost_per_piece": 0.36
+      }
+    },
+    {
+      "name": "EI19-9",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI19-9",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 56.7,
+        "effectiveMagneticPathLength": 36.9,
+        "effectiveVolume": 2092.2,
+        "windingWindowArea": 29.8,
+        "meanLengthTurn": 54.6,
+        "height": 27.9
+      },
+      "materialName": "dongxing-50cs1300",
+      "inductanceFactor": 318.6,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei199-50cs1300",
+        "mass_g": 16.0,
+        "cost_per_piece": 0.36
+      }
+    },
+    {
+      "name": "EI25-8",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI25-8",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 66.4,
+        "effectiveMagneticPathLength": 48.5,
+        "effectiveVolume": 3220.4,
+        "windingWindowArea": 51.7,
+        "meanLengthTurn": 58.2,
+        "height": 32.9
+      },
+      "materialName": "dongxing-50h800",
+      "inductanceFactor": 283.9,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei258-50h800",
+        "mass_g": 24.6,
+        "cost_per_piece": 0.55
+      }
+    },
+    {
+      "name": "EI25-8",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI25-8",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 66.4,
+        "effectiveMagneticPathLength": 48.5,
+        "effectiveVolume": 3220.4,
+        "windingWindowArea": 51.7,
+        "meanLengthTurn": 58.2,
+        "height": 32.9
+      },
+      "materialName": "dongxing-50h1300",
+      "inductanceFactor": 283.9,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei258-50h1300",
+        "mass_g": 24.6,
+        "cost_per_piece": 0.55
+      }
+    },
+    {
+      "name": "EI25-8",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI25-8",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 66.4,
+        "effectiveMagneticPathLength": 48.5,
+        "effectiveVolume": 3220.4,
+        "windingWindowArea": 51.7,
+        "meanLengthTurn": 58.2,
+        "height": 32.9
+      },
+      "materialName": "dongxing-50cs1300",
+      "inductanceFactor": 283.9,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei258-50cs1300",
+        "mass_g": 24.6,
+        "cost_per_piece": 0.55
+      }
+    },
+    {
+      "name": "EI25-12",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI25-12",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 99.6,
+        "effectiveMagneticPathLength": 48.5,
+        "effectiveVolume": 4830.6,
+        "windingWindowArea": 51.7,
+        "meanLengthTurn": 72.5,
+        "height": 36.9
+      },
+      "materialName": "dongxing-50h800",
+      "inductanceFactor": 425.8,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei2512-50h800",
+        "mass_g": 37.0,
+        "cost_per_piece": 0.82
+      }
+    },
+    {
+      "name": "EI25-12",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI25-12",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 99.6,
+        "effectiveMagneticPathLength": 48.5,
+        "effectiveVolume": 4830.6,
+        "windingWindowArea": 51.7,
+        "meanLengthTurn": 72.5,
+        "height": 36.9
+      },
+      "materialName": "dongxing-50h1300",
+      "inductanceFactor": 425.8,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei2512-50h1300",
+        "mass_g": 37.0,
+        "cost_per_piece": 0.82
+      }
+    },
+    {
+      "name": "EI25-12",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI25-12",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 99.6,
+        "effectiveMagneticPathLength": 48.5,
+        "effectiveVolume": 4830.6,
+        "windingWindowArea": 51.7,
+        "meanLengthTurn": 72.5,
+        "height": 36.9
+      },
+      "materialName": "dongxing-50cs1300",
+      "inductanceFactor": 425.8,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei2512-50cs1300",
+        "mass_g": 37.0,
+        "cost_per_piece": 0.82
+      }
+    },
+    {
+      "name": "EI30-10",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI30-10",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 100.0,
+        "effectiveMagneticPathLength": 58.5,
+        "effectiveVolume": 5850.0,
+        "windingWindowArea": 75.0,
+        "meanLengthTurn": 71.4,
+        "height": 40.0
+      },
+      "materialName": "dongxing-50h800",
+      "inductanceFactor": 354.4,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei3010-50h800",
+        "mass_g": 44.8,
+        "cost_per_piece": 0.99
+      }
+    },
+    {
+      "name": "EI30-10",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI30-10",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 100.0,
+        "effectiveMagneticPathLength": 58.5,
+        "effectiveVolume": 5850.0,
+        "windingWindowArea": 75.0,
+        "meanLengthTurn": 71.4,
+        "height": 40.0
+      },
+      "materialName": "dongxing-50h1300",
+      "inductanceFactor": 354.4,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei3010-50h1300",
+        "mass_g": 44.8,
+        "cost_per_piece": 0.99
+      }
+    },
+    {
+      "name": "EI30-10",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI30-10",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 100.0,
+        "effectiveMagneticPathLength": 58.5,
+        "effectiveVolume": 5850.0,
+        "windingWindowArea": 75.0,
+        "meanLengthTurn": 71.4,
+        "height": 40.0
+      },
+      "materialName": "dongxing-50cs1300",
+      "inductanceFactor": 354.4,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei3010-50cs1300",
+        "mass_g": 44.8,
+        "cost_per_piece": 0.99
+      }
+    },
+    {
+      "name": "EI30-15",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI30-15",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 150.0,
+        "effectiveMagneticPathLength": 58.5,
+        "effectiveVolume": 8775.0,
+        "windingWindowArea": 75.0,
+        "meanLengthTurn": 89.3,
+        "height": 45.0
+      },
+      "materialName": "dongxing-50h800",
+      "inductanceFactor": 531.7,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei3015-50h800",
+        "mass_g": 67.1,
+        "cost_per_piece": 1.49
+      }
+    },
+    {
+      "name": "EI30-15",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI30-15",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 150.0,
+        "effectiveMagneticPathLength": 58.5,
+        "effectiveVolume": 8775.0,
+        "windingWindowArea": 75.0,
+        "meanLengthTurn": 89.3,
+        "height": 45.0
+      },
+      "materialName": "dongxing-50h1300",
+      "inductanceFactor": 531.7,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei3015-50h1300",
+        "mass_g": 67.1,
+        "cost_per_piece": 1.49
+      }
+    },
+    {
+      "name": "EI30-15",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI30-15",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 150.0,
+        "effectiveMagneticPathLength": 58.5,
+        "effectiveVolume": 8775.0,
+        "windingWindowArea": 75.0,
+        "meanLengthTurn": 89.3,
+        "height": 45.0
+      },
+      "materialName": "dongxing-50cs1300",
+      "inductanceFactor": 531.7,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei3015-50cs1300",
+        "mass_g": 67.1,
+        "cost_per_piece": 1.49
+      }
+    },
+    {
+      "name": "EI40-13",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI40-13",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 172.9,
+        "effectiveMagneticPathLength": 77.8,
+        "effectiveVolume": 13451.6,
+        "windingWindowArea": 132.7,
+        "meanLengthTurn": 93.9,
+        "height": 52.9
+      },
+      "materialName": "dongxing-50h800",
+      "inductanceFactor": 460.8,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei4013-50h800",
+        "mass_g": 102.9,
+        "cost_per_piece": 2.29
+      }
+    },
+    {
+      "name": "EI40-13",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI40-13",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 172.9,
+        "effectiveMagneticPathLength": 77.8,
+        "effectiveVolume": 13451.6,
+        "windingWindowArea": 132.7,
+        "meanLengthTurn": 93.9,
+        "height": 52.9
+      },
+      "materialName": "dongxing-50h1300",
+      "inductanceFactor": 460.8,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei4013-50h1300",
+        "mass_g": 102.9,
+        "cost_per_piece": 2.29
+      }
+    },
+    {
+      "name": "EI40-13",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI40-13",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 172.9,
+        "effectiveMagneticPathLength": 77.8,
+        "effectiveVolume": 13451.6,
+        "windingWindowArea": 132.7,
+        "meanLengthTurn": 93.9,
+        "height": 52.9
+      },
+      "materialName": "dongxing-50cs1300",
+      "inductanceFactor": 460.8,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei4013-50cs1300",
+        "mass_g": 102.9,
+        "cost_per_piece": 2.29
+      }
+    },
+    {
+      "name": "EI40-20",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI40-20",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 266.0,
+        "effectiveMagneticPathLength": 77.8,
+        "effectiveVolume": 20694.8,
+        "windingWindowArea": 132.7,
+        "meanLengthTurn": 118.9,
+        "height": 59.9
+      },
+      "materialName": "dongxing-50h800",
+      "inductanceFactor": 708.9,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei4020-50h800",
+        "mass_g": 158.3,
+        "cost_per_piece": 3.52
+      }
+    },
+    {
+      "name": "EI40-20",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI40-20",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 266.0,
+        "effectiveMagneticPathLength": 77.8,
+        "effectiveVolume": 20694.8,
+        "windingWindowArea": 132.7,
+        "meanLengthTurn": 118.9,
+        "height": 59.9
+      },
+      "materialName": "dongxing-50h1300",
+      "inductanceFactor": 708.9,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei4020-50h1300",
+        "mass_g": 158.3,
+        "cost_per_piece": 3.52
+      }
+    },
+    {
+      "name": "EI40-20",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI40-20",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 266.0,
+        "effectiveMagneticPathLength": 77.8,
+        "effectiveVolume": 20694.8,
+        "windingWindowArea": 132.7,
+        "meanLengthTurn": 118.9,
+        "height": 59.9
+      },
+      "materialName": "dongxing-50cs1300",
+      "inductanceFactor": 708.9,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei4020-50cs1300",
+        "mass_g": 158.3,
+        "cost_per_piece": 3.52
+      }
+    },
+    {
+      "name": "EI50-17",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI50-17",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 283.9,
+        "effectiveMagneticPathLength": 97.7,
+        "effectiveVolume": 27737.0,
+        "windingWindowArea": 209.2,
+        "meanLengthTurn": 120.3,
+        "height": 67.1
+      },
+      "materialName": "dongxing-50h800",
+      "inductanceFactor": 602.5,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei5017-50h800",
+        "mass_g": 212.2,
+        "cost_per_piece": 4.72
+      }
+    },
+    {
+      "name": "EI50-17",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI50-17",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 283.9,
+        "effectiveMagneticPathLength": 97.7,
+        "effectiveVolume": 27737.0,
+        "windingWindowArea": 209.2,
+        "meanLengthTurn": 120.3,
+        "height": 67.1
+      },
+      "materialName": "dongxing-50h1300",
+      "inductanceFactor": 602.5,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei5017-50h1300",
+        "mass_g": 212.2,
+        "cost_per_piece": 4.72
+      }
+    },
+    {
+      "name": "EI50-17",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI50-17",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 283.9,
+        "effectiveMagneticPathLength": 97.7,
+        "effectiveVolume": 27737.0,
+        "windingWindowArea": 209.2,
+        "meanLengthTurn": 120.3,
+        "height": 67.1
+      },
+      "materialName": "dongxing-50cs1300",
+      "inductanceFactor": 602.5,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei5017-50cs1300",
+        "mass_g": 212.2,
+        "cost_per_piece": 4.72
+      }
+    },
+    {
+      "name": "EI50-25",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI50-25",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 417.5,
+        "effectiveMagneticPathLength": 97.7,
+        "effectiveVolume": 40789.8,
+        "windingWindowArea": 209.2,
+        "meanLengthTurn": 148.9,
+        "height": 75.1
+      },
+      "materialName": "dongxing-50h800",
+      "inductanceFactor": 886.0,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei5025-50h800",
+        "mass_g": 312.0,
+        "cost_per_piece": 6.93
+      }
+    },
+    {
+      "name": "EI50-25",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI50-25",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 417.5,
+        "effectiveMagneticPathLength": 97.7,
+        "effectiveVolume": 40789.8,
+        "windingWindowArea": 209.2,
+        "meanLengthTurn": 148.9,
+        "height": 75.1
+      },
+      "materialName": "dongxing-50h1300",
+      "inductanceFactor": 886.0,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei5025-50h1300",
+        "mass_g": 312.0,
+        "cost_per_piece": 6.93
+      }
+    },
+    {
+      "name": "EI50-25",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI50-25",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 417.5,
+        "effectiveMagneticPathLength": 97.7,
+        "effectiveVolume": 40789.8,
+        "windingWindowArea": 209.2,
+        "meanLengthTurn": 148.9,
+        "height": 75.1
+      },
+      "materialName": "dongxing-50cs1300",
+      "inductanceFactor": 886.0,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei5025-50cs1300",
+        "mass_g": 312.0,
+        "cost_per_piece": 6.93
+      }
+    },
+    {
+      "name": "EI60-20",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI60-20",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 400.0,
+        "effectiveMagneticPathLength": 117.0,
+        "effectiveVolume": 46800.0,
+        "windingWindowArea": 300.0,
+        "meanLengthTurn": 142.8,
+        "height": 80.0
+      },
+      "materialName": "dongxing-50h800",
+      "inductanceFactor": 708.9,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei6020-50h800",
+        "mass_g": 358.0,
+        "cost_per_piece": 7.96
+      }
+    },
+    {
+      "name": "EI60-20",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI60-20",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 400.0,
+        "effectiveMagneticPathLength": 117.0,
+        "effectiveVolume": 46800.0,
+        "windingWindowArea": 300.0,
+        "meanLengthTurn": 142.8,
+        "height": 80.0
+      },
+      "materialName": "dongxing-50h1300",
+      "inductanceFactor": 708.9,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei6020-50h1300",
+        "mass_g": 358.0,
+        "cost_per_piece": 7.96
+      }
+    },
+    {
+      "name": "EI60-20",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI60-20",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 400.0,
+        "effectiveMagneticPathLength": 117.0,
+        "effectiveVolume": 46800.0,
+        "windingWindowArea": 300.0,
+        "meanLengthTurn": 142.8,
+        "height": 80.0
+      },
+      "materialName": "dongxing-50cs1300",
+      "inductanceFactor": 708.9,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei6020-50cs1300",
+        "mass_g": 358.0,
+        "cost_per_piece": 7.96
+      }
+    },
+    {
+      "name": "EI60-30",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI60-30",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 600.0,
+        "effectiveMagneticPathLength": 117.0,
+        "effectiveVolume": 70200.0,
+        "windingWindowArea": 300.0,
+        "meanLengthTurn": 178.5,
+        "height": 90.0
+      },
+      "materialName": "dongxing-50h800",
+      "inductanceFactor": 1063.3,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei6030-50h800",
+        "mass_g": 537.0,
+        "cost_per_piece": 11.93
+      }
+    },
+    {
+      "name": "EI60-30",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI60-30",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 600.0,
+        "effectiveMagneticPathLength": 117.0,
+        "effectiveVolume": 70200.0,
+        "windingWindowArea": 300.0,
+        "meanLengthTurn": 178.5,
+        "height": 90.0
+      },
+      "materialName": "dongxing-50h1300",
+      "inductanceFactor": 1063.3,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei6030-50h1300",
+        "mass_g": 537.0,
+        "cost_per_piece": 11.93
+      }
+    },
+    {
+      "name": "EI60-30",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI60-30",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 600.0,
+        "effectiveMagneticPathLength": 117.0,
+        "effectiveVolume": 70200.0,
+        "windingWindowArea": 300.0,
+        "meanLengthTurn": 178.5,
+        "height": 90.0
+      },
+      "materialName": "dongxing-50cs1300",
+      "inductanceFactor": 1063.3,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei6030-50cs1300",
+        "mass_g": 537.0,
+        "cost_per_piece": 11.93
+      }
+    },
+    {
+      "name": "EI70-23",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI70-23",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 535.9,
+        "effectiveMagneticPathLength": 136.3,
+        "effectiveVolume": 73043.2,
+        "windingWindowArea": 407.2,
+        "meanLengthTurn": 165.3,
+        "height": 92.9
+      },
+      "materialName": "dongxing-50h800",
+      "inductanceFactor": 815.2,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei7023-50h800",
+        "mass_g": 558.8,
+        "cost_per_piece": 12.42
+      }
+    },
+    {
+      "name": "EI70-23",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI70-23",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 535.9,
+        "effectiveMagneticPathLength": 136.3,
+        "effectiveVolume": 73043.2,
+        "windingWindowArea": 407.2,
+        "meanLengthTurn": 165.3,
+        "height": 92.9
+      },
+      "materialName": "dongxing-50h1300",
+      "inductanceFactor": 815.2,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei7023-50h1300",
+        "mass_g": 558.8,
+        "cost_per_piece": 12.42
+      }
+    },
+    {
+      "name": "EI70-23",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI70-23",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 535.9,
+        "effectiveMagneticPathLength": 136.3,
+        "effectiveVolume": 73043.2,
+        "windingWindowArea": 407.2,
+        "meanLengthTurn": 165.3,
+        "height": 92.9
+      },
+      "materialName": "dongxing-50cs1300",
+      "inductanceFactor": 815.2,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei7023-50cs1300",
+        "mass_g": 558.8,
+        "cost_per_piece": 12.42
+      }
+    },
+    {
+      "name": "EI70-35",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI70-35",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 815.5,
+        "effectiveMagneticPathLength": 136.3,
+        "effectiveVolume": 111152.7,
+        "windingWindowArea": 407.2,
+        "meanLengthTurn": 208.2,
+        "height": 104.9
+      },
+      "materialName": "dongxing-50h800",
+      "inductanceFactor": 1240.6,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei7035-50h800",
+        "mass_g": 850.3,
+        "cost_per_piece": 18.9
+      }
+    },
+    {
+      "name": "EI70-35",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI70-35",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 815.5,
+        "effectiveMagneticPathLength": 136.3,
+        "effectiveVolume": 111152.7,
+        "windingWindowArea": 407.2,
+        "meanLengthTurn": 208.2,
+        "height": 104.9
+      },
+      "materialName": "dongxing-50h1300",
+      "inductanceFactor": 1240.6,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei7035-50h1300",
+        "mass_g": 850.3,
+        "cost_per_piece": 18.9
+      }
+    },
+    {
+      "name": "EI70-35",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI70-35",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 815.5,
+        "effectiveMagneticPathLength": 136.3,
+        "effectiveVolume": 111152.7,
+        "windingWindowArea": 407.2,
+        "meanLengthTurn": 208.2,
+        "height": 104.9
+      },
+      "materialName": "dongxing-50cs1300",
+      "inductanceFactor": 1240.6,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei7035-50cs1300",
+        "mass_g": 850.3,
+        "cost_per_piece": 18.9
+      }
+    },
+    {
+      "name": "EI80-27",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI80-27",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 720.9,
+        "effectiveMagneticPathLength": 156.2,
+        "effectiveVolume": 112604.6,
+        "windingWindowArea": 534.7,
+        "meanLengthTurn": 191.8,
+        "height": 107.1
+      },
+      "materialName": "dongxing-50h800",
+      "inductanceFactor": 956.9,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei8027-50h800",
+        "mass_g": 861.4,
+        "cost_per_piece": 19.14
+      }
+    },
+    {
+      "name": "EI80-27",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI80-27",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 720.9,
+        "effectiveMagneticPathLength": 156.2,
+        "effectiveVolume": 112604.6,
+        "windingWindowArea": 534.7,
+        "meanLengthTurn": 191.8,
+        "height": 107.1
+      },
+      "materialName": "dongxing-50h1300",
+      "inductanceFactor": 956.9,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei8027-50h1300",
+        "mass_g": 861.4,
+        "cost_per_piece": 19.14
+      }
+    },
+    {
+      "name": "EI80-27",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI80-27",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 720.9,
+        "effectiveMagneticPathLength": 156.2,
+        "effectiveVolume": 112604.6,
+        "windingWindowArea": 534.7,
+        "meanLengthTurn": 191.8,
+        "height": 107.1
+      },
+      "materialName": "dongxing-50cs1300",
+      "inductanceFactor": 956.9,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei8027-50cs1300",
+        "mass_g": 861.4,
+        "cost_per_piece": 19.14
+      }
+    },
+    {
+      "name": "EI80-40",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI80-40",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 1068.0,
+        "effectiveMagneticPathLength": 156.2,
+        "effectiveVolume": 166821.6,
+        "windingWindowArea": 534.7,
+        "meanLengthTurn": 238.2,
+        "height": 120.1
+      },
+      "materialName": "dongxing-50h800",
+      "inductanceFactor": 1417.7,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei8040-50h800",
+        "mass_g": 1276.2,
+        "cost_per_piece": 28.36
+      }
+    },
+    {
+      "name": "EI80-40",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI80-40",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 1068.0,
+        "effectiveMagneticPathLength": 156.2,
+        "effectiveVolume": 166821.6,
+        "windingWindowArea": 534.7,
+        "meanLengthTurn": 238.2,
+        "height": 120.1
+      },
+      "materialName": "dongxing-50h1300",
+      "inductanceFactor": 1417.7,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei8040-50h1300",
+        "mass_g": 1276.2,
+        "cost_per_piece": 28.36
+      }
+    },
+    {
+      "name": "EI80-40",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI80-40",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 1068.0,
+        "effectiveMagneticPathLength": 156.2,
+        "effectiveVolume": 166821.6,
+        "windingWindowArea": 534.7,
+        "meanLengthTurn": 238.2,
+        "height": 120.1
+      },
+      "materialName": "dongxing-50cs1300",
+      "inductanceFactor": 1417.7,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei8040-50cs1300",
+        "mass_g": 1276.2,
+        "cost_per_piece": 28.36
+      }
+    },
+    {
+      "name": "EI90-30",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI90-30",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 900.0,
+        "effectiveMagneticPathLength": 175.5,
+        "effectiveVolume": 157950.0,
+        "windingWindowArea": 675.0,
+        "meanLengthTurn": 214.2,
+        "height": 120.0
+      },
+      "materialName": "dongxing-50h800",
+      "inductanceFactor": 1063.3,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei9030-50h800",
+        "mass_g": 1208.3,
+        "cost_per_piece": 26.85
+      }
+    },
+    {
+      "name": "EI90-30",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI90-30",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 900.0,
+        "effectiveMagneticPathLength": 175.5,
+        "effectiveVolume": 157950.0,
+        "windingWindowArea": 675.0,
+        "meanLengthTurn": 214.2,
+        "height": 120.0
+      },
+      "materialName": "dongxing-50h1300",
+      "inductanceFactor": 1063.3,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei9030-50h1300",
+        "mass_g": 1208.3,
+        "cost_per_piece": 26.85
+      }
+    },
+    {
+      "name": "EI90-30",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI90-30",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 900.0,
+        "effectiveMagneticPathLength": 175.5,
+        "effectiveVolume": 157950.0,
+        "windingWindowArea": 675.0,
+        "meanLengthTurn": 214.2,
+        "height": 120.0
+      },
+      "materialName": "dongxing-50cs1300",
+      "inductanceFactor": 1063.3,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei9030-50cs1300",
+        "mass_g": 1208.3,
+        "cost_per_piece": 26.85
+      }
+    },
+    {
+      "name": "EI90-45",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI90-45",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 1350.0,
+        "effectiveMagneticPathLength": 175.5,
+        "effectiveVolume": 236925.0,
+        "windingWindowArea": 675.0,
+        "meanLengthTurn": 267.8,
+        "height": 135.0
+      },
+      "materialName": "dongxing-50h800",
+      "inductanceFactor": 1595.0,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei9045-50h800",
+        "mass_g": 1812.5,
+        "cost_per_piece": 40.28
+      }
+    },
+    {
+      "name": "EI90-45",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI90-45",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 1350.0,
+        "effectiveMagneticPathLength": 175.5,
+        "effectiveVolume": 236925.0,
+        "windingWindowArea": 675.0,
+        "meanLengthTurn": 267.8,
+        "height": 135.0
+      },
+      "materialName": "dongxing-50h1300",
+      "inductanceFactor": 1595.0,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei9045-50h1300",
+        "mass_g": 1812.5,
+        "cost_per_piece": 40.28
+      }
+    },
+    {
+      "name": "EI90-45",
+      "manufacturer": "Dongxing",
+      "shape": {
+        "name": "EI90-45",
+        "family": "EI"
+      },
+      "dimensions": {
+        "effectiveArea": 1350.0,
+        "effectiveMagneticPathLength": 175.5,
+        "effectiveVolume": 236925.0,
+        "windingWindowArea": 675.0,
+        "meanLengthTurn": 267.8,
+        "height": 135.0
+      },
+      "materialName": "dongxing-50cs1300",
+      "inductanceFactor": 1595.0,
+      "gapLength": 0.0,
+      "notes": "Dongxing harmonic-reactor lamination set, JIS C2535 standard geometry. AL extrapolated from DX60346/414/415 calibration (μ_eff ≈ 165); verify against datasheet for production designs.",
+      "x-pfc-inductor": {
+        "id": "dongxing-ei9045-50cs1300",
+        "mass_g": 1812.5,
+        "cost_per_piece": 40.28
       }
     }
   ]
