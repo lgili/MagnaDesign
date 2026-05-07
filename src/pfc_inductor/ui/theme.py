@@ -191,6 +191,15 @@ class Palette:
     plot_ripple: str
     plot_static: str
 
+    # Categorical data series. Use these for *categories* (Cu DC vs Cu
+    # AC vs Núcleo, etc.) — DO NOT reuse the semantic ``warning`` /
+    # ``danger`` tokens for plain data, which used to make a "Cu AC"
+    # bar look like a "warning" status. Three series cover today's
+    # callers; extend the dataclass when a 4th lands.
+    data_series_1: str    # primary categorical (e.g. Cu DC)
+    data_series_2: str    # secondary
+    data_series_3: str    # tertiary
+
     # Pareto / scatter plots (matplotlib, no theme rebuild on the fly —
     # read at dialog construction time).
     plot_pareto_infeasible: str
@@ -252,6 +261,11 @@ LIGHT = Palette(
     plot_envelope="#3B82F6",
     plot_ripple="#F59E0B",
     plot_static="#A1A1AA",
+
+    # Categorical series — kept distinct from semantic warning/danger.
+    data_series_1="#3B82F6",            # blue 500 — primary
+    data_series_2="#A855F7",            # violet 500 — secondary
+    data_series_3="#C98A4B",            # copper — tertiary (reuses copper)
 
     plot_pareto_infeasible="#A1A1AA",
     plot_pareto_feasible="#3A78B5",
@@ -315,6 +329,12 @@ DARK = Palette(
     plot_envelope="#60A5FA",
     plot_ripple="#FBBF24",
     plot_static="#52525B",
+
+    # Categorical series for dark — same hue family as light, lighter
+    # luminance so they sit well on #16181D surface.
+    data_series_1="#60A5FA",            # blue 400 — primary
+    data_series_2="#C084FC",            # violet 400 — secondary
+    data_series_3="#E59A5C",            # copper bright — tertiary
 
     plot_pareto_infeasible="#52525B",
     plot_pareto_feasible="#60A5FA",

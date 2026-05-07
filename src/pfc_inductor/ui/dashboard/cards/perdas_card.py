@@ -38,10 +38,15 @@ class _PerdasBody(QWidget):
         losses = result.losses
         # Segment colours pinned to semantic palette tokens so the bar
         # reads consistently in both themes.
+        # Use categorical data tokens — NOT semantic warning/danger.
+        # The previous mapping made a "Cu AC" bar render in amber
+        # (warning) which read as "Cu AC has a problem" instead of
+        # "Cu AC is the second loss category". data_series_2 is
+        # violet, distinct from the copper of data_series_3.
         self._bar.set_segments([
-            Segment("Cu DC", losses.P_cu_dc_W, p.accent),
-            Segment("Cu AC", losses.P_cu_ac_W, p.warning),
-            Segment("Núcleo", losses.P_core_total_W, p.copper),
+            Segment("Cu DC", losses.P_cu_dc_W, p.data_series_1),
+            Segment("Cu AC", losses.P_cu_ac_W, p.data_series_2),
+            Segment("Núcleo", losses.P_core_total_W, p.data_series_3),
         ])
 
     def clear(self) -> None:
