@@ -60,6 +60,10 @@ capabilities. Items marked *Planned* live on the roadmap.
 | Litz strand optimizer            | Available   | Sullivan criterion to hit a target Rac/Rdc; AWG-bounded; one-click save as new wire |
 | Similar-parts finder             | Available   | Weighted distance over (Ae, Wa, AL, μr, Bsat); per-vendor and per-shape filters    |
 | Multi-design comparator          | Available   | Up to four designs side-by-side, HTML / CSV export                                 |
+| Cascade optimizer (Phase A)      | Available   | Multi-tier brute-force: Tier 0 envelope + Tier 1 analytical, persistent SQLite run store, resumable, parallel pool |
+| Cascade Tier 2 (transient ODE)   | Planned     | Phase B — non-linear ODE simulator catches mid-cycle saturation                    |
+| Cascade Tier 3 (batched FEA)     | Planned     | Phase C — FEMMT magnetostatic on the top-50                                        |
+| Cascade Tier 4 (transient FEA)   | Planned     | Phase D — opt-in transient FEMMT on the top-5                                      |
 | FEA validation (magnetostatic)   | Available   | FEMMT primary backend; legacy FEMM / xfemm auto-detected when installed            |
 | IEC 61000-3-2 compliance plot    | Available   | Class D harmonic envelope (line-reactor flow)                                      |
 

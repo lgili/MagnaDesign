@@ -54,7 +54,13 @@ pfc_inductor = ["data/*.json", "py.typed"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
-addopts = "-ra --strict-markers"
+# `-m "not slow"` keeps the regular run under three minutes; the CLI
+# subprocess tests add ~17 min and are gated behind the `slow` marker.
+# Run them on demand with: ``uv run pytest -m slow``.
+addopts = "-ra --strict-markers -m 'not slow'"
+markers = [
+    "slow: end-to-end tests that spawn subprocesses or load the full DB; opt-in via -m slow",
+]
 
 [tool.ruff]
 line-length = 100

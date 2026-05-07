@@ -14,109 +14,112 @@ cascade UI skeleton.
 
 ### A.1 ConverterModel interface
 
-- [ ] A.1.1 Define `ConverterModel` Protocol in
+- [x] A.1.1 Define `ConverterModel` Protocol in
       `topology/protocol.py` with the methods listed in
       `design.md` (`feasibility_envelope`, `steady_state`,
       `state_derivatives`, `event_functions`, `loss_envelope`,
       `fea_geometry_hints`).
-- [ ] A.1.2 Define associated DTOs as Pydantic models in
+- [x] A.1.2 Define associated DTOs as Pydantic models in
       `models/cascade.py`: `FeasibilityEnvelope`, `SteadyState`,
       `Waveform`, `LossEnvelope`, `FEAHints`, `Candidate`,
       `Tier0Result`, `Tier1Result`, `Tier2Result`, `Tier3Result`,
       `Tier4Result`.
-- [ ] A.1.3 Adapt `topology/boost_ccm.py`,
+- [x] A.1.3 Adapt `topology/boost_ccm.py`,
       `topology/passive_choke.py`, `topology/line_reactor.py` to
       implement the Phase-A subset of the interface
       (`feasibility_envelope` + `steady_state`). The remaining
       methods raise `NotImplementedError` until Phase B / C.
-- [ ] A.1.4 Topology registry: `topology/registry.py::all_models()`
+- [x] A.1.4 Topology registry: `topology/registry.py::all_models()`
       returns the available `ConverterModel` instances for a given
       Spec. Used by the UI to populate topology pickers.
 
 ### A.2 Tier 0 — Feasibility filter
 
-- [ ] A.2.1 `optimize/cascade/tier0.py::filter_candidates(model,
+- [x] A.2.1 `optimize/cascade/tier0.py::filter_candidates(model,
       candidates) -> Iterator[Candidate]` — vectorised NumPy
       implementation of window fit, saturation envelope, AL
       sanity, optional cost cap. Throughput target ≥ 1 M cand/sec
       on a single core.
-- [ ] A.2.2 Candidate generator
+- [x] A.2.2 Candidate generator
       `optimize/cascade/generators.py::cartesian(materials, cores,
       wires, N_range)` yielding `Candidate(core_id, material_id,
       wire_id, N, gap_mm)`. Lazy (no full materialisation in
       memory).
-- [ ] A.2.3 Tests: regression on a manual spec where 9 cores are
+- [x] A.2.3 Tests: regression on a manual spec where 9 cores are
       known infeasible due to window fit; assert Tier 0 drops
       exactly those.
 
 ### A.3 Tier 1 — Analytical evaluation (wraps existing sweep)
 
-- [ ] A.3.1 `optimize/cascade/tier1.py::evaluate(model, candidate)
+- [x] A.3.1 `optimize/cascade/tier1.py::evaluate(model, candidate)
       -> Tier1Result` — calls `model.steady_state(...)` and
       packages the existing `DesignResult` into a `Tier1Result`
       row.
-- [ ] A.3.2 `optimize/sweep.py::evaluate_design` becomes the
+- [x] A.3.2 `optimize/sweep.py::evaluate_design` becomes the
       reference implementation underneath; cascade calls it via
       the ConverterModel interface. No semantic regression in
       `OptimizeDialog`.
-- [ ] A.3.3 Pruning policy: top-K by configurable objective.
+- [x] A.3.3 Pruning policy: top-K by configurable objective.
       Default K = 1 000, objective = `total_loss`.
 
 ### A.4 RunStore — SQLite persistence
 
-- [ ] A.4.1 `optimize/cascade/store.py::RunStore` with the schema
+- [x] A.4.1 `optimize/cascade/store.py::RunStore` with the schema
       from `design.md`. `runs` and `candidates` tables.
       Connection pool friendly to multi-process writers
       (WAL mode).
-- [ ] A.4.2 Spec canonicalisation: `models/spec.py::Spec.
+- [x] A.4.2 Spec canonicalisation: `models/spec.py::Spec.
       canonical_hash()` for the `spec_hash` column.
-- [ ] A.4.3 DB versioning: `data_loader.py::current_db_versions()`
+- [x] A.4.3 DB versioning: `data_loader.py::current_db_versions()`
       returns `{materials, cores, wires}` content hashes.
-- [ ] A.4.4 Resume: orchestrator detects `status='running'` from a
+- [x] A.4.4 Resume: orchestrator detects `status='running'` from a
       prior PID-tagged record and re-attaches.
-- [ ] A.4.5 Tests: write 1 000 candidates, kill the process,
+- [x] A.4.5 Tests: write 1 000 candidates, kill the process,
       restart, confirm zero re-evaluation and 1 000 rows present.
 
 ### A.5 Parallel orchestrator
 
-- [ ] A.5.1 `optimize/cascade/orchestrator.py::CascadeOrchestrator`
+- [x] A.5.1 `optimize/cascade/orchestrator.py::CascadeOrchestrator`
       coordinates the tiers, owns the pool, owns the store.
-- [ ] A.5.2 `multiprocessing.Pool` for tiers 0–1, with the model
+- [x] A.5.2 `multiprocessing.Pool` for tiers 0–1, with the model
       object pickled per worker. Use `concurrent.futures`
       interface.
-- [ ] A.5.3 Cancellation: a `Cancel` event observed by workers
+- [x] A.5.3 Cancellation: a `Cancel` event observed by workers
       between candidates; in-flight candidates are completed and
       written before exit. Response within 5 s.
-- [ ] A.5.4 Pause / resume: orchestrator checkpoints after each
+- [x] A.5.4 Pause / resume: orchestrator checkpoints after each
       tier; pause is "stop scheduling new work, drain in-flight,
       write".
 
 ### A.6 UI — Cascade page
 
-- [ ] A.6.1 New sidebar entry routing to
+- [~] A.6.1 New sidebar entry routing to
       `ui/workspace/cascade_page.py`. Final label TBD with the
-      user (working title: *Otimizador profundo*).
-- [ ] A.6.2 Page layout: tier progress strip, top-N table, action
+      user (working title: *Otimizador profundo*). **Deferred:**
+      `CascadePage` is built and tested but not yet mounted in
+      `MainWindow` / `Sidebar` — see X.3.1 for the same
+      deferral on the `OptimizeDialog` cross-link.
+- [x] A.6.2 Page layout: tier progress strip, top-N table, action
       bar (Cancel / Pause / Promote / Open in design view).
-- [ ] A.6.3 Worker thread pulls from the RunStore at 1 Hz and
+- [x] A.6.3 Worker thread pulls from the RunStore at 1 Hz and
       refreshes the top-N table.
 - [ ] A.6.4 Promote-to-T3 button enqueues a candidate at Tier 3
       regardless of analytical rank — for designs the engineer
       knows are special.
-- [ ] A.6.5 Open-in-design-view: hydrates the main `Spec` +
+- [x] A.6.5 Open-in-design-view: hydrates the main `Spec` +
       selected candidate into the existing dashboard.
 - [ ] A.6.6 "Run deep sweep" button in the existing
       `OptimizeDialog` routes the current spec to the cascade
       page.
-- [ ] A.6.7 Tests: launch a 100-candidate run on a stub spec,
+- [x] A.6.7 Tests: launch a 100-candidate run on a stub spec,
       confirm the table populates and Cancel is responsive.
 
 ### A.7 Benchmark harness
 
-- [ ] A.7.1 `scripts/cascade_benchmark.py` runs a fixed three-spec
+- [x] A.7.1 `scripts/cascade_benchmark.py` runs a fixed three-spec
       suite (one boost, one choke, one reactor) and records wall
       time per tier and final top-5 metrics.
-- [ ] A.7.2 Document baseline numbers in
+- [x] A.7.2 Document baseline numbers in
       `docs/cascade-benchmarks.md`. Phase B / C / D
       ship-readiness is gated on a write-up showing the new
       tier's uplift on this suite.
@@ -245,9 +248,9 @@ cascade UI skeleton.
 
 ### X.1 Documentation
 
-- [ ] X.1.1 `docs/cascade.md` — user-facing description, when to
+- [x] X.1.1 `docs/cascade.md` — user-facing description, when to
       use, expected wall times per phase.
-- [ ] X.1.2 README "What is supported today" matrix updated as
+- [x] X.1.2 README "What is supported today" matrix updated as
       each phase ships.
 - [ ] X.1.3 `docs/POSITIONING.md` updated to note that the
       cascade is the higher-fidelity path; the fast `Optimizer`

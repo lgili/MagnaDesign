@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import math
 from typing import Literal
 
@@ -142,3 +144,14 @@ class Spec(BaseModel):
         if z_base <= 0:
             return 0.0
         return 100.0 * z_react / z_base
+
+    def canonical_hash(self) -> str:
+        """SHA-256 over the canonical JSON of every spec field.
+
+        Used by the cascade `RunStore` to detect that a resumed run
+        is being attempted against a different spec than the one it
+        was started with — guarantees reproducibility.
+        """
+        payload = self.model_dump(mode="json", exclude_none=False)
+        encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        return hashlib.sha256(encoded).hexdigest()

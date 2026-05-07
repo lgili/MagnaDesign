@@ -23,6 +23,7 @@ is returned. The auto-detect for MAS shape vs legacy is per-file.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shutil
@@ -268,6 +269,48 @@ def find_material(materials: Iterable[Material], material_id: str) -> Material:
         if m.id == material_id:
             return m
     raise KeyError(f"Material '{material_id}' not found in database")
+
+
+def _resolved_source_path(file_name: str) -> Path:
+    """Resolve the file `_open_data` would actually read for the given name.
+
+    Mirrors the precedence in `_open_data`: user overlay → bundled MAS →
+    bundled legacy. Returns the first path that exists.
+    """
+    user_path = user_data_path() / file_name
+    if user_path.exists():
+        return user_path
+    mas_path = _BUNDLED_MAS / file_name
+    if mas_path.exists():
+        return mas_path
+    return _BUNDLED_DATA / file_name
+
+
+def current_db_versions() -> dict[str, str]:
+    """SHA-256 content hashes of the active material/core/wire JSON files.
+
+    Used by the cascade `RunStore` so two runs with the same spec hash
+    but different DB content are treated as distinct — and a resume
+    attempt against a changed catalog is rejected.
+
+    Hashes only the primary source for each kind (the file
+    `_open_data` would read). The optional OpenMagnetics catalog
+    overlay is intentionally excluded: it is large, slow to hash, and
+    its contents change rarely; if a Phase ever cares about it, the
+    function can be extended without changing the dict shape.
+    """
+    versions: dict[str, str] = {}
+    for kind, file_name in (
+        ("materials", "materials.json"),
+        ("cores", "cores.json"),
+        ("wires", "wires.json"),
+    ):
+        path = _resolved_source_path(file_name)
+        h = hashlib.sha256()
+        if path.exists():
+            h.update(path.read_bytes())
+        versions[kind] = h.hexdigest()
+    return versions
 
 
 # ---------------------------------------------------------------------------
