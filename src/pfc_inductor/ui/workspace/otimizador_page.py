@@ -44,23 +44,21 @@ class OtimizadorPage(QWidget):
         super().__init__(parent)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         outer = QVBoxLayout(self)
-        outer.setContentsMargins(24, 24, 24, 24)
-        outer.setSpacing(12)
+        outer.setContentsMargins(0, 0, 0, 0)        # header runs edge-to-edge
+        outer.setSpacing(0)
 
-        title = QLabel("Otimizador")
-        title.setProperty("role", "title")
-        outer.addWidget(title)
+        from pfc_inductor.ui.shell.page_header import WorkspacePageHeader
+        outer.addWidget(WorkspacePageHeader(
+            "Otimizador",
+            "Pareto sweep — varredura multi-objetivo de núcleo × material × "
+            "fio (perdas, volume, custo).",
+        ))
 
-        intro = QLabel(
-            "Varre todas as combinações (núcleo × material × fio) "
-            "viáveis para a spec atual e mostra a Pareto-front em três "
-            "eixos simultâneos: perdas, volume e custo. Selecione um "
-            "ponto e clique \"Aplicar selecionado\" para trazê-lo de "
-            "volta ao projeto.",
-        )
-        intro.setProperty("role", "muted")
-        intro.setWordWrap(True)
-        outer.addWidget(intro)
+        body = QFrame()
+        body_v = QVBoxLayout(body)
+        body_v.setContentsMargins(24, 16, 24, 24)
+        body_v.setSpacing(12)
+        outer.addWidget(body, 1)
 
         # Embedded optimizer body — same widget the modal dialog wraps.
         self._embed = OptimizerEmbed()
@@ -71,7 +69,7 @@ class OtimizadorPage(QWidget):
         v.setContentsMargins(0, 0, 0, 0)
         v.setSpacing(0)
         v.addWidget(self._embed)
-        outer.addWidget(Card("Pareto sweep multi-objetivo", embed_holder), 1)
+        body_v.addWidget(Card("Pareto sweep multi-objetivo", embed_holder), 1)
 
     # ------------------------------------------------------------------
     def set_inputs(

@@ -36,18 +36,26 @@ class ConfiguracoesPage(QWidget):
         super().__init__(parent)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         outer = QVBoxLayout(self)
-        outer.setContentsMargins(24, 24, 24, 24)
-        outer.setSpacing(16)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
 
-        title = QLabel("Configurações")
-        title.setProperty("role", "title")
-        outer.addWidget(title)
+        from pfc_inductor.ui.shell.page_header import WorkspacePageHeader
+        outer.addWidget(WorkspacePageHeader(
+            "Configurações",
+            "Tema, FEA (FEMMT + ONELAB), Litz wire e informações do projeto.",
+        ))
 
-        outer.addWidget(self._build_theme_card())
-        outer.addWidget(self._build_fea_card())
-        outer.addWidget(self._build_litz_card())
-        outer.addWidget(self._build_about_card())
-        outer.addStretch(1)
+        body = QFrame()
+        body_v = QVBoxLayout(body)
+        body_v.setContentsMargins(24, 16, 24, 24)
+        body_v.setSpacing(16)
+        outer.addWidget(body, 1)
+
+        body_v.addWidget(self._build_theme_card())
+        body_v.addWidget(self._build_fea_card())
+        body_v.addWidget(self._build_litz_card())
+        body_v.addWidget(self._build_about_card())
+        body_v.addStretch(1)
 
     # ------------------------------------------------------------------
     def _build_theme_card(self) -> Card:

@@ -54,26 +54,24 @@ class CatalogoPage(QWidget):
         super().__init__(parent)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         outer = QVBoxLayout(self)
-        outer.setContentsMargins(24, 24, 24, 24)
-        outer.setSpacing(16)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
 
-        title = QLabel("Catálogo")
-        title.setProperty("role", "title")
-        outer.addWidget(title)
-
-        intro = QLabel(
-            "Materiais, núcleos e fios disponíveis no projeto. Edite "
-            "valores existentes, adicione vendors brasileiros (Thornton, "
-            "Magmattec, Dongxing) ou puxe ~410 materiais e 4 350 fios "
+        from pfc_inductor.ui.shell.page_header import WorkspacePageHeader
+        outer.addWidget(WorkspacePageHeader(
+            "Catálogo",
+            "Materiais, núcleos e fios — vendors brasileiros + ~4 760 entradas "
             "do catálogo aberto OpenMagnetics MAS.",
-        )
-        intro.setProperty("role", "muted")
-        intro.setWordWrap(True)
-        outer.addWidget(intro)
+        ))
+
+        body = QFrame()
+        body_v = QVBoxLayout(body)
+        body_v.setContentsMargins(24, 16, 24, 24)
+        body_v.setSpacing(16)
+        outer.addWidget(body, 1)
 
         # ---- Quick-actions row (MAS import + Similar) ------------------
-        actions_card = self._build_actions_card()
-        outer.addWidget(actions_card)
+        body_v.addWidget(self._build_actions_card())
 
         # ---- Inline DB editor — the workspace centerpiece --------------
         self._db_editor = DbEditorEmbed()
@@ -83,7 +81,7 @@ class CatalogoPage(QWidget):
         eb.setContentsMargins(0, 0, 0, 0)
         eb.setSpacing(0)
         eb.addWidget(self._db_editor)
-        outer.addWidget(Card("Editor da base de dados", editor_body), 1)
+        body_v.addWidget(Card("Editor da base de dados", editor_body), 1)
 
     # ------------------------------------------------------------------
     def _build_actions_card(self) -> Card:
