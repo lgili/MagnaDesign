@@ -249,6 +249,15 @@ class MainWindow(QMainWindow):
         self.cascade_page.open_in_design_requested.connect(
             self._apply_cascade_candidate,
         )
+        # The "Aplicar selecionado" button on the cascade page emits
+        # the same (material_id, core_id, wire_id) tuple the
+        # Otimizador and Núcleo card already wire — so the engineer
+        # can promote a cascade winner to the design view with one
+        # click and stay on the cascade page if they want to keep
+        # comparing.
+        self.cascade_page.selection_applied.connect(
+            self._apply_optimizer_choice,
+        )
 
         # ---- Catalogo page --------------------------------------------
         # The DB editor is now embedded directly in the page; ``saved``

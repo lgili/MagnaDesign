@@ -90,6 +90,40 @@ def test_main_window_pipes_db_into_cascade_page(app):
 
 # ─── Open-in-design routing ────────────────────────────────────
 
+def test_cascade_selection_applied_routes_to_apply_optimizer_choice(app):
+    """The new "Aplicar selecionado" button on the cascade page must
+    push selections through the same `_apply_optimizer_choice` path
+    the Pareto / Núcleo / Compare surfaces use, so the cascade
+    winner becomes the active design without leaving the page."""
+    from pfc_inductor.ui.main_window import AREA_PAGES, MainWindow
+
+    win = MainWindow()
+    try:
+        win.sidebar.navigation_requested.emit("cascade")
+        any_core = win._cores[0]
+        any_material = next(
+            m for m in win._materials
+            if m.id == any_core.default_material_id
+        )
+        any_wire = win._wires[0]
+
+        # Emit the cascade page's `selection_applied` directly.
+        win.cascade_page.selection_applied.emit(
+            any_material.id, any_core.id, any_wire.id,
+        )
+
+        # Selection updated on MainWindow.
+        assert win._current_material_id == any_material.id
+        assert win._current_core_id == any_core.id
+        assert win._current_wire_id == any_wire.id
+        # Apply does NOT switch pages — the engineer can keep
+        # comparing on the cascade page. Open-in-design (separate
+        # button) is the one that switches.
+        assert win.stack.currentIndex() == AREA_PAGES.index("cascade")
+    finally:
+        win.close()
+
+
 def test_cascade_open_in_design_signal_routes_to_dashboard(app):
     """Double-clicking a cascade row should hydrate the candidate
     via `_apply_optimizer_choice` and switch the visible area
