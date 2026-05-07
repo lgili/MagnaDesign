@@ -71,9 +71,17 @@ if bundled_data_dir.exists():
             rel_dir = p.parent.relative_to(REPO_ROOT)
             datas.append((str(p), str(rel_dir)))
 
-logo = REPO_ROOT / "img" / "logo.png"
-if logo.exists():
-    datas.append((str(logo), "img"))
+# Ship every launcher-icon variant we generated. PyInstaller picks the
+# native one (.ico on Windows, .icns on macOS) for the executable
+# itself; the PNGs ride along so ``__main__._resolve_icon`` can build
+# a multi-resolution ``QIcon`` for the dock / taskbar / about dialog.
+for icon_name in (
+    "logo.png", "logo-256.png", "logo-512.png",
+    "logo.ico", "logo.icns",
+):
+    p = REPO_ROOT / "img" / icon_name
+    if p.exists():
+        datas.append((str(p), "img"))
 
 # ---------------------------------------------------------------------------
 # collect_all gathers hidden imports + binaries + data for each package.
