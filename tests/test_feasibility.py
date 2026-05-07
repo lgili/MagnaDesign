@@ -9,10 +9,14 @@ from pfc_inductor.data_loader import (
 )
 from pfc_inductor.models import Spec
 from pfc_inductor.optimize.feasibility import (
+    J_MAX_A_PER_MM2,
+    J_MIN_A_PER_MM2,
     N_HARD_CAP_BY_TOPOLOGY,
     _n_hard_cap,
     core_quick_check,
     filter_viable_cores,
+    rated_current_A,
+    viable_wires_for_spec,
 )
 
 
@@ -143,3 +147,52 @@ def test_passive_choke_quick_check_now_passes_some_cores():
     assert any(v == "ok" for v in verdicts), (
         "passive-choke topology-aware cap regression: every core rejected"
     )
+
+
+# ---------------------------------------------------------------------------
+# Wire pre-filter — guards the cascade Tier-0 hot path
+# ---------------------------------------------------------------------------
+
+def test_rated_current_boost_ccm_uses_spec_eta():
+    """boost_ccm rated current should account for converter efficiency."""
+    spec = _spec_800W()  # 800 W, 85 V_in_min, η=0.97
+    expected = 800.0 / (85.0 * 0.97)  # ~9.70 A
+    assert abs(rated_current_A(spec) - expected) < 0.01
+
+
+def test_viable_wires_drops_extremes_from_curated_catalog():
+    """The curated round-wire catalog ships ~1 400 entries spanning
+    0.0001 mm² grade-1 magnet wire to 100+ mm² welding cable. For
+    a typical 800 W boost spec the viable subset must be a small
+    fraction (< 30 %) of the full catalog — otherwise the cascade
+    Tier-0 hot path balloons back into the multi-million-candidate
+    regime that hung the GUI."""
+    spec = _spec_800W()
+    all_round = [w for w in load_wires() if w.type == "round"]
+    viable = viable_wires_for_spec(spec, all_round)
+    # Sanity: filter actually fires.
+    assert 0 < len(viable) < len(all_round) * 0.30
+    # Every kept wire's J sits inside the documented band.
+    i_rated = rated_current_A(spec)
+    for w in viable:
+        j = i_rated / w.A_cu_mm2
+        assert J_MIN_A_PER_MM2 <= j <= J_MAX_A_PER_MM2
+
+
+def test_viable_wires_is_no_op_on_zero_current_spec():
+    """When the spec is half-configured (Pout=0 or Vin=0) the filter
+    must NOT silently swallow the catalog — return everything so the
+    UI can still show options while the user finishes typing."""
+    spec = Spec(Vin_min_Vrms=0.0, Pout_W=0.0)  # type: ignore[call-arg]
+    wires = load_wires()
+    assert viable_wires_for_spec(spec, wires) == list(wires)
+
+
+def test_viable_wires_sorted_smallest_first():
+    """Cores that are window-tight benefit from seeing the thinnest
+    viable wire first — guarantee the deterministic ordering."""
+    spec = _spec_800W()
+    wires = [w for w in load_wires() if w.type == "round"]
+    viable = viable_wires_for_spec(spec, wires)
+    A = [w.A_cu_mm2 for w in viable]
+    assert A == sorted(A)

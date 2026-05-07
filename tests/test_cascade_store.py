@@ -208,3 +208,77 @@ def test_resume_finds_already_evaluated_keys(tmp_path: Path):
     assert len(keys) == 1000
     # Resuming would skip exactly these:
     assert "core500|mat0|wire0|_|_" in keys
+
+
+# ─── Batched writes ──────────────────────────────────────────────────────
+#
+# Tier 0 used to call ``write_candidate`` once per row, each call opening
+# a fresh sqlite3 connection — that single design choice was the cause
+# of the user-visible "first step never finishes" symptom. Below we lock
+# in the batch contract so a regression would surface immediately.
+
+def test_write_candidates_batch_persists_all_rows(store):
+    """All rows in the iterable land in the table, in INSERT order."""
+    spec = Spec()
+    run_id = store.create_run(spec, current_db_versions())
+    rows = [
+        CandidateRow(
+            candidate_key=f"k{i}",
+            core_id=f"core{i % 10}", material_id="mat", wire_id="wire",
+            N=None, gap_mm=None,
+            highest_tier=0, feasible_t0=(i % 2 == 0),
+        )
+        for i in range(2_500)
+    ]
+    n = store.write_candidates_batch(run_id, rows)
+    assert n == 2_500
+    assert store.candidate_count(run_id) == 2_500
+    keys = store.candidate_keys(run_id)
+    assert keys == {f"k{i}" for i in range(2_500)}
+
+
+def test_write_candidates_batch_idempotent_on_replay(store):
+    """Same key written twice → INSERT OR REPLACE keeps a single row."""
+    spec = Spec()
+    run_id = store.create_run(spec, current_db_versions())
+    row = CandidateRow(
+        candidate_key="k0",
+        core_id="c", material_id="m", wire_id="w",
+        N=None, gap_mm=None,
+        highest_tier=0, feasible_t0=True,
+    )
+    store.write_candidates_batch(run_id, [row])
+    store.write_candidates_batch(run_id, [row])  # replay
+    assert store.candidate_count(run_id) == 1
+
+
+def test_write_candidates_batch_handles_empty_iter(store):
+    """Empty iterable is a no-op — no transaction, no error."""
+    spec = Spec()
+    run_id = store.create_run(spec, current_db_versions())
+    n = store.write_candidates_batch(run_id, [])
+    assert n == 0
+    assert store.candidate_count(run_id) == 0
+
+
+def test_write_candidates_batch_chunks_large_input(store):
+    """Inputs larger than the internal chunk size still land cleanly.
+
+    Triggers the ``_BATCH_CHUNK`` flush path — past sloppy fixes have
+    forgotten the trailing ``executemany`` for the last partial chunk.
+    """
+    spec = Spec()
+    run_id = store.create_run(spec, current_db_versions())
+    # Roughly 1.5 chunks at the 5 000-row default.
+    rows = [
+        CandidateRow(
+            candidate_key=f"k{i}",
+            core_id="c", material_id="m", wire_id="w",
+            N=None, gap_mm=None,
+            highest_tier=0, feasible_t0=True,
+        )
+        for i in range(7_500)
+    ]
+    n = store.write_candidates_batch(run_id, rows)
+    assert n == 7_500
+    assert store.candidate_count(run_id) == 7_500

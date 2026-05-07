@@ -41,6 +41,7 @@ from pfc_inductor.models import (
 from pfc_inductor.optimize.cascade.generators import cartesian
 from pfc_inductor.optimize.cascade.store import CandidateRow, RunStore
 from pfc_inductor.optimize.cascade.tier0 import filter_candidates
+from pfc_inductor.optimize.feasibility import viable_wires_for_spec
 from pfc_inductor.optimize.cascade.tier1 import (
     cost_USD,
     evaluate_candidate_safe,
@@ -471,9 +472,20 @@ class CascadeOrchestrator:
         wires_by_id = {w.id: w for w in wires}
         model = model_for(spec)
 
+        # Pre-filter wires by current density. Curated catalogs ship
+        # 1 400+ round-wire entries spanning 0.0001 mm² grade-1 magnet
+        # wire to 107 mm² welding cable; for any given spec only ~10
+        # gauges land in the [J_MIN, J_MAX] band. Without this filter
+        # the cartesian below produces 1.7 M candidates for a typical
+        # 1.5 kW boost-CCM spec — Tier 0's per-row SQLite write-loop
+        # then takes ~30 minutes (and looked like a hang to the user).
+        # ``cartesian`` keeps its ``only_round_wires`` filter as a
+        # backstop in case a Litz wire slipped through.
+        viable_wires = viable_wires_for_spec(spec, wires)
+
         all_candidates = [
             c for c in cartesian(
-                materials, cores, wires,
+                materials, cores, viable_wires,
                 only_compatible_cores=cfg.only_compatible_cores,
                 only_round_wires=cfg.only_round_wires,
             )
@@ -481,19 +493,38 @@ class CascadeOrchestrator:
         ]
         total_t0 = len(all_candidates)
 
+        # Tier 0 throughput is dominated by SQLite writes once the
+        # ~5 µs feasibility check is amortised. Buffering rows and
+        # flushing via ``write_candidates_batch`` cuts the per-row
+        # cost ~100× (one connection + one transaction per chunk
+        # instead of per row). 1 000 rows/flush balances progress-
+        # callback latency against fsync cost.
+        TIER0_FLUSH_EVERY = 1_000
+
         survivors: list[Candidate] = []
+        pending_rows: list[CandidateRow] = []
+
+        def _flush_pending() -> None:
+            if pending_rows:
+                self.store.write_candidates_batch(run_id, pending_rows)
+                pending_rows.clear()
+
         for i, t0 in enumerate(filter_candidates(
             model, all_candidates,
             materials_by_id, cores_by_id, wires_by_id,
         )):
             if self._cancel.is_set():
+                _flush_pending()
                 self.store.update_status(run_id, "cancelled")
                 return
-            self.store.write_candidate(run_id, _row_from_tier0(t0))
+            pending_rows.append(_row_from_tier0(t0))
             if t0.envelope.feasible:
                 survivors.append(t0.candidate)
-            if progress_cb is not None and (i + 1) % 50 == 0:
-                progress_cb(TierProgress(tier=0, done=i + 1, total=total_t0))
+            if len(pending_rows) >= TIER0_FLUSH_EVERY:
+                _flush_pending()
+                if progress_cb is not None:
+                    progress_cb(TierProgress(tier=0, done=i + 1, total=total_t0))
+        _flush_pending()
         if progress_cb is not None:
             progress_cb(TierProgress(tier=0, done=total_t0, total=total_t0))
 
@@ -582,12 +613,17 @@ class CascadeOrchestrator:
                 batch = survivors[start:start + batch_size]
                 # `map` preserves order across the batch — we need that to
                 # zip results back to candidates.
-                for cand, (t1, err, cost) in zip(
-                    batch, ex.map(_tier1_worker, batch), strict=False,
-                ):
-                    self.store.write_candidate(
-                        run_id, _row_from_tier1(cand, t1, err, cost),
+                rows = [
+                    _row_from_tier1(cand, t1, err, cost)
+                    for cand, (t1, err, cost) in zip(
+                        batch, ex.map(_tier1_worker, batch), strict=False,
                     )
+                ]
+                # Single batched write per pool batch — Tier 1 surfaces
+                # at most ~1 000 survivors so one transaction per chunk
+                # is comfortable in memory and saves N − 1 connection
+                # opens per batch.
+                self.store.write_candidates_batch(run_id, rows)
                 done += len(batch)
                 if progress_cb is not None:
                     progress_cb(TierProgress(tier=1, done=done, total=total))
@@ -606,15 +642,30 @@ class CascadeOrchestrator:
         # the caller asks for `parallelism=1` (tests, debugging).
         _init_worker(spec.model_dump_json(), materials, cores, wires)
         total = len(survivors)
+
+        # Mirror the parallel path's batched-write contract — same
+        # 100-row flush threshold the parallel pool naturally batches
+        # at (4× parallelism). Keeps test and prod write patterns
+        # within one order of magnitude of each other.
+        TIER1_FLUSH_EVERY = 100
+        pending: list[CandidateRow] = []
+
+        def _flush_pending() -> None:
+            if pending:
+                self.store.write_candidates_batch(run_id, pending)
+                pending.clear()
+
         for i, cand in enumerate(survivors):
             if self._cancel.is_set():
+                _flush_pending()
                 return
             t1, err, cost = _tier1_worker(cand)
-            self.store.write_candidate(
-                run_id, _row_from_tier1(cand, t1, err, cost),
-            )
+            pending.append(_row_from_tier1(cand, t1, err, cost))
+            if len(pending) >= TIER1_FLUSH_EVERY:
+                _flush_pending()
             if progress_cb is not None and (i + 1) % 25 == 0:
                 progress_cb(TierProgress(tier=1, done=i + 1, total=total))
+        _flush_pending()
         if progress_cb is not None:
             progress_cb(TierProgress(tier=1, done=total, total=total))
 

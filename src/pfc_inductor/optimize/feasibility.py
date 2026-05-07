@@ -176,3 +176,76 @@ def filter_viable_cores(
         else:
             reasons[v] = reasons.get(v, 0) + 1
     return viable, reasons
+
+
+# ---------------------------------------------------------------------------
+# Wire pre-filter — collapses 1 433-entry round-wire catalogs (every gauge
+# from 0.0001 mm² grade-1 magnet wire to 107 mm² welding cable) down to
+# the handful that could realistically carry the spec's rated current.
+# Without this filter the cartesian Tier-0 sweep produces 1.7 M
+# candidates per run; with it we land closer to ~10 k.
+# ---------------------------------------------------------------------------
+
+# Sane current-density window for a forced-air or natural-convection
+# inductor. Below 1.0 A/mm² the wire is grossly oversized (huge window,
+# wasted copper). Above 15 A/mm² the wire would smoke at full load on
+# any realistic enclosure. The window is intentionally permissive —
+# the engine itself rebalances Ku and applies thermal limits
+# downstream, so this filter only needs to drop the *obvious* dead
+# wood (0.0001 mm² magnet wire, 100 mm² welding cable) before the
+# Tier 0 envelope check sees them.
+J_MIN_A_PER_MM2 = 1.0
+J_MAX_A_PER_MM2 = 15.0
+
+
+def rated_current_A(spec: Spec) -> float:
+    """RMS current the inductor will see at full load.
+
+    Used by :func:`viable_wires_for_spec` and the cascade pre-filter.
+    Honours ``spec.eta`` when present (boost CCM input current scales
+    inversely with converter efficiency).
+    """
+    if spec.topology == "line_reactor":
+        return float(spec.I_rated_Arms or 0.0)
+    if spec.Vin_min_Vrms <= 0 or spec.Pout_W <= 0:
+        return 0.0
+    eta = float(getattr(spec, "eta", 0.95) or 0.95)
+    if spec.topology == "boost_ccm":
+        # I_in_rms ≈ Pout / (Vin_rms · η) at low-line worst case.
+        return spec.Pout_W / (spec.Vin_min_Vrms * max(eta, 0.5))
+    # passive_choke and any future topology — derive from Pout / Vin.
+    return spec.Pout_W / (spec.Vin_min_Vrms * max(eta, 0.5))
+
+
+def viable_wires_for_spec(
+    spec: Spec,
+    wires: list[Wire],
+    *,
+    j_min: float = J_MIN_A_PER_MM2,
+    j_max: float = J_MAX_A_PER_MM2,
+) -> list[Wire]:
+    """Drop wires whose ``J = I_rated / A_cu`` is out of the sensible band.
+
+    Operates on the round-wire subset only (Litz wires have their own
+    optimizer). Returns wires sorted by ascending A_cu so downstream
+    sweeps see the smallest-viable-first ordering — useful for cores
+    that are window-tight.
+
+    When the spec has no rated-current information (Pout=0 or
+    Vin_min=0), returns the input list unchanged so we don't silently
+    swallow every wire on a half-configured spec.
+    """
+    i_rated = rated_current_A(spec)
+    if i_rated <= 0:
+        return list(wires)
+
+    viable = []
+    for w in wires:
+        if w.A_cu_mm2 <= 0:
+            continue
+        j = i_rated / w.A_cu_mm2
+        if j_min <= j <= j_max:
+            viable.append(w)
+    # Stable, deterministic ordering: smallest cross-section first.
+    viable.sort(key=lambda w: w.A_cu_mm2)
+    return viable

@@ -49,7 +49,7 @@ import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterator, Literal, Optional
+from typing import Any, Iterable, Iterator, Literal, Optional
 
 from pfc_inductor.models import Spec
 
@@ -242,25 +242,87 @@ class RunStore:
 
     # ─── Candidates ───────────────────────────────────────────────────
 
+    # Candidate-row INSERT shared by `write_candidate` and the batched
+    # variant. Defined once so the column ordering stays in sync.
+    _INSERT_CANDIDATE_SQL = (
+        "INSERT OR REPLACE INTO candidates "
+        "(run_id, candidate_key, core_id, material_id, wire_id, N, gap_mm, "
+        " highest_tier, feasible_t0, loss_t1_W, temp_t1_C, cost_t1_USD, "
+        " loss_t2_W, saturation_t2, L_t3_uH, Bpk_t3_T, L_t4_uH, notes) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    )
+
+    @staticmethod
+    def _candidate_row_params(run_id: str, row: CandidateRow) -> tuple:
+        return (
+            run_id, row.candidate_key, row.core_id, row.material_id,
+            row.wire_id, row.N, row.gap_mm, row.highest_tier,
+            _bool_to_int(row.feasible_t0),
+            row.loss_t1_W, row.temp_t1_C, row.cost_t1_USD,
+            row.loss_t2_W, _bool_to_int(row.saturation_t2),
+            row.L_t3_uH, row.Bpk_t3_T, row.L_t4_uH,
+            json.dumps(row.notes) if row.notes else None,
+        )
+
     def write_candidate(self, run_id: str, row: CandidateRow) -> None:
-        """Insert or replace a candidate row (idempotent on `candidate_key`)."""
+        """Insert or replace a candidate row (idempotent on `candidate_key`).
+
+        Single-row API kept for Tier 2/3/4 update paths where the loop
+        already runs at human pace. Tier 0/1 should use
+        :meth:`write_candidates_batch` — opening a fresh sqlite3 connection
+        per row was the bottleneck behind the cascade's "first step never
+        finishes" symptom (~1 ms × 1.7 M rows = ~30 min).
+        """
         with self._connect() as conn:
             conn.execute(
-                "INSERT OR REPLACE INTO candidates "
-                "(run_id, candidate_key, core_id, material_id, wire_id, N, gap_mm, "
-                " highest_tier, feasible_t0, loss_t1_W, temp_t1_C, cost_t1_USD, "
-                " loss_t2_W, saturation_t2, L_t3_uH, Bpk_t3_T, L_t4_uH, notes) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (
-                    run_id, row.candidate_key, row.core_id, row.material_id,
-                    row.wire_id, row.N, row.gap_mm, row.highest_tier,
-                    _bool_to_int(row.feasible_t0),
-                    row.loss_t1_W, row.temp_t1_C, row.cost_t1_USD,
-                    row.loss_t2_W, _bool_to_int(row.saturation_t2),
-                    row.L_t3_uH, row.Bpk_t3_T, row.L_t4_uH,
-                    json.dumps(row.notes) if row.notes else None,
-                ),
+                self._INSERT_CANDIDATE_SQL,
+                self._candidate_row_params(run_id, row),
             )
+
+    def write_candidates_batch(
+        self, run_id: str, rows: Iterable[CandidateRow],
+    ) -> int:
+        """Insert/replace many rows in a single connection + transaction.
+
+        Returns the number of rows written. Throughput on a Tier-0 sweep
+        improves from ~1 000 rows/s (per-call connection open + autocommit
+        fsync) to ~50 000–100 000 rows/s on commodity SSDs — closing the
+        cascade's headline bottleneck.
+
+        Iterating ``rows`` lazily is fine; the method materialises them
+        in chunks of ``_BATCH_CHUNK`` so a 1.7 M-element generator never
+        builds a giant list in memory. Caller is free to pass a small
+        list directly when batching is already done at the call site.
+        """
+        params_iter = (self._candidate_row_params(run_id, r) for r in rows)
+        n_written = 0
+        with self._connect() as conn:
+            # Single explicit transaction per call — autocommit (the
+            # default for `isolation_level=None`) would fsync after each
+            # executemany, which defeats the batching.
+            conn.execute("BEGIN")
+            try:
+                # Stream in fixed-size chunks so memory stays bounded.
+                buf: list[tuple] = []
+                for params in params_iter:
+                    buf.append(params)
+                    if len(buf) >= self._BATCH_CHUNK:
+                        conn.executemany(self._INSERT_CANDIDATE_SQL, buf)
+                        n_written += len(buf)
+                        buf.clear()
+                if buf:
+                    conn.executemany(self._INSERT_CANDIDATE_SQL, buf)
+                    n_written += len(buf)
+                conn.execute("COMMIT")
+            except Exception:
+                conn.execute("ROLLBACK")
+                raise
+        return n_written
+
+    # Chunk size for `write_candidates_batch`. 5 000 keeps each
+    # `executemany` call under a few hundred KB of bound parameters
+    # while still amortising the connection / transaction overhead.
+    _BATCH_CHUNK = 5_000
 
     def candidate_keys(self, run_id: str) -> set[str]:
         """All `candidate_key`s already written for `run_id` — for resume.
