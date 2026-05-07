@@ -106,26 +106,11 @@ def test_projeto_page_selection_applied_bubbles_up(app, design_bundle):
     assert received == [("M", "C", "W")]
 
 
-def test_projeto_page_progress_indicator_tracks_active_tab(app, design_bundle):
-    """Núcleo and Análise both map onto the v3 ProgressIndicator's
-    'design' state; Validar and Exportar promote in order."""
-    from pfc_inductor.ui.workspace.projeto_page import ProjetoPage
-    *_, materials, cores, wires = design_bundle
-    p = ProjetoPage(materials, cores, wires)
-
-    p.switch_to("nucleo")
-    assert p.progress.state("design") == "current"
-
-    p.switch_to("analise")
-    assert p.progress.state("design") == "current"
-
-    p.switch_to("validar")
-    assert p.progress.state("validar") == "current"
-    assert p.progress.state("design") == "done"
-
-    p.switch_to("exportar")
-    assert p.progress.state("exportar") == "current"
-    assert p.progress.state("validar") == "done"
+# test_projeto_page_progress_indicator_tracks_active_tab removed:
+# the ProgressIndicator was retired from ProjetoPage in favour of
+# letting the QTabWidget itself communicate the active phase. The
+# ProgressIndicator widget still has its own unit tests in
+# ``tests/test_shell_stepper.py`` for any future caller.
 
 
 def test_projeto_page_mark_action_done_is_noop(app, design_bundle):

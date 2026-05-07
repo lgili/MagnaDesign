@@ -49,7 +49,12 @@ from PySide6.QtWidgets import (
 
 from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
 from pfc_inductor.ui.shell.header import WorkspaceHeader
-from pfc_inductor.ui.shell.progress_indicator import ProgressIndicator
+# ProgressIndicator was retired here — the QTabWidget below already
+# communicates the active phase (highlighted tab + tab order = the
+# 4-step workflow). A second strip duplicated the message and was
+# never plumbed reliably across all flows. The widget itself stays
+# in ``ui.shell.progress_indicator`` for any future surface that
+# needs a non-tab phase indicator.
 from pfc_inductor.ui.shell.scoreboard import Scoreboard
 from pfc_inductor.ui.shell.spec_drawer import SpecDrawer
 from pfc_inductor.ui.theme import get_theme, on_theme_changed
@@ -113,16 +118,12 @@ class ProjetoPage(QWidget):
         self.header.name_changed.connect(self.name_changed.emit)
         col_v.addWidget(self.header)
 
-        # Progress (compact 36 px strip)
-        self.progress = ProgressIndicator(parent=column)
-        col_v.addWidget(self.progress)
-
         # ---- ResumoStrip — PERSISTENT above the tabs ------------------
         # Wrapped in a slim padded frame so it visually sits on the
         # surface and not on the page bg, with subtle separator from
         # the tab strip below. Padding is intentionally tight so the
-        # whole chrome (header + progress + KPI + tabs + scoreboard)
-        # fits on a 768 px laptop without pushing the bottom off-screen.
+        # whole chrome (header + KPI + tabs + scoreboard) fits on a
+        # 768 px laptop without pushing the bottom off-screen.
         kpi_holder = QFrame()
         kpi_holder.setObjectName("KpiHolder")
         sp = get_theme().spacing
@@ -187,13 +188,6 @@ class ProjetoPage(QWidget):
 
         outer.addWidget(column, 1)
 
-        # Initial state: Núcleo tab is the entry point; Spec is "done"
-        # because the drawer is filled by definition. ProgressIndicator
-        # uses its v3 keys (spec/design/validar/exportar); both Núcleo
-        # and Análise map to "design".
-        self.progress.set_done({"spec"})
-        self.progress.set_current("design")
-
         on_theme_changed(self._refresh_qss)
         self._refresh_qss()
 
@@ -227,8 +221,6 @@ class ProjetoPage(QWidget):
         self.validar_tab.update_from_design(result, spec, core, wire, material)
         self.exportar_tab.update_from_design(result, spec, core, wire, material)
         self.scoreboard.update_from_result(result, spec)
-        # Mark "design" done once a result is available.
-        self.progress.mark_done("design")
         # Flash the persistent KPI strip so the user has an unambiguous
         # signal that the recalc / apply landed — without it, the
         # values shift silently and small spec tweaks can feel like
@@ -265,17 +257,11 @@ class ProjetoPage(QWidget):
     # Internals
     # ------------------------------------------------------------------
     def _on_tab_changed(self, idx: int) -> None:
-        # Map all 4 tabs onto the 4-state ProgressIndicator. Núcleo and
-        # Análise both belong to the "design" phase.
-        if idx in (0, 1):
-            self.progress.set_current("design")
-        elif idx == 2:
-            self.progress.set_current("validar")
-            self.progress.mark_done("design")
-        elif idx == 3:
-            self.progress.set_current("exportar")
-            self.progress.mark_done("design")
-            self.progress.mark_done("validar")
+        # Hook kept for future per-tab reactions (telemetry, defer-
+        # mounting heavy tabs, etc.) — the now-removed ProgressIndicator
+        # used to advance here. The active QTabWidget tab is itself the
+        # phase indicator.
+        return
 
     def _on_report_pressed(self) -> None:
         # Header / Análise "Gerar Relatório" button: switch to Exportar
