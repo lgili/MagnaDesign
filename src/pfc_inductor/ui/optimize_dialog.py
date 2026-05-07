@@ -157,7 +157,8 @@ class OptimizerEmbed(QWidget):
         self.btn_run.setEnabled(True)
         if not self._results:
             self.lbl_count.setText(
-                "Pronto — clique em <b>Rodar varredura</b>.",
+                "Pronto — escolha material e ordenação, depois clique em "
+                "<b>Rodar varredura</b> para gerar a Pareto front.",
             )
 
     def _build_controls(self, current_material_id: str) -> QGroupBox:
@@ -250,8 +251,41 @@ class OptimizerEmbed(QWidget):
         self.ax = self.fig.add_subplot(111)
         self.ax.set_xlabel("Volume [cm³]")
         self.ax.set_ylabel("P_total [W]")
+        # Empty-state painting: a 0..1 axis with the default ticks
+        # reads as "broken plot" before the first sweep. Hide the
+        # spines/ticks and centre an instructional caption — the
+        # canvas now communicates "no data yet, here's how to get
+        # data" instead of "this chart is empty".
+        self._paint_empty_plot()
         v.addWidget(self.canvas)
         return box
+
+    def _paint_empty_plot(self) -> None:
+        """Draw a clean empty state on the matplotlib canvas.
+
+        Called once at construction and again whenever ``set_inputs``
+        runs without yet having results. Replaced with the real
+        Pareto scatter as soon as a sweep produces data.
+        """
+        self.ax.clear()
+        self.ax.set_xticks([])
+        self.ax.set_yticks([])
+        for spine in ("top", "right", "bottom", "left"):
+            self.ax.spines[spine].set_visible(False)
+        self.ax.text(
+            0.5, 0.55,
+            "Pareto sweep multi-objetivo",
+            ha="center", va="center", fontsize=11, fontweight="bold",
+            transform=self.ax.transAxes, color="#52525B",
+        )
+        self.ax.text(
+            0.5, 0.42,
+            "Configure material e ordenação acima,\n"
+            "depois clique em \"Rodar varredura\".",
+            ha="center", va="center", fontsize=9,
+            transform=self.ax.transAxes, color="#71717A",
+        )
+        self.canvas.draw_idle()
 
     def _build_buttons(self) -> QHBoxLayout:
         h = QHBoxLayout()
