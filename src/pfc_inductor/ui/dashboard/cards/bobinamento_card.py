@@ -26,8 +26,27 @@ class _BobinamentoBody(QWidget):
         awg = getattr(wire, "AWG", None) or getattr(wire, "awg", None) or "—"
         d_mm = getattr(wire, "OD_mm", None) or getattr(wire, "diameter_mm", None) or 0.0
         strands = getattr(wire, "strands", 1) or 1
+        # Resistance ratio R_AC / R_DC at fsw — quantifies skin/proximity
+        # losses; engineers want this to flag whether litz / strand
+        # selection is right (target ≤ 1.5× for round, ≤ 1.1× for litz).
+        r_ratio = (result.R_ac_ohm / result.R_dc_ohm) if result.R_dc_ohm > 0 else 0.0
+        # Total wire length = MLT × N. Useful for cost estimates and to
+        # cross-check the user's stocked spool against the design.
+        wire_len_m = (core.MLT_mm * result.N_turns) / 1000.0
+        # L target vs actual lets the user see how close we got to the
+        # spec's required inductance (the engine rounds to integer N).
+        l_target = result.L_required_uH
+        l_actual = result.L_actual_uH
+        delta_pct = ((l_actual - l_target) / l_target * 100.0) if l_target > 0 else 0.0
+        l_label = f"{l_actual:.0f} / {l_target:.0f}"
+        l_unit = f"µH ({delta_pct:+.1f}%)"
+
+        # N_turns is kept as row 0 — the test suite asserts that row
+        # ordering for back-compat, and turn count is the single fact
+        # users ask for first when scanning a winding card.
         rows = [
             Row("Espiras (N)", f"{result.N_turns}"),
+            Row("L atual / alvo", l_label, l_unit),
             Row("Preenchimento", f"{result.Ku_actual * 100:.1f}", "%"),
             Row("AWG", str(awg)),
             Row("Diâmetro fio",
@@ -36,6 +55,8 @@ class _BobinamentoBody(QWidget):
             Row("Estrandes", f"{strands}"),
             Row("R_DC", f"{result.R_dc_ohm * 1000:.1f}", "mΩ"),
             Row("R_AC@fsw", f"{result.R_ac_ohm * 1000:.1f}", "mΩ"),
+            Row("R_AC / R_DC", f"{r_ratio:.2f}×"),
+            Row("Comprimento fio", f"{wire_len_m:.2f}", "m"),
         ]
         self._table.set_rows(rows)
 
