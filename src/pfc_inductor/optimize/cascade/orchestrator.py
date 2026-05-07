@@ -51,6 +51,12 @@ from pfc_inductor.optimize.cascade.tier2 import (
 from pfc_inductor.optimize.cascade.tier2 import (
     supports_tier2,
 )
+from pfc_inductor.optimize.cascade.tier3 import (
+    evaluate_candidate_safe as evaluate_tier3_safe,
+)
+from pfc_inductor.optimize.cascade.tier3 import (
+    supports_tier3,
+)
 from pfc_inductor.topology.registry import model_for
 
 # ─── Public configuration & progress types ────────────────────────
@@ -67,6 +73,9 @@ class CascadeConfig:
 
     K_1: int = 1000
     tier2_top_k: int = 0
+    tier3_top_k: int = 0
+    tier3_timeout_s: int = 300
+    tier3_disagree_pct: float = 15.0
     only_compatible_cores: bool = True
     only_round_wires: bool = True
 
@@ -74,6 +83,9 @@ class CascadeConfig:
         return {
             "K_1": self.K_1,
             "tier2_top_k": self.tier2_top_k,
+            "tier3_top_k": self.tier3_top_k,
+            "tier3_timeout_s": self.tier3_timeout_s,
+            "tier3_disagree_pct": self.tier3_disagree_pct,
             "only_compatible_cores": self.only_compatible_cores,
             "only_round_wires": self.only_round_wires,
         }
@@ -154,6 +166,62 @@ def _row_from_tier0(t0: Tier0Result) -> CandidateRow:
         highest_tier=0,
         feasible_t0=t0.envelope.feasible,
         notes={"reasons": t0.envelope.reasons} if t0.envelope.reasons else None,
+    )
+
+
+def _row_with_tier3(
+    base: CandidateRow,
+    tier3,  # Tier3Result | None
+    error: Optional[str],
+) -> CandidateRow:
+    """Return a copy of `base` with Tier 3 columns + notes filled.
+
+    `L_t3_uH` / `Bpk_t3_T` go into their dedicated SQLite columns
+    (the schema has reserved space for them since Phase A); the
+    extra Tier-3 metadata (backend, confidence, disagreement flag,
+    error string) packs into `notes['tier3']` for CLI inspection
+    and UI badges.
+    """
+    notes_in = dict(base.notes) if base.notes else {}
+    if tier3 is None:
+        if error is not None:
+            notes_in["tier3_error"] = error
+        else:
+            notes_in["tier3_skipped"] = True
+        return CandidateRow(
+            candidate_key=base.candidate_key,
+            core_id=base.core_id, material_id=base.material_id,
+            wire_id=base.wire_id, N=base.N, gap_mm=base.gap_mm,
+            highest_tier=base.highest_tier, feasible_t0=base.feasible_t0,
+            loss_t1_W=base.loss_t1_W, temp_t1_C=base.temp_t1_C,
+            cost_t1_USD=base.cost_t1_USD,
+            loss_t2_W=base.loss_t2_W, saturation_t2=base.saturation_t2,
+            L_t3_uH=base.L_t3_uH, Bpk_t3_T=base.Bpk_t3_T,
+            L_t4_uH=base.L_t4_uH,
+            notes=notes_in or None,
+        )
+    notes_in["tier3"] = {
+        "backend": tier3.backend,
+        "confidence": tier3.confidence,
+        "L_relative_error_pct": tier3.L_relative_error_pct,
+        "B_relative_error_pct": tier3.B_relative_error_pct,
+        "disagrees_with_tier1": tier3.disagrees_with_tier1,
+        "solve_time_s": tier3.solve_time_s,
+    }
+    return CandidateRow(
+        candidate_key=base.candidate_key,
+        core_id=base.core_id, material_id=base.material_id,
+        wire_id=base.wire_id, N=base.N, gap_mm=base.gap_mm,
+        highest_tier=max(base.highest_tier, 3),
+        feasible_t0=base.feasible_t0,
+        loss_t1_W=base.loss_t1_W, temp_t1_C=base.temp_t1_C,
+        cost_t1_USD=base.cost_t1_USD,
+        loss_t2_W=base.loss_t2_W,
+        saturation_t2=base.saturation_t2,
+        L_t3_uH=tier3.L_FEA_uH,
+        Bpk_t3_T=tier3.B_pk_FEA_T,
+        L_t4_uH=base.L_t4_uH,
+        notes=notes_in or None,
     )
 
 
@@ -386,6 +454,17 @@ class CascadeOrchestrator:
                 run_id, spec, materials, cores, wires, cfg, progress_cb,
             )
 
+        # ── Tier 3 — magnetostatic FEA on top-K survivors ─────────
+        # Tier 3 is expensive per candidate (5–30 s) and FEMMT
+        # spawns ONELAB with shared temp dirs, so the loop is
+        # strictly sequential. Skipped silently if no FEA backend
+        # is installed/configured — the orchestrator records that
+        # as a `tier3_skipped` notes entry on each row instead.
+        if cfg.tier3_top_k > 0 and not self._cancel.is_set():
+            self._run_tier3_top_k(
+                run_id, spec, materials, cores, wires, cfg, progress_cb,
+            )
+
         if self._cancel.is_set():
             self.store.update_status(run_id, "cancelled")
         else:
@@ -515,3 +594,88 @@ class CascadeOrchestrator:
                 progress_cb(TierProgress(tier=2, done=i + 1, total=total))
         if progress_cb is not None:
             progress_cb(TierProgress(tier=2, done=total, total=total))
+
+    # ─── Tier 3 execution path ───────────────────────────────────
+
+    def _run_tier3_top_k(
+        self,
+        run_id: str,
+        spec: Spec,
+        materials: list[Material],
+        cores: list[Core],
+        wires: list[Wire],
+        cfg: CascadeConfig,
+        progress_cb: Optional[ProgressCallback],
+    ) -> None:
+        """Run Tier 3 (magnetostatic FEA) on the top-K survivors.
+
+        Pulls the top-K rows by Tier-2 loss when Tier 2 ran (the
+        more accurate ranking), otherwise falls back to Tier-1
+        loss. Skips cleanly when no FEA backend is installed —
+        the per-row note records `tier3_skipped` so the user can
+        spot it.
+        """
+        if not supports_tier3():
+            # Mark each top-K row with a notes entry instead of
+            # writing nothing — tells the user "we tried, no FEA".
+            top_rows = self.store.top_candidates(
+                run_id, n=cfg.tier3_top_k,
+                order_by=_tier3_order_column(cfg),
+            )
+            for row in top_rows:
+                self.store.write_candidate(
+                    run_id, _row_with_tier3(row, None, "tier3_unavailable: no FEA backend"),
+                )
+            if progress_cb is not None:
+                progress_cb(TierProgress(
+                    tier=3, done=len(top_rows), total=len(top_rows),
+                ))
+            return
+
+        model = model_for(spec)
+        top_rows = self.store.top_candidates(
+            run_id, n=cfg.tier3_top_k,
+            order_by=_tier3_order_column(cfg),
+        )
+        if not top_rows:
+            return
+
+        materials_by_id = {m.id: m for m in materials}
+        cores_by_id = {c.id: c for c in cores}
+        wires_by_id = {w.id: w for w in wires}
+        total = len(top_rows)
+
+        for i, row in enumerate(top_rows):
+            if self._cancel.is_set():
+                return
+            mat = materials_by_id.get(row.material_id)
+            core = cores_by_id.get(row.core_id)
+            wire = wires_by_id.get(row.wire_id)
+            if mat is None or core is None or wire is None:
+                self.store.write_candidate(
+                    run_id, _row_with_tier3(row, None, "missing_db_entry"),
+                )
+                continue
+            cand = Candidate(
+                core_id=row.core_id, material_id=row.material_id,
+                wire_id=row.wire_id, N=row.N, gap_mm=row.gap_mm,
+            )
+            t3, err = evaluate_tier3_safe(
+                model, cand, core, mat, wire,
+                timeout_s=cfg.tier3_timeout_s,
+                disagree_pct=cfg.tier3_disagree_pct,
+            )
+            self.store.write_candidate(
+                run_id, _row_with_tier3(row, t3, err),
+            )
+            if progress_cb is not None:
+                progress_cb(TierProgress(tier=3, done=i + 1, total=total))
+        if progress_cb is not None:
+            progress_cb(TierProgress(tier=3, done=total, total=total))
+
+
+def _tier3_order_column(cfg: CascadeConfig) -> str:
+    """Pick the Tier-3 ranking source: prefer Tier 2's loss when
+    Tier 2 was scheduled (it's the better filter), otherwise the
+    analytical Tier 1 loss."""
+    return "loss_t2_W" if cfg.tier2_top_k > 0 else "loss_t1_W"

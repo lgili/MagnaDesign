@@ -94,6 +94,33 @@ class Tier1Result(BaseModel):
         return len(self.design.warnings)
 
 
+class Tier3Result(BaseModel):
+    """Outcome of the Tier 3 magnetostatic FEA validation for one candidate.
+
+    Fields mirror :class:`pfc_inductor.fea.models.FEAValidation` plus a
+    `disagrees_with_tier1` flag that the orchestrator uses to surface
+    rows where the FEA number differs from the analytical engine by
+    more than the design.md threshold (default 15 %).
+
+    Phase C ships boost-CCM toroid + EE/ETD/PQ via FEMMT; topologies
+    or shapes the FEA backend cannot handle yield ``None`` from
+    `evaluate_candidate` (no Tier3Result is written), and the
+    orchestrator records the reason in `notes`.
+    """
+
+    candidate: Candidate
+
+    L_FEA_uH: float
+    B_pk_FEA_T: float
+    L_relative_error_pct: float
+    B_relative_error_pct: float
+
+    solve_time_s: float
+    backend: str
+    confidence: str
+    disagrees_with_tier1: bool
+
+
 class Tier2Result(BaseModel):
     """Outcome of the Tier 2 transient ODE simulation for one candidate.
 

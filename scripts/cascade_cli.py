@@ -133,9 +133,18 @@ def _print_top(rows: list[CandidateRow]) -> None:
     if not rows:
         print("(no Tier-1 results yet)")
         return
-    # Detect whether any row carries Tier-2 metrics to widen the layout.
+    # Detect highest tier the rows reached, widen layout accordingly.
+    has_tier3 = any(r.notes and "tier3" in r.notes for r in rows)
     has_tier2 = any(r.notes and "tier2" in r.notes for r in rows)
-    if has_tier2:
+    if has_tier3:
+        headers = (
+            "#", "core_id", "N",
+            "loss_W", "L2avg_µH", "L3_µH", "ΔL3%", "Bpk3_T", "ΔB3%",
+            "T3_s", "conf",
+        )
+        widths = (3, 32, 4, 6, 8, 7, 6, 7, 6, 5, 5)
+        right_aligned = (0, 2, 3, 4, 5, 6, 7, 8, 9)
+    elif has_tier2:
         headers = (
             "#", "core_id", "wire_id", "N",
             "loss_W", "ΔT_°C", "cost_$",
@@ -159,7 +168,29 @@ def _print_top(rows: list[CandidateRow]) -> None:
         loss = f"{r.loss_t1_W:.2f}" if r.loss_t1_W is not None else "—"
         temp = f"{r.temp_t1_C:.0f}" if r.temp_t1_C is not None else "—"
         cost = f"{r.cost_t1_USD:.2f}" if r.cost_t1_USD is not None else "—"
-        if has_tier2:
+        if has_tier3:
+            t2 = (r.notes or {}).get("tier2", {})
+            t3 = (r.notes or {}).get("tier3", {})
+            l2 = f"{t2['L_avg_uH']:.1f}" if "L_avg_uH" in t2 else "—"
+            l3 = f"{r.L_t3_uH:.1f}" if r.L_t3_uH is not None else "—"
+            bpk3 = f"{r.Bpk_t3_T:.3f}" if r.Bpk_t3_T is not None else "—"
+            dl3 = (
+                f"{t3['L_relative_error_pct']:+.1f}"
+                if t3.get("L_relative_error_pct") is not None else "—"
+            )
+            db3 = (
+                f"{t3['B_relative_error_pct']:+.1f}"
+                if t3.get("B_relative_error_pct") is not None else "—"
+            )
+            t3_s = (
+                f"{t3['solve_time_s']:.1f}"
+                if t3.get("solve_time_s") is not None else "—"
+            )
+            conf = t3.get("confidence", "—")
+            print(fmt.format(
+                i, _truncate(r.core_id, 32), n, loss, l2, l3, dl3, bpk3, db3, t3_s, conf,
+            ))
+        elif has_tier2:
             t2 = (r.notes or {}).get("tier2", {})
             l2 = f"{t2['L_avg_uH']:.1f}" if "L_avg_uH" in t2 else "—"
             bpk2 = f"{t2['B_pk_T']:.3f}" if "B_pk_T" in t2 else "—"
@@ -325,6 +356,9 @@ def cmd_run(args: argparse.Namespace) -> int:
     config = CascadeConfig(
         K_1=args.k1,
         tier2_top_k=args.tier2,
+        tier3_top_k=args.tier3,
+        tier3_timeout_s=args.tier3_timeout,
+        tier3_disagree_pct=args.tier3_disagree,
         only_compatible_cores=not args.no_compat_filter,
         only_round_wires=not args.allow_litz,
     )
@@ -551,6 +585,24 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Run Tier 2 (transient simulation) on the top-K Tier-1 "
              "survivors. Default 0 (Tier 2 disabled). Adds ~1 ms per "
              "candidate; suitable for K up to a few hundred.",
+    )
+    p_run.add_argument(
+        "--tier3", type=int, default=0, metavar="K",
+        help="Run Tier 3 (magnetostatic FEA via FEMMT/FEMM) on the "
+             "top-K survivors. Default 0 (Tier 3 disabled). Each "
+             "FEA solve is 5–30 s, so K = 10–50 is the practical "
+             "sweet spot. Skipped silently if no FEA backend is "
+             "installed (run `pfc-inductor-setup` to provision FEMMT).",
+    )
+    p_run.add_argument(
+        "--tier3-timeout", type=int, default=300, metavar="SECONDS",
+        help="Per-candidate FEA timeout in seconds (default 300).",
+    )
+    p_run.add_argument(
+        "--tier3-disagree", type=float, default=15.0, metavar="PCT",
+        help="Tier 3 / Tier 1 disagreement threshold in percent "
+             "(default 15). Rows above the threshold are flagged in "
+             "the Tier-3 notes for the engineer to inspect.",
     )
     p_run.add_argument("--top", type=int, default=10,
                        help="Top-N rows printed at the end (default 10)")
