@@ -71,9 +71,16 @@ def test_curated_only_filter_excludes_catalog_rows():
     if len(mats) <= len(curated):
         return  # no catalog imported yet — nothing to verify
     catalog_only = [m for m in mats if m.id not in curated]
-    # All catalog-only entries must carry their source tag in notes — that's
-    # the breadcrumb the importer writes so the user knows what's calibrated.
-    assert all("OpenMagnetics" in m.notes for m in catalog_only)
+    # Every non-curated material must carry a source breadcrumb in
+    # ``notes``. We accept either OpenMagnetics (MAS catalog) or
+    # PyETK (Ansys-imported ferrites). New importers should append
+    # their own marker here.
+    expected_markers = ("OpenMagnetics", "PyETK")
+    for m in catalog_only:
+        assert any(marker in m.notes for marker in expected_markers), (
+            f"catalog material {m.id!r} has no source marker in notes: "
+            f"{m.notes!r}"
+        )
 
 
 def test_catalog_material_drives_design_engine():

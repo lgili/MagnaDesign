@@ -1,0 +1,5 @@
+Source: https://github.com/ansys/ansys-pyetk
+Path:   src/ansys/aedt/toolkits/electronic_transformer/ui/data/
+License: Apache-2.0
+Snapshot: 2026-05-07T00:11:26Z
+Commit: abb9fb22bdf753107a46038d283c24a7ea423374

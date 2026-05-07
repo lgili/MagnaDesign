@@ -1,0 +1,365 @@
+{
+  "_comment": "Imported from ansys/ansys-pyetk (Apache-2.0) snapshot @ abb9fb22bdf7. 12 ferrites converted via scripts/import_pyetk_catalog.py.",
+  "materials": [
+    {
+      "id": "ferroxcube-3c81",
+      "vendor": "Ferroxcube",
+      "family": "MnZn ferrite",
+      "name": "3C81",
+      "type": "ferrite",
+      "mu_initial": 2700.0,
+      "Bsat_25C_T": 0.51,
+      "Bsat_100C_T": 0.39,
+      "rho_kg_m3": 4800.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 209.6718757365035,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.485,
+        "beta": 2.51,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": null,
+      "loss_datapoints": [],
+      "cost_per_kg": null,
+      "cost_currency": "USD",
+      "notes": "Imported from PyETK (Apache-2.0). μ_initial taken from the DC point of mu_vs_freq; Bsat is a Ferroxcube MnZn typical (verify against the actual material datasheet).",
+      "x-pfc-inductor": {
+        "id": "ferroxcube-3c81",
+        "source": "pyetk",
+        "snapshot": "abb9fb22bdf7"
+      }
+    },
+    {
+      "id": "ferroxcube-3c91",
+      "vendor": "Ferroxcube",
+      "family": "MnZn ferrite",
+      "name": "3C91",
+      "type": "ferrite",
+      "mu_initial": 3000.0,
+      "Bsat_25C_T": 0.51,
+      "Bsat_100C_T": 0.39,
+      "rho_kg_m3": 4800.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 80.12233565143063,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.5,
+        "beta": 2.875,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": null,
+      "loss_datapoints": [],
+      "cost_per_kg": null,
+      "cost_currency": "USD",
+      "notes": "Imported from PyETK (Apache-2.0). μ_initial taken from the DC point of mu_vs_freq; Bsat is a Ferroxcube MnZn typical (verify against the actual material datasheet).",
+      "x-pfc-inductor": {
+        "id": "ferroxcube-3c91",
+        "source": "pyetk",
+        "snapshot": "abb9fb22bdf7"
+      }
+    },
+    {
+      "id": "ferroxcube-3c90",
+      "vendor": "Ferroxcube",
+      "family": "MnZn ferrite",
+      "name": "3C90",
+      "type": "ferrite",
+      "mu_initial": 2300.0,
+      "Bsat_25C_T": 0.51,
+      "Bsat_100C_T": 0.39,
+      "rho_kg_m3": 4800.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 84.21701326470611,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.54,
+        "beta": 2.69,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": null,
+      "loss_datapoints": [],
+      "cost_per_kg": null,
+      "cost_currency": "USD",
+      "notes": "Imported from PyETK (Apache-2.0). μ_initial taken from the DC point of mu_vs_freq; Bsat is a Ferroxcube MnZn typical (verify against the actual material datasheet).",
+      "x-pfc-inductor": {
+        "id": "ferroxcube-3c90",
+        "source": "pyetk",
+        "snapshot": "abb9fb22bdf7"
+      }
+    },
+    {
+      "id": "ferroxcube-3f35",
+      "vendor": "Ferroxcube",
+      "family": "MnZn ferrite",
+      "name": "3F35",
+      "type": "ferrite",
+      "mu_initial": 1400.0,
+      "Bsat_25C_T": 0.51,
+      "Bsat_100C_T": 0.39,
+      "rho_kg_m3": 4750.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 99.34006601017379,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.577,
+        "beta": 2.744,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": null,
+      "loss_datapoints": [],
+      "cost_per_kg": null,
+      "cost_currency": "USD",
+      "notes": "Imported from PyETK (Apache-2.0). μ_initial taken from the DC point of mu_vs_freq; Bsat is a Ferroxcube MnZn typical (verify against the actual material datasheet).",
+      "x-pfc-inductor": {
+        "id": "ferroxcube-3f35",
+        "source": "pyetk",
+        "snapshot": "abb9fb22bdf7"
+      }
+    },
+    {
+      "id": "ferroxcube-3c96",
+      "vendor": "Ferroxcube",
+      "family": "MnZn ferrite",
+      "name": "3C96",
+      "type": "ferrite",
+      "mu_initial": 2000.0,
+      "Bsat_25C_T": 0.51,
+      "Bsat_100C_T": 0.39,
+      "rho_kg_m3": 4800.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 64.77237571220323,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.6,
+        "beta": 2.576,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": null,
+      "loss_datapoints": [],
+      "cost_per_kg": null,
+      "cost_currency": "USD",
+      "notes": "Imported from PyETK (Apache-2.0). μ_initial taken from the DC point of mu_vs_freq; Bsat is a Ferroxcube MnZn typical (verify against the actual material datasheet).",
+      "x-pfc-inductor": {
+        "id": "ferroxcube-3c96",
+        "source": "pyetk",
+        "snapshot": "abb9fb22bdf7"
+      }
+    },
+    {
+      "id": "ferroxcube-4f1",
+      "vendor": "Ferroxcube",
+      "family": "MnZn ferrite",
+      "name": "4F1",
+      "type": "ferrite",
+      "mu_initial": 80.0,
+      "Bsat_25C_T": 0.51,
+      "Bsat_100C_T": 0.39,
+      "rho_kg_m3": 4600.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 285.32160821298316,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.29,
+        "beta": 2.181,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": null,
+      "loss_datapoints": [],
+      "cost_per_kg": null,
+      "cost_currency": "USD",
+      "notes": "Imported from PyETK (Apache-2.0). μ_initial taken from the DC point of mu_vs_freq; Bsat is a Ferroxcube MnZn typical (verify against the actual material datasheet).",
+      "x-pfc-inductor": {
+        "id": "ferroxcube-4f1",
+        "source": "pyetk",
+        "snapshot": "abb9fb22bdf7"
+      }
+    },
+    {
+      "id": "ferroxcube-3c34",
+      "vendor": "Ferroxcube",
+      "family": "MnZn ferrite",
+      "name": "3C34",
+      "type": "ferrite",
+      "mu_initial": 2100.0,
+      "Bsat_25C_T": 0.51,
+      "Bsat_100C_T": 0.39,
+      "rho_kg_m3": 4800.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 53.12584676449089,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.5,
+        "beta": 2.8,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": null,
+      "loss_datapoints": [],
+      "cost_per_kg": null,
+      "cost_currency": "USD",
+      "notes": "Imported from PyETK (Apache-2.0). μ_initial taken from the DC point of mu_vs_freq; Bsat is a Ferroxcube MnZn typical (verify against the actual material datasheet).",
+      "x-pfc-inductor": {
+        "id": "ferroxcube-3c34",
+        "source": "pyetk",
+        "snapshot": "abb9fb22bdf7"
+      }
+    },
+    {
+      "id": "ferroxcube-3c15",
+      "vendor": "Ferroxcube",
+      "family": "MnZn ferrite",
+      "name": "3C15",
+      "type": "ferrite",
+      "mu_initial": 1800.0,
+      "Bsat_25C_T": 0.51,
+      "Bsat_100C_T": 0.39,
+      "rho_kg_m3": 4800.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 108.98175115725593,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.615,
+        "beta": 2.766,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": null,
+      "loss_datapoints": [],
+      "cost_per_kg": null,
+      "cost_currency": "USD",
+      "notes": "Imported from PyETK (Apache-2.0). μ_initial taken from the DC point of mu_vs_freq; Bsat is a Ferroxcube MnZn typical (verify against the actual material datasheet).",
+      "x-pfc-inductor": {
+        "id": "ferroxcube-3c15",
+        "source": "pyetk",
+        "snapshot": "abb9fb22bdf7"
+      }
+    },
+    {
+      "id": "ferroxcube-3c30",
+      "vendor": "Ferroxcube",
+      "family": "MnZn ferrite",
+      "name": "3C30",
+      "type": "ferrite",
+      "mu_initial": 2100.0,
+      "Bsat_25C_T": 0.51,
+      "Bsat_100C_T": 0.39,
+      "rho_kg_m3": 4800.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 79.98694273431786,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.533,
+        "beta": 2.7,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": null,
+      "loss_datapoints": [],
+      "cost_per_kg": null,
+      "cost_currency": "USD",
+      "notes": "Imported from PyETK (Apache-2.0). μ_initial taken from the DC point of mu_vs_freq; Bsat is a Ferroxcube MnZn typical (verify against the actual material datasheet).",
+      "x-pfc-inductor": {
+        "id": "ferroxcube-3c30",
+        "source": "pyetk",
+        "snapshot": "abb9fb22bdf7"
+      }
+    },
+    {
+      "id": "ferroxcube-3c94",
+      "vendor": "Ferroxcube",
+      "family": "MnZn ferrite",
+      "name": "3C94",
+      "type": "ferrite",
+      "mu_initial": 2300.0,
+      "Bsat_25C_T": 0.51,
+      "Bsat_100C_T": 0.39,
+      "rho_kg_m3": 4800.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 65.08134109241148,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.44,
+        "beta": 2.725,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": null,
+      "loss_datapoints": [],
+      "cost_per_kg": null,
+      "cost_currency": "USD",
+      "notes": "Imported from PyETK (Apache-2.0). μ_initial taken from the DC point of mu_vs_freq; Bsat is a Ferroxcube MnZn typical (verify against the actual material datasheet).",
+      "x-pfc-inductor": {
+        "id": "ferroxcube-3c94",
+        "source": "pyetk",
+        "snapshot": "abb9fb22bdf7"
+      }
+    },
+    {
+      "id": "ferroxcube-3f4",
+      "vendor": "Ferroxcube",
+      "family": "MnZn ferrite",
+      "name": "3F4",
+      "type": "ferrite",
+      "mu_initial": 900.0,
+      "Bsat_25C_T": 0.51,
+      "Bsat_100C_T": 0.39,
+      "rho_kg_m3": 4700.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 163.81813449695807,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.368,
+        "beta": 2.1,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": null,
+      "loss_datapoints": [],
+      "cost_per_kg": null,
+      "cost_currency": "USD",
+      "notes": "Imported from PyETK (Apache-2.0). μ_initial taken from the DC point of mu_vs_freq; Bsat is a Ferroxcube MnZn typical (verify against the actual material datasheet).",
+      "x-pfc-inductor": {
+        "id": "ferroxcube-3f4",
+        "source": "pyetk",
+        "snapshot": "abb9fb22bdf7"
+      }
+    },
+    {
+      "id": "ferroxcube-3f3",
+      "vendor": "Ferroxcube",
+      "family": "MnZn ferrite",
+      "name": "3F3",
+      "type": "ferrite",
+      "mu_initial": 2000.0,
+      "Bsat_25C_T": 0.51,
+      "Bsat_100C_T": 0.39,
+      "rho_kg_m3": 4750.0,
+      "steinmetz": {
+        "Pv_ref_mWcm3": 88.11190915310983,
+        "f_ref_kHz": 100.0,
+        "B_ref_mT": 100.0,
+        "alpha": 1.561,
+        "beta": 2.15,
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0
+      },
+      "rolloff": null,
+      "loss_datapoints": [],
+      "cost_per_kg": null,
+      "cost_currency": "USD",
+      "notes": "Imported from PyETK (Apache-2.0). μ_initial taken from the DC point of mu_vs_freq; Bsat is a Ferroxcube MnZn typical (verify against the actual material datasheet).",
+      "x-pfc-inductor": {
+        "id": "ferroxcube-3f3",
+        "source": "pyetk",
+        "snapshot": "abb9fb22bdf7"
+      }
+    }
+  ]
+}

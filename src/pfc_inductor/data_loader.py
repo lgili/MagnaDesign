@@ -13,9 +13,13 @@ Source precedence, highest first:
    (whatever the user edited via the DB editor).
 2. **Curated** — ``data/mas/{materials,cores,wires}.json`` shipped with
    the app, hand-tuned (rolloff/Steinmetz calibrations).
-3. **Catalog** — ``data/mas/catalog/{materials,wires}.json`` imported
+3. **MAS catalog** — ``data/mas/catalog/{materials,wires}.json`` imported
    from OpenMagnetics MAS (see ``scripts/import_mas_catalog.py``).
-4. **Legacy** — ``data/{materials,cores,wires}.json`` (only used when no
+4. **PyETK catalog** — ``data/pyetk/{materials,cores}.json`` imported
+   from ansys/ansys-pyetk (see ``scripts/import_pyetk_catalog.py``).
+   Tagged with ``x-pfc-inductor.source = "pyetk"`` so the
+   "Apenas curados" filter excludes them by default.
+5. **Legacy** — ``data/{materials,cores,wires}.json`` (only used when no
    MAS-shaped file exists).
 
 Entries with the same ``id`` collapse: only the highest-precedence copy
@@ -89,6 +93,7 @@ def _bundled_data_root() -> Path:
 _BUNDLED_DATA = _bundled_data_root()
 _BUNDLED_MAS = _BUNDLED_DATA / "mas"
 _BUNDLED_CATALOG = _BUNDLED_MAS / "catalog"
+_BUNDLED_PYETK = _BUNDLED_DATA / "pyetk"
 
 
 def user_data_path() -> Path:
@@ -130,6 +135,24 @@ def _open_data(name: str) -> dict:
 def _open_catalog(name: str) -> dict | None:
     """Read the imported catalog file under data/mas/catalog/, if present."""
     p = _BUNDLED_CATALOG / name
+    if not p.exists():
+        return None
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return None
+
+
+def _open_pyetk(name: str) -> dict | None:
+    """Read the imported PyETK catalog file under ``data/pyetk/``.
+
+    The PyETK importer (``scripts/import_pyetk_catalog.py``) writes
+    legacy-shaped JSON into this directory tagged with
+    ``x-pfc-inductor.source = "pyetk"``. Returning ``None`` when the
+    file is missing keeps the loader silent for users who never ran
+    the import script.
+    """
+    p = _BUNDLED_PYETK / name
     if not p.exists():
         return None
     try:
@@ -205,25 +228,47 @@ def _decode_entries(items: list[dict], kind: str) -> list:
 
 
 def _merge_with_catalog(file_name: str, key: str, kind: str) -> list:
-    """Merge primary + catalog entries with id-based precedence.
+    """Merge primary + MAS catalog + PyETK catalog with id-based precedence.
 
-    Order, lowest precedence first: catalog -> primary (user/curated/legacy).
-    Entries that share an id collapse to the highest-precedence copy. Items
-    without an id (legacy data sometimes omitted them) pass through as-is.
+    Order, lowest precedence first: PyETK → MAS catalog → primary
+    (user/curated/legacy). Entries that share an id collapse to the
+    highest-precedence copy. Items without an id (legacy data sometimes
+    omitted them) pass through as-is.
+
+    The MAS catalog is consulted only for ``materials.json`` /
+    ``wires.json`` (the upstream MAS dataset has no curated cores
+    layer); the PyETK catalog covers ``materials.json`` and
+    ``cores.json`` because that's what the import script generates.
     """
     primary_raw = _open_data(file_name).get(key, [])
     primary = list(_decode_entries(primary_raw, kind))
-    primary_ids = {getattr(e, "id", None) for e in primary}
+    seen_ids: set[str | None] = {getattr(e, "id", None) for e in primary}
 
-    catalog_payload = _open_catalog(file_name) if file_name != "cores.json" else None
-    if catalog_payload is None:
-        return primary
-    catalog_raw = [
-        e for e in catalog_payload.get(key, [])
-        if _entry_id(e) not in primary_ids
-    ]
-    catalog = list(_decode_entries(catalog_raw, kind))
-    return primary + catalog
+    extras: list = []
+
+    # Layer 1: MAS catalog (cores excluded — see module docstring).
+    if file_name != "cores.json":
+        mas_payload = _open_catalog(file_name)
+        if mas_payload is not None:
+            mas_raw = [
+                e for e in mas_payload.get(key, [])
+                if _entry_id(e) not in seen_ids
+            ]
+            mas_entries = _decode_entries(mas_raw, kind)
+            extras.extend(mas_entries)
+            seen_ids.update(getattr(e, "id", None) for e in mas_entries)
+
+    # Layer 2: PyETK catalog (covers both materials and cores).
+    pyetk_payload = _open_pyetk(file_name)
+    if pyetk_payload is not None:
+        pyetk_raw = [
+            e for e in pyetk_payload.get(key, [])
+            if _entry_id(e) not in seen_ids
+        ]
+        pyetk_entries = _decode_entries(pyetk_raw, kind)
+        extras.extend(pyetk_entries)
+
+    return primary + extras
 
 
 def load_materials() -> list[Material]:
@@ -256,7 +301,10 @@ def load_curated_ids(kind: str) -> set[str]:
     for entry in items:
         if not isinstance(entry, dict):
             continue
-        if _entry_source(entry) == "openmagnetics":
+        # Anything from an imported catalog (MAS or PyETK) is *not*
+        # curated, even if it lives in the primary file (the user
+        # could have copied an imported entry into their overlay).
+        if _entry_source(entry) in ("openmagnetics", "pyetk"):
             continue
         eid = _entry_id(entry)
         if eid:

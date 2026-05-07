@@ -94,6 +94,7 @@ def test_loader_detects_mas_layout(tmp_path, monkeypatch):
     monkeypatch.setattr(dl, "user_data_path", lambda: user_dir)
     # Suppress the imported catalog so the test only sees its tmp file.
     monkeypatch.setattr(dl, "_open_catalog", lambda _name: None)
+    monkeypatch.setattr(dl, "_open_pyetk", lambda _name: None)
 
     mats_internal = load_materials()[:3]
     mas_payload = {
@@ -120,6 +121,7 @@ def test_loader_falls_back_to_legacy_format(tmp_path, monkeypatch):
     user_dir.mkdir()
     monkeypatch.setattr(dl, "user_data_path", lambda: user_dir)
     monkeypatch.setattr(dl, "_open_catalog", lambda _name: None)
+    monkeypatch.setattr(dl, "_open_pyetk", lambda _name: None)
 
     mats_internal = load_materials()[:2]
     legacy_payload = {
@@ -182,6 +184,7 @@ def test_save_then_reload_mas(tmp_path, monkeypatch):
     user_dir.mkdir()
     monkeypatch.setattr(dl, "user_data_path", lambda: user_dir)
     monkeypatch.setattr(dl, "_open_catalog", lambda _name: None)
+    monkeypatch.setattr(dl, "_open_pyetk", lambda _name: None)
 
     mats = load_materials()[:5]
     dl.save_materials(mats, as_mas=True)
