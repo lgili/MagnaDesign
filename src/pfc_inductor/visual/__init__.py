@@ -4,6 +4,7 @@ from pfc_inductor.visual.core_3d import (
     make_bobbin_mesh,
     make_core_mesh,
     make_winding_mesh,
+    winding_fit_info,
 )
 from pfc_inductor.visual.views import VIEW_CAMERAS, ViewName, set_camera_to_view
 
@@ -16,4 +17,5 @@ __all__ = [
     "make_core_mesh",
     "make_winding_mesh",
     "set_camera_to_view",
+    "winding_fit_info",
 ]

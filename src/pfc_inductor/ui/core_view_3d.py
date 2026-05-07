@@ -52,6 +52,7 @@ from pfc_inductor.visual import (
     make_core_mesh,
     make_winding_mesh,
     set_camera_to_view,
+    winding_fit_info,
 )
 
 
@@ -134,7 +135,10 @@ class CoreView3D(QWidget):
         self._actor_core: list = []
         self._actor_winding = None
         self._actor_bobbin: list = []
-        self._layer_state = {"winding": True, "bobbin": False, "airgap": True}
+        # ``bobbin`` flipped to True now that the former (carretel) renders
+        # as a real 3-part assembly (former tube + 2 flanges) instead of
+        # just two floating discs. Hides via the SideToolbar layer toggle.
+        self._layer_state = {"winding": True, "bobbin": True, "airgap": True}
 
         # Section / measure widgets reused across toggles.
         self._section_widget = None
@@ -308,6 +312,7 @@ class CoreView3D(QWidget):
                 make_bobbin_mesh(core, wire, N_turns, info)
                 if self._layer_state.get("bobbin", False) else None
             )
+            fit = winding_fit_info(core, wire, N_turns, info)
         except Exception as e:
             self.plotter.add_text(
                 f"Erro ao gerar mesh:\n{e}",
@@ -316,6 +321,9 @@ class CoreView3D(QWidget):
                 font_size=10,
             )
             return
+        # Cache the fit dict so callers (e.g. the dashboard's "fit
+        # check" chip) can read it without redoing the math.
+        self._last_fit = fit
 
         colors = _material_colors()
         core_color = colors.get(material.type, colors["default"])
@@ -364,15 +372,31 @@ class CoreView3D(QWidget):
                 self._actor_bobbin.append(act)
 
         if wnd is not None and self._layer_state["winding"]:
+            # Tinge the winding ``danger`` when the requested N_turns
+            # overflowed the bobbin window — gives the engineer a
+            # one-glance "this design doesn't fit" signal that the
+            # tabular Bobinamento card can't deliver.
+            wire_color = get_theme().palette.copper
+            if not fit["fits"]:
+                wire_color = get_theme().palette.danger
             self._actor_winding = self.plotter.add_mesh(
                 wnd,
-                color=get_theme().palette.copper,
+                color=wire_color,
                 smooth_shading=True,
                 ambient=0.22, diffuse=0.55,
                 specular=0.95, specular_power=40,
                 metallic=0.85, roughness=0.18,
                 pbr=False,
             )
+            if not fit["fits"]:
+                self.plotter.add_text(
+                    f"⚠ {fit['actual']} de {fit['requested']} voltas cabem "
+                    f"({fit['layers']} camadas, "
+                    f"{fit['turns_per_layer']}/camada)",
+                    position="upper_left",
+                    color=get_theme().viz3d.text_error,
+                    font_size=9,
+                )
 
         # self.plotter.reset_camera()
         # Apply the chips' active preset.
