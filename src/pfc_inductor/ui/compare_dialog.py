@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
 from pfc_inductor.compare import METRICS, CompareSlot, categorize
 from pfc_inductor.ui.theme import get_theme
 
-MAX_SLOTS = 4
+MAX_SLOTS = 8
 
 # Compare-row backgrounds resolve from the active theme at row-render
 # time so light↔dark transitions don't leave stale tints behind.

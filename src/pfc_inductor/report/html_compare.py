@@ -109,18 +109,34 @@ vermelho = pior.</p>
 
 
 def _spec_table(slots: list[CompareSlot]) -> str:
-    """Rows for the spec block (Vin/Vout/P/fsw/etc)."""
+    """Rows for the spec block, dynamically adapted to topology."""
     rows = []
-    fields = [
+    # Define all possible fields and a function to get the value, returning "—"
+    # for non-applicable fields.
+    all_fields = [
         ("Topologia", lambda s: s.spec.topology),
         ("Vin (faixa)", lambda s: f"{s.spec.Vin_min_Vrms:.0f}–{s.spec.Vin_max_Vrms:.0f} Vrms"),
-        ("Vout", lambda s: f"{s.spec.Vout_V:.0f} V"),
-        ("Pout", lambda s: f"{s.spec.Pout_W:.0f} W"),
-        ("fsw", lambda s: f"{s.spec.f_sw_kHz:.0f} kHz"),
-        ("Ripple alvo", lambda s: f"{s.spec.ripple_pct:.0f} %"),
+        # Boost/Passive fields
+        ("Vout", lambda s: f"{s.spec.Vout_V:.0f} V" if s.spec.topology != 'line_reactor' else "—"),
+        ("Pout", lambda s: f"{s.spec.Pout_W:.0f} W" if s.spec.topology != 'line_reactor' else "—"),
+        ("fsw", lambda s: f"{s.spec.f_sw_kHz:.0f} kHz" if s.spec.topology != 'line_reactor' else "—"),
+        ("Ripple alvo", lambda s: f"{s.spec.ripple_pct:.0f} %" if s.spec.topology != 'line_reactor' else "—"),
+        # Line Reactor fields
+        ("Fases", lambda s: str(s.spec.n_phases) if s.spec.topology == 'line_reactor' else "—"),
+        ("V de linha", lambda s: f"{s.spec.Vin_nom_Vrms:.0f} Vrms" if s.spec.topology == 'line_reactor' else "—"),
+        ("I nominal", lambda s: f"{s.spec.I_rated_Arms:.1f} A" if s.spec.topology == 'line_reactor' else "—"),
+        ("Indutância alvo", lambda s: f"{s.spec.L_req_mH:.2f} mH" if s.spec.topology == 'line_reactor' else "—"),
+        # Common fields
         ("T amb", lambda s: f"{s.spec.T_amb_C:.0f} °C"),
     ]
-    for name, fn in fields:
+
+    # Filter out rows that are not relevant for ANY of the slots.
+    fields_to_render = []
+    for name, fn in all_fields:
+        if any(fn(s) != "—" for s in slots):
+            fields_to_render.append((name, fn))
+
+    for name, fn in fields_to_render:
         cells = "".join(f"<td>{escape(str(fn(s)))}</td>" for s in slots)
         rows.append(f'<tr><th class="metric">{escape(name)}</th>{cells}</tr>')
     return "".join(rows)
