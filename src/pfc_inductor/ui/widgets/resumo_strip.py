@@ -11,6 +11,7 @@ language as the v2 ``ResumoCard`` badge ("Aprovado" / "Verificar" /
 """
 from __future__ import annotations
 
+import math
 from typing import Optional
 
 from PySide6.QtCore import Qt, QTimer
@@ -51,6 +52,28 @@ def _status_for_temp(T_C: float) -> MetricStatus:
     if T_C <= 110:
         return "warn"
     return "err"
+
+
+def _finite_or_dash(
+    value: float, fmt: str = "{:.0f}", clamp_max: float = 1e6
+) -> str:
+    """Format ``value`` defensively, falling back to ``"—"``.
+
+    The engine occasionally emits ``inf``, ``nan`` or absurd magnitudes
+    (e.g. ``η < 0`` or ``P_total > 1 MW``) when given an uninitialised
+    spec or when its solver has diverged. Rendering those raw makes
+    the KPI strip look broken; ``"—"`` communicates "no valid data"
+    while preserving cell width.
+
+    ``clamp_max`` is the upper limit beyond which we treat the number
+    as nonsense — defaults to 1 000 000 for regular metrics, callers
+    can tighten it (e.g. losses are clamped to 100 kW).
+    """
+    if not math.isfinite(value):
+        return "—"
+    if abs(value) > clamp_max:
+        return "—"
+    return fmt.format(value)
 
 
 class ResumoStrip(QFrame):
@@ -116,12 +139,19 @@ class ResumoStrip(QFrame):
     def update_from_design(self, result: DesignResult, spec: Spec,
                            core: Core, wire: Wire,
                            material: Material) -> None:
-        self.m_L.set_value(f"{result.L_actual_uH:.0f}")
-        self.m_I.set_value(f"{result.I_line_pk_A:.1f}")
-        self.m_dI.set_value(f"{result.I_ripple_pk_pk_A:.2f}")
-        self.m_B.set_value(f"{result.B_pk_T * 1000.0:.0f}")
-        self.m_T.set_value(f"{result.T_rise_C:.0f}")
-        self.m_P.set_value(f"{result.losses.P_total_W:.2f}")
+        # Defensive formatting: when the engine produces non-finite
+        # numbers (uninitialised spec, divergent solver) or absurd
+        # magnitudes (η = -834 516 %, P > 1 MW), render '—' instead of
+        # the raw figure. Showing a 7-digit nonsense Wattage made the
+        # ResumoStrip look broken — '—' communicates "no valid data
+        # yet" cleanly while preserving cell width.
+        self.m_L.set_value(_finite_or_dash(result.L_actual_uH, "{:.0f}"))
+        self.m_I.set_value(_finite_or_dash(result.I_line_pk_A, "{:.1f}"))
+        self.m_dI.set_value(_finite_or_dash(result.I_ripple_pk_pk_A, "{:.2f}"))
+        self.m_B.set_value(_finite_or_dash(result.B_pk_T * 1000.0, "{:.0f}"))
+        self.m_T.set_value(_finite_or_dash(result.T_rise_C, "{:.0f}"))
+        self.m_P.set_value(_finite_or_dash(result.losses.P_total_W, "{:.2f}",
+                                           clamp_max=1e5))
 
         # Statuses — same logic as ResumoCard for parity.
         self.m_B.set_status(_status_for_b(result.B_pk_T, result.B_sat_limit_T))
@@ -231,12 +261,17 @@ class ResumoStrip(QFrame):
             f"  border-radius: {r.card}px;"
             f"}}"
             # Flash state — applied for ANIMATION.flash_ms after each
-            # update_from_design fan-out. The tinted background is
-            # ``accent_violet_subtle_bg`` (already in palette) so the
-            # outline reads as "fresh" without needing a new token.
+            # update_from_design. We only change the **border** (1 →
+            # 2 px, accent_violet) and keep the surface background
+            # intact: the previous version tinted the strip with
+            # ``accent_violet_subtle_bg`` which then cascaded into the
+            # transparent-backed children, especially the danger badge
+            # — leaving a sticky violet halo behind the "REPROVADO"
+            # text in dark mode. A border-only flash reads as "fresh"
+            # without contaminating any child.
             f"QFrame#ResumoStrip[flash=\"true\"] {{"
-            f"  background: {p.accent_violet_subtle_bg};"
-            f"  border: 1px solid {p.accent_violet};"
+            f"  background: {p.surface};"
+            f"  border: 2px solid {p.accent_violet};"
             f"  border-radius: {r.card}px;"
             f"}}"
         )

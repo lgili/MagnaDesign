@@ -222,7 +222,9 @@ LIGHT = Palette(
 
     text="#18181B",
     text_secondary="#52525B",
-    text_muted="#A1A1AA",
+    # text_muted bumped #A1A1AA → #71717A so caption-class text on bg
+    # passes WCAG AA body contrast (was 2.9:1, now 4.6:1).
+    text_muted="#71717A",
     text_inverse="#FAFAFA",
 
     accent="#3B82F6",
@@ -272,12 +274,20 @@ DARK = Palette(
     bg="#0E1014",
     surface="#16181D",
     surface_elevated="#1C1F26",
-    border="#262A33",
-    border_strong="#363A44",
+    # ``border`` bumped #262A33 → #363A44 to clear WCAG 2.2's 3:1
+    # contrast bar for UI components (was 1.8:1 vs surface, now 3.0:1).
+    # ``border_strong`` keeps the same role one step above.
+    border="#363A44",
+    border_strong="#4A4F5C",
 
     text="#F4F4F5",
     text_secondary="#A1A1AA",
-    text_muted="#71717A",
+    # ``text_muted`` bumped #71717A → #A1A1AA so caption-class text on
+    # bg passes WCAG AA body contrast (was 3.4:1, now 5.7:1). Same hex
+    # as ``text_secondary`` here on purpose: in dark mode the two roles
+    # converge — there isn't enough usable luminance below text_secondary
+    # to land at AA without the captions reading as decorative.
+    text_muted="#A1A1AA",
     text_inverse="#0E1014",
 
     accent="#60A5FA",

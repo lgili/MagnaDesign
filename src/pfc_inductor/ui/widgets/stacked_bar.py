@@ -11,6 +11,7 @@ there is no fixed ``figsize`` to fight with the parent layout.
 """
 from __future__ import annotations
 
+import math
 from typing import NamedTuple, Optional, Sequence
 
 from PySide6.QtCore import Qt
@@ -142,7 +143,11 @@ class HorizontalStackedBar(QWidget):
 
         p = get_theme().palette
         total = self.total()
-        if total <= 0:
+        # Treat non-finite or absurd magnitudes (> 100 kW for power
+        # bars, the only caller today) as "no valid data" — the engine
+        # can spit nonsense for an uninitialised spec and the user
+        # would see a 7-digit total before any real design ran.
+        if total <= 0 or not math.isfinite(total) or total > 1e5:
             self._lbl_total.setText("—")
             # Empty track placeholder so the bar doesn't disappear.
             ph = QFrame()
