@@ -414,7 +414,7 @@ class CardMinSize:
 
     Each entry is ``(min_width_px, min_height_px)``. Tuned for the v3
     Projeto bento grid (12 columns) at the 1280 px baseline window
-    width minus the 250 px sidebar and 360 px spec drawer. Keeping
+    width minus the 220 px sidebar and 360 px spec drawer. Keeping
     these as a single dataclass instead of magic numbers per card
     means a future "density" toggle can swap one ``CardMinSize`` for
     another without touching widget code.

@@ -70,13 +70,18 @@ OVERFLOW_ACTIONS: tuple[tuple[str, str, str], ...] = (
 # ---------------------------------------------------------------------------
 
 class Sidebar(QFrame):
-    """Left-edge navigation chrome. 250 px wide, navy, brand-invariant."""
+    """Left-edge navigation chrome. 220 px wide, navy, brand-invariant.
+
+    Width was 250 px; trimmed to 220 to give the workspace ~30 px of
+    extra horizontal real estate on laptop viewports without the nav
+    labels truncating (longest is "Configurações" at ~98 px @ 13 px).
+    """
 
     navigation_requested = Signal(str)        # area_id
     theme_toggle_requested = Signal()
     overflow_action_requested = Signal(str)   # action key
 
-    WIDTH = 250
+    WIDTH = 220
 
     def __init__(self, parent: Optional[QWidget] = None,
                  dark_theme: bool = False) -> None:
