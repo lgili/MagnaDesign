@@ -164,3 +164,69 @@ def test_nucleo_card_emits_selection_applied_on_different_row(app, db):
     assert m_id == mat.id
     assert c_id != core.id
     assert w_id == wire.id
+
+
+def test_populate_skips_rebuild_when_only_selection_changes(app, db):
+    """Same spec + same catalogs + same material → second populate
+    must NOT rebuild the table (otherwise the user loses scroll
+    position when the recalc triggered by their click re-fires
+    populate)."""
+    from pfc_inductor.models import Spec
+    from pfc_inductor.ui.dashboard.cards.nucleo_card import NucleoCard
+    card = NucleoCard()
+    spec = Spec()
+    mat = db["materials"][0]
+    wire = db["wires"][0]
+    # Pick two cores compatible enough that both render in the table.
+    cores = db["cores"]
+    core_a = cores[0]
+    core_b = cores[1] if len(cores) > 1 else core_a
+
+    # First populate: full rebuild expected.
+    card.populate(spec, db["materials"], cores, db["wires"], mat, core_a, wire)
+    rebuilds = []
+    original = card._nbody.tab_core._model.set_rows
+    def _spy(rows):
+        rebuilds.append(len(rows))
+        return original(rows)
+    card._nbody.tab_core._model.set_rows = _spy
+
+    # Second populate with a different *current* core but same spec / mat
+    # / catalogs — must not re-rank.
+    card.populate(spec, db["materials"], cores, db["wires"], mat, core_b, wire)
+    assert rebuilds == [], (
+        "populate() rebuilt the core table even though only the current "
+        "selection changed; expected the cache to short-circuit."
+    )
+
+    # Third populate with a different material — rebuild IS expected
+    # because rank_cores depends on material. Skip when there's only
+    # one material in the catalog (impossible to test).
+    if len(db["materials"]) > 1:
+        mat2 = db["materials"][1]
+        card.populate(spec, db["materials"], cores, db["wires"], mat2, core_a, wire)
+        assert rebuilds, (
+            "populate() must rebuild after a material change so the "
+            "core ranking reflects the new (cores × material) pairing."
+        )
+
+
+def test_clear_resets_rebuild_cache(app, db):
+    """``clear()`` must drop the rebuild cache so a subsequent
+    ``populate()`` re-renders even with the same arguments."""
+    from pfc_inductor.models import Spec
+    from pfc_inductor.ui.dashboard.cards.nucleo_card import NucleoCard
+    card = NucleoCard()
+    spec = Spec()
+    mat = db["materials"][0]
+    core = db["cores"][0]
+    wire = db["wires"][0]
+    card.populate(spec, db["materials"], db["cores"], db["wires"],
+                  mat, core, wire)
+    card.clear()
+    rebuilds = []
+    original = card._nbody.tab_core._model.set_rows
+    card._nbody.tab_core._model.set_rows = lambda rows: (rebuilds.append(1), original(rows))[1]
+    card.populate(spec, db["materials"], db["cores"], db["wires"],
+                  mat, core, wire)
+    assert rebuilds, "populate() after clear() must re-render"

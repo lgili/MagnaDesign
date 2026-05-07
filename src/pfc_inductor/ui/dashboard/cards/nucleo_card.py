@@ -290,9 +290,43 @@ class _CandidateTab(QWidget):
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
-    def set_rows(self,
-                 rows: Sequence[tuple[object, list[str], float]]) -> None:
+    def set_rows(
+        self,
+        rows: Sequence[tuple[object, list[str], float]],
+        *,
+        preserve_id: Optional[str] = None,
+    ) -> None:
+        """Replace the model rows. Optionally re-select a row by id and
+        restore the vertical scroll position so the user doesn't lose
+        their place when a recalc triggers a re-rank.
+        """
+        # Snapshot scroll + selected id BEFORE the model reset wipes them.
+        scroll_pos = self.table.verticalScrollBar().value()
+        if preserve_id is None:
+            cand = self.selected_candidate()
+            if cand is not None:
+                preserve_id = getattr(cand, "id", None)
+
         self._model.set_rows(rows)
+
+        # Re-select the same id if it survived the rebuild.
+        if preserve_id:
+            for src_row in range(self._model.rowCount()):
+                cand = self._model.candidate_at(src_row)
+                if getattr(cand, "id", None) == preserve_id:
+                    proxy_idx = self._proxy.mapFromSource(
+                        self._model.index(src_row, 0)
+                    )
+                    if proxy_idx.isValid():
+                        self.table.selectionModel().select(
+                            proxy_idx,
+                            self.table.selectionModel().SelectionFlag.ClearAndSelect
+                            | self.table.selectionModel().SelectionFlag.Rows,
+                        )
+                    break
+        # Restore scroll. Done last so the selection-induced auto-scroll
+        # doesn't override what the user was looking at.
+        self.table.verticalScrollBar().setValue(scroll_pos)
 
     def selected_candidate(self) -> object | None:
         sel = self.table.selectionModel().selectedRows()
@@ -339,6 +373,14 @@ class _NucleoBody(QWidget):
         self._current_core: Core | None = None
         self._current_wire: Wire | None = None
         self._is_populating = False
+        # Fingerprint of the last successful rebuild. The host
+        # (``ProjetoPage``/``MainWindow``) calls ``populate()`` after
+        # every recalc — but for a same-material core/wire pick the
+        # candidate set hasn't changed, so we can skip the heavy
+        # ``set_rows`` and just refresh the cached "current selection"
+        # state. Avoids the table scrolling back to the top each time
+        # the user clicks a different row.
+        self._last_rebuild_key: tuple | None = None
 
         for tab in (self.tab_material, self.tab_core, self.tab_wire):
             tab.selection_changed.connect(
@@ -358,17 +400,37 @@ class _NucleoBody(QWidget):
         current_core: Core,
         current_wire: Wire,
     ) -> None:
+        """Populate (or refresh) the three candidate tables.
+
+        Performance contract: a same-material core/wire pick must NOT
+        trigger a full rebuild — the user is browsing the ranked list
+        and a rebuild would scroll them back to the top mid-click.
+        We compute a "rebuild key" from the inputs that genuinely
+        affect the row set; when it matches the previous call we just
+        refresh the cached current-selection state and return.
+        """
+        rebuild_key = self._compute_rebuild_key(
+            spec, materials, cores, wires, current_material,
+        )
+
+        # Always cache the current selection so ``_on_table_selection_changed``
+        # has fresh comparison data, regardless of whether we rebuild.
+        self._spec = spec
+        self._materials = materials
+        self._cores = cores
+        self._wires = wires
+        self._current_material = current_material
+        self._current_core = current_core
+        self._current_wire = current_wire
+
+        if rebuild_key == self._last_rebuild_key:
+            # Candidate set unchanged — no need to re-rank or re-render.
+            # The user keeps their scroll position and (if any) selected
+            # row, exactly what they want when picking the next core.
+            return
+
         self._is_populating = True
         try:
-            # Cache all inputs.
-            self._spec = spec
-            self._materials = materials
-            self._cores = cores
-            self._wires = wires
-            self._current_material = current_material
-            self._current_core = current_core
-            self._current_wire = current_wire
-
             # Material tab
             m_rows: list[tuple[object, list[str], float]] = []
             for m, s in rank_materials(spec, materials):
@@ -377,7 +439,9 @@ class _NucleoBody(QWidget):
                     f"{m.mu_initial:.0f}",
                     f"{m.Bsat_25C_T:.2f}",
                 ], s))
-            self.tab_material.set_rows(m_rows)
+            self.tab_material.set_rows(
+                m_rows, preserve_id=current_material.id,
+            )
 
             # Core tab
             c_rows: list[tuple[object, list[str], float]] = []
@@ -387,7 +451,7 @@ class _NucleoBody(QWidget):
                     c.vendor,
                     f"{c.Ve_mm3 / 1000:.1f}",
                 ], s))
-            self.tab_core.set_rows(c_rows)
+            self.tab_core.set_rows(c_rows, preserve_id=current_core.id)
 
             # Wire tab
             w_rows: list[tuple[object, list[str], float]] = []
@@ -399,9 +463,55 @@ class _NucleoBody(QWidget):
                     w.type,
                     f"{w.A_cu_mm2:.3f}",
                 ], s))
-            self.tab_wire.set_rows(w_rows)
+            self.tab_wire.set_rows(w_rows, preserve_id=current_wire.id)
+
+            self._last_rebuild_key = rebuild_key
         finally:
             self._is_populating = False
+
+    def _compute_rebuild_key(
+        self, spec: Spec, materials: list[Material], cores: list[Core],
+        wires: list[Wire], current_material: Material,
+    ) -> tuple:
+        """Fingerprint the inputs that affect the rendered row set.
+
+        Includes:
+
+        - ``spec.canonical_hash()`` — captures every field of the Spec
+          (topology, fsw, Pout, Vin, Ku/Bsat margins). A spec edit
+          re-ranks because scoring is spec-dependent.
+        - Catalog identities (length + first/last id) — cheap proxy
+          for "did the catalog reload?" without hashing 10 k entries.
+        - ``current_material.id`` — drives the cores' compatibility
+          ranking, so a material change DOES need a rebuild.
+
+        Notably absent: ``current_core.id`` and ``current_wire.id``.
+        Those don't affect the ranked rows themselves, only the
+        "what's selected" state — which set_rows already preserves.
+        """
+        try:
+            spec_hash = spec.canonical_hash()
+        except Exception:
+            # Pre-cascade Spec snapshots had no canonical_hash; degrade
+            # to repr fingerprint so the cache still works on those.
+            spec_hash = repr(sorted(spec.model_dump().items()))
+
+        def _id_fingerprint(items: list) -> tuple:
+            if not items:
+                return (0, "", "")
+            return (
+                len(items),
+                getattr(items[0], "id", ""),
+                getattr(items[-1], "id", ""),
+            )
+
+        return (
+            spec_hash,
+            _id_fingerprint(materials),
+            _id_fingerprint(cores),
+            _id_fingerprint(wires),
+            current_material.id,
+        )
 
     def update_from_design(self, result: DesignResult, spec: Spec,
                            core: Core, wire: Wire,
@@ -415,6 +525,10 @@ class _NucleoBody(QWidget):
     def clear(self) -> None:
         for tab in (self.tab_material, self.tab_core, self.tab_wire):
             tab.set_rows([])
+        # Drop the rebuild cache so the next ``populate()`` after a
+        # ``clear()`` always re-renders (otherwise the user would see
+        # stale empty tabs even after a fresh recalc).
+        self._last_rebuild_key = None
 
     # ------------------------------------------------------------------
     # Internals
