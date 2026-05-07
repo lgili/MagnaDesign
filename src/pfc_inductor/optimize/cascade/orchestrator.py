@@ -45,6 +45,12 @@ from pfc_inductor.optimize.cascade.tier1 import (
     cost_USD,
     evaluate_candidate_safe,
 )
+from pfc_inductor.optimize.cascade.tier2 import (
+    evaluate_candidate_safe as evaluate_tier2_safe,
+)
+from pfc_inductor.optimize.cascade.tier2 import (
+    supports_tier2,
+)
 from pfc_inductor.topology.registry import model_for
 
 # ─── Public configuration & progress types ────────────────────────
@@ -53,18 +59,21 @@ from pfc_inductor.topology.registry import model_for
 class CascadeConfig:
     """Tier thresholds and search-space filters for one run.
 
-    Phase A only uses `K_1` (Tier 1 top-K survivors) and the
-    candidate-generator filters. Future phases extend this struct
-    with `K_2`, `K_3`, etc.
+    `K_1` caps the Tier-1 survivors (top-N by ranking objective).
+    `tier2_top_k` controls Tier 2: 0 disables it, K > 0 runs the
+    transient simulator on the top-K Tier-1 survivors.
+    `K_2`, `K_3` etc. enter when their phases land.
     """
 
     K_1: int = 1000
+    tier2_top_k: int = 0
     only_compatible_cores: bool = True
     only_round_wires: bool = True
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "K_1": self.K_1,
+            "tier2_top_k": self.tier2_top_k,
             "only_compatible_cores": self.only_compatible_cores,
             "only_round_wires": self.only_round_wires,
         }
@@ -145,6 +154,67 @@ def _row_from_tier0(t0: Tier0Result) -> CandidateRow:
         highest_tier=0,
         feasible_t0=t0.envelope.feasible,
         notes={"reasons": t0.envelope.reasons} if t0.envelope.reasons else None,
+    )
+
+
+def _row_with_tier2(
+    base: CandidateRow,
+    tier2,  # Tier2Result | None
+    error: Optional[str],
+) -> CandidateRow:
+    """Return a copy of `base` with Tier 2 columns + notes filled.
+
+    `loss_t2_W` is left at the Tier-1 value because Tier 2 doesn't
+    recompute losses — it refines L and B. `saturation_t2` always
+    reflects the latest verdict (anhysteretic-curve check). The
+    full Tier-2 metric pack lands in `notes['tier2']` so the CLI
+    can surface them without a schema change.
+    """
+    notes_in = dict(base.notes) if base.notes else {}
+    if tier2 is None:
+        if error is not None:
+            notes_in["tier2_error"] = error
+        else:
+            notes_in["tier2_skipped"] = True
+        return CandidateRow(
+            candidate_key=base.candidate_key,
+            core_id=base.core_id, material_id=base.material_id,
+            wire_id=base.wire_id, N=base.N, gap_mm=base.gap_mm,
+            highest_tier=base.highest_tier, feasible_t0=base.feasible_t0,
+            loss_t1_W=base.loss_t1_W, temp_t1_C=base.temp_t1_C,
+            cost_t1_USD=base.cost_t1_USD,
+            loss_t2_W=base.loss_t2_W, saturation_t2=base.saturation_t2,
+            L_t3_uH=base.L_t3_uH, Bpk_t3_T=base.Bpk_t3_T,
+            L_t4_uH=base.L_t4_uH,
+            notes=notes_in or None,
+        )
+    notes_in["tier2"] = {
+        "L_min_uH": tier2.L_min_uH,
+        "L_avg_uH": tier2.L_avg_uH,
+        "B_pk_T": tier2.B_pk_T,
+        "i_pk_A": tier2.i_pk_A,
+        "i_rms_A": tier2.i_rms_A,
+        "L_relative_error_pct": tier2.L_relative_error_pct,
+        "B_relative_error_pct": tier2.B_relative_error_pct,
+        "i_pk_relative_error_pct": tier2.i_pk_relative_error_pct,
+        "converged": tier2.converged,
+        "sim_wall_time_s": tier2.sim_wall_time_s,
+    }
+    return CandidateRow(
+        candidate_key=base.candidate_key,
+        core_id=base.core_id, material_id=base.material_id,
+        wire_id=base.wire_id, N=base.N, gap_mm=base.gap_mm,
+        highest_tier=max(base.highest_tier, 2),
+        feasible_t0=base.feasible_t0,
+        loss_t1_W=base.loss_t1_W, temp_t1_C=base.temp_t1_C,
+        cost_t1_USD=base.cost_t1_USD,
+        # Carry Tier-1 loss into the t2 column so downstream rankers
+        # that order on `loss_t2_W` work transparently. If a future
+        # tier recomputes loss, it overwrites this.
+        loss_t2_W=base.loss_t1_W,
+        saturation_t2=tier2.saturation_t2,
+        L_t3_uH=base.L_t3_uH, Bpk_t3_T=base.Bpk_t3_T, L_t4_uH=base.L_t4_uH,
+        notes=notes_in or None,
     )
 
 
@@ -306,6 +376,16 @@ class CascadeOrchestrator:
                 run_id, spec, materials, cores, wires, survivors, progress_cb,
             )
 
+        # ── Tier 2 — sequential transient simulation on top-K survivors ──
+        # Tier 2 is much cheaper per candidate than Tier 1 (sub-millisecond
+        # for the imposed-trajectory simulator), so a sequential loop
+        # is plenty fast for the typical K = 10–100. Skipped silently
+        # when `tier2_top_k == 0` or the topology lacks Tier-2 support.
+        if cfg.tier2_top_k > 0 and not self._cancel.is_set():
+            self._run_tier2_top_k(
+                run_id, spec, materials, cores, wires, cfg, progress_cb,
+            )
+
         if self._cancel.is_set():
             self.store.update_status(run_id, "cancelled")
         else:
@@ -374,3 +454,64 @@ class CascadeOrchestrator:
                 progress_cb(TierProgress(tier=1, done=i + 1, total=total))
         if progress_cb is not None:
             progress_cb(TierProgress(tier=1, done=total, total=total))
+
+    # ─── Tier 2 execution path ───────────────────────────────────
+
+    def _run_tier2_top_k(
+        self,
+        run_id: str,
+        spec: Spec,
+        materials: list[Material],
+        cores: list[Core],
+        wires: list[Wire],
+        cfg: CascadeConfig,
+        progress_cb: Optional[ProgressCallback],
+    ) -> None:
+        """Run Tier 2 (transient simulation) on the top-K Tier-1 survivors.
+
+        - Topologies that don't implement `Tier2ConverterModel` skip
+          silently (no rows touched).
+        - Each candidate's row is updated in place: Tier-1 columns
+          are preserved, Tier-2 metrics land in the JSON `notes`,
+          and `highest_tier` advances to 2 (or stays where it was).
+        """
+        model = model_for(spec)
+        if not supports_tier2(model):
+            return
+
+        top_rows = self.store.top_candidates(
+            run_id, n=cfg.tier2_top_k, order_by="loss_t1_W",
+        )
+        if not top_rows:
+            return
+
+        materials_by_id = {m.id: m for m in materials}
+        cores_by_id = {c.id: c for c in cores}
+        wires_by_id = {w.id: w for w in wires}
+        total = len(top_rows)
+
+        for i, row in enumerate(top_rows):
+            if self._cancel.is_set():
+                return
+            mat = materials_by_id.get(row.material_id)
+            core = cores_by_id.get(row.core_id)
+            wire = wires_by_id.get(row.wire_id)
+            if mat is None or core is None or wire is None:
+                # The store points at an entry the live DB no longer has;
+                # leave the row untouched, mark notes for later debugging.
+                self.store.write_candidate(
+                    run_id, _row_with_tier2(row, None, "missing_db_entry"),
+                )
+                continue
+            cand = Candidate(
+                core_id=row.core_id, material_id=row.material_id,
+                wire_id=row.wire_id, N=row.N, gap_mm=row.gap_mm,
+            )
+            t2, err = evaluate_tier2_safe(model, cand, core, mat, wire)
+            self.store.write_candidate(
+                run_id, _row_with_tier2(row, t2, err),
+            )
+            if progress_cb is not None:
+                progress_cb(TierProgress(tier=2, done=i + 1, total=total))
+        if progress_cb is not None:
+            progress_cb(TierProgress(tier=2, done=total, total=total))

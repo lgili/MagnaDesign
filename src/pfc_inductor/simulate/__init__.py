@@ -18,6 +18,7 @@ in its `*_model.py` adapter.
 from pfc_inductor.simulate.integrator import (
     SimulationConfig,
     simulate_to_steady_state,
+    simulate_transient,
 )
 from pfc_inductor.simulate.nonlinear_inductor import NonlinearInductor
 from pfc_inductor.simulate.waveform import Waveform
@@ -27,4 +28,5 @@ __all__ = [
     "SimulationConfig",
     "Waveform",
     "simulate_to_steady_state",
+    "simulate_transient",
 ]

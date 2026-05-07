@@ -208,6 +208,62 @@ def test_orchestrator_parallel_and_sequential_yield_same_top_n(tmp_path: Path, d
 
 # ─── Spec-hash mismatch must not silently proceed ──────────────────
 
+# ─── Tier 2 stage (Phase B integration) ───────────────────────────
+
+def test_orchestrator_runs_tier2_when_top_k_set(tmp_path: Path, db):
+    """`tier2_top_k > 0` should invoke the transient simulator on
+    the top-K Tier-1 survivors and persist Tier 2 metrics in `notes`."""
+    store = RunStore(tmp_path / "cascade.db")
+    orch = CascadeOrchestrator(store, parallelism=1)
+    spec = _spec()
+    cfg = CascadeConfig(tier2_top_k=5)
+    run_id = orch.start_run(spec, cfg)
+
+    seen_t2 = []
+
+    def cb(p: TierProgress) -> None:
+        if p.tier == 2:
+            seen_t2.append(p)
+
+    orch.run(run_id, spec, db["materials"], db["cores"], db["wires"], cfg, progress_cb=cb)
+
+    # Tier 2 progress fired at least once.
+    assert seen_t2, "no Tier-2 progress events received"
+    final_t2 = seen_t2[-1]
+    assert final_t2.done == final_t2.total
+
+    # Top-5 rows now carry tier 2 metrics + saturation_t2 + bumped highest_tier.
+    top = store.top_candidates(run_id, n=5, order_by="loss_t1_W")
+    assert top
+    n_with_tier2 = 0
+    for row in top:
+        if row.notes and "tier2" in row.notes:
+            payload = row.notes["tier2"]
+            # Required fields produced by `_row_with_tier2`.
+            assert "L_avg_uH" in payload
+            assert "B_pk_T" in payload
+            assert "i_pk_A" in payload
+            assert isinstance(row.saturation_t2, bool)
+            assert row.highest_tier >= 2
+            n_with_tier2 += 1
+    assert n_with_tier2 >= 1, "no Tier-2 metrics on any top-K row"
+
+
+def test_orchestrator_skips_tier2_when_top_k_zero(tmp_path: Path, db):
+    """Default config keeps Tier 2 off; top rows must carry no tier2 notes."""
+    store = RunStore(tmp_path / "cascade.db")
+    orch = CascadeOrchestrator(store, parallelism=1)
+    spec = _spec()
+    cfg = CascadeConfig(tier2_top_k=0)
+    run_id = orch.start_run(spec, cfg)
+    orch.run(run_id, spec, db["materials"], db["cores"], db["wires"], cfg)
+
+    for row in store.top_candidates(run_id, n=5, order_by="loss_t1_W"):
+        assert row.highest_tier <= 1
+        if row.notes:
+            assert "tier2" not in row.notes
+
+
 def test_resumable_run_keyed_by_spec_hash(tmp_path: Path, db):
     """`find_resumable_run` distinguishes specs by their canonical hash."""
     store = RunStore(tmp_path / "cascade.db")

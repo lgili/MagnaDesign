@@ -133,10 +133,24 @@ def _print_top(rows: list[CandidateRow]) -> None:
     if not rows:
         print("(no Tier-1 results yet)")
         return
-    headers = ("#", "core_id", "material_id", "wire_id", "N", "loss_W", "ΔT_°C", "cost_$")
-    widths = (3, 40, 28, 8, 4, 7, 5, 8)
-    fmt = "  ".join(f"{{:>{w}}}" if i in (0, 4, 5, 6, 7) else f"{{:<{w}}}"
-                    for i, w in enumerate(widths))
+    # Detect whether any row carries Tier-2 metrics to widen the layout.
+    has_tier2 = any(r.notes and "tier2" in r.notes for r in rows)
+    if has_tier2:
+        headers = (
+            "#", "core_id", "wire_id", "N",
+            "loss_W", "ΔT_°C", "cost_$",
+            "L2avg_µH", "Bpk2_T", "ΔL2%", "ΔB2%", "sat2",
+        )
+        widths = (3, 36, 8, 4, 6, 5, 7, 8, 7, 6, 6, 5)
+        right_aligned = (0, 3, 4, 5, 6, 7, 8, 9, 10, 11)
+    else:
+        headers = ("#", "core_id", "material_id", "wire_id", "N", "loss_W", "ΔT_°C", "cost_$")
+        widths = (3, 40, 28, 8, 4, 7, 5, 8)
+        right_aligned = (0, 4, 5, 6, 7)
+    fmt = "  ".join(
+        f"{{:>{w}}}" if i in right_aligned else f"{{:<{w}}}"
+        for i, w in enumerate(widths)
+    )
     sep = "-" * (sum(widths) + 2 * (len(widths) - 1))
     print(fmt.format(*headers))
     print(sep)
@@ -145,13 +159,33 @@ def _print_top(rows: list[CandidateRow]) -> None:
         loss = f"{r.loss_t1_W:.2f}" if r.loss_t1_W is not None else "—"
         temp = f"{r.temp_t1_C:.0f}" if r.temp_t1_C is not None else "—"
         cost = f"{r.cost_t1_USD:.2f}" if r.cost_t1_USD is not None else "—"
-        print(fmt.format(
-            i,
-            _truncate(r.core_id, 40),
-            _truncate(r.material_id, 28),
-            _truncate(r.wire_id, 8),
-            n, loss, temp, cost,
-        ))
+        if has_tier2:
+            t2 = (r.notes or {}).get("tier2", {})
+            l2 = f"{t2['L_avg_uH']:.1f}" if "L_avg_uH" in t2 else "—"
+            bpk2 = f"{t2['B_pk_T']:.3f}" if "B_pk_T" in t2 else "—"
+            dl = (
+                f"{t2['L_relative_error_pct']:+.1f}"
+                if t2.get("L_relative_error_pct") is not None else "—"
+            )
+            db = (
+                f"{t2['B_relative_error_pct']:+.1f}"
+                if t2.get("B_relative_error_pct") is not None else "—"
+            )
+            sat2 = "Y" if r.saturation_t2 else "N" if r.saturation_t2 is not None else "—"
+            print(fmt.format(
+                i,
+                _truncate(r.core_id, 36),
+                _truncate(r.wire_id, 8),
+                n, loss, temp, cost, l2, bpk2, dl, db, sat2,
+            ))
+        else:
+            print(fmt.format(
+                i,
+                _truncate(r.core_id, 40),
+                _truncate(r.material_id, 28),
+                _truncate(r.wire_id, 8),
+                n, loss, temp, cost,
+            ))
 
 
 def _truncate(value: str, width: int) -> str:
@@ -290,6 +324,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     orch = CascadeOrchestrator(store, parallelism=args.parallelism)
     config = CascadeConfig(
         K_1=args.k1,
+        tier2_top_k=args.tier2,
         only_compatible_cores=not args.no_compat_filter,
         only_round_wires=not args.allow_litz,
     )
@@ -511,6 +546,12 @@ def _build_parser() -> argparse.ArgumentParser:
                        help="Restrict to a single wire id")
     p_run.add_argument("--parallelism", type=int, default=4)
     p_run.add_argument("--k1", type=int, default=1000)
+    p_run.add_argument(
+        "--tier2", type=int, default=0, metavar="K",
+        help="Run Tier 2 (transient simulation) on the top-K Tier-1 "
+             "survivors. Default 0 (Tier 2 disabled). Adds ~1 ms per "
+             "candidate; suitable for K up to a few hundred.",
+    )
     p_run.add_argument("--top", type=int, default=10,
                        help="Top-N rows printed at the end (default 10)")
     p_run.add_argument("--no-compat-filter", action="store_true",
