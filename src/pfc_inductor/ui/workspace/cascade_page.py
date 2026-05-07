@@ -753,14 +753,7 @@ class _RunHistoryDialog(QDialog):
 
 class _CascadeWorker(QObject):
     progress = Signal(int, int, int)
-    # Public signal — listeners (including the page itself and tests)
-    # connect here. We re-emit this from the main thread (see
-    # `CascadePage._relay_finished`) so direct slots like test
-    # lambdas run *after* the page-side cleanup, not racing past it.
     finished = Signal(str)
-    # Private signal — worker → page only, used to hop into the
-    # main thread before re-emitting `finished` publicly.
-    _done = Signal(str)
 
     def __init__(
         self,
@@ -794,9 +787,7 @@ class _CascadeWorker(QObject):
             status = record.status if record is not None else "error: no record"
         except Exception as exc:
             status = f"error: {type(exc).__name__}: {exc}"
-        # Hop to the main thread first; the page's relay slot will
-        # re-emit `finished` once it has done its own cleanup.
-        self._done.emit(status)
+        self.finished.emit(status)
 
 
 # ─── Page ─────────────────────────────────────────────────────────
@@ -1019,19 +1010,15 @@ class CascadePage(QWidget):
         self._worker.moveToThread(self._thread)
         self._thread.started.connect(self._worker.run)
         self._worker.progress.connect(self._on_progress)
-        # Two-stage finish: the worker's private `_done` signal
-        # crosses into the main thread (queued), `_relay_finished`
-        # does the page-side cleanup *and then* re-emits the public
-        # `finished` signal from the main thread. Test lambdas
-        # connected to `worker.finished` then run direct on the main
-        # thread — *after* the button has been re-enabled — so the
-        # `_wait_until` race in cascade_page tests can't observe a
-        # half-cleaned UI.
-        self._worker._done.connect(
-            self._relay_finished, Qt.ConnectionType.QueuedConnection,
-        )
+        # Standard Qt worker-thread pattern: queue cleanup on the
+        # page side, quit the thread, schedule worker + thread
+        # deletion. The `_on_finished` slot is auto-queued because
+        # the worker lives in `self._thread` while the page lives
+        # on the main thread.
+        self._worker.finished.connect(self._on_finished)
         self._worker.finished.connect(self._thread.quit)
-        self._thread.finished.connect(self._on_thread_finished)
+        self._worker.finished.connect(self._worker.deleteLater)
+        self._thread.finished.connect(self._thread.deleteLater)
 
         self._btn_run.setEnabled(False)
         self._btn_cancel.setEnabled(True)
@@ -1091,49 +1078,17 @@ class CascadePage(QWidget):
     def _on_progress(self, tier: int, done: int, total: int) -> None:
         self._tiers.update_tier(tier, done, total)
 
-    def _on_thread_finished(self) -> None:
-        """Final cleanup once the QThread has actually exited.
-
-        Schedules the worker + thread for deletion *after* the
-        main-thread slot ran — keeps the queued connection alive
-        long enough for `_on_finished` to fire.
-        """
-        worker = self._worker
-        thread = self._thread
-        self._worker = None
-        self._thread = None
-        if worker is not None:
-            worker.deleteLater()
-        if thread is not None:
-            thread.deleteLater()
-
-    def _relay_finished(self, status: str) -> None:
-        """Run page-side cleanup, then re-emit `finished` publicly.
-
-        Called on the main thread via a queued connection from
-        `worker._done`. Doing the UI work first guarantees that any
-        external slot/lambda hooked into `worker.finished` observes
-        a fully-cleaned page state — no Run-disabled race in tests.
-        """
-        self._on_finished(status)
-        if self._worker is not None:
-            self._worker.finished.emit(status)
-
     def _on_finished(self, status: str) -> None:
         # Reset the button state BEFORE everything else so even if a
-        # subsequent step raises (matplotlib quirks, killTimer-from-
-        # other-thread warnings, etc.) the UI doesn't stay stuck with
-        # Run disabled. Each step is wrapped defensively because
-        # `_on_finished` is queued from a worker thread and we cannot
-        # let any exception leak — Qt would silently swallow it and
-        # the page would lock up.
+        # subsequent step raises (matplotlib quirks etc.) the UI
+        # doesn't stay stuck with Run disabled. Each step is wrapped
+        # defensively because this slot is queued from the worker
+        # thread and Qt silently swallows any exception leaking out.
         self._btn_run.setEnabled(True)
         self._btn_cancel.setEnabled(False)
         self._cfg.set_busy(False)
-        # Don't drop _thread / _worker here — `_on_thread_finished`
-        # owns final cleanup once the QThread really exits. If we
-        # nulled them out now, the queued deleteLater chain we hooked
-        # into `thread.finished` would lose its handles.
+        self._thread = None
+        self._worker = None
         try:
             self._poll_timer.stop()
         except Exception:  # noqa: BLE001
