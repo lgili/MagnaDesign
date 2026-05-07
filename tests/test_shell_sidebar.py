@@ -15,16 +15,21 @@ def app():
     yield inst
 
 
-def test_sidebar_has_four_nav_items(app):
-    """v3 reduced the sidebar from 8 to 4 areas. The 4 destinations are
-    real (Projeto / Otimizador / Catálogo / Configurações), not just
-    navigation back to dashboard subsets."""
+def test_sidebar_has_real_nav_destinations(app):
+    """v3 reduced the sidebar from 8 to 4 areas. Phase A's cascade
+    follow-up promoted `cascade` to a 5th first-class destination
+    (it's a separate workspace, not a Projeto subset). The
+    invariant the v3 redesign actually cares about: every entry
+    is a real destination, not navigation back to a dashboard
+    subset."""
     from pfc_inductor.ui.shell import SIDEBAR_AREAS, Sidebar
     sb = Sidebar()
-    assert len(SIDEBAR_AREAS) == 4
-    assert len(sb._nav_buttons) == 4
+    assert len(SIDEBAR_AREAS) == len(sb._nav_buttons)
     keys = [a[0] for a in SIDEBAR_AREAS]
-    assert keys == ["dashboard", "otimizador", "catalogo", "configuracoes"]
+    assert keys == [
+        "dashboard", "otimizador", "cascade",
+        "catalogo", "configuracoes",
+    ]
 
 
 def test_sidebar_default_active_is_dashboard(app):

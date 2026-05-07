@@ -67,6 +67,7 @@ from pfc_inductor.ui.state import WorkflowState
 from pfc_inductor.ui.style import make_stylesheet
 from pfc_inductor.ui.theme import get_theme, is_dark, set_theme
 from pfc_inductor.ui.workspace import (
+    CascadePage,
     CatalogoPage,
     ConfiguracoesPage,
     OtimizadorPage,
@@ -78,6 +79,7 @@ from pfc_inductor.ui.workspace import (
 AREA_PAGES: tuple[str, ...] = (
     "dashboard",
     "otimizador",
+    "cascade",
     "catalogo",
     "configuracoes",
 )
@@ -164,6 +166,7 @@ class MainWindow(QMainWindow):
 
         # ---- Other workspace pages -------------------------------------
         self.otimizador_page = OtimizadorPage()
+        self.cascade_page = CascadePage()
         self.catalogo_page = CatalogoPage()
         self.configuracoes_page = ConfiguracoesPage()
 
@@ -194,12 +197,13 @@ class MainWindow(QMainWindow):
         self.sidebar.overflow_action_requested.connect(self._on_overflow_action)
         h.addWidget(self.sidebar)
 
-        # ---- Stack with 4 pages ---------------------------------------
+        # ---- Stack with 5 pages ---------------------------------------
         self.stack = QStackedWidget()
-        self.stack.addWidget(self.projeto_page)       # 0 dashboard
-        self.stack.addWidget(self.otimizador_page)    # 1 otimizador
-        self.stack.addWidget(self.catalogo_page)      # 2 catalogo
-        self.stack.addWidget(self.configuracoes_page) # 3 configuracoes
+        self.stack.addWidget(self.projeto_page)        # 0 dashboard
+        self.stack.addWidget(self.otimizador_page)     # 1 otimizador
+        self.stack.addWidget(self.cascade_page)        # 2 cascade
+        self.stack.addWidget(self.catalogo_page)       # 3 catalogo
+        self.stack.addWidget(self.configuracoes_page)  # 4 configuracoes
         h.addWidget(self.stack, 1)
 
         self.setCentralWidget(central)
@@ -235,6 +239,15 @@ class MainWindow(QMainWindow):
         # bubbles up via selection_applied just like the Núcleo card.
         self.otimizador_page.selection_applied.connect(
             self._apply_optimizer_choice,
+        )
+
+        # ---- Cascade page (deep multi-tier sweep) ---------------------
+        # Double-clicking a row in the top-N table emits the
+        # candidate's key; we parse it and route to the same
+        # `_apply_optimizer_choice` handler the Pareto and Núcleo
+        # surfaces use.
+        self.cascade_page.open_in_design_requested.connect(
+            self._apply_cascade_candidate,
         )
 
         # ---- Catalogo page --------------------------------------------
@@ -549,6 +562,26 @@ class MainWindow(QMainWindow):
         self._current_wire_id = wire_id
         self._on_calculate()
 
+    def _apply_cascade_candidate(self, candidate_key: str) -> None:
+        """Hydrate a cascade row into the design view.
+
+        The cascade emits its `Candidate.key()` — a `|`-separated
+        tuple of `(core_id, material_id, wire_id, N, gap_mm)`. We
+        only need the first three fields to set the current
+        selection; N / gap come from the engine on the next
+        recalc. Routes to the same `_apply_optimizer_choice`
+        handler the Pareto / Núcleo / Compare surfaces use, then
+        switches the visible page back to Projeto so the engineer
+        sees the freshly hydrated design immediately.
+        """
+        parts = candidate_key.split("|")
+        if len(parts) < 3:
+            return
+        core_id, material_id, wire_id = parts[0], parts[1], parts[2]
+        self._apply_optimizer_choice(material_id, core_id, wire_id)
+        self.sidebar.set_active_area("dashboard")
+        self.stack.setCurrentIndex(AREA_PAGES.index("dashboard"))
+
     # ==================================================================
     # Lookups + recalc
     # ==================================================================
@@ -582,6 +615,13 @@ class MainWindow(QMainWindow):
         self.otimizador_page.set_inputs(
             spec, self._materials, self._cores, self._wires,
             material.id,
+        )
+        # Cascade page mirrors the same DB + spec; running a deep
+        # sweep doesn't depend on the engineer's current core /
+        # wire / material selection — the cascade explores the
+        # whole catalogue.
+        self.cascade_page.set_inputs(
+            spec, self._materials, self._cores, self._wires,
         )
 
         # Emit for subscribers (tests, future plug-ins).

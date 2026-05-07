@@ -51,10 +51,11 @@ from pfc_inductor.ui.theme import SIDEBAR, get_theme
 # - ``dashboard`` → display label "Projeto" (ID preserved so saved
 #   geometry / state survives the rename)
 SIDEBAR_AREAS: tuple[tuple[str, str, str], ...] = (
-    ("dashboard",     "Projeto",       "layout-dashboard"),
-    ("otimizador",    "Otimizador",    "sliders"),
-    ("catalogo",      "Catálogo",      "database"),
-    ("configuracoes", "Configurações", "cog"),
+    ("dashboard",     "Projeto",             "layout-dashboard"),
+    ("otimizador",    "Otimizador",          "sliders"),
+    ("cascade",       "Otimizador profundo", "layers"),
+    ("catalogo",      "Catálogo",            "database"),
+    ("configuracoes", "Configurações",       "cog"),
 )
 
 # Overflow menu — kept lean for the few tools that don't deserve a

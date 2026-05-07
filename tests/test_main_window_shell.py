@@ -78,7 +78,7 @@ def test_main_window_no_legacy_splitter(win):
 def test_sidebar_navigation_routes_to_stack(win):
     from pfc_inductor.ui.main_window import AREA_PAGES
     assert AREA_PAGES == (
-        "dashboard", "otimizador", "catalogo", "configuracoes",
+        "dashboard", "otimizador", "cascade", "catalogo", "configuracoes",
     )
     for area in AREA_PAGES:
         win.sidebar._on_nav_clicked(area)
