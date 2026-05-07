@@ -3,6 +3,7 @@ from pfc_inductor.models.cascade import (
     FeasibilityEnvelope,
     Tier0Result,
     Tier1Result,
+    Tier2Result,
 )
 from pfc_inductor.models.core import Core
 from pfc_inductor.models.material import (
@@ -28,6 +29,7 @@ __all__ = [
     "SteinmetzParams",
     "Tier0Result",
     "Tier1Result",
+    "Tier2Result",
     "Topology",
     "Wire",
     "WireType",

@@ -92,3 +92,40 @@ class Tier1Result(BaseModel):
     @property
     def n_warnings(self) -> int:
         return len(self.design.warnings)
+
+
+class Tier2Result(BaseModel):
+    """Outcome of the Tier 2 transient ODE simulation for one candidate.
+
+    Carries the post-processed metrics — the full waveform stays in
+    the integrator and is not persisted to keep the run store narrow.
+    Phase B Step 1 covers boost-CCM only; topologies without a
+    state-space implementation never produce a Tier2Result.
+
+    Cross-tier comparison fields (`L_relative_error_pct`,
+    `B_relative_error_pct`) are populated when the orchestrator has a
+    Tier-1 result for the same candidate to compare against.
+    """
+
+    candidate: Candidate
+
+    # Steady-state metrics from the simulated last cycle.
+    i_pk_A: float
+    i_rms_A: float
+    B_pk_T: float
+    L_min_uH: float        # smallest L over the cycle (at peak bias)
+    L_avg_uH: float        # cycle-averaged L
+
+    # Saturation flag — true if any sample of the simulated cycle
+    # exceeded the configured Bsat margin.
+    saturation_t2: bool
+
+    # Convergence + cost metadata.
+    converged: bool
+    n_line_cycles_simulated: int
+    sim_wall_time_s: float
+
+    # Optional cross-tier deltas (None when no Tier-1 reference).
+    L_relative_error_pct: Optional[float] = None
+    B_relative_error_pct: Optional[float] = None
+    i_pk_relative_error_pct: Optional[float] = None
