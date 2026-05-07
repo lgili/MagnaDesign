@@ -59,7 +59,7 @@ from pfc_inductor.optimize.cascade import (
     TierProgress,
 )
 from pfc_inductor.optimize.cascade.tier3 import supports_tier3
-from pfc_inductor.ui.widgets import Card
+from pfc_inductor.ui.widgets import Card, wrap_scrollable
 
 # Qt UserRole carries the candidate_key on the first cell of each row.
 _USER_ROLE_KEY = 0x0100
@@ -565,13 +565,25 @@ class CascadePage(QWidget):
     # ─── UI construction ─────────────────────────────────────────
 
     def _build_ui(self) -> None:
+        # Outer layout hosts a single QScrollArea. All cards stack
+        # inside the scrollable body so the page can shrink to fit
+        # 1366×768 laptops — the cards alone (Spec strip + run config
+        # + tier progress + stats + Top-N table 220 px min + selection
+        # row) require ~920 px to display without clipping. Without
+        # the scroll wrapper Qt grows the window past the screen edge
+        # and hides the bottom Scoreboard.
         outer = QVBoxLayout(self)
-        outer.setContentsMargins(24, 24, 24, 24)
-        outer.setSpacing(12)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+
+        body = QWidget()
+        inner = QVBoxLayout(body)
+        inner.setContentsMargins(24, 24, 24, 24)
+        inner.setSpacing(12)
 
         title = QLabel("Otimizador profundo")
         title.setProperty("role", "title")
-        outer.addWidget(title)
+        inner.addWidget(title)
 
         intro = QLabel(
             "Sweep multi-tier sobre todas as combinações viáveis. "
@@ -583,15 +595,15 @@ class CascadePage(QWidget):
         )
         intro.setProperty("role", "muted")
         intro.setWordWrap(True)
-        outer.addWidget(intro)
+        inner.addWidget(intro)
 
         # Spec strip (compact, read-only).
         self._spec_strip = _SpecStrip()
-        outer.addWidget(Card("Spec ativo", self._spec_strip))
+        inner.addWidget(Card("Spec ativo", self._spec_strip))
 
         # Run config + actions row, side by side.
         self._cfg = _RunConfigCard()
-        outer.addWidget(Card("Configuração do run", self._cfg))
+        inner.addWidget(Card("Configuração do run", self._cfg))
 
         action_row = QHBoxLayout()
         action_row.setSpacing(8)
@@ -614,21 +626,21 @@ class CascadePage(QWidget):
 
         action_holder = QWidget()
         action_holder.setLayout(action_row)
-        outer.addWidget(action_holder)
+        inner.addWidget(action_holder)
 
         # Tier progress.
         self._tiers = _TierProgressGrid()
-        outer.addWidget(Card("Progresso por tier", self._tiers))
+        inner.addWidget(Card("Progresso por tier", self._tiers))
 
         # Stats.
         self._stats = _StatsCard()
-        outer.addWidget(Card("Estatísticas do run", self._stats))
+        inner.addWidget(Card("Estatísticas do run", self._stats))
 
         # Top-N table.
         self._table = _TopNTable()
         self._table.itemDoubleClicked.connect(self._on_row_activated)
         self._table.selection_changed.connect(self._on_selection_changed)
-        outer.addWidget(Card(f"Top {self.TOP_N} por loss", self._table), 1)
+        inner.addWidget(Card(f"Top {self.TOP_N} por loss", self._table), 1)
 
         # Selection actions.
         sel_row = QHBoxLayout()
@@ -644,7 +656,11 @@ class CascadePage(QWidget):
         sel_row.addStretch(1)
         sel_holder = QWidget()
         sel_holder.setLayout(sel_row)
-        outer.addWidget(sel_holder)
+        inner.addWidget(sel_holder)
+
+        # Mount the scrollable body. The QScrollArea takes ownership
+        # of ``body``; the page itself is just the scroll viewport.
+        outer.addWidget(wrap_scrollable(body))
 
     # ─── Public API ──────────────────────────────────────────────
 

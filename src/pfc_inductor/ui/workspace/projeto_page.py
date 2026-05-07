@@ -36,7 +36,7 @@ from __future__ import annotations
 
 from typing import Literal, Optional
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -294,14 +294,10 @@ class ProjetoPage(QWidget):
         area keeps the page's minimum manageable: the tab itself
         scrolls when the window is short.
 
-        Horizontal scrolling is disabled because the bento and form
-        layouts inside the tabs are designed to flex horizontally.
+        Thin alias around :func:`wrap_scrollable
+        <pfc_inductor.ui.widgets.scroll.wrap_scrollable>` so the
+        Projeto page keeps its long-standing static-method API while
+        the shared helper drives the actual configuration.
         """
-        scroll = QScrollArea()
-        scroll.setWidget(widget)
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        scroll.setSizePolicy(QSizePolicy.Policy.Expanding,
-                             QSizePolicy.Policy.Expanding)
-        return scroll
+        from pfc_inductor.ui.widgets import wrap_scrollable
+        return wrap_scrollable(widget)

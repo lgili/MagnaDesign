@@ -17,6 +17,7 @@ from pfc_inductor.ui.widgets.schematic import (
     topology_picker_choices,
 )
 from pfc_inductor.ui.widgets.score_pill import ScorePill
+from pfc_inductor.ui.widgets.scroll import wrap_scrollable
 from pfc_inductor.ui.widgets.stacked_bar import HorizontalStackedBar
 
 __all__ = [
@@ -36,4 +37,5 @@ __all__ = [
     "TopologyKind",
     "TopologySchematicWidget",
     "topology_picker_choices",
+    "wrap_scrollable",
 ]

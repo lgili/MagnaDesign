@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
 
 from pfc_inductor.ui.icons import icon as ui_icon
 from pfc_inductor.ui.theme import get_theme, is_dark
-from pfc_inductor.ui.widgets import Card
+from pfc_inductor.ui.widgets import Card, wrap_scrollable
 
 
 class ConfiguracoesPage(QWidget):
@@ -49,13 +49,19 @@ class ConfiguracoesPage(QWidget):
         body_v = QVBoxLayout(body)
         body_v.setContentsMargins(24, 16, 24, 24)
         body_v.setSpacing(16)
-        outer.addWidget(body, 1)
 
         body_v.addWidget(self._build_theme_card())
         body_v.addWidget(self._build_fea_card())
         body_v.addWidget(self._build_litz_card())
         body_v.addWidget(self._build_about_card())
         body_v.addStretch(1)
+
+        # Wrap the cards in a scroll area so the page degrades
+        # gracefully on small viewports — adding more cards here
+        # later (theme variants, advanced toggles, etc.) won't
+        # silently push the bottom of the window past the screen
+        # edge.
+        outer.addWidget(wrap_scrollable(body), 1)
 
     # ------------------------------------------------------------------
     def _build_theme_card(self) -> Card:
