@@ -714,14 +714,31 @@ def make_core_mesh(core: Core) -> tuple[pv.MultiBlock, ShapeKind, dict]:
     # default to ``max(0.6 · OD, 0.4 mm)`` matching what the shell
     # builders compute internally.
 
+    # Available radial space for the winding is anchored to the real
+    # ``core.Wa_mm2`` (the same value the design engine uses for
+    # ``Ku = N·A_iso/Wa``) — NOT to a cosmetic fraction of W. With the
+    # cosmetic fraction the viewer disagreed with the engine: a design
+    # the engine cleared at Ku=0.44 (PQ-32/30, N=121) read as "only
+    # 54 of 121 turns fit" because ``radial_max = W·0.37`` underestimated
+    # the actual annular window by ~3×.
+    #
+    # For round bobbins (ETD/PQ) Wa is the full annular window:
+    #     Wa = winding_h · radial_thickness
+    # For rectangular bobbins (EE) Wa is the sum of both windows:
+    #     Wa = 2 · winding_h · window_w
+    # The branches below back out ``radial_thickness`` / ``window_w``
+    # from Wa and use it to position the outer wall.
+
     if kind == "etd":
         W, H, D = _bobbin_dims(core)
-        outer_w = W * 0.13
         col_r = W * 0.16
         back_t = H * 0.16
         winding_h = max(H - 2 * back_t - core.lgap_mm, H * 0.4)
-        # Available radial room: from col_r up to (W/2 - outer_w)
-        radial_max = W / 2.0 - outer_w - 0.5
+        # Anchor radial space in the real ``Wa_mm2`` so the viewer's
+        # fit math agrees with ``physics.copper.window_utilization``
+        # (which is what the engine's ``Ku_actual`` is built from).
+        radial_thick = max(core.Wa_mm2 / max(winding_h, 1e-3), 1.0)
+        radial_max = col_r + radial_thick
         return _etd_mesh(W, H, D, gap_mm=core.lgap_mm), "etd", {
             "W": W, "H": H, "D": D, "col_r": col_r,
             "winding_h": winding_h, "back_t": back_t,
@@ -731,10 +748,10 @@ def make_core_mesh(core: Core) -> tuple[pv.MultiBlock, ShapeKind, dict]:
     if kind == "pq":
         W, H, D = _bobbin_dims(core)
         col_r = W * 0.22
-        wall_t = W * 0.13
         back_t = H * 0.18
         winding_h = max(H - 2 * back_t - core.lgap_mm, H * 0.4)
-        radial_max = W / 2.0 - wall_t - 0.5
+        radial_thick = max(core.Wa_mm2 / max(winding_h, 1e-3), 1.0)
+        radial_max = col_r + radial_thick
         return _pq_mesh(W, H, D, gap_mm=core.lgap_mm), "pq", {
             "W": W, "H": H, "D": D, "col_r": col_r,
             "winding_h": winding_h, "back_t": back_t,
@@ -743,14 +760,16 @@ def make_core_mesh(core: Core) -> tuple[pv.MultiBlock, ShapeKind, dict]:
 
     if kind == "ee":
         W, H, D = _bobbin_dims(core)
-        outer_w, center_w, _window_w = _ee_proportions(W)
+        _outer_w, center_w, _window_w = _ee_proportions(W)
         back_t = H * 0.18
         winding_h = max(H - 2 * back_t - core.lgap_mm, H * 0.4)
-        # EE keeps a *rectangular* winding around the rectangular centre
-        # leg. Available radial room is (window_w − clearance) on the
-        # W-axis. The D-axis is clamped to the leg depth + a tiny
-        # bobbin-wall standoff (the winding doesn't fan out in D).
-        radial_max_w = W / 2 - outer_w - 0.4         # outer-leg inner face
+        # EE has TWO windows, one each side of the centre leg. Engine
+        # convention: ``Wa`` is the sum of both windows, so per-side
+        # window width is ``Wa / (2 · winding_h)``. The winding only
+        # thickens in the W direction; D-axis stays clamped to the
+        # leg depth (real EE bobbins fan out only in W, not D).
+        window_w_real = max(core.Wa_mm2 / (2.0 * max(winding_h, 1e-3)), 1.0)
+        radial_max_w = center_w / 2.0 + window_w_real
         radial_max_d = D / 2 + 0.5
         return _ee_mesh(W, H, D, gap_mm=core.lgap_mm), "ee", {
             "W": W, "H": H, "D": D,
