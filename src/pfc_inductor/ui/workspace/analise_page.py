@@ -45,6 +45,7 @@ from PySide6.QtWidgets import (
 from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
 from pfc_inductor.ui.dashboard.cards import (
     BobinamentoCard,
+    DetalhesTecnicosCard,
     EntreferroCard,
     FormasOndaCard,
     PerdasCard,
@@ -162,12 +163,23 @@ class AnalisePage(QWidget):
         grid.addWidget(self.card_entreferro, 2, 6, 1, 6)
         grid.setRowStretch(2, 1)
 
+        # Row 3 — Detalhes Técnicos full-width, default collapsed.
+        # Datasheet-style card with every DesignResult field grouped
+        # by domain. The audit found 13 engine outputs that no other
+        # card surfaced; this card is their permanent home. Default
+        # collapsed so it doesn't crowd the at-a-glance row above —
+        # one click expands it for the engineer who wants every number.
+        self.card_detalhes = DetalhesTecnicosCard()
+        grid.addWidget(self.card_detalhes, 3, 0, 1, 12)
+        grid.setRowStretch(3, 0)
+
         # Convenience list for batch update / clear loops.
         self._cards = [
             self.card_formas,
             self.card_perdas,
             self.card_bobinamento,
             self.card_entreferro,
+            self.card_detalhes,
         ]
 
     # ------------------------------------------------------------------

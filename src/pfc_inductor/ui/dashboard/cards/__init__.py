@@ -5,6 +5,7 @@ material)`` and ``clear()``. The :class:`DashboardPage
 <pfc_inductor.ui.dashboard.DashboardPage>` orchestrates them.
 """
 from pfc_inductor.ui.dashboard.cards.bobinamento_card import BobinamentoCard
+from pfc_inductor.ui.dashboard.cards.detalhes_tecnicos_card import DetalhesTecnicosCard
 from pfc_inductor.ui.dashboard.cards.entreferro_card import EntreferroCard
 from pfc_inductor.ui.dashboard.cards.formas_onda_card import FormasOndaCard
 from pfc_inductor.ui.dashboard.cards.nucleo_card import NucleoCard
@@ -16,6 +17,7 @@ from pfc_inductor.ui.dashboard.cards.viz3d_card import Viz3DCard
 
 __all__ = [
     "BobinamentoCard",
+    "DetalhesTecnicosCard",
     "EntreferroCard",
     "FormasOndaCard",
     "NucleoCard",
