@@ -155,12 +155,28 @@ def validate_design_femmt(
             "Install with `uv pip install pfc-inductor-designer[fea]` "
             "(requires Python 3.12 and scipy<1.14)."
         ) from e
-    if not _femmt_onelab_configured():
+    diag = _femmt_onelab_diagnostics()
+    if not diag["ok"]:
+        # Surface the precise asset that's missing so the engineer
+        # doesn't have to debug a deep ``TypeError: ... 'NoneType'``
+        # raised inside FEMMT when it tries to ``Path(None)`` on a
+        # binary it can't find.
+        femmt_dir = _femmt_install_dir(ft)
+        config_loc = (
+            f"`{femmt_dir}/config.json`"
+            if femmt_dir is not None
+            else "FEMMT's config.json"
+        )
+        config_hint = (
+            f"Edit {config_loc} adding "
+            '`{"onelab": "/path/to/onelab_folder"}` (the folder must '
+            "contain `onelab.py`, `getdp` (or `getdp.exe`), and "
+            "`gmsh` (or `gmsh.exe`))."
+        )
         raise FEMMSolveError(
-            "FEMMT is installed but the ONELAB solver is not configured."
-            f"Edit `{Path(ft.__file__).parent}/config.json` adding "
-            '`{"onelab": "/path/to/onelab_folder"}` (the folder must contain '
-            "`onelab.py`, `getdp` and `gmsh`)."
+            "FEMMT is installed but the ONELAB solver is not "
+            f"correctly configured.\n\n{diag['message']}\n\n"
+            f"{config_hint}"
         )
 
     kind = infer_shape(core)
@@ -567,20 +583,144 @@ def _bobbin_validation(
     )
 
 
+def _femmt_install_dir(femmt_module) -> Optional[Path]:
+    """Resolve FEMMT's install directory in a way that survives the
+    quirks we've seen in the wild.
+
+    Three fallback paths, tried in order:
+
+    1. ``femmt.__file__`` — the regular case for a normal install.
+    2. ``femmt.__path__[0]`` — works for namespace packages and for
+       installs where ``__init__.py`` doesn't set ``__file__`` (we
+       hit this with at least one editable / wheel-install combo).
+    3. ``importlib.util.find_spec(...).submodule_search_locations``
+       — last-resort lookup that consults ``sys.path`` directly.
+
+    Returns ``None`` only when all three resolve to nothing —
+    extremely unusual; means FEMMT imported successfully but Python
+    can't tell where from.
+    """
+    file_attr = getattr(femmt_module, "__file__", None)
+    if file_attr:
+        try:
+            return Path(file_attr).parent
+        except (TypeError, ValueError):
+            pass
+    path_attr = getattr(femmt_module, "__path__", None)
+    if path_attr:
+        try:
+            entries = list(path_attr)
+            if entries:
+                return Path(entries[0])
+        except (TypeError, ValueError):
+            pass
+    try:
+        import importlib.util
+
+        spec = importlib.util.find_spec(femmt_module.__name__)
+        if spec and spec.submodule_search_locations:
+            for loc in spec.submodule_search_locations:
+                if loc:
+                    return Path(loc)
+    except Exception:
+        pass
+    return None
+
+
 def _femmt_onelab_configured() -> bool:
+    """``True`` only when the FEMMT config points at a complete ONELAB
+    install — ``onelab.py`` *plus* the ``gmsh`` and ``getdp`` solvers.
+
+    FEMMT internally calls ``shutil.which`` and several ``Path(...)``
+    constructions on the resolved binaries; if either is missing the
+    failure surfaces as a generic ``TypeError: argument should be a
+    str or an os.PathLike object … not 'NoneType'`` deep inside the
+    library. Failing the precheck here lets ``validate_design_femmt``
+    raise a self-explanatory ``FEMMSolveError`` instead.
+    """
+    diag = _femmt_onelab_diagnostics()
+    return diag["ok"]
+
+
+def _femmt_onelab_diagnostics() -> dict:
+    """Diagnose the FEMMT/ONELAB install. Returns a dict with:
+
+    - ``ok``: True when every required asset is present.
+    - ``onelab_dir``: the configured folder path (``None`` if unset).
+    - ``missing``: list of asset names that aren't present
+      (``"onelab.py"``, ``"gmsh"``, ``"getdp"``).
+    - ``message``: short diagnostic string suitable for an error
+      hint (empty when ``ok``).
+
+    The check looks for executables under several common names — the
+    Linux/macOS install ships them as ``gmsh`` / ``getdp``; some
+    Windows builds ship ``.exe`` variants — so a Windows engineer
+    with a working install isn't tripped up by a hard-coded suffix.
+    """
+    out = {
+        "ok": False,
+        "onelab_dir": None,
+        "missing": [],
+        "message": "",
+    }
     try:
         import femmt
 
-        config_path = Path(femmt.__file__).parent / "config.json"
-        if config_path.exists():
-            import json
+        femmt_dir = _femmt_install_dir(femmt)
+        if femmt_dir is None:
+            out["message"] = (
+                "Could not locate the FEMMT install directory: "
+                "`femmt.__file__` and `femmt.__path__` are both "
+                "unavailable. Reinstall FEMMT with "
+                "`uv pip install --reinstall -e \".[fea]\"` and retry."
+            )
+            return out
+        config_path = femmt_dir / "config.json"
+        if not config_path.exists():
+            out["message"] = (
+                f"FEMMT config.json not found at {config_path}. "
+                "Run `magnadesign-setup fea` to bootstrap it."
+            )
+            return out
+        import json
 
-            data = json.loads(config_path.read_text())
-            onelab = data.get("onelab")
-            return bool(onelab and (Path(onelab) / "onelab.py").exists())
-    except Exception:
-        pass
-    return False
+        data = json.loads(config_path.read_text())
+        onelab = data.get("onelab")
+        if not onelab:
+            out["message"] = (
+                f"FEMMT {config_path} has no `onelab` key. "
+                "Edit it to point at your ONELAB install folder."
+            )
+            return out
+        out["onelab_dir"] = str(onelab)
+        required = (
+            "onelab.py",
+            "gmsh", "gmsh.exe",
+            "getdp", "getdp.exe",
+        )
+        # Group "gmsh" and "gmsh.exe" so we mark the asset missing
+        # only when *neither* variant is present.
+        groups = [("onelab.py",), ("gmsh", "gmsh.exe"),
+                   ("getdp", "getdp.exe")]
+        missing: list[str] = []
+        onelab_path = Path(onelab)
+        for group in groups:
+            if not any((onelab_path / name).exists() for name in group):
+                # Report the canonical name (first variant) as missing.
+                missing.append(group[0])
+        out["missing"] = missing
+        if missing:
+            out["message"] = (
+                f"ONELAB folder {onelab_path} is missing: "
+                f"{', '.join(missing)}. The folder must contain "
+                "`onelab.py`, `getdp` (or `getdp.exe`), and "
+                "`gmsh` (or `gmsh.exe`)."
+            )
+            return out
+        out["ok"] = True
+    except Exception as e:  # noqa: BLE001 — defensive precheck
+        out["message"] = f"FEMMT config probe failed: {type(e).__name__}: {e}"
+    return out
 
 
 def _ensure_dir(p: Optional[Path]) -> Path:

@@ -56,6 +56,8 @@ class _ValidationWorker(QObject):
         self.result = result
 
     def run(self):
+        import traceback
+
         try:
             v = validate_design(
                 self.spec,
@@ -70,7 +72,20 @@ class _ValidationWorker(QObject):
         except FEMMSolveError as e:
             self.failed.emit(f"Solver failed:\n{e}")
         except Exception as e:
-            self.failed.emit(f"Unexpected error: {type(e).__name__}: {e}")
+            # Capture the bottom of the traceback so future bug reports
+            # don't lose the file:line that raised. A generic
+            # "TypeError: ... 'NoneType'" without context is the most
+            # frustrating thing the user can see — and it's exactly the
+            # shape of error FEMMT raises when an ONELAB binary is
+            # unresolved at deep call sites.
+            tb = traceback.format_exc().splitlines()
+            # Last 6 lines is usually enough: the exception line
+            # plus the top of the call chain inside our code.
+            tail = "\n".join(tb[-6:]) if len(tb) > 6 else "\n".join(tb)
+            self.failed.emit(
+                f"Unexpected error: {type(e).__name__}: {e}\n\n"
+                f"Traceback (last frames):\n{tail}"
+            )
 
 
 class FEAValidationDialog(QDialog):
