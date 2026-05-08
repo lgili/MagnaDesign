@@ -80,6 +80,16 @@ class SpecPanel(QWidget):
         self._line_reactor_box = self._build_line_reactor_box()
         body.addWidget(self._line_reactor_box)
         body.addWidget(self._build_thermal_box())
+
+        # ---- VFD modulation sub-form ----------------------------------
+        # Lazy import — keeps the spec_panel import graph clean of
+        # the modulation widget for headless / test contexts that
+        # never instantiate the panel.
+        from pfc_inductor.ui.widgets.modulation_group import ModulationGroup
+        self.modulation_group = ModulationGroup()
+        self.modulation_group.changed.connect(self.changed.emit)
+        body.addWidget(self.modulation_group)
+
         body.addStretch(1)
 
         # Apply initial visibility (hide line-reactor block on default
@@ -370,6 +380,9 @@ class SpecPanel(QWidget):
                 # the existing ``ripple_pct`` already covers it.
                 if spec.ripple_ratio is not None:
                     self.sp_ripple.setValue(spec.ripple_ratio * 100.0)
+            # VFD band — populates from the saved spec; no-op when
+            # the spec doesn't carry a band (legacy `.pfc`).
+            self.modulation_group.from_modulation(spec.fsw_modulation)
         finally:
             self.blockSignals(False)
         # Single fan-out at the end — host re-reads via ``get_spec``.
@@ -424,6 +437,16 @@ class SpecPanel(QWidget):
             n_phases = 3
             i_rated = 2.2
             l_req = 10.0
+        # VFD band — None when the master toggle is off, which
+        # routes the engine back through the single-point path.
+        try:
+            fsw_modulation = self.modulation_group.to_modulation()
+        except (ValueError, TypeError):
+            # Invalid band (e.g. fsw_max ≤ fsw_min) — surface as a
+            # silent fall-through to single-point so the engine
+            # still runs. The ModulationGroup's derived-label has
+            # already shown the error to the user.
+            fsw_modulation = None
         return Spec(
             topology=topo,
             Vin_min_Vrms=v_min_ac,
@@ -446,4 +469,5 @@ class SpecPanel(QWidget):
             Vin_dc_min_V=vin_dc_min,
             Vin_dc_max_V=vin_dc_max,
             ripple_ratio=ripple_ratio,
+            fsw_modulation=fsw_modulation,
         )
