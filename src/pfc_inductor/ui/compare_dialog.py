@@ -1,11 +1,23 @@
-"""Multi-column compare dialog: 1..4 designs side by side with diff colouring."""
+"""Multi-column compare dialog: 1..4 designs side by side with diff colouring.
+
+Reordering
+----------
+Columns are drag-and-drop reorderable. Clicking and dragging anywhere on
+a column body (excluding the close / apply buttons, which consume the
+click first) starts a ``QDrag`` carrying the source widget; the
+``_ColumnsArea`` container computes the target insert index from the
+cursor x-position and emits ``reorder_requested``. The dialog re-orders
+``self._slots`` and rebuilds the columns. The leftmost slot is always
+the REF — dragging a column to position 0 promotes it.
+"""
 from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QFont
+from PySide6.QtCore import QMimeData, QPoint, Qt, Signal
+from PySide6.QtGui import QColor, QDrag, QFont, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (
+    QApplication,
     QDialog,
     QFileDialog,
     QFrame,
@@ -24,13 +36,26 @@ from pfc_inductor.ui.theme import get_theme
 
 MAX_SLOTS = 8
 
+# Mime type for intra-app column drags. The bytes carry no payload —
+# we look up the source widget via ``event.source()`` because drags
+# are always in-process here. The mime presence just tells the drop
+# zone "this is one of ours, accept it".
+_COLUMN_MIME = "application/x-pfc-compare-column"
+
 # Compare-row backgrounds resolve from the active theme at row-render
 # time so light↔dark transitions don't leave stale tints behind.
 _BG_NEUTRAL = "transparent"
 
 
 class _ColumnWidget(QFrame):
-    """One comparison column: header label, monospaced metric table."""
+    """One comparison column: header label, monospaced metric table.
+
+    Draggable: clicking and holding anywhere on the column body (the
+    close / apply buttons consume their own clicks first) initiates
+    a ``QDrag`` carrying this widget as ``event.source()``. The
+    enclosing ``_ColumnsArea`` accepts the drop and signals the
+    dialog to reorder.
+    """
 
     remove_requested = Signal(object)  # emits self
     apply_requested = Signal(object)
@@ -43,6 +68,12 @@ class _ColumnWidget(QFrame):
         self.setFrameShape(QFrame.Shape.StyledPanel)
         self.setMinimumWidth(240)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        # Mouse-down position for drag-distance threshold; cleared on
+        # release / drag-start.
+        self._drag_press_pos: Optional[QPoint] = None
+        # Show the move cursor over draggable areas so the affordance
+        # is discoverable without a tooltip.
+        self.setCursor(Qt.CursorShape.OpenHandCursor)
 
         v = QVBoxLayout(self)
         v.setContentsMargins(6, 6, 6, 6)
@@ -122,6 +153,206 @@ class _ColumnWidget(QFrame):
               "neutral": _BG_NEUTRAL}[kind]
         return f"padding:2px 4px; background:{bg}; border-radius:3px;"
 
+    # ------------------------------------------------------------------
+    # Drag source — see module docstring "Reordering" for the protocol.
+    # ------------------------------------------------------------------
+    def mousePressEvent(self, event) -> None:
+        """Record the press position for drag-distance evaluation.
+
+        Children that consume the click (close button, apply button)
+        intercept first via Qt's normal event propagation, so this
+        only fires for clicks on the column body / labels, which is
+        exactly the drag handle area we want.
+        """
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._drag_press_pos = event.position().toPoint()
+            self.setCursor(Qt.CursorShape.ClosedHandCursor)
+        super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event) -> None:
+        self._drag_press_pos = None
+        self.setCursor(Qt.CursorShape.OpenHandCursor)
+        super().mouseReleaseEvent(event)
+
+    def mouseMoveEvent(self, event) -> None:
+        """Start a drag once the cursor has moved past the system
+        drag-distance threshold. Below that we treat it as a click."""
+        if self._drag_press_pos is None:
+            return super().mouseMoveEvent(event)
+        if not (event.buttons() & Qt.MouseButton.LeftButton):
+            return super().mouseMoveEvent(event)
+        delta = (event.position().toPoint() - self._drag_press_pos).manhattanLength()
+        if delta < QApplication.startDragDistance():
+            return super().mouseMoveEvent(event)
+
+        drag = QDrag(self)
+        mime = QMimeData()
+        # Payload is a sentinel — we only need to know the drag
+        # came from our compare-column widgets. The actual source
+        # is recovered via ``event.source()`` in the drop zone.
+        mime.setData(_COLUMN_MIME, b"1")
+        drag.setMimeData(mime)
+
+        # Translucent self-snapshot as drag preview. Without this the
+        # cursor carries a default arrow and the user can't tell which
+        # column they're dragging once the mouse moves off the source.
+        snap = self.grab()
+        canvas = QPixmap(snap.size())
+        canvas.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(canvas)
+        painter.setOpacity(0.65)
+        painter.drawPixmap(0, 0, snap)
+        painter.end()
+        drag.setPixmap(canvas)
+        drag.setHotSpot(self._drag_press_pos)
+
+        # Reset state before exec — the modal drag loop blocks here.
+        self._drag_press_pos = None
+        self.setCursor(Qt.CursorShape.OpenHandCursor)
+        drag.exec(Qt.DropAction.MoveAction)
+
+
+class _ColumnsArea(QWidget):
+    """Drop zone that holds the row of ``_ColumnWidget`` columns.
+
+    Accepts drags carrying the ``_COLUMN_MIME`` type, computes the
+    target insert index from the drop x-coordinate (gap between
+    columns nearest the cursor), and signals ``reorder_requested``.
+    During drag-over it paints a vertical drop indicator at the
+    pending insert position so the user knows where the column will
+    land before they release.
+    """
+
+    # ``(source_widget, target_index)`` — target_index is the slot
+    # index *after* removing the source from its current position,
+    # so the dialog can splice without further bookkeeping.
+    reorder_requested = Signal(object, int)
+
+    # Drop-indicator visual: vertical line, 3 px wide, accent colour.
+    _INDICATOR_WIDTH = 3
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAcceptDrops(True)
+        self._columns_layout = QHBoxLayout()
+        self._columns_layout.setSpacing(8)
+        self.setLayout(self._columns_layout)
+        # x-coordinate where the drop-indicator vertical line should
+        # be painted; ``None`` while no drag is in progress.
+        self._drop_indicator_x: Optional[int] = None
+
+    @property
+    def columns_layout(self) -> QHBoxLayout:
+        """Exposed so ``CompareDialog._refresh_columns`` can populate
+        the layout directly (preserving the original construction
+        path; the only change is *where* the layout lives)."""
+        return self._columns_layout
+
+    # ------------------------------------------------------------------
+    # Drag-and-drop handlers.
+    # ------------------------------------------------------------------
+    def dragEnterEvent(self, event) -> None:
+        if event.mimeData().hasFormat(_COLUMN_MIME):
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dragMoveEvent(self, event) -> None:
+        if not event.mimeData().hasFormat(_COLUMN_MIME):
+            event.ignore()
+            return
+        target_idx = self._compute_target_index(event.position().toPoint())
+        # Recompute and repaint the indicator at the gap
+        # corresponding to ``target_idx``.
+        self._drop_indicator_x = self._gap_x_for_index(target_idx)
+        self.update()
+        event.acceptProposedAction()
+
+    def dragLeaveEvent(self, event) -> None:
+        self._drop_indicator_x = None
+        self.update()
+        event.accept()
+
+    def dropEvent(self, event) -> None:
+        src = event.source()
+        self._drop_indicator_x = None
+        self.update()
+        if not isinstance(src, _ColumnWidget):
+            event.ignore()
+            return
+        if not event.mimeData().hasFormat(_COLUMN_MIME):
+            event.ignore()
+            return
+        target_idx = self._compute_target_index(event.position().toPoint())
+        event.acceptProposedAction()
+        self.reorder_requested.emit(src, target_idx)
+
+    def paintEvent(self, event) -> None:
+        super().paintEvent(event)
+        if self._drop_indicator_x is None:
+            return
+        # Vertical accent-coloured bar at the insert gap. Drawn on
+        # top of the children so it sits over the column edges.
+        painter = QPainter(self)
+        try:
+            colour = QColor(get_theme().palette.accent)
+        except Exception:
+            colour = QColor("#3a78b5")
+        pen = QPen(colour)
+        pen.setWidth(self._INDICATOR_WIDTH)
+        painter.setPen(pen)
+        x = self._drop_indicator_x
+        painter.drawLine(x, 4, x, self.height() - 4)
+        painter.end()
+
+    # ------------------------------------------------------------------
+    # Index math.
+    # ------------------------------------------------------------------
+    def _column_widgets(self) -> list[_ColumnWidget]:
+        """Walk the layout in order and return the live
+        ``_ColumnWidget`` instances. Skips spacers / placeholder
+        widgets so the indices line up with ``self._slots``."""
+        out: list[_ColumnWidget] = []
+        for i in range(self._columns_layout.count()):
+            w = self._columns_layout.itemAt(i).widget()
+            if isinstance(w, _ColumnWidget):
+                out.append(w)
+        return out
+
+    def _compute_target_index(self, pos: QPoint) -> int:
+        """Map cursor x-coordinate to the slot index where a drop
+        would insert. Returns 0 if the cursor is left of the first
+        column, ``N`` if right of the last, or ``i`` for between
+        columns ``i-1`` and ``i``."""
+        cols = self._column_widgets()
+        if not cols:
+            return 0
+        x = pos.x()
+        for i, col in enumerate(cols):
+            mid = col.x() + col.width() / 2
+            if x < mid:
+                return i
+        return len(cols)
+
+    def _gap_x_for_index(self, idx: int) -> int:
+        """Where to paint the drop indicator for a given target
+        index. Index 0 → left edge of first column; index N → right
+        edge of last column; otherwise mid-gap between adjacent
+        columns."""
+        cols = self._column_widgets()
+        if not cols:
+            return 0
+        if idx <= 0:
+            return max(0, cols[0].x() - 3)
+        if idx >= len(cols):
+            last = cols[-1]
+            return last.x() + last.width() + 3
+        prev_col = cols[idx - 1]
+        next_col = cols[idx]
+        prev_right = prev_col.x() + prev_col.width()
+        next_left = next_col.x()
+        return (prev_right + next_left) // 2
+
 
 class CompareDialog(QDialog):
     selection_applied = Signal(str, str, str)  # material_id, core_id, wire_id
@@ -168,11 +399,13 @@ class CompareDialog(QDialog):
         box = QGroupBox()
         v = QVBoxLayout(box)
         v.setContentsMargins(0, 0, 0, 0)
-        self._columns_layout = QHBoxLayout()
-        self._columns_layout.setSpacing(8)
-        wrap = QWidget()
-        wrap.setLayout(self._columns_layout)
-        v.addWidget(wrap, 1)
+        self._columns_area = _ColumnsArea()
+        # Same layout reference the existing ``_refresh_columns``
+        # populates — switching the container to ``_ColumnsArea``
+        # is the only structural change needed for drag-and-drop.
+        self._columns_layout = self._columns_area.columns_layout
+        self._columns_area.reorder_requested.connect(self._on_reorder)
+        v.addWidget(self._columns_area, 1)
         return box
 
     def _build_status(self) -> QLabel:
@@ -225,6 +458,41 @@ class CompareDialog(QDialog):
         s = column.slot
         self.selection_applied.emit(s.material.id, s.core.id, s.wire.id)
         self.accept()
+
+    def _on_reorder(self, source: _ColumnWidget, target_idx: int) -> None:
+        """Move ``source.slot`` to ``target_idx`` in ``self._slots``.
+
+        ``target_idx`` is the index returned by
+        ``_ColumnsArea._compute_target_index`` — the position the
+        cursor pointed at when the drop happened, expressed against
+        the *current* layout (i.e. before any removal). We splice
+        carefully:
+
+        - If the user dragged the column "back to where it already
+          was" (target_idx in {src_idx, src_idx + 1}) we do nothing
+          to avoid a wasteful refresh + flicker.
+        - Otherwise we remove first, then adjust ``target_idx`` for
+          the index shift caused by the removal, then re-insert.
+
+        After reordering, ``_refresh_columns`` rebuilds the column
+        widgets — index 0 is automatically the REF (the leftmost
+        slot is what ``_refresh_columns`` already treats as the
+        reference for diff colouring).
+        """
+        try:
+            src_idx = self._slots.index(source.slot)
+        except ValueError:
+            return
+        # No-op cases (drop in same gap, before or after the source).
+        if target_idx in (src_idx, src_idx + 1):
+            return
+        slot = self._slots.pop(src_idx)
+        # If we removed an element with index < target_idx, every
+        # later element shifted left by one — adjust.
+        adjusted = target_idx - 1 if target_idx > src_idx else target_idx
+        adjusted = max(0, min(len(self._slots), adjusted))
+        self._slots.insert(adjusted, slot)
+        self._refresh_columns()
 
     # ------------------------------------------------------------------
     # Public accessors — used by the v3 ``Exportar`` tab so the user
