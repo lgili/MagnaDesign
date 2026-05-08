@@ -43,6 +43,11 @@ dev = [
     "ruff>=0.6",
     "mypy>=1.10",
     "black>=24.0",
+    # ``validation/lib/measure_loader.py`` parses ``thresholds.yaml``
+    # via PyYAML; the matching ``tests/test_validation_lib.py``
+    # imports the loader at collection time, so the dev install
+    # needs PyYAML even though no production code path requires it.
+    "pyyaml>=6.0",
 ]
 # Opt-in crash reporting + usage analytics — the runtime degrades
 # to a no-op when this extra isn't installed (defensive imports
@@ -50,6 +55,15 @@ dev = [
 # ``uv pip install -e ".[telemetry]"`` on the maintainer build.
 telemetry = [
     "sentry-sdk>=2.0",
+]
+# Auto-update Ed25519 signature verification — pulls
+# ``cryptography`` so the bundled ``pfc_inductor.updater`` can
+# verify Sparkle ``sparkle:edSignature`` attributes against the
+# maintainer's pinned public key. Without this extra the
+# signature verifier returns ``SignatureCheckResult.UNAVAILABLE``
+# and the GUI shows a "verification disabled" badge.
+updater = [
+    "cryptography>=42.0",
 ]
 # FEA validation backend (FEMMT). Pinned because FEMMT 0.5.x has hard
 # constraints on scipy and setuptools that conflict with newer wheels.

@@ -75,6 +75,17 @@ jobs:
     needs: build
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    # Marking the deploy step ``continue-on-error`` so the workflow
+    # surface stays green while GitHub Pages is being configured /
+    # waiting for repo-settings approval. Pre-fix the deploy step
+    # was the *only* failing step (the Sphinx HTML built fine and
+    # the artifact uploaded), but ``HttpError: Not Found … Ensure
+    # GitHub Pages has been enabled`` made the whole workflow red,
+    # which masked legitimate Sphinx breakage in subsequent pushes.
+    # Once Pages is enabled at
+    # https://github.com/<org>/<repo>/settings/pages this comment
+    # + the continue-on-error flag can be removed.
+    continue-on-error: true
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
