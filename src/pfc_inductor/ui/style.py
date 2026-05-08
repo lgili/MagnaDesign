@@ -201,6 +201,17 @@ QGroupBox::title {{
     text-transform: uppercase;
     letter-spacing: 0.06em;
 }}
+
+/* QScrollArea + its inner viewport child default to a system-theme
+ * grey when no explicit background is set. On dark mode that grey
+ * collides with the page bg and leaves a hairline halo around every
+ * scrollable card. Forcing transparent here lets the page or card
+ * show through cleanly. ``QScrollArea > QWidget > QWidget`` is the
+ * Qt-internal viewport container; we have to target it explicitly
+ * because the immediate ``> QWidget`` is the scroll area's frame. */
+QScrollArea, QScrollArea > QWidget > QWidget {{
+    background-color: transparent;
+}}
 """
 
 

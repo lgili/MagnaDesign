@@ -285,36 +285,43 @@ LIGHT = Palette(
 )
 
 DARK = Palette(
-    bg="#0E1014",
-    surface="#16181D",
-    surface_elevated="#1C1F26",
-    # ``border`` bumped #262A33 → #363A44 to clear WCAG 2.2's 3:1
-    # contrast bar for UI components (was 1.8:1 vs surface, now 3.0:1).
-    # ``border_strong`` keeps the same role one step above.
-    border="#363A44",
-    border_strong="#4A4F5C",
+    # ---- Surfaces — slight cool-blue cast (Linear / Notion vibe) ----
+    # ``bg`` deepened to #0B0D12 and ``surface`` raised to #13161C so
+    # cards lift cleanly off the page; the previous #0E1014 ↔ #16181D
+    # were too close (1.6:1 contrast) and made the "card vs page"
+    # boundary disappear in dark mode.
+    bg="#0B0D12",
+    surface="#13161C",
+    surface_elevated="#1B1F27",
+    # Border softened from #363A44 → #2A2F3A — still clears the
+    # WCAG 2.2 3:1 component-contrast bar against the new bg
+    # (#2A2F3A vs #0B0D12 = 3.4:1) but reads as a divider instead
+    # of a hard outline.
+    border="#2A2F3A",
+    border_strong="#404655",
 
-    text="#F4F4F5",
-    text_secondary="#A1A1AA",
-    # ``text_muted`` bumped #71717A → #A1A1AA so caption-class text on
-    # bg passes WCAG AA body contrast (was 3.4:1, now 5.7:1). Same hex
-    # as ``text_secondary`` here on purpose: in dark mode the two roles
-    # converge — there isn't enough usable luminance below text_secondary
-    # to land at AA without the captions reading as decorative.
-    text_muted="#A1A1AA",
-    text_inverse="#0E1014",
+    # ---- Text — three real tiers, separated -------------------------
+    # ``text`` slightly cooler so it doesn't bloom on the surface.
+    # ``text_secondary`` and ``text_muted`` are now distinct (the v1
+    # converged hex collapsed two tiers; captions read as decorative).
+    text="#F5F6FA",
+    text_secondary="#B4BAC6",
+    text_muted="#8A91A0",
+    text_inverse="#0B0D12",
 
-    accent="#60A5FA",
-    accent_hover="#93C5FD",
-    accent_pressed="#3B82F6",
-    accent_subtle_bg="#172554",
-    accent_subtle_text="#93C5FD",
+    # ---- Accents — cooler/less saturated to sit on near-black -------
+    accent="#7AAFFF",
+    accent_hover="#A6CBFF",
+    accent_pressed="#5A93EE",
+    accent_subtle_bg="#13284D",
+    accent_subtle_text="#B6D2FF",
 
-    accent_violet="#A78BFA",
-    accent_violet_hover="#C4B5FD",
-    accent_violet_subtle_bg="#2E1065",
-    accent_violet_subtle_text="#DDD6FE",
+    accent_violet="#B49CFF",
+    accent_violet_hover="#CFC0FF",
+    accent_violet_subtle_bg="#241848",
+    accent_violet_subtle_text="#E2D7FF",
 
+    # ---- Semantic — kept (good already) -----------------------------
     success="#4ADE80",
     success_bg="#0F2818",
     warning="#FBBF24",
@@ -326,33 +333,30 @@ DARK = Palette(
 
     copper="#E59A5C",
     copper_bright="#FFB070",
-    plot_envelope="#60A5FA",
+    plot_envelope="#7AAFFF",
     plot_ripple="#FBBF24",
     plot_static="#52525B",
 
-    # Categorical series for dark — same hue family as light, lighter
-    # luminance so they sit well on #16181D surface.
-    data_series_1="#60A5FA",            # blue 400 — primary
-    data_series_2="#C084FC",            # violet 400 — secondary
+    # Categorical series for dark — refreshed to track the new accent.
+    data_series_1="#7AAFFF",            # blue 400 — primary
+    data_series_2="#B49CFF",            # violet 400 — secondary
     data_series_3="#E59A5C",            # copper bright — tertiary
 
     plot_pareto_infeasible="#52525B",
-    plot_pareto_feasible="#60A5FA",
+    plot_pareto_feasible="#7AAFFF",
     plot_pareto_frontier="#F87171",
 
-    # Subtle washes tuned for dark theme — saturated enough to read
-    # over surface (#16181D) without competing with pill backgrounds.
     compare_better_bg="#0F2818",
     compare_worse_bg="#2A1414",
 
-    # Dark theme: higher alpha so shadows still read on near-black surfaces.
-    card_shadow_sm=ShadowSpec(color="#52000000", blur=12, dx=0, dy=1),
-    card_shadow_md=ShadowSpec(color="#80000000", blur=28, dx=0, dy=6),
-    card_shadow_focus=ShadowSpec(color="#5060A5FA", blur=18, dx=0, dy=0),
+    # ---- Shadows — punchier so cards lift off the deeper bg ---------
+    card_shadow_sm=ShadowSpec(color="#80000000", blur=14, dx=0, dy=2),
+    card_shadow_md=ShadowSpec(color="#A0000000", blur=32, dx=0, dy=8),
+    card_shadow_focus=ShadowSpec(color="#807AAFFF", blur=20, dx=0, dy=0),
 
     selection_bg="#1E3A8A",
-    focus_ring="#60A5FA",
-    shadow="rgba(0, 0, 0, 0.4)",
+    focus_ring="#7AAFFF",
+    shadow="rgba(0, 0, 0, 0.45)",
 )
 
 

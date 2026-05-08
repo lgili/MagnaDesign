@@ -173,7 +173,7 @@ class _SchematicPainter:
                 self._qp.drawRoundedRect(
                     QRectF(x0 - 18, y0 - 6, 36, length + 12), 9, 9,
                 )
-            color = accent if highlighted else QColor("#000000")
+            color = accent if highlighted else QColor(get_theme().palette.text_secondary)
             self._qp.setPen(self._pen(color, self.STROKE_INDUCTOR))
             self._qp.setBrush(Qt.BrushStyle.NoBrush)
             n_humps = 4

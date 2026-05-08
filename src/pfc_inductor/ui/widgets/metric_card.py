@@ -184,9 +184,14 @@ class MetricCard(QFrame):
             color = p.danger
         else:
             color = "transparent"
+        # Card background uses ``surface`` (not ``bg``) so the tile
+        # sits *above* the page background — without this the entire
+        # KPI row blended into the page in dark mode and read as
+        # blank white blocks (the page bg leaked through). Same fix
+        # applied across other Card-like widgets that wrap this one.
         return (
             f"QFrame#MetricCard {{"
-            f"  background: {p.bg};"
+            f"  background: {p.surface};"
             f"  border: 1px solid {p.border};"
             f"  border-left: 3px solid {color};"
             f"  border-radius: 8px;"

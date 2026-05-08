@@ -6,13 +6,13 @@ import sys
 from pathlib import Path
 
 from PySide6.QtCore import QSettings
-from PySide6.QtGui import QFontDatabase, QIcon
+from PySide6.QtGui import QColor, QFontDatabase, QIcon, QPalette
 from PySide6.QtWidgets import QApplication
 
 from pfc_inductor.settings import SETTINGS_APP, SETTINGS_ORG
 from pfc_inductor.ui.main_window import MainWindow
 from pfc_inductor.ui.style import make_stylesheet
-from pfc_inductor.ui.theme import get_theme, set_theme
+from pfc_inductor.ui.theme import get_theme, on_theme_changed, set_theme
 
 
 def _load_initial_theme() -> str:
@@ -69,10 +69,62 @@ def _resolve_icon() -> QIcon:
     return icon
 
 
+def _apply_app_palette(app: QApplication) -> None:
+    """Mirror the active token Palette into the ``QApplication``'s
+    :class:`QPalette` so widgets that bypass the global stylesheet
+    (native dialogs, message boxes, system tooltips, the few inputs
+    we don't style explicitly) inherit the right colours instead of
+    the platform default — which on macOS leaks bright system
+    backgrounds into our dark theme.
+
+    Combined with ``app.setStyle("Fusion")``, this is the lever that
+    makes Mac and Windows render identically: Fusion is the only Qt
+    style that fully respects QSS *and* QPalette.
+    """
+    p = get_theme().palette
+    qp = QPalette()
+    qp.setColor(QPalette.ColorRole.Window,         QColor(p.bg))
+    qp.setColor(QPalette.ColorRole.WindowText,     QColor(p.text))
+    qp.setColor(QPalette.ColorRole.Base,           QColor(p.surface))
+    qp.setColor(QPalette.ColorRole.AlternateBase,  QColor(p.surface_elevated))
+    qp.setColor(QPalette.ColorRole.Text,           QColor(p.text))
+    qp.setColor(QPalette.ColorRole.PlaceholderText, QColor(p.text_muted))
+    qp.setColor(QPalette.ColorRole.Button,         QColor(p.surface_elevated))
+    qp.setColor(QPalette.ColorRole.ButtonText,     QColor(p.text))
+    qp.setColor(QPalette.ColorRole.Highlight,      QColor(p.accent))
+    qp.setColor(QPalette.ColorRole.HighlightedText, QColor(p.text_inverse))
+    qp.setColor(QPalette.ColorRole.ToolTipBase,    QColor(p.surface_elevated))
+    qp.setColor(QPalette.ColorRole.ToolTipText,    QColor(p.text))
+    qp.setColor(QPalette.ColorRole.Link,           QColor(p.accent))
+    qp.setColor(QPalette.ColorRole.LinkVisited,    QColor(p.accent_violet))
+    qp.setColor(QPalette.ColorRole.BrightText,     QColor(p.danger))
+    # Disabled-state colours — many native widgets use these instead
+    # of the regular roles, so muting them prevents the "ghosted but
+    # still bright white" look on disabled inputs.
+    for role in (QPalette.ColorRole.Text,
+                 QPalette.ColorRole.WindowText,
+                 QPalette.ColorRole.ButtonText):
+        qp.setColor(QPalette.ColorGroup.Disabled, role,
+                    QColor(p.text_muted))
+    app.setPalette(qp)
+
+
 def main() -> int:
     app = QApplication(sys.argv)
     app.setApplicationName(SETTINGS_APP)
     app.setOrganizationName(SETTINGS_ORG)
+
+    # ---- Cross-platform style normalisation ---------------------------
+    # macOS defaults to the native ``macintosh`` style which IGNORES
+    # large parts of QSS (QPushButton stays white-rounded, QToolButton
+    # ignores background colours, etc.). Windows uses ``windowsvista``
+    # which respects more but still drifts from Mac. ``Fusion`` is the
+    # only Qt style that fully honours QSS, so forcing it everywhere
+    # gives pixel-equivalent rendering across platforms — the missing
+    # piece behind the "tema escuro está uma merda + Mac/Win não bate"
+    # report. Set BEFORE the stylesheet so Fusion's palette is the
+    # baseline our QSS extends.
+    app.setStyle("Fusion")
 
     # Application icon — used by the OS dock/taskbar, the About
     # dialog, every QMainWindow's title bar (unless overridden), and
@@ -86,7 +138,17 @@ def main() -> int:
     QFontDatabase.addApplicationFont(":/fonts/JetBrainsMono-Regular.ttf")
 
     set_theme(_load_initial_theme())
+    _apply_app_palette(app)
     app.setStyleSheet(make_stylesheet(get_theme()))
+
+    # Re-apply both palette and stylesheet on theme toggle so the
+    # whole app flips together — without this hook a light → dark
+    # toggle leaves the QPalette stale and unstyled widgets keep
+    # showing light backgrounds.
+    on_theme_changed(lambda: (
+        _apply_app_palette(app),
+        app.setStyleSheet(make_stylesheet(get_theme())),
+    ))
 
     win = MainWindow()
     win.show()
