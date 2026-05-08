@@ -127,6 +127,66 @@ def _resolve_icon() -> "QIcon":
     return icon
 
 
+def _patch_brand_typography_to_installed_fonts() -> None:
+    """Drop missing fonts from the brand UI font stack.
+
+    The default ``Typography.ui_family_brand`` lists ``"Inter
+    Variable"`` first because it's the design face we'd ship in a
+    perfect world. We don't bundle it (and most users won't have it
+    locally), so Qt's font matcher logs
+
+        Populating font family aliases took 37 ms. Replace uses of
+        missing font family "Inter Variable" with one that exists
+        to avoid this cost.
+
+    on every cold start. The 37 ms cost itself is negligible but the
+    warning is noisy, and on dense lists Qt re-runs the alias
+    population for *every* widget that asks for a different family,
+    which adds up.
+
+    Fix: probe the system font database after ``QApplication`` is
+    live, drop ``"Inter Variable"`` / ``"Inter"`` from the stack if
+    Qt can't find them, and re-seed ``_theme._state.type`` so the
+    QSS we generate next reads a clean stack. The system fallbacks
+    that follow (``-apple-system`` on macOS, ``"Segoe UI Variable"``
+    on Windows) render visually equivalent to Inter for engineering
+    UI density.
+    """
+    import dataclasses
+
+    from PySide6.QtGui import QFontDatabase
+
+    from pfc_inductor.ui import theme as _theme
+
+    families = set(QFontDatabase.families())
+    has_inter_variable = "Inter Variable" in families
+    has_inter = "Inter" in families
+    if has_inter_variable and has_inter:
+        # Original stack already lands on a real font — nothing to do.
+        return
+
+    pieces: list[str] = []
+    if has_inter_variable:
+        pieces.append('"Inter Variable"')
+    if has_inter:
+        pieces.append('"Inter"')
+    pieces.extend([
+        "-apple-system",
+        '"SF Pro Display"',
+        '"Segoe UI Variable"',
+        '"Segoe UI"',
+        '"Helvetica Neue"',
+        "Arial",
+        "sans-serif",
+    ])
+    new_stack = ", ".join(pieces)
+
+    new_type = dataclasses.replace(
+        _theme._state.type, ui_family_brand=new_stack,
+    )
+    _theme._state = dataclasses.replace(_theme._state, type=new_type)
+
+
 def _apply_app_palette(app: "QApplication") -> None:
     """Mirror the active token Palette into the ``QApplication``'s
     :class:`QPalette` so widgets that bypass the global stylesheet
@@ -236,6 +296,13 @@ def _run_gui(argv: list[str]) -> int:
 
     # Try to register JetBrains Mono if shipped (no-op when absent).
     QFontDatabase.addApplicationFont(":/fonts/JetBrainsMono-Regular.ttf")
+
+    # Probe the brand UI font (Inter Variable). When it isn't
+    # installed, Qt logs a 37 ms "Populating font family aliases"
+    # warning on every cold start. Strip the missing entries from
+    # the typography stack so the first family Qt looks up actually
+    # exists.
+    _patch_brand_typography_to_installed_fonts()
 
     set_theme(_load_initial_theme())
     _apply_app_palette(app)

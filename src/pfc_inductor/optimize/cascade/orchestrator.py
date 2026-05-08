@@ -23,9 +23,10 @@ from __future__ import annotations
 
 import multiprocessing as mp
 import os
+import threading
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
-from multiprocessing.synchronize import Event as MPEvent
+from multiprocessing.synchronize import Event as MPEvent  # noqa: F401
 from typing import Any, Callable, Optional
 
 from pfc_inductor.data_loader import current_db_versions
@@ -405,14 +406,24 @@ class CascadeOrchestrator:
     """Drives a cascade run from start to completion (or cancellation).
 
     Owns the run store and the process pool. All public methods are
-    safe to call from any thread; cancellation propagates via an
-    `mp.Event` observed by the orchestrator between batches.
+    safe to call from any thread; cancellation propagates via a
+    `threading.Event` observed by the orchestrator between batches.
+
+    Cancellation is checked **only in the parent process** — the tier
+    worker functions (`_tier1_worker`, etc.) don't read it. Pre-fix
+    we used ``mp.Event`` for the cancel flag, which on macOS allocates
+    five POSIX semaphores via ``multiprocessing.resource_tracker``;
+    those leaked at every shutdown ("There appear to be 5 leaked
+    semaphore objects to clean up") because nothing explicitly closes
+    them. ``threading.Event`` has the same set/clear/is_set API
+    without the IPC primitive, so the leak warning goes away and the
+    cancellation semantics stay identical.
     """
 
     store: RunStore
     parallelism: int = field(default_factory=lambda: os.cpu_count() or 1)
-    _cancel: MPEvent = field(
-        default_factory=mp.Event, init=False, repr=False,
+    _cancel: threading.Event = field(
+        default_factory=threading.Event, init=False, repr=False,
     )
 
     # ─── Lifecycle ────────────────────────────────────────────────
