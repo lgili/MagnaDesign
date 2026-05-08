@@ -666,8 +666,9 @@ def _fig_pf_vs_inductance(spec: Spec, result: DesignResult):
     return fig
 
 
-def _fig_power_vs_inductance(spec: Spec, core: Core, material: Material,
-                                result: DesignResult, I_pk_A: float):
+def _fig_power_vs_inductance(
+    spec: Spec, core: Core, material: Material, result: DesignResult, I_pk_A: float
+):
     """Active power vs effective inductance, traced parametrically as
     the bias current sweeps from zero past I_pk into deep saturation.
 
@@ -699,45 +700,72 @@ def _fig_power_vs_inductance(spec: Spec, core: Core, material: Material,
         L_lin_uH = rf.inductance_uH(N, core.AL_nH, 1.0)
         B_at_Ipk = (L_lin_uH * 1e-6) * I_pk_A / max(N * Ae_m2, 1e-12)
         I_max = (
-            I_pk_A * min(
-                max(3.0 * material.Bsat_100C_T / max(B_at_Ipk, 1e-9),
-                     2.0),
+            I_pk_A
+            * min(
+                max(3.0 * material.Bsat_100C_T / max(B_at_Ipk, 1e-9), 2.0),
                 20.0,
             )
-            if B_at_Ipk > 0 else I_pk_A * 5.0
+            if B_at_Ipk > 0
+            else I_pk_A * 5.0
         )
     else:
         I_max = I_pk_A * 2.0
     I = np.linspace(0.01, I_max, 300)
-    L_uH = np.array([
-        rf.L_at_current_uH(
-            material, N=N, I_A=float(Ii),
-            AL_nH=core.AL_nH, le_mm=core.le_mm,
-            Ae_mm2=core.Ae_mm2,
-        )
-        for Ii in I
-    ])
-    P_W = np.array([
-        pfm.active_power_at_inst_current_W(
-            spec, float(L_uH[k]), float(I[k]),
-        )
-        for k in range(I.size)
-    ])
+    L_uH = np.array(
+        [
+            rf.L_at_current_uH(
+                material,
+                N=N,
+                I_A=float(Ii),
+                AL_nH=core.AL_nH,
+                le_mm=core.le_mm,
+                Ae_mm2=core.Ae_mm2,
+            )
+            for Ii in I
+        ]
+    )
+    P_W = np.array(
+        [
+            pfm.active_power_at_inst_current_W(
+                spec,
+                float(L_uH[k]),
+                float(I[k]),
+            )
+            for k in range(I.size)
+        ]
+    )
     # Operating point: the design's actual peak current and L_actual.
     L_op = float(result.L_actual_uH)
     P_op = pfm.active_power_at_inst_current_W(spec, L_op, I_pk_A)
 
     fig, ax = plt.subplots(figsize=(7.0, 3.2), dpi=110)
-    ax.plot(L_uH, P_W / 1000.0, color="#3a78b5", linewidth=1.6,
-             label=f"P(L) parametrised by I (N = {N})")
-    ax.axvline(L_op, color="#888", linestyle=":", alpha=0.7,
-                linewidth=1.0, label=f"L_op = {L_op:.0f} µH")
-    ax.axhline(P_op / 1000.0, color="#a06700", linestyle=":",
-                alpha=0.7, linewidth=1.0,
-                label=f"P_op = {P_op / 1000.0:.1f} kW")
-    ax.plot([L_op], [P_op / 1000.0], "o", color="#1c7c3b",
-             markersize=7, zorder=5,
-             label="Operating point (I = I_pk)")
+    ax.plot(
+        L_uH,
+        P_W / 1000.0,
+        color="#3a78b5",
+        linewidth=1.6,
+        label=f"P(L) parametrised by I (N = {N})",
+    )
+    ax.axvline(
+        L_op, color="#888", linestyle=":", alpha=0.7, linewidth=1.0, label=f"L_op = {L_op:.0f} µH"
+    )
+    ax.axhline(
+        P_op / 1000.0,
+        color="#a06700",
+        linestyle=":",
+        alpha=0.7,
+        linewidth=1.0,
+        label=f"P_op = {P_op / 1000.0:.1f} kW",
+    )
+    ax.plot(
+        [L_op],
+        [P_op / 1000.0],
+        "o",
+        color="#1c7c3b",
+        markersize=7,
+        zorder=5,
+        label="Operating point (I = I_pk)",
+    )
     ax.set_xlabel("Inductance L [µH]")
     ax.set_ylabel("Active power P [kW]")
     ax.set_title(
@@ -1754,7 +1782,10 @@ def _page2_story(
     # line and adds little).
     if spec.topology in ("passive_choke", "line_reactor"):
         fig_PL = _fig_power_vs_inductance(
-            spec, core, material, result,
+            spec,
+            core,
+            material,
+            result,
             I_pk_A=result.I_pk_max_A,
         )
         if fig_PL is not None:

@@ -19,6 +19,7 @@ control, no saturation tapering); the card stays mounted but
 harmlessly empty so the Analysis tab's row layout stays
 deterministic across topologies.
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -78,17 +79,17 @@ class _PowerInductanceBody(QWidget):
         on_theme_changed(self._refresh_qss)
 
     # ------------------------------------------------------------------
-    def update_from_design(self, result: DesignResult, spec: Spec,
-                            core: Core, wire: Wire,
-                            material: Material) -> None:
+    def update_from_design(
+        self, result: DesignResult, spec: Spec, core: Core, wire: Wire, material: Material
+    ) -> None:
         self._chart.update_from_design(
-            result, spec, core, wire, material,
+            result,
+            spec,
+            core,
+            wire,
+            material,
         )
-        if (
-            spec.topology == "boost_ccm"
-            or result.L_actual_uH <= 0
-            or result.I_pk_max_A <= 0
-        ):
+        if spec.topology == "boost_ccm" or result.L_actual_uH <= 0 or result.I_pk_max_A <= 0:
             self._lbl_lop.setText("L_op  —")
             self._lbl_pop.setText("P_op  —")
             self._lbl_ratio.setText("P / S  —")
@@ -149,8 +150,7 @@ class PowerInductanceCard(Card):
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         body = _PowerInductanceBody()
-        super().__init__("Active power vs inductance (saturation)",
-                          body, parent=parent)
+        super().__init__("Active power vs inductance (saturation)", body, parent=parent)
         self._wbody = body
 
     def update_from_design(self, *args, **kwargs) -> None:

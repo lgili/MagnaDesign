@@ -98,7 +98,9 @@ def apparent_power_VA(spec: Spec, L_uH: float) -> float:
 
 
 def active_power_at_inst_current_W(
-    spec: Spec, L_uH: float, I_pk_inst_A: float,
+    spec: Spec,
+    L_uH: float,
+    I_pk_inst_A: float,
 ) -> float:
     """Active input power that the source delivers when the inductor
     carries an instantaneous peak current ``I_pk_inst_A`` and the

@@ -1929,7 +1929,11 @@ def _body_line_reactor(
             )
         )
     fig_PL_lr = _fig_power_vs_inductance(
-        spec, core, material, result, I_pk_A=I_pk_lr,
+        spec,
+        core,
+        material,
+        result,
+        I_pk_A=I_pk_lr,
     )
     if fig_PL_lr is not None:
         flowables.append(
@@ -2388,7 +2392,11 @@ def _body_passive_choke(
             )
         )
     fig_PL_pc = _fig_power_vs_inductance(
-        spec, core, material, result, I_pk_A=I_pk,
+        spec,
+        core,
+        material,
+        result,
+        I_pk_A=I_pk,
     )
     if fig_PL_pc is not None:
         flowables.append(
