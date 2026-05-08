@@ -705,7 +705,7 @@ class MainWindow(QMainWindow):
         self.stack.setCurrentIndex(0)
 
     def _wire_signals(self) -> None:
-        # ---- Projeto page (Recalcular / Comparar / Relatório / etc) --
+        # ---- Project page (Recalculate / Compare / Report / etc) -----
         self.projeto_page.recalculate_requested.connect(self._on_calculate)
         self.projeto_page.compare_requested.connect(self._open_compare)
         self.projeto_page.report_requested.connect(self._export_report)
@@ -714,7 +714,7 @@ class MainWindow(QMainWindow):
         )
         # Mark the project dirty whenever the engineer touches a spec
         # field — without this hook the "● Salvo" pill never flips
-        # back to "● Não salvo" after the first save, and the File →
+        # back to "● Unsaved" after the first save, and the File →
         # Save shortcut had no signal to act on. Spec panel emits
         # ``changed`` on every spinbox / topology change.
         self.projeto_page.spec_panel.changed.connect(
@@ -736,7 +736,7 @@ class MainWindow(QMainWindow):
 
         # ---- Otimizador page (embed) ----------------------------------
         # The Pareto sweep is now a first-class page surface; "Aplicar"
-        # bubbles up via selection_applied just like the Núcleo card.
+        # bubbles up via selection_applied just like the Core card.
         self.otimizador_page.selection_applied.connect(
             self._apply_optimizer_choice,
         )
@@ -744,14 +744,14 @@ class MainWindow(QMainWindow):
         # ---- Cascade page (deep multi-tier sweep) ---------------------
         # Double-clicking a row in the top-N table emits the
         # candidate's key; we parse it and route to the same
-        # `_apply_optimizer_choice` handler the Pareto and Núcleo
+        # `_apply_optimizer_choice` handler the Pareto and Core
         # surfaces use.
         self.cascade_page.open_in_design_requested.connect(
             self._apply_cascade_candidate,
         )
         # The "Aplicar selecionado" button on the cascade page emits
         # the same (material_id, core_id, wire_id) tuple the
-        # Otimizador and Núcleo card already wire — so the engineer
+        # Optimizer and Core card already wire — so the engineer
         # can promote a cascade winner to the design view with one
         # click and stay on the cascade page if they want to keep
         # comparing.
@@ -768,7 +768,7 @@ class MainWindow(QMainWindow):
         )
         self.catalogo_page.similar_requested.connect(self._open_similar_parts)
 
-        # ---- Configurações page ---------------------------------------
+        # ---- Settings page --------------------------------------------
         self.configuracoes_page.theme_toggle_requested.connect(
             self._toggle_theme,
         )
@@ -1109,8 +1109,8 @@ class MainWindow(QMainWindow):
         only need the first three fields to set the current
         selection; N / gap come from the engine on the next
         recalc. Routes to the same `_apply_optimizer_choice`
-        handler the Pareto / Núcleo / Compare surfaces use, then
-        switches the visible page back to Projeto so the engineer
+        handler the Pareto / Core / Compare surfaces use, then
+        switches the visible page back to Project so the engineer
         sees the freshly hydrated design immediately.
         """
         parts = candidate_key.split("|")
@@ -1143,7 +1143,7 @@ class MainWindow(QMainWindow):
             return
 
         # Filter the material catalogue by the current topology so
-        # downstream pages (núcleo selection, otimizador, cascade)
+        # downstream pages (core selection, optimizer, cascade)
         # don't waste time evaluating materials that make no
         # engineering sense for the chosen converter — e.g. a line
         # reactor at 60 Hz has no business iterating over 241 powder

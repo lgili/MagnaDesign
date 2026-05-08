@@ -71,7 +71,7 @@ class BHLoopChart(QWidget):
         self._ax.set_facecolor(p.surface)
         self._ax.text(
             0.5, 0.5,
-            "Aguardando cálculo…",
+            "Waiting for calculation…",
             ha="center", va="center",
             color=p.text_muted, fontsize=10,
             transform=self._ax.transAxes,
@@ -95,7 +95,7 @@ class BHLoopChart(QWidget):
             tr = compute_bh_trajectory(result, core, material)
         except (ValueError, TypeError, AttributeError) as e:
             ax.text(
-                0.5, 0.5, f"Não foi possível computar B–H:\n{e}",
+                0.5, 0.5, f"Could not compute B–H:\n{e}",
                 ha="center", va="center",
                 color=p.danger, fontsize=10,
                 transform=ax.transAxes,
@@ -106,7 +106,7 @@ class BHLoopChart(QWidget):
         # Static reference curve
         ax.plot(tr["H_static_Oe"], tr["B_static_T"] * 1000.0,
                 color=p.text_muted, linewidth=1.2, alpha=0.8,
-                label="Curva estática")
+                label="Static curve")
         # Bsat dashed line
         ax.axhline(tr["Bsat_T"] * 1000.0, color=p.danger,
                    linestyle="--", alpha=0.6, linewidth=1.0,
@@ -114,18 +114,18 @@ class BHLoopChart(QWidget):
         # Slow envelope (line cycle)
         ax.plot(tr["H_envelope_Oe"], tr["B_envelope_T"] * 1000.0,
                 color=p.accent, linewidth=1.8, alpha=0.9,
-                label="Envelope de rede")
+                label="Line envelope")
         # Optional HF ripple overlay (only when ripple_pp > 1 % I_pk)
         if tr["H_ripple_Oe"] is not None:
             ax.plot(tr["H_ripple_Oe"], tr["B_ripple_T"] * 1000.0,
                     color=p.warning, linewidth=2.4, alpha=0.85,
-                    label="Ripple fsw (no pico)")
+                    label="fsw ripple (at peak)")
         # Operating-point marker
         ax.scatter(
             [tr["H_pk_Oe"]], [tr["B_pk_T"] * 1000.0],
             color=p.danger, s=60, zorder=5,
             edgecolor=p.surface, linewidth=1.4,
-            label=(f"Pico ({tr['H_pk_Oe']:.0f} Oe, "
+            label=(f"Peak ({tr['H_pk_Oe']:.0f} Oe, "
                    f"{tr['B_pk_T'] * 1000:.0f} mT)"),
         )
 

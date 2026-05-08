@@ -1,13 +1,13 @@
 """``ResumoStrip`` — horizontal 6-tile KPI bar without card chrome.
 
 Replaces :class:`ResumoCard <pfc_inductor.ui.dashboard.cards.resumo_card>`
-at the top of the Projeto bento. Same six metrics (L, I_dc, ripple,
-B_pk, ΔT, Perdas) but laid out as a single 84 px-tall horizontal strip
-so they stop competing with the Núcleo table for vertical real estate.
+at the top of the Project bento. Same six metrics (L, I_dc, ripple,
+B_pk, ΔT, Losses) but laid out as a single 84 px-tall horizontal strip
+so they stop competing with the Core table for vertical real estate.
 
 Aggregate status is shown as a Pill on the right edge — same colour
-language as the v2 ``ResumoCard`` badge ("Aprovado" / "Verificar" /
-"Reprovado"), driven by the worst per-tile status.
+language as the v2 ``ResumoCard`` badge ("Approved" / "Check" /
+"Failed"), driven by the worst per-tile status.
 """
 from __future__ import annotations
 
@@ -80,16 +80,16 @@ class ResumoStrip(QFrame):
     """6-tile horizontal KPI bar + aggregate status pill on the right.
 
     Designed to occupy a single full-width row (col-span 12) at the top
-    of the Projeto dashboard. Fixed height so the 3-row bento below
+    of the Project dashboard. Fixed height so the 3-row bento below
     gets a predictable amount of vertical room.
     """
 
-    # Emitted when the "Preencha a especificação" empty-state badge is
-    # clicked — host (ProjetoPage) opens the SpecDrawer in response.
+    # Emitted when the "Fill in the spec" empty-state badge is clicked
+    # — host (ProjetoPage) opens the SpecDrawer in response.
     spec_drawer_requested = Signal()
     # Emitted when the user clicks the badge while it shows
-    # "Reprovado" or "Verificar" — host scrolls / switches to the
-    # tab that explains *why* (the Análise card with the failing
+    # "Failed" or "Check" — host scrolls / switches to the
+    # tab that explains *why* (the Analysis card with the failing
     # metric). String payload is the metric name (e.g. "ΔT", "B")
     # for future per-metric routing; the empty string means "no
     # specific metric, just take me to the analysis".
@@ -112,13 +112,13 @@ class ResumoStrip(QFrame):
         h.setContentsMargins(16, 8, 16, 8)
         h.setSpacing(12)
 
-        self.m_L = MetricCard("Indutância", "—", "µH", compact=True)
-        self.m_I = MetricCard("Corrente DC", "—", "A", compact=True)
+        self.m_L = MetricCard("Inductance", "—", "µH", compact=True)
+        self.m_I = MetricCard("DC current", "—", "A", compact=True)
         self.m_dI = MetricCard("Ripple", "—", "App", compact=True)
-        self.m_B = MetricCard("B pico", "—", "mT", compact=True)
+        self.m_B = MetricCard("B peak", "—", "mT", compact=True)
         self.m_T = MetricCard("ΔT", "—", "°C", compact=True,
                               trend_better="lower")
-        self.m_P = MetricCard("Perdas", "—", "W", compact=True,
+        self.m_P = MetricCard("Losses", "—", "W", compact=True,
                               trend_better="lower")
         self._tiles = (
             self.m_L, self.m_I, self.m_dI, self.m_B, self.m_T, self.m_P,
@@ -160,9 +160,9 @@ class ResumoStrip(QFrame):
         self.badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
         # Cap the badge width so it doesn't push the strip past the
         # window edge when ``_set_badge`` appends a long reason
-        # summary ("Reprovado — ΔT · Perdas"). 160 px holds
-        # "Preencha a especificação" comfortably; longer status
-        # strings get elided. The full text stays in the tooltip.
+        # summary ("Failed — ΔT · Losses"). 160 px holds
+        # "Fill in the spec" comfortably; longer status strings get
+        # elided. The full text stays in the tooltip.
         self.badge.setMaximumWidth(160)
         self.badge.setMinimumWidth(110)
         # Make the badge clickable for the empty-state path (P0.B):
@@ -192,9 +192,9 @@ class ResumoStrip(QFrame):
         for mc in self._tiles:
             mc.set_value("—")
             mc.set_status("neutral")
-        self.badge.setText("Preencha a especificação")
+        self.badge.setText("Fill in the spec")
         self.badge.setProperty("pill", "neutral")
-        self.badge.setToolTip("Clique para abrir a Especificação à esquerda.")
+        self.badge.setToolTip("Click to open the Spec drawer on the left.")
         self.badge.setCursor(Qt.CursorShape.PointingHandCursor)
         self._poke_badge_style()
 
@@ -208,10 +208,10 @@ class ResumoStrip(QFrame):
                 self.spec_drawer_requested.emit()
                 return True
             # Failed-design path (P1.H): user clicks the
-            # "Reprovado" / "Verificar" badge to ask "where did
-            # I fail?". Pass the *worst* metric name (cached by
-            # ``_set_badge``) so the host can route to the
-            # explanation. ``"ok"`` = nothing to click on.
+            # "Failed" / "Check" badge to ask "where did I fail?".
+            # Pass the *worst* metric name (cached by ``_set_badge``)
+            # so the host can route to the explanation. ``"ok"`` =
+            # nothing to click on.
             variant = str(self.badge.property("pill") or "neutral")
             if variant in ("danger", "warning"):
                 self.failed_metric_clicked.emit(self._worst_metric)
@@ -281,7 +281,7 @@ class ResumoStrip(QFrame):
         if agg in ("err", "warn"):
             self.badge.setCursor(Qt.CursorShape.PointingHandCursor)
             self.badge.setToolTip(
-                "Clique para ver o que falhou nesta análise."
+                "Click to see which metric failed this analysis."
             )
         else:
             self.badge.setCursor(Qt.CursorShape.ArrowCursor)
@@ -332,11 +332,11 @@ class ResumoStrip(QFrame):
 
     def _set_badge(self, status: MetricStatus, reasons: list[str]) -> None:
         if status == "ok":
-            text, variant = "Aprovado", "success"
+            text, variant = "Approved", "success"
         elif status == "warn":
-            text, variant = "Verificar", "warning"
+            text, variant = "Check", "warning"
         elif status == "err":
-            text, variant = "Reprovado", "danger"
+            text, variant = "Failed", "danger"
         else:
             text, variant = "—", "neutral"
 
@@ -348,7 +348,7 @@ class ResumoStrip(QFrame):
                 text += " — " + " · ".join(reasons)
             else:
                 text += " — " + " · ".join(reasons[:2]) + f" +{len(reasons) - 2}"
-            self.badge.setToolTip("Atenção em: " + ", ".join(reasons))
+            self.badge.setToolTip("Watch: " + ", ".join(reasons))
         else:
             self.badge.setToolTip("")
 
@@ -379,7 +379,7 @@ class ResumoStrip(QFrame):
             # intact: the previous version tinted the strip with
             # ``accent_violet_subtle_bg`` which then cascaded into the
             # transparent-backed children, especially the danger badge
-            # — leaving a sticky violet halo behind the "REPROVADO"
+            # — leaving a sticky violet halo behind the "FAILED"
             # text in dark mode. A border-only flash reads as "fresh"
             # without contaminating any child.
             f"QFrame#ResumoStrip[flash=\"true\"] {{"

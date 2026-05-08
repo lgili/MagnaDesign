@@ -2,21 +2,21 @@
 
 A first-time engineer opens the app and sees:
 
-1. an empty KPI strip with **REPROVADO**
-2. a sidebar with 5 cryptic icons
+1. an empty KPI strip with **FAILED**
+2. a top menu bar with 5 cryptic sections
 3. a 4-tab workspace with no design loaded
 
 Without orientation they bail in 30 seconds. The tour walks them
 through the *minimum* path to a working design:
 
-    Step 1: "Comece preenchendo a especificação" (highlight drawer)
-    Step 2: "Escolha o material/núcleo/fio" (highlight Núcleo tab)
-    Step 3: "Veja resultados, valide e exporte" (highlight tabs)
+    Step 1: "Start by filling in the spec" (highlight drawer)
+    Step 2: "Pick material / core / wire" (highlight Core tab)
+    Step 3: "Analyse, validate and export" (highlight tabs)
 
 Show-once contract: a ``QSettings("ui/onboarding_seen", true)`` flag
-is written when the user finishes the tour OR clicks "Pular" — the
+is written when the user finishes the tour OR clicks "Skip" — the
 tour never appears on subsequent launches. Reset by clearing the
-key in Configurações or via the dev shortcut documented below.
+key in Settings or via the dev shortcut documented below.
 
 Visual style is intentionally lightweight — a translucent overlay +
 a balloon callout, *not* a multi-modal wizard. Engineers don't want
@@ -46,45 +46,45 @@ from pfc_inductor.ui.theme import get_theme
 class TourStep:
     """One step of the tour.
 
-    - ``title``: 1-line headline ("Comece preenchendo…").
+    - ``title``: 1-line headline ("Start by filling…").
     - ``body``: 1–2 sentence explanation.
-    - ``cta_label``: CTA on the right of the bubble ("Próximo", "OK").
+    - ``cta_label``: CTA on the right of the bubble ("Next", "OK").
     """
     title: str
     body: str
-    cta_label: str = "Próximo"
+    cta_label: str = "Next"
 
 
 # Three-step canonical tour. Kept short on purpose — anything more is
 # noise for the engineer who already knows what they're doing.
 DEFAULT_STEPS: tuple[TourStep, ...] = (
     TourStep(
-        title="1.  Comece preenchendo a especificação",
+        title="1.  Start by filling in the spec",
         body=(
-            "Abra a coluna esquerda (chevron > no canto) e informe "
-            "topologia, tensões, corrente, fsw e limites térmicos. "
-            "Sem isto, os KPIs ficam em '—' e o design não roda."
+            "Open the left column (chevron > in the corner) and enter "
+            "topology, voltages, current, fsw and thermal limits. "
+            "Without these the KPIs stay at '—' and the design won't run."
         ),
-        cta_label="Próximo",
+        cta_label="Next",
     ),
     TourStep(
-        title="2.  Escolha material, núcleo e fio",
+        title="2.  Pick material, core and wire",
         body=(
-            "A aba Núcleo ranqueia candidatos por score (perdas + volume "
-            "+ custo). Pique uma linha e clique 'Aplicar seleção' — ou "
-            "use o Otimizador para varredura Pareto."
+            "The Core tab ranks candidates by score (losses + volume "
+            "+ cost). Pick a row and click 'Apply selection' — or use "
+            "the Optimizer to run a Pareto sweep."
         ),
-        cta_label="Próximo",
+        cta_label="Next",
     ),
     TourStep(
-        title="3.  Analise, valide e exporte",
+        title="3.  Analyse, validate and export",
         body=(
-            "A aba Análise mostra waveforms, perdas, B–H e o "
-            "Detalhes Técnicos completo. Validar roda FEM "
-            "(2–5 min); Exportar gera o datasheet HTML. Recalcular "
-            "está em Ctrl+R · Cmd+K abre a paleta de comandos."
+            "The Analysis tab shows waveforms, losses, B–H and the "
+            "full Technical Details panel. Validate runs FEM "
+            "(2–5 min); Export generates the HTML datasheet. Recalculate "
+            "is on Ctrl+R · Cmd+K opens the command palette."
         ),
-        cta_label="Começar",
+        cta_label="Get started",
     ),
 )
 
@@ -94,7 +94,7 @@ class OnboardingTour(QWidget):
 
     The widget covers the full parent rect at low opacity (so the
     underlying UI is dimmed but legible), then paints a balloon at
-    the bottom-centre with the active step's text and Pular / Próximo
+    the bottom-centre with the active step's text and Skip / Next
     buttons. ``finished`` fires when the tour completes or is skipped.
     """
 
@@ -189,19 +189,19 @@ class OnboardingTour(QWidget):
         button_row.setContentsMargins(0, 4, 0, 0)
         button_row.setSpacing(8)
 
-        # Step indicator (left) — "Passo 1 de 3".
+        # Step indicator (left) — "Step 1 of 3".
         self._counter = QLabel()
         self._counter.setStyleSheet(self._counter_qss())
         button_row.addWidget(self._counter, 1, Qt.AlignmentFlag.AlignVCenter)
 
-        self._btn_skip = QPushButton("Pular")
+        self._btn_skip = QPushButton("Skip")
         self._btn_skip.setProperty("class", "Tertiary")
         self._btn_skip.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_skip.setStyleSheet(self._skip_qss())
         self._btn_skip.clicked.connect(self._on_skip)
         button_row.addWidget(self._btn_skip)
 
-        self._btn_next = QPushButton("Próximo")
+        self._btn_next = QPushButton("Next")
         self._btn_next.setProperty("class", "Primary")
         self._btn_next.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_next.setStyleSheet(self._next_qss())
@@ -216,7 +216,7 @@ class OnboardingTour(QWidget):
         self._title.setText(step.title)
         self._body.setText(step.body)
         self._btn_next.setText(step.cta_label)
-        self._counter.setText(f"Passo {self._idx + 1} de {len(self._steps)}")
+        self._counter.setText(f"Step {self._idx + 1} of {len(self._steps)}")
 
     def _reposition(self) -> None:
         self.setGeometry(self.parentWidget().rect())
