@@ -387,6 +387,60 @@ def _fig_rolloff(material: Material, result: DesignResult):
     return fig
 
 
+def _fig_inductance_vs_current(material: Material, core: Core,
+                                  result: DesignResult, I_pk_A: float):
+    """L(I) saturation curve — sweeps DC bias from zero to ~2 × I_pk
+    and traces L(N, I) using the material's rolloff curve. The
+    operating point is marked so the engineer reads at a glance:
+    "at I_pk the inductance has fallen from L₀ = X µH to L_op = Y µH".
+
+    Returns ``None`` for materials without a published rolloff curve
+    (e.g. silicon-steel laminations have no gradual rolloff — μ stays
+    constant up to Bsat). For those the L vs I trace is essentially
+    a flat line until saturation, so the plot adds little.
+    """
+    if material.rolloff is None:
+        return None
+    if I_pk_A <= 0 or result.N_turns <= 0:
+        return None
+    N = result.N_turns
+    I = np.linspace(0.01, I_pk_A * 2.0, 250)
+    L_uH = np.zeros_like(I)
+    for i, Ii in enumerate(I):
+        H_Oe = rf.H_from_NI(N, Ii, core.le_mm, units="Oe")
+        mu = rf.mu_pct(material, H_Oe)
+        L_uH[i] = rf.inductance_uH(N, core.AL_nH, mu)
+    L0 = float(L_uH[0])
+    L_op = float(result.L_actual_uH)
+    # ``rolloff_pct`` is positive when L_op < L0 (the usual case);
+    # the label reads "−X % from L₀" so the sign is unambiguous —
+    # ``+100% rolloff`` could be misread as "doubled" rather than
+    # "fell by 100%".
+    rolloff_pct = (1.0 - L_op / L0) * 100.0 if L0 > 0 else 0.0
+    fig, ax = plt.subplots(figsize=(7.0, 3.2), dpi=110)
+    ax.plot(I, L_uH, color="#3a78b5", linewidth=1.6,
+             label=f"L(I) at N = {N}")
+    ax.axhline(L0, color="#888", linestyle=":", alpha=0.7,
+               linewidth=1.0, label=f"L₀ = {L0:.0f} µH (zero bias)")
+    ax.axvline(I_pk_A, color="#a01818", linestyle="--", alpha=0.7,
+               linewidth=1.0, label=f"I_pk = {I_pk_A:.2f} A")
+    ax.plot([I_pk_A], [L_op],
+             "o", color="#a01818", markersize=6, zorder=5,
+             label=f"Operating: L = {L_op:.0f} µH "
+                   f"(−{rolloff_pct:.0f}% from L₀)")
+    ax.set_xlabel("DC bias current I [A]")
+    ax.set_ylabel("Inductance L [µH]")
+    ax.set_title(
+        "Inductance vs current — bias-induced rolloff",
+        fontsize=10,
+    )
+    ax.set_ylim(bottom=0)
+    ax.set_xlim(left=0)
+    ax.grid(True, alpha=0.35)
+    ax.legend(loc="upper right", fontsize=8)
+    return fig
+
+
 def _fig_harmonic(spec: Spec, result: DesignResult):
     """Bar chart of harmonics in mA RMS, with three standards overlaid
     (IEC 61000-3-2 Class D, IEC 61000-3-12, IEEE 519-2014). Only
@@ -1200,6 +1254,20 @@ def _page2_story(spec: Spec, core: Core, wire: Wire, material: Material,
             Paragraph(label, styles["h3"]),
             _mpl_flowable(fig, _USABLE_WIDTH_MM),
         ])
+
+    # ---------- L(I) saturation rolloff curve ----------
+    # Universal curve — sits between the current waveform and the
+    # topology-specific blocks so for line_reactor it lands exactly
+    # between the current trace and the harmonic FFT, matching how
+    # the engineer reads "the inductor's effective L at the peaks
+    # the current is actually drawing".
+    fig_LI = _fig_inductance_vs_current(
+        material, core, result, I_pk_A=result.I_pk_max_A,
+    )
+    if fig_LI is not None:
+        curve_blocks.append(_section(
+            "Inductance vs current — saturation rolloff", fig_LI,
+        ))
 
     if spec.topology == "boost_ccm":
         fig_sw = _fig_switching_ripple(spec, result)

@@ -74,6 +74,7 @@ from reportlab.platypus.flowables import Image as RLImage
 from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
 from pfc_inductor.report.pdf_report import (
     _fig_bh_trajectory,
+    _fig_inductance_vs_current,
     _fig_loss_breakdown,
     _fig_waveform,
     _mpl_flowable,
@@ -1081,6 +1082,23 @@ def _body_boost_ccm(spec: Spec, core: Core, material: Material,
                 styles["note"],
             ),
         ]))
+    # L(I) saturation rolloff — paired complement to B(N): B(N) shows
+    # the headroom when sweeping turn count at fixed I, this one shows
+    # the headroom when sweeping current at the chosen N.
+    fig_LI = _fig_inductance_vs_current(material, core, result, I_pk_A=I_pk)
+    if fig_LI is not None:
+        flowables.append(KeepTogether([
+            Paragraph("Inductance vs current — bias rolloff",
+                       styles["h3"]),
+            _mpl_flowable(fig_LI, _USABLE_WIDTH_MM),
+            Paragraph(
+                "Direct read of how much L drops as the DC bias "
+                "rises. Useful for the protection / control "
+                "engineer: the small-signal control loop sees "
+                "L(I) at the operating point, not L₀.",
+                styles["note"],
+            ),
+        ]))
 
     # ----- 9. Wire sizing (with parallel-strands check) -----
     flowables.append(Paragraph(
@@ -1615,6 +1633,23 @@ def _body_line_reactor(spec: Spec, core: Core, material: Material,
                 styles["note"],
             ),
         ]))
+    fig_LI_lr = _fig_inductance_vs_current(
+        material, core, result, I_pk_A=I_pk_lr,
+    )
+    if fig_LI_lr is not None:
+        flowables.append(KeepTogether([
+            Paragraph("Inductance vs current — bias rolloff",
+                       styles["h3"]),
+            _mpl_flowable(fig_LI_lr, _USABLE_WIDTH_MM),
+            Paragraph(
+                "Reactor inductance vs DC bias current. For "
+                "silicon-steel laminations the trace is essentially "
+                "flat until B approaches Bsat, where μ collapses; "
+                "the design's headroom is read directly from the "
+                "knee location.",
+                styles["note"],
+            ),
+        ]))
 
     # ----- 8. Voltage drop & THD -----
     flowables.append(Paragraph(
@@ -1922,6 +1957,23 @@ def _body_passive_choke(spec: Spec, core: Core, material: Material,
             Paragraph("Saturation curve at I<sub>pk</sub>",
                        styles["h3"]),
             _mpl_flowable(fig_b_pc, _USABLE_WIDTH_MM),
+        ]))
+    fig_LI_pc = _fig_inductance_vs_current(
+        material, core, result, I_pk_A=I_pk,
+    )
+    if fig_LI_pc is not None:
+        flowables.append(KeepTogether([
+            Paragraph("Inductance vs current — bias rolloff",
+                       styles["h3"]),
+            _mpl_flowable(fig_LI_pc, _USABLE_WIDTH_MM),
+            Paragraph(
+                "L drops from L₀ (zero-bias) to the operating "
+                "point as the rectified line current rises through "
+                "its envelope. The extent of rolloff sets the "
+                "effective %Z seen by the rectifier across the "
+                "line cycle.",
+                styles["note"],
+            ),
         ]))
 
     # ----- 8. Voltage drop & THD -----
