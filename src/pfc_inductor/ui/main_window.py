@@ -317,19 +317,32 @@ class MainWindow(QMainWindow):
     _RECENTS_KEY = "project/recents"
 
     def _build_menu_bar(self) -> None:
-        """Mount a native menu bar with the File menu.
+        """Mount the native menu bar.
 
         On macOS Qt promotes the QMainWindow's menu bar to the system
-        bar at the top of the screen automatically — same actions are
-        reachable via the standard ``⌘N / ⌘O / ⌘S`` shortcuts on every
-        platform.
+        bar at the top of the screen; on Windows/Linux it sits at the
+        top of the window. The menu replaces the legacy left sidebar:
+        every navigation slot, every dialog launcher, theme toggle and
+        About entry is reachable from here, leaving the workspace
+        full-bleed.
 
-        Five entries cover the project lifecycle:
-        New / Open / Save / Save As + a recent-projects submenu. We
-        deliberately skip "Close" — the app is single-document, so
-        closing a project is what File → New does.
+        Sections (left → right):
+
+        - **Arquivo** — project lifecycle (New / Open / Save / Recents).
+        - **Navegar** — page switch (Ctrl+1…5), mirrors what used to
+          be the sidebar nav.
+        - **Ferramentas** — cross-area dialogs (compare, FEM,
+          similars, Litz, MAS import, FEA setup).
+        - **Exibir** — theme toggle + command palette.
+        - **Ajuda** — About.
         """
         bar = self.menuBar()
+        # macOS hides the in-window menu bar by default; keep it
+        # in-window on every platform so the entries are visible
+        # right next to "Arquivo".
+        bar.setNativeMenuBar(True)
+
+        # ---- File ------------------------------------------------------
         file_menu = bar.addMenu("&Arquivo")
 
         act_new = QAction("Novo projeto", self)
@@ -368,6 +381,122 @@ class MainWindow(QMainWindow):
         act_quit.setShortcut(QKeySequence.StandardKey.Quit)
         act_quit.triggered.connect(QApplication.quit)
         file_menu.addAction(act_quit)
+
+        # ---- Navigate --------------------------------------------------
+        # Same five destinations the old sidebar carried, but addressable
+        # via Ctrl+1..5 so the engineer never has to leave the keyboard
+        # to switch surfaces. The labels match the sidebar tooltips so
+        # the disambiguation between "Otimizador" (fast) and "Otimizador
+        # completo" (cascade) carries over.
+        nav_menu = bar.addMenu("&Navegar")
+        nav_entries = (
+            ("dashboard",     "Projeto",              "Ctrl+1",
+             "Workspace principal — spec, núcleo, análise, validação, exportação."),
+            ("otimizador",    "Otimizador",           "Ctrl+2",
+             "Pareto rápido (≈30 s) — perdas × volume × custo."),
+            ("cascade",       "Otimizador completo",  "Ctrl+3",
+             "Cascade multi-tier com RK4 + FEM (≈5–15 min)."),
+            ("catalogo",      "Catálogo",             "Ctrl+4",
+             "Editar materiais, núcleos e fios. Importação MAS."),
+            ("configuracoes", "Configurações",        "Ctrl+5",
+             "Tema, FEA, Litz, informações do projeto."),
+        )
+        for area_id, label, sc, tip in nav_entries:
+            act = QAction(label, self)
+            act.setShortcut(QKeySequence(sc))
+            act.setStatusTip(tip)
+            act.setToolTip(tip)
+            act.triggered.connect(
+                lambda _checked=False, a=area_id: self._goto_area(a),
+            )
+            nav_menu.addAction(act)
+
+        # ---- Tools -----------------------------------------------------
+        # Cross-area actions that used to live in the sidebar overflow,
+        # the workspace header CTAs, or the dashboard cards. Surfacing
+        # them here gives users a single discoverable home — the
+        # workspace-header CTAs remain for the inner-loop actions
+        # (Recalcular / Comparar / Relatório) but everything else
+        # is reachable from this menu.
+        tools_menu = bar.addMenu("&Ferramentas")
+
+        act_compare = QAction("Comparar designs", self)
+        act_compare.setShortcut(QKeySequence("Ctrl+D"))
+        act_compare.setStatusTip("Empilhar até 4 designs lado a lado.")
+        act_compare.triggered.connect(self._open_compare)
+        tools_menu.addAction(act_compare)
+
+        act_fea = QAction("Validar com FEM...", self)
+        act_fea.setStatusTip("FEMM / FEMMT no operating point — leva minutos.")
+        act_fea.triggered.connect(self._open_fea)
+        tools_menu.addAction(act_fea)
+
+        act_similar = QAction("Buscar componentes similares...", self)
+        act_similar.setStatusTip("Encontra cores/materiais equivalentes ao atual.")
+        act_similar.triggered.connect(self._open_similar_parts)
+        tools_menu.addAction(act_similar)
+
+        act_litz = QAction("Otimizar Litz...", self)
+        act_litz.setStatusTip("Sweep de strands × diâmetro para minimizar AC loss.")
+        act_litz.triggered.connect(self._open_litz)
+        tools_menu.addAction(act_litz)
+
+        tools_menu.addSeparator()
+
+        act_mas = QAction("Atualizar catálogo (MAS)...", self)
+        act_mas.setStatusTip("Importa cores e materiais do OpenMagnetics MAS.")
+        act_mas.triggered.connect(self._open_catalog_update)
+        tools_menu.addAction(act_mas)
+
+        act_setup = QAction("Configurar FEA...", self)
+        act_setup.setStatusTip("Verificar / instalar FEMM e FEMMT.")
+        act_setup.triggered.connect(self._open_setup_deps)
+        tools_menu.addAction(act_setup)
+
+        # ---- View ------------------------------------------------------
+        view_menu = bar.addMenu("&Exibir")
+
+        act_theme = QAction("Alternar tema (claro / escuro)", self)
+        act_theme.setShortcut(QKeySequence("Ctrl+Shift+T"))
+        act_theme.setStatusTip("Troca entre tema claro e escuro.")
+        act_theme.triggered.connect(self._toggle_theme)
+        view_menu.addAction(act_theme)
+
+        view_menu.addSeparator()
+
+        act_palette = QAction("Paleta de comandos", self)
+        act_palette.setShortcut(QKeySequence("Ctrl+K"))
+        act_palette.setStatusTip(
+            "Busca difusa por qualquer ação do app (Ctrl+K).",
+        )
+        # The palette is also bound to Ctrl+K via QShortcut in
+        # ``_build_command_palette``; this menu entry just makes the
+        # binding discoverable without forcing the user to memorise it.
+        act_palette.triggered.connect(self._show_command_palette)
+        view_menu.addAction(act_palette)
+
+        # ---- Help ------------------------------------------------------
+        help_menu = bar.addMenu("&Ajuda")
+
+        act_about = QAction("Sobre o MagnaDesign", self)
+        act_about.triggered.connect(self._open_about)
+        help_menu.addAction(act_about)
+
+    def _show_command_palette(self) -> None:
+        """Open the Cmd+K command palette from the menu entry.
+
+        Wraps ``self._cmd_palette.show()`` so the menu can connect
+        even before ``_build_command_palette`` ran (Qt would still
+        resolve ``self._cmd_palette`` lazily, but the wrapper makes
+        the contract obvious for anyone reading the menu wiring).
+        """
+        try:
+            self._cmd_palette.show()
+        except AttributeError:
+            # Defensive: should never trigger because the palette is
+            # built inside ``__init__`` before the menu actions are
+            # ever clicked.
+            pass
 
     def _populate_recents_menu(self) -> None:
         self._recents_menu.clear()
@@ -527,14 +656,35 @@ class MainWindow(QMainWindow):
         h.setContentsMargins(0, 0, 0, 0)
         h.setSpacing(0)
 
-        # ---- Sidebar (4 items) ----------------------------------------
-        self.sidebar = Sidebar(parent=central, dark_theme=is_dark())
+        # ---- Sidebar — kept as a logical helper, not mounted ----------
+        # The 220-px navy sidebar used to live to the left of the page
+        # stack; it has been retired in favour of a top menu bar
+        # (``_build_menu_bar`` adds Navegar / Ferramentas / Exibir /
+        # Ajuda alongside Arquivo). The widget instance lingers for
+        # two reasons:
+        #
+        # 1. It owns ``set_active_area`` / ``set_dark_theme`` — small
+        #    pieces of state that other code (``_apply_cascade_candidate``,
+        #    ``_toggle_theme``) and the existing test suite reach into.
+        # 2. Its ``navigation_requested`` signal is what
+        #    ``test_main_window_shell`` and ``test_cascade_page_in_main_window``
+        #    fire to prove the route. Wiring it to ``_on_nav_requested``
+        #    keeps the contract intact while reclaiming 220 px of
+        #    horizontal real estate for the workspace.
+        #
+        # When the sidebar widget is fully retired (and the tests
+        # migrated to drive the QAction triggers instead), the entire
+        # ``Sidebar`` class can be deleted.
+        self.sidebar = Sidebar(parent=None, dark_theme=is_dark())
         self.sidebar.navigation_requested.connect(self._on_nav_requested)
         self.sidebar.theme_toggle_requested.connect(self._toggle_theme)
         self.sidebar.overflow_action_requested.connect(self._on_overflow_action)
-        h.addWidget(self.sidebar)
+        # Hide explicitly — should already be invisible because it has
+        # no parent layout, but ``hide`` makes the intent unambiguous
+        # for anyone debugging the widget tree.
+        self.sidebar.hide()
 
-        # ---- Stack with 5 pages ---------------------------------------
+        # ---- Stack with 5 pages — now occupies the full width --------
         self.stack = QStackedWidget()
         self.stack.addWidget(self.projeto_page)        # 0 dashboard
         self.stack.addWidget(self.otimizador_page)     # 1 otimizador
@@ -545,7 +695,7 @@ class MainWindow(QMainWindow):
 
         self.setCentralWidget(central)
 
-        # Initial sidebar selection.
+        # Initial sidebar (helper) selection + visible page.
         self.sidebar.set_active_area("dashboard")
         self.stack.setCurrentIndex(0)
 
