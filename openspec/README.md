@@ -50,6 +50,37 @@ o app está em estado defensável diante de um auditor de
 qualidade — o resto (acoustic, VFD modulation, crash reporting,
 theory docs) entra na rodada seguinte.
 
+### Mudanças propostas — 5 novas topologias (May 2026)
+
+A app cobre hoje 4 topologias AC-input (boost-CCM PFC, passive
+choke, line reactor 1φ/3φ). Estas 5 propostas alargam o escopo
+para inversores e DC-DC isolados — cada uma é independente e pode
+entrar na sequência preferida pela engenharia.
+
+| Change ID                          | Tamanho | Descrição |
+|------------------------------------|---------|-----------|
+| `add-buck-ccm-topology`            | M       | DC-DC step-down síncrono (POL, automotivo 12→5V, telecom 48→12V). Primeira topologia DC-input do app; introduz `Vin_dc_V` e o knob `ripple_ratio`. Math diferente (sem envelope AC). |
+| `add-flyback-topology`             | XL      | Coupled-inductor isolado para 5–150 W (adaptadores, supplies auxiliares). Primeira **multi-winding magnetic** + primeira **isolation safety** (IEC 62368 checklist). Modos DCM e CCM. |
+| `add-lcl-grid-tie-filter`          | XL      | Filtro LCL trifásico para inversores grid-tie (PV / wind / V2G). Primeira topologia **multi-inductor** + primeira com **standards-as-design-constraint** (IEEE 1547, IEC 61727). Bode plot + Bode na aba Análise. |
+| `add-interleaved-boost-pfc`        | M       | Boost PFC interleaved 2φ / 3φ para 1.5–10 kW (server PSU, EV charger PFC, AC residencial). Reusa toda a math do `boost_ccm` por phase + ripple-cancellation Hwu-Yau analítico. |
+| `add-psfb-output-choke`            | M       | Output choke do phase-shifted full-bridge (telecom 1–5 kW, EV charger isolado). Primeira topologia **secondary-side**. Math é buck-CCM com `f_sw_eff = 2·f_sw`. |
+
+**Dependências cruzadas**:
+
+- `add-lcl-grid-tie-filter` introduz o wrapper multi-inductor
+  (``MultiInductorDesignResult`` + ``ConverterModel.inductor_roles()``);
+  `add-flyback-topology` e `add-interleaved-boost-pfc` reusam.
+  Ordem natural: LCL → flyback / interleaved em paralelo.
+- `add-psfb-output-choke` depende implicitamente do `add-buck-ccm-topology`
+  (compartilham math). Ordem: buck → PSFB.
+- `add-buck-ccm-topology` é independente de tudo o resto e pode
+  ir primeiro pra estabelecer o pattern de DC-input topologies.
+
+**Roadmap sugerido (60 dias)**: buck → flyback (com wrapper
+mínimo) → interleaved → PSFB → LCL (full multi-inductor +
+standards). Após os 5, o app cobre ~80% do mercado de
+power-magnetics design.
+
 ### Mudanças arquivadas (17 em `archive/`)
 
 **v2 (físico + UX)**
