@@ -21,6 +21,7 @@ reflect heuristic factors only:
 - **Wires:** current-density match, type bonus (round vs litz at HF),
   cost-per-metre availability.
 """
+
 from __future__ import annotations
 
 import math
@@ -37,6 +38,7 @@ from pfc_inductor.optimize.feasibility import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _clamp(v: float, lo: float = 0.0, hi: float = 100.0) -> float:
     return max(lo, min(hi, v))
 
@@ -45,8 +47,14 @@ def _vendor_bonus(vendor: str) -> float:
     """Tiny preference for in-tree curated vendors that we have
     cost data for."""
     curated = {
-        "magnetics", "magmattec", "micrometals", "csc",
-        "thornton", "dongxing", "tdk", "ferroxcube",
+        "magnetics",
+        "magmattec",
+        "micrometals",
+        "csc",
+        "thornton",
+        "dongxing",
+        "tdk",
+        "ferroxcube",
     }
     return 4.0 if vendor.lower().strip() in curated else 0.0
 
@@ -54,6 +62,7 @@ def _vendor_bonus(vendor: str) -> float:
 # ---------------------------------------------------------------------------
 # Materials
 # ---------------------------------------------------------------------------
+
 
 def score_material(spec: Spec, material: Material) -> float:
     """Score a material for the chosen topology + frequency band.
@@ -92,8 +101,7 @@ def score_material(spec: Spec, material: Material) -> float:
         Pv_ref = material.steinmetz.Pv_ref_mWcm3
         if Pv_ref > 0:
             # 80 mW/cm³ → +25; 800 mW/cm³ → 0; log scale.
-            score += _clamp(25.0 * (1.0 - math.log10(max(Pv_ref, 1.0)) / 3.0),
-                            0.0, 25.0)
+            score += _clamp(25.0 * (1.0 - math.log10(max(Pv_ref, 1.0)) / 3.0), 0.0, 25.0)
 
     # 4. Vendor curation + cost-data availability
     score += _vendor_bonus(material.vendor)
@@ -153,8 +161,12 @@ def _mu_band_score(topology: str, mu: float) -> float:
 # Cores
 # ---------------------------------------------------------------------------
 
+
 def score_core(
-    spec: Spec, core: Core, material: Material, wire: Wire,
+    spec: Spec,
+    core: Core,
+    material: Material,
+    wire: Wire,
 ) -> float:
     """Score a core given the full design context.
 
@@ -188,7 +200,7 @@ def score_core(
     # Stored energy ≈ ½ L I² (J). Empirically a packing factor
     # relating volume (mm³) to stored energy gives a sanity-check
     # band: Ve [mm³] / E [µJ] in [200, 2000] is reasonable.
-    E_uJ = 0.5 * L_req_uH * 1e-6 * (I_pk ** 2) * 1e6  # µJ
+    E_uJ = 0.5 * L_req_uH * 1e-6 * (I_pk**2) * 1e6  # µJ
     if E_uJ > 0 and core.Ve_mm3 > 0:
         ratio = core.Ve_mm3 / E_uJ
         if 200 <= ratio <= 1500:
@@ -221,7 +233,10 @@ _J_TARGET = 4.0
 
 
 def score_wire(
-    spec: Spec, core: Core, wire: Wire, material: Material,
+    spec: Spec,
+    core: Core,
+    wire: Wire,
+    material: Material,
 ) -> float:
     """Score a wire for the operating current and switching frequency.
 
@@ -297,28 +312,39 @@ def score_wire(
 # Bulk helpers
 # ---------------------------------------------------------------------------
 
+
 def rank_materials(
-    spec: Spec, materials: Iterable[Material],
+    spec: Spec,
+    materials: Iterable[Material],
 ) -> list[tuple[Material, float]]:
     return sorted(
         ((m, score_material(spec, m)) for m in materials),
-        key=lambda mm: mm[1], reverse=True,
+        key=lambda mm: mm[1],
+        reverse=True,
     )
 
 
 def rank_cores(
-    spec: Spec, cores: Iterable[Core], material: Material, wire: Wire,
+    spec: Spec,
+    cores: Iterable[Core],
+    material: Material,
+    wire: Wire,
 ) -> list[tuple[Core, float]]:
     return sorted(
         ((c, score_core(spec, c, material, wire)) for c in cores),
-        key=lambda cc: cc[1], reverse=True,
+        key=lambda cc: cc[1],
+        reverse=True,
     )
 
 
 def rank_wires(
-    spec: Spec, core: Core, wires: Iterable[Wire], material: Material,
+    spec: Spec,
+    core: Core,
+    wires: Iterable[Wire],
+    material: Material,
 ) -> list[tuple[Wire, float]]:
     return sorted(
         ((w, score_wire(spec, core, w, material)) for w in wires),
-        key=lambda ww: ww[1], reverse=True,
+        key=lambda ww: ww[1],
+        reverse=True,
     )

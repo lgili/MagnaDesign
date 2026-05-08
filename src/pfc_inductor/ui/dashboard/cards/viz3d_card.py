@@ -4,6 +4,7 @@ The card itself only frames the viewer; chrome controls (orientation
 cube, view chips, side toolbar, bottom action bar) come from the
 ``refactor-3d-viewer-controls`` change.
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -28,9 +29,9 @@ class _Viz3DBody(QWidget):
     def viewer(self) -> CoreView3D:
         return self._viewer
 
-    def update_from_design(self, result: DesignResult, spec: Spec,
-                           core: Core, wire: Wire,
-                           material: Material) -> None:
+    def update_from_design(
+        self, result: DesignResult, spec: Spec, core: Core, wire: Wire, material: Material
+    ) -> None:
         self._viewer.update_view(core, wire, result.N_turns, material)
 
     def clear(self) -> None:
@@ -44,6 +45,7 @@ class Viz3DCard(Card):
         super().__init__("3D Visualization", body, parent=parent)
         self._vbody = body
         from PySide6.QtWidgets import QSizePolicy
+
         self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
 
     @property

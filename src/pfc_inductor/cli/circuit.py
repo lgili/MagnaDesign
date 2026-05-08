@@ -15,6 +15,7 @@ Examples
     magnadesign circuit project.pfc --format psim    --out L_PFC.psim.txt
     magnadesign circuit project.pfc --format modelica --out PFC.mo
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -24,7 +25,6 @@ import click
 from pfc_inductor.cli.exit_codes import ExitCode
 from pfc_inductor.cli.utils import load_session, wrap_design_error
 from pfc_inductor.design import design as run_design
-
 
 _FORMATS = ("ltspice", "psim", "modelica")
 
@@ -45,8 +45,8 @@ def register(group: click.Group) -> None:
     type=click.Choice(_FORMATS, case_sensitive=False),
     required=True,
     help="Simulator format. ``ltspice`` writes a `.subckt`, "
-         "``psim`` writes a parameter fragment, ``modelica`` "
-         "writes a complete `.mo` package.",
+    "``psim`` writes a parameter fragment, ``modelica`` "
+    "writes a complete `.mo` package.",
 )
 @click.option(
     "--out",
@@ -59,14 +59,14 @@ def register(group: click.Group) -> None:
     "--name",
     default="L_PFC",
     help="LTspice subcircuit name / Modelica package name. "
-         "Ignored for PSIM (uses a fixed `SatL_PFC` element name).",
+    "Ignored for PSIM (uses a fixed `SatL_PFC` element name).",
 )
 @click.option(
     "--n-points",
     type=int,
     default=25,
     help="Number of L(I) sample points (default 25). More gives "
-         "a smoother lookup at the cost of larger file size.",
+    "a smoother lookup at the cost of larger file size.",
 )
 @wrap_design_error
 def _circuit_cmd(
@@ -110,27 +110,38 @@ def _circuit_cmd(
     fmt = fmt.lower()
     if fmt == "ltspice":
         from pfc_inductor.export.ltspice import to_ltspice_subcircuit
+
         text = to_ltspice_subcircuit(
-            spec=loaded.spec, core=loaded.selected_core,
+            spec=loaded.spec,
+            core=loaded.selected_core,
             wire=loaded.selected_wire,
             material=loaded.selected_material,
-            result=result, name=name, n_points=n_points,
+            result=result,
+            name=name,
+            n_points=n_points,
         )
     elif fmt == "psim":
         from pfc_inductor.export.psim import to_psim_fragment
+
         text = to_psim_fragment(
-            spec=loaded.spec, core=loaded.selected_core,
+            spec=loaded.spec,
+            core=loaded.selected_core,
             wire=loaded.selected_wire,
             material=loaded.selected_material,
-            result=result, n_points=n_points,
+            result=result,
+            n_points=n_points,
         )
     else:  # modelica
         from pfc_inductor.export.modelica import to_modelica
+
         text = to_modelica(
-            spec=loaded.spec, core=loaded.selected_core,
+            spec=loaded.spec,
+            core=loaded.selected_core,
             wire=loaded.selected_wire,
             material=loaded.selected_material,
-            result=result, package=name, n_points=n_points,
+            result=result,
+            package=name,
+            n_points=n_points,
         )
 
     if output_path is None:

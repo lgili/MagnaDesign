@@ -32,6 +32,7 @@ losses and the overall pass/warn/fail status while drilling into any
 tab. This trades a small chunk of vertical real estate for permanent
 situational awareness — the same pattern Linear / Notion / Figma use.
 """
+
 from __future__ import annotations
 
 from typing import Literal, Optional
@@ -49,6 +50,7 @@ from PySide6.QtWidgets import (
 
 from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
 from pfc_inductor.ui.shell.header import WorkspaceHeader
+
 # ProgressIndicator was retired here — the QTabWidget below already
 # communicates the active phase (highlighted tab + tab order = the
 # 4-step workflow). A second strip duplicated the message and was
@@ -63,7 +65,12 @@ from pfc_inductor.ui.workspace.analise_page import AnalisePage
 from pfc_inductor.ui.workspace.nucleo_selection_page import NucleoSelectionPage
 
 TabKey = Literal[
-    "nucleo", "analise", "validar", "worst_case", "compliance", "exportar",
+    "nucleo",
+    "analise",
+    "validar",
+    "worst_case",
+    "compliance",
+    "exportar",
 ]
 
 
@@ -195,15 +202,15 @@ class ProjetoPage(QWidget):
         # so the four post-design tabs read in audit order:
         # Validate → Worst-case → Compliance → Export.
         from pfc_inductor.ui.workspace.worst_case_tab import WorstCaseTab
+
         self.worst_case_tab = WorstCaseTab()
-        self.tabs.addTab(self._wrap_scrollable(self.worst_case_tab),
-                         "Worst-case")
+        self.tabs.addTab(self._wrap_scrollable(self.worst_case_tab), "Worst-case")
 
         # Tab 4 — Compliance (IEC 61000-3-2 + future UL / EN 55032).
         from pfc_inductor.ui.workspace.compliance_tab import ComplianceTab
+
         self.compliance_tab = ComplianceTab()
-        self.tabs.addTab(self._wrap_scrollable(self.compliance_tab),
-                         "Compliance")
+        self.tabs.addTab(self._wrap_scrollable(self.compliance_tab), "Compliance")
 
         # Tab 5 — Export (wrap for the same reason).
         self.exportar_tab = ExportarTab()
@@ -249,25 +256,33 @@ class ProjetoPage(QWidget):
     def set_save_status(self, *, unsaved, last_saved_at=None) -> None:
         self.header.set_save_status(unsaved=unsaved, last_saved_at=last_saved_at)
         self.scoreboard.set_save_status(
-            unsaved=unsaved, last_saved_at=last_saved_at,
+            unsaved=unsaved,
+            last_saved_at=last_saved_at,
         )
 
     def set_current_selection(self, material: Material, core: Core, wire: Wire):
         self.scoreboard.set_current_selection(material, core, wire)
 
-
-    def update_from_design(self, result: DesignResult, spec: Spec,
-                           core: Core, wire: Wire,
-                           material: Material) -> None:
+    def update_from_design(
+        self, result: DesignResult, spec: Spec, core: Core, wire: Wire, material: Material
+    ) -> None:
         self.kpi_strip.update_from_design(result, spec, core, wire, material)
         self.nucleo_tab.update_from_design(result, spec, core, wire, material)
         self.analise_tab.update_from_design(result, spec, core, wire, material)
         self.validar_tab.update_from_design(result, spec, core, wire, material)
         self.worst_case_tab.update_from_design(
-            result, spec, core, wire, material,
+            result,
+            spec,
+            core,
+            wire,
+            material,
         )
         self.compliance_tab.update_from_design(
-            result, spec, core, wire, material,
+            result,
+            spec,
+            core,
+            wire,
+            material,
         )
         self.exportar_tab.update_from_design(result, spec, core, wire, material)
         self.scoreboard.update_from_result(result, spec)
@@ -290,7 +305,13 @@ class ProjetoPage(QWidget):
         """Refresh the NucleoSelectionPage's score tables and the
         inline OptimizerEmbed's spec/catalog inputs after a recalc."""
         self.nucleo_tab.populate(
-            spec, materials, cores, wires, material, core, wire,
+            spec,
+            materials,
+            cores,
+            wires,
+            material,
+            core,
+            wire,
         )
 
     def switch_to(self, key: TabKey) -> None:
@@ -372,4 +393,5 @@ class ProjetoPage(QWidget):
         the shared helper drives the actual configuration.
         """
         from pfc_inductor.ui.widgets import wrap_scrollable
+
         return wrap_scrollable(widget)

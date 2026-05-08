@@ -12,6 +12,7 @@ The panel keeps an internal ``_topology`` / ``_n_phases`` pair that
 :meth:`set_topology` updates; the rest of the form (Vin / Vout /
 fsw / thermal / line-reactor block visibility) reacts to that state.
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -21,7 +22,6 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QFormLayout,
     QGroupBox,
-    QHBoxLayout,
     QPushButton,
     QVBoxLayout,
     QWidget,
@@ -43,6 +43,7 @@ class SpecPanel(QWidget):
     ):
         super().__init__(parent)
         from PySide6.QtWidgets import QFrame, QLabel, QScrollArea
+
         # Outer fixed: scroll area on top, primary CTA pinned at bottom.
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
@@ -86,6 +87,7 @@ class SpecPanel(QWidget):
         # the modulation widget for headless / test contexts that
         # never instantiate the panel.
         from pfc_inductor.ui.widgets.modulation_group import ModulationGroup
+
         self.modulation_group = ModulationGroup()
         self.modulation_group.changed.connect(self.changed.emit)
         body.addWidget(self.modulation_group)
@@ -159,8 +161,7 @@ class SpecPanel(QWidget):
             name = "line_reactor"
             n_phases = 3
 
-        if name not in ("boost_ccm", "passive_choke",
-                        "line_reactor", "buck_ccm"):
+        if name not in ("boost_ccm", "passive_choke", "line_reactor", "buck_ccm"):
             raise ValueError(f"unsupported topology: {name!r}")
 
         if name == self._topology and n_phases == self._n_phases:
@@ -208,10 +209,7 @@ class SpecPanel(QWidget):
     # Vin_dc=12 V).
     # ------------------------------------------------------------------
     def _values_look_like_boost_defaults(self) -> bool:
-        return (
-            abs(self.sp_vout.value() - 400.0) < 1.0
-            and abs(self.sp_fsw.value() - 65.0) < 1.0
-        )
+        return abs(self.sp_vout.value() - 400.0) < 1.0 and abs(self.sp_fsw.value() - 65.0) < 1.0
 
     def _values_look_like_buck_defaults(self) -> bool:
         # Loose check: any Vout < 100 V is buck-shaped (boost designs
@@ -319,14 +317,28 @@ class SpecPanel(QWidget):
         # emits ``changed`` itself), so it is not in this list. All
         # remaining inputs are ``QDoubleSpinBox`` instances.
         widgets = [
-            self.sp_vin_min, self.sp_vin_max, self.sp_vin_nom,
-            self.sp_fline, self.sp_vout, self.sp_pout, self.sp_eta, self.sp_fsw,
-            self.sp_ripple, self.sp_tamb, self.sp_tmax, self.sp_ku, self.sp_bsat_margin,
-            self.sp_vline, self.sp_irated, self.sp_l_req,
+            self.sp_vin_min,
+            self.sp_vin_max,
+            self.sp_vin_nom,
+            self.sp_fline,
+            self.sp_vout,
+            self.sp_pout,
+            self.sp_eta,
+            self.sp_fsw,
+            self.sp_ripple,
+            self.sp_tamb,
+            self.sp_tmax,
+            self.sp_ku,
+            self.sp_bsat_margin,
+            self.sp_vline,
+            self.sp_irated,
+            self.sp_l_req,
             # Buck-only DC input fields — they only feed `get_spec`
             # when topology=="buck_ccm" but we still want a manual
             # edit to trigger the debounced recalc when buck is active.
-            self.sp_vin_dc, self.sp_vin_dc_min, self.sp_vin_dc_max,
+            self.sp_vin_dc,
+            self.sp_vin_dc_min,
+            self.sp_vin_dc_max,
         ]
         for w in widgets:
             # QDoubleSpinBox.valueChanged emits float; discard it.
@@ -368,11 +380,9 @@ class SpecPanel(QWidget):
             # Buck-CCM: pull DC input fields, falling back to legacy
             # AC values for specs that haven't migrated.
             if spec.topology == "buck_ccm":
-                v_dc = (spec.Vin_dc_V or spec.Vin_min_Vrms or 12.0)
-                v_dc_min = (spec.Vin_dc_min_V or spec.Vin_dc_V
-                            or spec.Vin_min_Vrms or v_dc)
-                v_dc_max = (spec.Vin_dc_max_V or spec.Vin_dc_V
-                            or spec.Vin_max_Vrms or v_dc)
+                v_dc = spec.Vin_dc_V or spec.Vin_min_Vrms or 12.0
+                v_dc_min = spec.Vin_dc_min_V or spec.Vin_dc_V or spec.Vin_min_Vrms or v_dc
+                v_dc_max = spec.Vin_dc_max_V or spec.Vin_dc_V or spec.Vin_max_Vrms or v_dc
                 self.sp_vin_dc.setValue(float(v_dc))
                 self.sp_vin_dc_min.setValue(float(v_dc_min))
                 self.sp_vin_dc_max.setValue(float(v_dc_max))

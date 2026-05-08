@@ -1,4 +1,7 @@
 """Cost model tests."""
+
+import itertools
+
 import pytest
 
 from pfc_inductor.data_loader import find_material, load_cores, load_materials, load_wires
@@ -22,6 +25,7 @@ def db():
 def db_curated():
     """Curated-only wires for sweeps (catalog grew the wire DB ~30×)."""
     from pfc_inductor.data_loader import load_curated_ids
+
     mats = load_materials()
     cores = load_cores()
     wires = load_wires()
@@ -97,22 +101,36 @@ def test_demo_costs_loaded_for_curated_db(db):
 
 def test_optimizer_rank_by_cost(db_curated):
     mats, cores, wires = db_curated
-    spec = Spec(Vin_min_Vrms=85.0, Vin_max_Vrms=265.0, Vin_nom_Vrms=220.0,
-                Vout_V=400.0, Pout_W=800.0, eta=0.97,
-                f_sw_kHz=65.0, ripple_pct=30.0)
+    spec = Spec(
+        Vin_min_Vrms=85.0,
+        Vin_max_Vrms=265.0,
+        Vin_nom_Vrms=220.0,
+        Vout_V=400.0,
+        Pout_W=800.0,
+        eta=0.97,
+        f_sw_kHz=65.0,
+        ripple_pct=30.0,
+    )
     results = sweep(spec, cores, wires, mats, material_id="magnetics-60_highflux")
     feasible = [r for r in results if r.feasible]
     by_cost = rank(feasible, by="cost")
     costs = [r.total_cost for r in by_cost if r.total_cost is not None]
-    for a, b in zip(costs, costs[1:], strict=False):
+    for a, b in itertools.pairwise(costs):
         assert a <= b + 1e-6
 
 
 def test_optimizer_score_with_cost(db_curated):
     mats, cores, wires = db_curated
-    spec = Spec(Vin_min_Vrms=85.0, Vin_max_Vrms=265.0, Vin_nom_Vrms=220.0,
-                Vout_V=400.0, Pout_W=800.0, eta=0.97,
-                f_sw_kHz=65.0, ripple_pct=30.0)
+    spec = Spec(
+        Vin_min_Vrms=85.0,
+        Vin_max_Vrms=265.0,
+        Vin_nom_Vrms=220.0,
+        Vout_V=400.0,
+        Pout_W=800.0,
+        eta=0.97,
+        f_sw_kHz=65.0,
+        ripple_pct=30.0,
+    )
     results = sweep(spec, cores, wires, mats, material_id="magnetics-60_highflux")
     feasible = [r for r in results if r.feasible]
     ranked = rank(feasible, by="score_with_cost")

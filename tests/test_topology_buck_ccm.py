@@ -3,6 +3,7 @@
 Reference benchmarks come from Erickson §5.2 worked examples and TI
 Application Report SLVA477 (TPS54360 datasheet sample design).
 """
+
 from __future__ import annotations
 
 import pytest
@@ -10,21 +11,21 @@ import pytest
 from pfc_inductor.models import Spec
 from pfc_inductor.topology import buck_ccm
 
-
 # ---------------------------------------------------------------------------
 # Spec fixture — Erickson §5.2 textbook example
 # Vin = 12 V, Vout = 3.3 V, Iout = 5 A, fsw = 500 kHz, target ΔI/Iout = 0.30
 # ---------------------------------------------------------------------------
+
 
 def _erickson_spec() -> Spec:
     """Erickson §5.2 worked buck design."""
     return Spec(
         topology="buck_ccm",
         Vin_dc_V=12.0,
-        Vin_dc_min_V=10.8,        # 90 % of nom
-        Vin_dc_max_V=13.2,        # 110 % of nom
+        Vin_dc_min_V=10.8,  # 90 % of nom
+        Vin_dc_max_V=13.2,  # 110 % of nom
         Vout_V=3.3,
-        Pout_W=3.3 * 5.0,         # 16.5 W → Iout = 5 A
+        Pout_W=3.3 * 5.0,  # 16.5 W → Iout = 5 A
         eta=0.95,
         f_sw_kHz=500.0,
         ripple_ratio=0.30,
@@ -38,6 +39,7 @@ def _erickson_spec() -> Spec:
 # ---------------------------------------------------------------------------
 # Output current
 # ---------------------------------------------------------------------------
+
 
 def test_output_current_matches_pout_over_vout():
     spec = _erickson_spec()
@@ -56,6 +58,7 @@ def test_output_current_zero_on_zero_vout():
 # Duty cycle
 # ---------------------------------------------------------------------------
 
+
 def test_duty_cycle_ideal_volt_seconds_balance():
     spec = _erickson_spec()
     # At Vin = 12 V, Vout = 3.3 V, η = 0.95:
@@ -72,6 +75,7 @@ def test_duty_cycle_capped_below_unity():
 # ---------------------------------------------------------------------------
 # Required inductance — the headline number
 # ---------------------------------------------------------------------------
+
 
 def test_required_inductance_matches_textbook():
     """Worst-case L sizing at Vin_max for the Erickson §5.2 example
@@ -115,6 +119,7 @@ def test_required_inductance_scales_inversely_with_ripple_ratio():
 # Peak / RMS / boundary current
 # ---------------------------------------------------------------------------
 
+
 def test_peak_current_is_iout_plus_half_ripple():
     spec = _erickson_spec()
     L_uH = buck_ccm.required_inductance_uH(spec)
@@ -122,7 +127,8 @@ def test_peak_current_is_iout_plus_half_ripple():
     delta = buck_ccm.worst_case_ripple_pp_A(spec, L_uH)
     expected_peak = Iout + 0.5 * delta
     assert buck_ccm.peak_inductor_current_A(spec, L_uH) == pytest.approx(
-        expected_peak, rel=1e-6,
+        expected_peak,
+        rel=1e-6,
     )
 
 
@@ -161,13 +167,15 @@ def test_ccm_dcm_boundary_is_half_ripple():
     L_uH = buck_ccm.required_inductance_uH(spec)
     delta = buck_ccm.worst_case_ripple_pp_A(spec, L_uH)
     assert buck_ccm.ccm_dcm_boundary_A(spec, L_uH) == pytest.approx(
-        0.5 * delta, rel=1e-9,
+        0.5 * delta,
+        rel=1e-9,
     )
 
 
 # ---------------------------------------------------------------------------
 # Waveforms
 # ---------------------------------------------------------------------------
+
 
 def test_waveform_keys_match_boost_module():
     """Engine code reads the waveform dict by key; the buck module
@@ -176,8 +184,7 @@ def test_waveform_keys_match_boost_module():
     spec = _erickson_spec()
     L_uH = buck_ccm.required_inductance_uH(spec)
     wf = buck_ccm.waveforms(spec, L_uH)
-    expected = {"t_s", "iL_avg_A", "delta_iL_pp_A", "iL_pk_A",
-                "iL_min_A", "vin_inst_V", "duty"}
+    expected = {"t_s", "iL_avg_A", "delta_iL_pp_A", "iL_pk_A", "iL_min_A", "vin_inst_V", "duty"}
     assert expected.issubset(set(wf.keys()))
 
 
@@ -206,7 +213,8 @@ def test_waveform_helpers_round_trip():
     Iout = buck_ccm.output_current_A(spec)
     # ``ripple_max`` ≈ ``ripple_avg`` for buck (no envelope).
     assert buck_ccm.ripple_max_pp_A(wf) == pytest.approx(
-        buck_ccm.ripple_avg_pp_A(wf), rel=1e-9,
+        buck_ccm.ripple_avg_pp_A(wf),
+        rel=1e-9,
     )
     # Peak from waveform ≈ Iout + half ripple at Vin_nom.
     Ipk_from_wf = buck_ccm.peak_inductor_current_from_waveform(wf)
@@ -218,6 +226,7 @@ def test_waveform_helpers_round_trip():
 # THD
 # ---------------------------------------------------------------------------
 
+
 def test_estimate_thd_returns_zero_for_dc_output():
     """Buck has DC output — line-side THD is undefined (depends on
     the input EMI filter, not the inductor design)."""
@@ -228,13 +237,14 @@ def test_estimate_thd_returns_zero_for_dc_output():
 # Spec validator
 # ---------------------------------------------------------------------------
 
+
 def test_spec_rejects_buck_with_vout_geq_vin():
     """Buck must step DOWN — the validator should reject Vout ≥ Vin."""
     with pytest.raises(ValueError, match="step-down"):
         Spec(
             topology="buck_ccm",
             Vin_dc_V=5.0,
-            Vout_V=12.0,           # ← upside-down
+            Vout_V=12.0,  # ← upside-down
             Pout_W=10.0,
         )
 
@@ -245,7 +255,7 @@ def test_spec_accepts_buck_with_legacy_vin_min_vrms():
     loading."""
     spec = Spec(
         topology="buck_ccm",
-        Vin_min_Vrms=12.0,        # legacy AC field reused as DC
+        Vin_min_Vrms=12.0,  # legacy AC field reused as DC
         Vout_V=3.3,
         Pout_W=16.5,
         f_sw_kHz=500.0,

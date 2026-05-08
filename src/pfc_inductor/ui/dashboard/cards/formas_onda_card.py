@@ -41,13 +41,13 @@ the synthesised arrays slot in directly without touching the UI.
 The 4 metric tiles below the plot (Irms, Ipk, THD, Crest factor) are
 unchanged — they were the most-cited bit of the v1 card.
 """
+
 from __future__ import annotations
 
 import math
 from typing import Optional
 
 import numpy as np
-from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -68,6 +68,7 @@ from pfc_inductor.ui.widgets import Card, MetricCard
 def _figure_imports():
     from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as Canvas
     from matplotlib.figure import Figure
+
     return Canvas, Figure
 
 
@@ -88,11 +89,9 @@ class _FormasOndaBody(QWidget):
         # ``constrained_layout=True`` packs the stacked subplots more
         # tightly than the legacy ``tight_layout``; 3 stacked axes with
         # ``hspace=0.0`` look like a single multi-trace scope.
-        self._fig = Figure(dpi=100, facecolor=p.surface,
-                           constrained_layout=True)
+        self._fig = Figure(dpi=100, facecolor=p.surface, constrained_layout=True)
         self._canvas = Canvas(self._fig)
-        self._canvas.setSizePolicy(QSizePolicy.Policy.Expanding,
-                                   QSizePolicy.Policy.Expanding)
+        self._canvas.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self._canvas.setMinimumHeight(280)
 
         outer = QVBoxLayout(self)
@@ -109,9 +108,15 @@ class _FormasOndaBody(QWidget):
         outer.addWidget(self._canvas, 1)
 
         # Cached last result for theme-toggle re-renders.
-        self._last: Optional[tuple[
-            DesignResult, Spec, Core, Wire, Material,
-        ]] = None
+        self._last: Optional[
+            tuple[
+                DesignResult,
+                Spec,
+                Core,
+                Wire,
+                Material,
+            ]
+        ] = None
 
         # ---- 4 small metric tiles (unchanged from v1) -----------------
         row = QHBoxLayout()
@@ -125,9 +130,9 @@ class _FormasOndaBody(QWidget):
         outer.addLayout(row)
 
     # ------------------------------------------------------------------
-    def update_from_design(self, result: DesignResult, spec: Spec,
-                           core: Core, wire: Wire,
-                           material: Material) -> None:
+    def update_from_design(
+        self, result: DesignResult, spec: Spec, core: Core, wire: Wire, material: Material
+    ) -> None:
         self._last = (result, spec, core, wire, material)
 
         topology = getattr(spec, "topology", "boost_ccm")
@@ -180,8 +185,7 @@ class _FormasOndaBody(QWidget):
 
     # ------------------------------------------------------------------
     @staticmethod
-    def _badge_text(topology: str, n_phases: int,
-                    synth: Optional[RealisticWaveform] = None) -> str:
+    def _badge_text(topology: str, n_phases: int, synth: Optional[RealisticWaveform] = None) -> str:
         prefix = ""
         if topology == "boost_ccm":
             prefix = "Topologia: PFC ativo (boost CCM) — iL · v_in · FFT"
@@ -189,15 +193,9 @@ class _FormasOndaBody(QWidget):
             prefix = "Topologia: choke passivo — iL · v_in · FFT"
         elif topology == "line_reactor":
             phase = "3φ" if n_phases == 3 else "1φ"
-            prefix = (
-                f"Topologia: reator de linha {phase} — "
-                f"iL · v_phase · FFT"
-            )
+            prefix = f"Topologia: reator de linha {phase} — iL · v_phase · FFT"
         elif topology == "buck_ccm":
-            prefix = (
-                "Topologia: buck CCM (sync DC-DC) — "
-                "iL · v_sw · FFT @ f_sw"
-            )
+            prefix = "Topologia: buck CCM (sync DC-DC) — iL · v_sw · FFT @ f_sw"
         else:
             prefix = f"Topologia: {topology}"
         if synth is not None and synth.label:
@@ -210,9 +208,14 @@ class _FormasOndaBody(QWidget):
     # ------------------------------------------------------------------
     # Plotting
     # ------------------------------------------------------------------
-    def _render(self, result: DesignResult, spec: Spec,
-                topology: str, n_phases: int,
-                synth: Optional[RealisticWaveform]) -> None:
+    def _render(
+        self,
+        result: DesignResult,
+        spec: Spec,
+        topology: str,
+        n_phases: int,
+        synth: Optional[RealisticWaveform],
+    ) -> None:
         p = get_theme().palette
         self._fig.clear()
         self._fig.set_facecolor(p.surface)
@@ -275,13 +278,17 @@ class _FormasOndaBody(QWidget):
         # Time-domain axes get a zero baseline; spectrum bars sit on
         # the x-axis so a separate horizontal rule would look noisy.
         for ax in (ax_i, ax_v):
-            ax.axhline(0, color=p.border, linewidth=0.6,
-                       linestyle="--", alpha=0.7)
+            ax.axhline(0, color=p.border, linewidth=0.6, linestyle="--", alpha=0.7)
 
         # ---- Top axis: inductor current (or 3-phase overlay) -----------
         if topology == "line_reactor" and n_phases == 3:
             self._plot_three_phase_currents(
-                ax_i, t_ms, result, spec, p, synth,
+                ax_i,
+                t_ms,
+                result,
+                spec,
+                p,
+                synth,
             )
         else:
             self._plot_inductor_current(ax_i, t_ms, result, p, synth)
@@ -289,7 +296,9 @@ class _FormasOndaBody(QWidget):
         # ---- Middle axis: source/voltage waveform ----------------------
         self._plot_source_voltage(ax_v, t_ms, spec, topology, n_phases, p)
         ax_v.set_xlabel(
-            f"t ({time_unit_label})", fontsize=10, color=p.text_secondary,
+            f"t ({time_unit_label})",
+            fontsize=10,
+            color=p.text_secondary,
         )
 
         # ---- Bottom axis: harmonic spectrum (FFT) ----------------------
@@ -297,31 +306,40 @@ class _FormasOndaBody(QWidget):
 
         self._canvas.draw_idle()
 
-    def _plot_inductor_current(self, ax, t_ms: np.ndarray,
-                               result: DesignResult, p,
-                               synth: Optional[RealisticWaveform]) -> None:
+    def _plot_inductor_current(
+        self, ax, t_ms: np.ndarray, result: DesignResult, p, synth: Optional[RealisticWaveform]
+    ) -> None:
         # Prefer the synthesised waveform — it carries the proper
         # state-space-derived shape per topology (PFC sinusoid +
         # PWM ripple for boost, slow triangle for passive choke,
         # rectifier pulses for the line reactor).
         if synth is not None:
-            ax.plot(t_ms, synth.iL_A, color=p.accent, linewidth=1.4,
-                    label="iL(t) sintetizado")
+            ax.plot(t_ms, synth.iL_A, color=p.accent, linewidth=1.4, label="iL(t) sintetizado")
         elif result.waveform_iL_A and result.waveform_t_s:
             y = np.array(result.waveform_iL_A, dtype=float)
-            ax.plot(t_ms, y, color=p.accent, linewidth=1.6,
-                    label="iL(t)")
+            ax.plot(t_ms, y, color=p.accent, linewidth=1.6, label="iL(t)")
         else:
-            ax.text(0.5, 0.5, "iL(t) — sem dados",
-                    ha="center", va="center",
-                    color=p.text_muted, fontsize=10,
-                    transform=ax.transAxes)
+            ax.text(
+                0.5,
+                0.5,
+                "iL(t) — sem dados",
+                ha="center",
+                va="center",
+                color=p.text_muted,
+                fontsize=10,
+                transform=ax.transAxes,
+            )
         ax.set_ylabel("iL (A)", fontsize=10, color=p.text_secondary)
 
-    def _plot_three_phase_currents(self, ax, t_ms: np.ndarray,
-                                   result: DesignResult, spec: Spec,
-                                   p,
-                                   synth: Optional[RealisticWaveform]) -> None:
+    def _plot_three_phase_currents(
+        self,
+        ax,
+        t_ms: np.ndarray,
+        result: DesignResult,
+        spec: Spec,
+        p,
+        synth: Optional[RealisticWaveform],
+    ) -> None:
         """For 3-phase line reactors, overlay the three phase currents.
 
         Prefer the analytical 6-pulse synthesis (one shaped pulse per
@@ -342,23 +360,27 @@ class _FormasOndaBody(QWidget):
             i_b = i_pk * np.sin(omega * t_s - 2.0 * math.pi / 3.0)
             i_c = i_pk * np.sin(omega * t_s + 2.0 * math.pi / 3.0)
         else:
-            ax.text(0.5, 0.5, "iL(t) — sem dados",
-                    ha="center", va="center",
-                    color=p.text_muted, fontsize=10,
-                    transform=ax.transAxes)
+            ax.text(
+                0.5,
+                0.5,
+                "iL(t) — sem dados",
+                ha="center",
+                va="center",
+                color=p.text_muted,
+                fontsize=10,
+                transform=ax.transAxes,
+            )
             return
 
         ax.plot(t_ms, i_a, color=p.accent, linewidth=1.4, label="A")
-        ax.plot(t_ms, i_b, color=p.accent_violet, linewidth=1.3,
-                alpha=0.85, label="B")
-        ax.plot(t_ms, i_c, color=p.warning, linewidth=1.3,
-                alpha=0.85, label="C")
+        ax.plot(t_ms, i_b, color=p.accent_violet, linewidth=1.3, alpha=0.85, label="B")
+        ax.plot(t_ms, i_c, color=p.warning, linewidth=1.3, alpha=0.85, label="C")
         ax.set_ylabel("iL (A)", fontsize=10, color=p.text_secondary)
-        ax.legend(loc="upper right", fontsize=7, frameon=False,
-                  labelcolor=p.text_secondary, ncol=3)
+        ax.legend(loc="upper right", fontsize=7, frameon=False, labelcolor=p.text_secondary, ncol=3)
 
-    def _plot_source_voltage(self, ax, t_ms: np.ndarray, spec: Spec,
-                             topology: str, n_phases: int, p) -> None:
+    def _plot_source_voltage(
+        self, ax, t_ms: np.ndarray, spec: Spec, topology: str, n_phases: int, p
+    ) -> None:
         """Synthesised source-side voltage trace.
 
         - ``boost_ccm`` / ``passive_choke``: full-wave rectified
@@ -383,10 +405,16 @@ class _FormasOndaBody(QWidget):
         v_min = float(spec.Vin_min_Vrms or 0.0)
         f_line = float(spec.f_line_Hz or 50.0)
         if v_min <= 0 or f_line <= 0 or t_ms.size == 0:
-            ax.text(0.5, 0.5, "v_source — sem dados",
-                    ha="center", va="center",
-                    color=p.text_muted, fontsize=10,
-                    transform=ax.transAxes)
+            ax.text(
+                0.5,
+                0.5,
+                "v_source — sem dados",
+                ha="center",
+                va="center",
+                color=p.text_muted,
+                fontsize=10,
+                transform=ax.transAxes,
+            )
             ax.set_ylabel("V", fontsize=10, color=p.text_secondary)
             return
 
@@ -400,28 +428,21 @@ class _FormasOndaBody(QWidget):
             v_a = v_pk * np.sin(omega * t_s)
             v_b = v_pk * np.sin(omega * t_s - 2.0 * math.pi / 3.0)
             v_c = v_pk * np.sin(omega * t_s + 2.0 * math.pi / 3.0)
-            ax.plot(t_ms, v_a, color=p.accent, linewidth=1.4,
-                    label="vA")
-            ax.plot(t_ms, v_b, color=p.accent_violet, linewidth=1.2,
-                    alpha=0.85, label="vB")
-            ax.plot(t_ms, v_c, color=p.warning, linewidth=1.2,
-                    alpha=0.85, label="vC")
-            ax.set_ylabel("v_phase (V)", fontsize=10,
-                          color=p.text_secondary)
+            ax.plot(t_ms, v_a, color=p.accent, linewidth=1.4, label="vA")
+            ax.plot(t_ms, v_b, color=p.accent_violet, linewidth=1.2, alpha=0.85, label="vB")
+            ax.plot(t_ms, v_c, color=p.warning, linewidth=1.2, alpha=0.85, label="vC")
+            ax.set_ylabel("v_phase (V)", fontsize=10, color=p.text_secondary)
         elif topology == "line_reactor":
             v_t = v_pk * np.sin(omega * t_s)
             ax.plot(t_ms, v_t, color=p.accent, linewidth=1.4)
-            ax.set_ylabel("v_phase (V)", fontsize=10,
-                          color=p.text_secondary)
+            ax.set_ylabel("v_phase (V)", fontsize=10, color=p.text_secondary)
         else:
             # Boost / passive choke: rectified sinusoid.
             v_t = v_pk * np.abs(np.sin(omega * t_s))
             ax.plot(t_ms, v_t, color=p.accent_violet, linewidth=1.4)
-            ax.set_ylabel("v_in rect (V)", fontsize=10,
-                          color=p.text_secondary)
+            ax.set_ylabel("v_in rect (V)", fontsize=10, color=p.text_secondary)
 
-    def _plot_buck_switching_node(self, ax, t_disp: np.ndarray,
-                                  spec: Spec, p) -> None:
+    def _plot_buck_switching_node(self, ax, t_disp: np.ndarray, spec: Spec, p) -> None:
         """Switching-node voltage v_sw(t) for buck-CCM.
 
         Pulses between 0 V and Vin_dc with duty ``D = Vout / (Vin·η)``
@@ -437,10 +458,16 @@ class _FormasOndaBody(QWidget):
         Vin = buck_ccm._vin_nom(spec)
         Vout = float(spec.Vout_V or 0.0)
         if f_sw_kHz <= 0 or Vin <= 0 or Vout <= 0 or t_disp.size == 0:
-            ax.text(0.5, 0.5, "v_sw — sem dados",
-                    ha="center", va="center",
-                    color=p.text_muted, fontsize=10,
-                    transform=ax.transAxes)
+            ax.text(
+                0.5,
+                0.5,
+                "v_sw — sem dados",
+                ha="center",
+                va="center",
+                color=p.text_muted,
+                fontsize=10,
+                transform=ax.transAxes,
+            )
             ax.set_ylabel("V", fontsize=10, color=p.text_secondary)
             return
 
@@ -463,21 +490,25 @@ class _FormasOndaBody(QWidget):
         v_sw = np.where(phase < D, Vin, 0.0)
         v_L = v_sw - Vout
 
-        ax.plot(t_disp, v_sw, color=p.accent_violet, linewidth=1.4,
-                label="v_sw (SW node)")
-        ax.plot(t_disp, v_L, color=p.accent, linewidth=1.0,
-                linestyle="--", alpha=0.75, label="v_L = v_sw − Vout")
+        ax.plot(t_disp, v_sw, color=p.accent_violet, linewidth=1.4, label="v_sw (SW node)")
+        ax.plot(
+            t_disp,
+            v_L,
+            color=p.accent,
+            linewidth=1.0,
+            linestyle="--",
+            alpha=0.75,
+            label="v_L = v_sw − Vout",
+        )
         ax.set_ylabel("v (V)", fontsize=10, color=p.text_secondary)
-        ax.legend(loc="upper right", fontsize=7, frameon=False,
-                  labelcolor=p.text_secondary, ncol=2)
+        ax.legend(loc="upper right", fontsize=7, frameon=False, labelcolor=p.text_secondary, ncol=2)
         # Headroom so the square pulses don't kiss the axis edge.
         margin = 0.10 * max(Vin, 1.0)
         ax.set_ylim(min(-Vout, 0.0) - margin, Vin + margin)
 
-    def _plot_harmonic_spectrum(self, ax,
-                                synth: Optional[RealisticWaveform],
-                                p,
-                                result: Optional[DesignResult] = None) -> None:
+    def _plot_harmonic_spectrum(
+        self, ax, synth: Optional[RealisticWaveform], p, result: Optional[DesignResult] = None
+    ) -> None:
         """Bar chart of the iL harmonic spectrum.
 
         X-axis: harmonic number (h = 1, 2, …, 20).
@@ -494,10 +525,13 @@ class _FormasOndaBody(QWidget):
         """
         if synth is None or synth.harmonic_pct is None:
             ax.text(
-                0.5, 0.5,
+                0.5,
+                0.5,
                 "Spectrum unavailable — recompute to generate the FFT",
-                ha="center", va="center",
-                color=p.text_muted, fontsize=10,
+                ha="center",
+                va="center",
+                color=p.text_muted,
+                fontsize=10,
                 transform=ax.transAxes,
             )
             ax.set_xticks([])
@@ -509,23 +543,20 @@ class _FormasOndaBody(QWidget):
         # Colour the fundamental in accent + harmonics in violet so
         # the eye separates "the signal" from "the distortion" at a
         # glance.
-        colors = [
-            p.accent if int(hi) == 1 else p.accent_violet
-            for hi in h
-        ]
-        ax.bar(h, pct, width=0.7, color=colors,
-               edgecolor=p.surface, linewidth=0.4)
+        colors = [p.accent if int(hi) == 1 else p.accent_violet for hi in h]
+        ax.bar(h, pct, width=0.7, color=colors, edgecolor=p.surface, linewidth=0.4)
 
         ax.set_xlabel(
             f"Harmonic · fundamental = {synth.fundamental_Hz:.0f} Hz",
-            fontsize=10, color=p.text_secondary,
+            fontsize=10,
+            color=p.text_secondary,
         )
-        ax.set_ylabel("% of fundamental", fontsize=10,
-                      color=p.text_secondary)
+        ax.set_ylabel("% of fundamental", fontsize=10, color=p.text_secondary)
         ax.set_xticks(list(h))
         ax.set_xticklabels(
             [str(int(hi)) for hi in h],
-            fontsize=8, color=p.text_muted,
+            fontsize=8,
+            color=p.text_muted,
         )
         # Cap the visible range a hair above 100 % so the fundamental
         # bar isn't pinned to the top edge. Tall harmonics (e.g.
@@ -538,19 +569,27 @@ class _FormasOndaBody(QWidget):
         # always agree.
         thd_pct = synth.thd_pct
         thd_source = "FFT"
-        if (result is not None and result.thd_estimate_pct is not None
-                and result.thd_estimate_pct > 0):
+        if (
+            result is not None
+            and result.thd_estimate_pct is not None
+            and result.thd_estimate_pct > 0
+        ):
             thd_pct = float(result.thd_estimate_pct)
             thd_source = "engine"
         # THD annotation in the upper-right.
         ax.text(
-            0.98, 0.92,
+            0.98,
+            0.92,
             f"THD = {thd_pct:.0f} %  ({thd_source})",
-            ha="right", va="top",
+            ha="right",
+            va="top",
             transform=ax.transAxes,
-            color=p.text, fontsize=10, fontweight="bold",
-            bbox=dict(facecolor=p.surface, edgecolor=p.border,
-                      boxstyle="round,pad=0.3", alpha=0.85),
+            color=p.text,
+            fontsize=10,
+            fontweight="bold",
+            bbox=dict(
+                facecolor=p.surface, edgecolor=p.border, boxstyle="round,pad=0.3", alpha=0.85
+            ),
         )
 
 

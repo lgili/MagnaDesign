@@ -4,6 +4,7 @@ ONELAB ships ``getdp`` (the FEM solver), ``gmsh`` (the mesher) and a
 helper Python module ``onelab.py``. FEMMT 0.5.x just needs the parent
 directory in its ``config.json``.
 """
+
 from __future__ import annotations
 
 import shutil
@@ -126,7 +127,9 @@ def codesign_macos(target_dir: Path, *, on_progress: ProgressCb = None) -> int:
 # helpers
 # ---------------------------------------------------------------------------
 def _download_with_progress(
-    url: str, dest: Path, on_progress: ProgressCb,
+    url: str,
+    dest: Path,
+    on_progress: ProgressCb,
 ) -> None:
     """``urllib`` download with a progress callback (0-fraction in 0..1)."""
     req = urllib.request.Request(url, headers={"User-Agent": "pfc-inductor-setup"})
@@ -144,7 +147,7 @@ def _download_with_progress(
                 # Reserve 0.05..0.85 of the bar for download.
                 frac = 0.05 + 0.80 * (read / total)
                 on_progress(
-                    f"Baixando ONELAB… {read/1e6:.1f} / {total/1e6:.1f} MB",
+                    f"Baixando ONELAB… {read / 1e6:.1f} / {total / 1e6:.1f} MB",
                     frac,
                 )
 

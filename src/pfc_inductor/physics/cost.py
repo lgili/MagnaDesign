@@ -10,6 +10,7 @@ Auto-derivations:
   from `Ve · rho_kg_m3`) × material price.
 - Wire mass per metre is derived from `A_cu_mm2 · rho_Cu` if not provided.
 """
+
 from __future__ import annotations
 
 from typing import Optional

@@ -1,4 +1,5 @@
 """ConverterModel protocol & Phase-A topology adapters."""
+
 from __future__ import annotations
 
 import pytest
@@ -43,6 +44,7 @@ def _pick_first(items, predicate):
 # Protocol satisfaction
 # ────────────────────────────────────────────────────────────────
 
+
 def test_boost_ccm_model_satisfies_protocol():
     spec = Spec(topology="boost_ccm")
     model = BoostCCMModel(spec)
@@ -68,6 +70,7 @@ def test_line_reactor_model_satisfies_protocol():
 # ────────────────────────────────────────────────────────────────
 # Spec-topology mismatch is caught at construction
 # ────────────────────────────────────────────────────────────────
+
 
 @pytest.mark.parametrize(
     "cls,wrong_topology",
@@ -104,10 +107,18 @@ def _ref_combo(db):
 def _boost_spec(Pout_W: float = 800.0) -> Spec:
     return Spec(
         topology="boost_ccm",
-        Vin_min_Vrms=85.0, Vin_max_Vrms=265.0, Vin_nom_Vrms=220.0,
-        Vout_V=400.0, Pout_W=Pout_W, eta=0.97,
-        f_sw_kHz=65.0, ripple_pct=30.0,
-        T_amb_C=40.0, T_max_C=100.0, Ku_max=0.40, Bsat_margin=0.20,
+        Vin_min_Vrms=85.0,
+        Vin_max_Vrms=265.0,
+        Vin_nom_Vrms=220.0,
+        Vout_V=400.0,
+        Pout_W=Pout_W,
+        eta=0.97,
+        f_sw_kHz=65.0,
+        ripple_pct=30.0,
+        T_amb_C=40.0,
+        T_max_C=100.0,
+        Ku_max=0.40,
+        Bsat_margin=0.20,
     )
 
 
@@ -137,6 +148,7 @@ def test_feasibility_envelope_rejects_obviously_undersized_core(db):
 # Tier 1 — steady_state delegates to the analytical engine
 # ────────────────────────────────────────────────────────────────
 
+
 def test_steady_state_returns_design_result(db):
     model = BoostCCMModel(_boost_spec(Pout_W=800.0))
     material, core, wire = _ref_combo(db)
@@ -150,6 +162,7 @@ def test_steady_state_returns_design_result(db):
 # Registry
 # ────────────────────────────────────────────────────────────────
 
+
 def test_registry_lists_all_topologies():
     """The registry exposes every supported ``Spec.topology`` value.
 
@@ -158,7 +171,10 @@ def test_registry_lists_all_topologies():
     """
     topos = registered_topologies()
     assert set(topos) == {
-        "boost_ccm", "passive_choke", "line_reactor", "buck_ccm",
+        "boost_ccm",
+        "passive_choke",
+        "line_reactor",
+        "buck_ccm",
     }
 
 
@@ -171,9 +187,14 @@ def test_model_for_returns_matching_class():
     assert isinstance(model_for(spec_reactor), LineReactorModel)
     spec_buck = Spec(
         topology="buck_ccm",
-        Vin_dc_V=12.0, Vin_dc_min_V=10.8, Vin_dc_max_V=13.2,
-        Vout_V=3.3, Pout_W=10.0, eta=0.95,
-        f_sw_kHz=500.0, ripple_ratio=0.30,
+        Vin_dc_V=12.0,
+        Vin_dc_min_V=10.8,
+        Vin_dc_max_V=13.2,
+        Vout_V=3.3,
+        Pout_W=10.0,
+        eta=0.95,
+        f_sw_kHz=500.0,
+        ripple_ratio=0.30,
     )
     assert isinstance(model_for(spec_buck), BuckCCMModel)
 

@@ -18,12 +18,12 @@ The manifest carries the magnadesign version and a per-file SHA-256
 so downstream auditors can verify the bundle hasn't been touched
 after the run.
 """
+
 from __future__ import annotations
 
 import hashlib
 import json
-import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Optional
 
@@ -134,6 +134,7 @@ def _report_cmd(
 
     # 1. Datasheet PDF — always.
     from pfc_inductor.report.pdf_report import generate_pdf_datasheet
+
     datasheet_path = out_dir / "datasheet.pdf"
     generate_pdf_datasheet(
         spec=loaded.spec,
@@ -161,6 +162,7 @@ def _report_cmd(
         from pfc_inductor.compliance.pdf_writer import (
             write_compliance_pdf,
         )
+
         bundle = evaluate_compliance(
             loaded.spec,
             loaded.selected_core,
@@ -171,9 +173,7 @@ def _report_cmd(
             edition=edition,
             project_name=loaded.project.name,
         )
-        compliance_path = (
-            out_dir / f"compliance_{region.upper()}.pdf"
-        )
+        compliance_path = out_dir / f"compliance_{region.upper()}.pdf"
         write_compliance_pdf(bundle, compliance_path)
         artefacts.append(compliance_path)
         if bundle.overall == "FAIL":
@@ -181,13 +181,15 @@ def _report_cmd(
 
     # 4. Manifest — always last so it captures every file.
     manifest_path = out_dir / "manifest.json"
-    manifest_path.write_text(json.dumps(
-        _build_manifest(artefacts, loaded.project.name, region),
-        indent=2,
-    ))
+    manifest_path.write_text(
+        json.dumps(
+            _build_manifest(artefacts, loaded.project.name, region),
+            indent=2,
+        )
+    )
 
     click.echo(
-        f"Wrote {len(artefacts)+1} artefact(s) → {out_dir}",
+        f"Wrote {len(artefacts) + 1} artefact(s) → {out_dir}",
         err=True,
     )
     return exit_code
@@ -211,21 +213,20 @@ def _build_kpi_payload(loaded: Any, result: Any) -> dict[str, Any]:
         "topology": loaded.spec.topology,
         "selection": {
             "material": loaded.selected_material.name,
-            "core":     loaded.selected_core.part_number,
-            "wire":     loaded.selected_wire.id,
+            "core": loaded.selected_core.part_number,
+            "wire": loaded.selected_wire.id,
         },
         "L_target_uH": _r(result.L_required_uH, 2),
         "L_actual_uH": _r(result.L_actual_uH, 2),
-        "N_turns":     int(result.N_turns),
-        "B_pk_mT":     _r(result.B_pk_T * 1000.0, 1),
+        "N_turns": int(result.N_turns),
+        "B_pk_mT": _r(result.B_pk_T * 1000.0, 1),
         "T_winding_C": _r(result.T_winding_C, 1),
-        "T_rise_C":    _r(result.T_rise_C, 1),
-        "P_total_W":   _r(result.losses.P_total_W, 3),
-        "P_cu_W":      _r(result.losses.P_cu_total_W, 3),
-        "P_core_W":    _r(result.losses.P_core_total_W, 3),
-        "feasible":    bool(result.feasible)
-                       if hasattr(result, "feasible") else None,
-        "warnings":    list(result.warnings) if result.warnings else [],
+        "T_rise_C": _r(result.T_rise_C, 1),
+        "P_total_W": _r(result.losses.P_total_W, 3),
+        "P_cu_W": _r(result.losses.P_cu_total_W, 3),
+        "P_core_W": _r(result.losses.P_core_total_W, 3),
+        "feasible": bool(result.feasible) if hasattr(result, "feasible") else None,
+        "warnings": list(result.warnings) if result.warnings else [],
     }
 
 
@@ -242,19 +243,20 @@ def _build_manifest(
     """
     try:
         from importlib.metadata import version as _v
+
         magnadesign_version = _v("magnadesign")
     except Exception:
         magnadesign_version = "unknown"
 
     return {
-        "project":            project_name,
+        "project": project_name,
         "magnadesign_version": magnadesign_version,
-        "generated_at":       datetime.now(timezone.utc).isoformat(),
-        "compliance_region":  region,
+        "generated_at": datetime.now(UTC).isoformat(),
+        "compliance_region": region,
         "artefacts": [
             {
-                "name":   path.name,
-                "size":   path.stat().st_size,
+                "name": path.name,
+                "size": path.stat().st_size,
                 "sha256": _sha256(path),
             }
             for path in artefacts

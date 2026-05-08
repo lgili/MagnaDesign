@@ -10,6 +10,7 @@ which has been the project's O(1) viability heuristic since v2 and
 already understands all three Phase-A topologies. Wrapping it in a
 `Tier0Result` gives the orchestrator a uniform per-tier output type.
 """
+
 from __future__ import annotations
 
 from typing import Iterable, Iterator

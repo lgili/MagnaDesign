@@ -21,6 +21,7 @@ The chart itself is owned by the existing widget; this card adds:
 - Empty-state guard so the card doesn't show a half-rendered axes
   before the first ``update_from_design``.
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -77,9 +78,9 @@ class _BHLoopBody(QWidget):
         on_theme_changed(self._refresh_qss)
 
     # ------------------------------------------------------------------
-    def update_from_design(self, result: DesignResult, spec: Spec,
-                           core: Core, wire: Wire,
-                           material: Material) -> None:
+    def update_from_design(
+        self, result: DesignResult, spec: Spec, core: Core, wire: Wire, material: Material
+    ) -> None:
         # ``BHLoopChart`` only cares about result + core + material; the
         # other args are accepted for the cards' uniform signature.
         self._chart.update_from_design(result, core, material)

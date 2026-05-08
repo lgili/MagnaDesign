@@ -8,6 +8,7 @@ optimizer view. Same visual language as the chips already shipped in
 discrete two-state control with a single emit signal so callers don't
 have to manage exclusive checked-state by hand.
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -69,9 +70,7 @@ class ModeToggle(QFrame):
             btn.setCheckable(True)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
             btn.setMinimumHeight(28)
-            btn.toggled.connect(
-                lambda checked, k=key: checked and self._on_btn_toggled(k)
-            )
+            btn.toggled.connect(lambda checked, k=key: checked and self._on_btn_toggled(k))
             if key == first_key:
                 btn.setChecked(True)
             self._buttons[key] = btn

@@ -6,6 +6,7 @@ Single source of truth for the organisation/application strings used by
 prevents the two from drifting apart and silently splitting user
 preferences across two stores.
 """
+
 from __future__ import annotations
 
 SETTINGS_ORG = "indutor"

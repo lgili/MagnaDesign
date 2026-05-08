@@ -16,6 +16,7 @@ Public API
     card = Card("Resumo do Projeto", body_widget,
                 badge="Aprovado", elevation=1)
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -98,8 +99,7 @@ class Card(QFrame):
         if actions:
             self._overflow = QToolButton()
             self._overflow.setIcon(
-                ui_icon("more-horizontal",
-                        color=get_theme().palette.text_muted, size=16)
+                ui_icon("more-horizontal", color=get_theme().palette.text_muted, size=16)
             )
             self._overflow.setCursor(Qt.CursorShape.PointingHandCursor)
             self._overflow.setStyleSheet(

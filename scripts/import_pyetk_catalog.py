@@ -41,6 +41,7 @@ Each imported core is paired with a default Ferroxcube material
 (``ferroxcube-3c90``) for ``AL_nH`` derivation; the user can switch
 the pairing later via the DB editor without re-running the import.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -61,7 +62,6 @@ from pfc_inductor.models import (  # type: ignore[import-not-found] # noqa: E402
     Material,
     SteinmetzParams,
 )
-
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -91,9 +91,10 @@ ALIAS_VENDORS: tuple[str, ...] = ("Phillips",)
 #                  → our ``Pv_ref·(f/f_ref)^alpha·(B/B_ref)^beta`` (mW/cm³, kHz, mT)
 # ---------------------------------------------------------------------------
 
-def convert_steinmetz(cm: float, x: float, y: float,
-                      f_ref_kHz: float = 100.0,
-                      B_ref_mT: float = 100.0) -> SteinmetzParams:
+
+def convert_steinmetz(
+    cm: float, x: float, y: float, f_ref_kHz: float = 100.0, B_ref_mT: float = 100.0
+) -> SteinmetzParams:
     """Re-anchor a power-law Steinmetz curve to (f_ref, B_ref).
 
     PyETK reports ``Pv = cm · f^x · B^y`` where ``Pv`` is in W/m³, ``f``
@@ -115,7 +116,7 @@ def convert_steinmetz(cm: float, x: float, y: float,
     """
     f_ref_Hz = f_ref_kHz * 1000.0
     B_ref_T = B_ref_mT * 1e-3
-    pv_W_per_m3 = cm * (f_ref_Hz ** x) * (B_ref_T ** y)
+    pv_W_per_m3 = cm * (f_ref_Hz**x) * (B_ref_T**y)
     pv_mW_per_cm3 = pv_W_per_m3 / 1000.0
     return SteinmetzParams(
         Pv_ref_mWcm3=pv_mW_per_cm3,
@@ -183,8 +184,12 @@ def _decode_e_core(dims: list) -> CoreDims:
     matches Ferroxcube datasheet ``le`` within ±10 % across the
     E5–E80 range.
     """
-    A = _safe(dims[0]); B = _safe(dims[1]); C = _safe(dims[2])
-    D = _safe(dims[3]); E = _safe(dims[4]); F = _safe(dims[5])
+    A = _safe(dims[0])
+    B = _safe(dims[1])
+    C = _safe(dims[2])
+    D = _safe(dims[3])
+    E = _safe(dims[4])
+    F = _safe(dims[5])
     if min(A, C, D, E, F) <= 0:
         return (None,) * 8  # type: ignore[return-value]
     Ae = C * F
@@ -216,8 +221,12 @@ def _decode_etd_core(dims: list) -> CoreDims:
     underestimates by ~25 %. Validated against ETD29 → ETD59 within
     ±5 %.
     """
-    A = _safe(dims[0]); B = _safe(dims[1]); C = _safe(dims[2])
-    D = _safe(dims[3]); E = _safe(dims[4]); F = _safe(dims[5])
+    A = _safe(dims[0])
+    B = _safe(dims[1])
+    C = _safe(dims[2])
+    D = _safe(dims[3])
+    E = _safe(dims[4])
+    F = _safe(dims[5])
     if min(A, C, D, E, F) <= 0:
         return (None,) * 8  # type: ignore[return-value]
     Ae = math.pi * (C / 2.0) ** 2
@@ -237,8 +246,12 @@ def _decode_pq_core(dims: list) -> CoreDims:
     quantity, so use ``le ≈ 2·E + (A − C) + (B − C)``. Validated
     against PQ20/16, PQ26/25, PQ32/30, PQ40/40, PQ50/50 within ±5 %.
     """
-    A = _safe(dims[0]); B = _safe(dims[1]); C = _safe(dims[2])
-    D = _safe(dims[3]); E = _safe(dims[4]); F = _safe(dims[5])
+    A = _safe(dims[0])
+    B = _safe(dims[1])
+    C = _safe(dims[2])
+    D = _safe(dims[3])
+    E = _safe(dims[4])
+    F = _safe(dims[5])
     if min(A, C, E, F) <= 0:
         return (None,) * 8  # type: ignore[return-value]
     Ae = math.pi * (C / 2.0) ** 2
@@ -258,8 +271,12 @@ def _decode_efd_core(dims: list) -> CoreDims:
     Slot F (index 5) is the overall depth (window depth, not post).
     Validated against EFD15→EFD30 within ±10 %.
     """
-    A = _safe(dims[0]); B = _safe(dims[1]); C = _safe(dims[2])
-    D = _safe(dims[3]); E = _safe(dims[4]); F = _safe(dims[5])
+    A = _safe(dims[0])
+    B = _safe(dims[1])
+    C = _safe(dims[2])
+    D = _safe(dims[3])
+    E = _safe(dims[4])
+    F = _safe(dims[5])
     G = _safe(dims[6])
     if min(A, C, D, E, F) <= 0:
         return (None,) * 8  # type: ignore[return-value]
@@ -280,8 +297,12 @@ def _decode_efd_core(dims: list) -> CoreDims:
 def _decode_ep_core(dims: list) -> CoreDims:
     """EP: pot-style with a center post, only one window. Same formula
     family as ETD with a single window."""
-    A = _safe(dims[0]); B = _safe(dims[1]); C = _safe(dims[2])
-    D = _safe(dims[3]); E = _safe(dims[4]); F = _safe(dims[5])
+    A = _safe(dims[0])
+    B = _safe(dims[1])
+    C = _safe(dims[2])
+    D = _safe(dims[3])
+    E = _safe(dims[4])
+    F = _safe(dims[5])
     if min(A, C, D, E, F) <= 0:
         return (None,) * 8  # type: ignore[return-value]
     Ae = math.pi * (C / 2.0) ** 2
@@ -314,8 +335,11 @@ def _decode_p_core(dims: list) -> CoreDims:
     """P (pot): cylindrical outer, central round leg. Two halves close
     forming a (mostly) closed shell; window height is D (one window
     only). Approximate Ae as π(C/2)² and Wa as the annulus area."""
-    A = _safe(dims[0]); _B = _safe(dims[1]); C = _safe(dims[2])
-    D = _safe(dims[3]); E = _safe(dims[4])
+    A = _safe(dims[0])
+    _B = _safe(dims[1])
+    C = _safe(dims[2])
+    D = _safe(dims[3])
+    E = _safe(dims[4])
     if min(A, C, D, E) <= 0:
         return (None,) * 8  # type: ignore[return-value]
     Ae = math.pi * (C / 2.0) ** 2
@@ -330,8 +354,12 @@ def _decode_p_core(dims: list) -> CoreDims:
 def _decode_u_core(dims: list) -> CoreDims:
     """U / UI: two parallel legs forming a "U" (or U+I rectangle).
     Ae is per-leg cross-section; le is the closed-loop perimeter."""
-    A = _safe(dims[0]); B = _safe(dims[1]); C = _safe(dims[2])
-    D = _safe(dims[3]); _E = _safe(dims[4]); F = _safe(dims[5])
+    A = _safe(dims[0])
+    B = _safe(dims[1])
+    C = _safe(dims[2])
+    D = _safe(dims[3])
+    _E = _safe(dims[4])
+    F = _safe(dims[5])
     if min(A, C, D, F) <= 0:
         return (None,) * 8  # type: ignore[return-value]
     Ae = C * F
@@ -347,8 +375,11 @@ def _decode_generic(dims: list) -> CoreDims:
     overall length × inner length × leg thickness, treat as a
     rectangular prism. Loses any shape-specific Ae factor but at least
     gives a non-zero Ve for ranking."""
-    A = _safe(dims[0]); B = _safe(dims[1]); C = _safe(dims[2])
-    D = _safe(dims[3], default=A); F = _safe(dims[5], default=C)
+    A = _safe(dims[0])
+    B = _safe(dims[1])
+    C = _safe(dims[2])
+    D = _safe(dims[3], default=A)
+    F = _safe(dims[5], default=C)
     if min(A, C, D) <= 0:
         return (None,) * 8  # type: ignore[return-value]
     Ae = C * F
@@ -387,8 +418,8 @@ def decode_core(shape: str, dims: list) -> CoreDims:
 # AL_nH derivation
 # ---------------------------------------------------------------------------
 
-def derive_AL_nH(Ae_mm2: float, le_mm: float,
-                 mu_eff: float = DEFAULT_MATERIAL_MU) -> float:
+
+def derive_AL_nH(Ae_mm2: float, le_mm: float, mu_eff: float = DEFAULT_MATERIAL_MU) -> float:
     """Inductance index for an ungapped core with effective permeability
     ``mu_eff``: ``L = μ₀·μ·N²·Ae/le`` ⇒ ``AL = μ₀·μ·Ae/le``.
 
@@ -404,21 +435,17 @@ def derive_AL_nH(Ae_mm2: float, le_mm: float,
 # Slug helpers
 # ---------------------------------------------------------------------------
 
+
 def _slug(s: str) -> str:
     """Lowercase, hyphenate; matches the slug style used elsewhere in
     our catalog ids (``magnetics-0058181a2-60_highflux``)."""
-    return (
-        s.lower()
-        .replace("/", "-")
-        .replace(" ", "-")
-        .replace(".", "_")
-        .replace(",", "_")
-    )
+    return s.lower().replace("/", "-").replace(" ", "-").replace(".", "_").replace(",", "_")
 
 
 # ---------------------------------------------------------------------------
 # High-level conversion
 # ---------------------------------------------------------------------------
+
 
 def _normalize_part_number(shape: str, part_number: str) -> str:
     """Canonical form for dedup. Phillips lists ETDs as ``ETD29``;
@@ -444,7 +471,8 @@ def parse_cores(src: dict) -> list[Core]:
     # Process Ferroxcube first so its dimensional part_number wins when
     # Phillips duplicates appear (Phillips uses a shorter family name).
     vendors_ordered = sorted(
-        src.keys(), key=lambda v: 0 if v == "Ferroxcube" else 1,
+        src.keys(),
+        key=lambda v: 0 if v == "Ferroxcube" else 1,
     )
     for vendor in vendors_ordered:
         shapes = src[vendor]
@@ -546,6 +574,7 @@ def parse_materials(src: dict) -> list[Material]:
 # I/O
 # ---------------------------------------------------------------------------
 
+
 def _read_version_tag(src_dir: Path) -> str:
     vp = src_dir / "VERSION.txt"
     if not vp.exists():
@@ -573,8 +602,9 @@ def _tag_pyetk_source(entry: dict, commit: str) -> dict:
     return entry
 
 
-def _write_catalog(out_dir: Path, materials: list[Material],
-                   cores: list[Core], commit: str) -> None:
+def _write_catalog(
+    out_dir: Path, materials: list[Material], cores: list[Core], commit: str
+) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     materials_payload = {
         "_comment": (
@@ -582,10 +612,7 @@ def _write_catalog(out_dir: Path, materials: list[Material],
             f"@ {commit}. {len(materials)} ferrites converted via "
             f"scripts/import_pyetk_catalog.py."
         ),
-        "materials": [
-            _tag_pyetk_source(m.model_dump(mode="json"), commit)
-            for m in materials
-        ],
+        "materials": [_tag_pyetk_source(m.model_dump(mode="json"), commit) for m in materials],
     }
     cores_payload = {
         "_comment": (
@@ -595,10 +622,7 @@ def _write_catalog(out_dir: Path, materials: list[Material],
             f"are shape-specific approximations (±15 %); verify "
             f"against vendor datasheet before final design."
         ),
-        "cores": [
-            _tag_pyetk_source(c.model_dump(mode="json"), commit)
-            for c in cores
-        ],
+        "cores": [_tag_pyetk_source(c.model_dump(mode="json"), commit) for c in cores],
     }
     (out_dir / "materials.json").write_text(
         json.dumps(materials_payload, indent=2, ensure_ascii=False) + "\n",
@@ -617,7 +641,7 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
         type=Path,
         default=SRC_DIR_DEFAULT,
         help="Directory containing core_dimensions.json + material_properties.json"
-             f" (default: {SRC_DIR_DEFAULT.relative_to(REPO_ROOT)})",
+        f" (default: {SRC_DIR_DEFAULT.relative_to(REPO_ROOT)})",
     )
     parser.add_argument(
         "--out",
@@ -654,9 +678,7 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     by_shape: dict[str, int] = {}
     for c in cores:
         by_shape[c.shape] = by_shape.get(c.shape, 0) + 1
-    shapes_str = ", ".join(
-        f"{shape}={n}" for shape, n in sorted(by_shape.items())
-    )
+    shapes_str = ", ".join(f"{shape}={n}" for shape, n in sorted(by_shape.items()))
 
     print(f"PyETK import — source: {src_dir.relative_to(REPO_ROOT)}")
     print(f"  materials: {len(materials)} ferrites")

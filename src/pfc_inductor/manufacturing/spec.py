@@ -18,10 +18,11 @@ self-contained so the heavy ``reportlab`` / ``openpyxl``
 imports stay out of the import path of consumers that only need
 the engineering payload.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Optional
 
 from pfc_inductor.manufacturing.acceptance import (
@@ -88,8 +89,11 @@ def build_mfg_spec(
     hipot = hipot_voltage_V(work_v)
 
     atp = build_acceptance_tests(
-        spec=spec, core=core, wire=wire,
-        material=material, result=result,
+        spec=spec,
+        core=core,
+        wire=wire,
+        material=material,
+        result=result,
     )
 
     aggregated_notes: tuple[str, ...] = (notes or ()) + winding.warnings
@@ -98,7 +102,7 @@ def build_mfg_spec(
         project_name=project_name,
         designer=designer,
         revision=revision,
-        date_iso=datetime.now(timezone.utc).date().isoformat(),
+        date_iso=datetime.now(UTC).date().isoformat(),
         spec=spec,
         core=core,
         wire=wire,
@@ -115,11 +119,13 @@ def build_mfg_spec(
 def _working_voltage_V(spec: Spec) -> float:
     topology = (spec.topology or "").lower()
     if topology == "buck_ccm":
-        return float(getattr(spec, "Vin_dc_V", None) or
-                     getattr(spec, "Vin_dc_max_V", None) or
-                     getattr(spec, "Vin_nom_Vrms", None) or
-                     0.0)
+        return float(
+            getattr(spec, "Vin_dc_V", None)
+            or getattr(spec, "Vin_dc_max_V", None)
+            or getattr(spec, "Vin_nom_Vrms", None)
+            or 0.0
+        )
     vmax = float(getattr(spec, "Vin_max_Vrms", None) or 0.0)
     if vmax > 0:
-        return vmax * (2 ** 0.5)
-    return float(getattr(spec, "Vin_nom_Vrms", None) or 0.0) * (2 ** 0.5)
+        return vmax * (2**0.5)
+    return float(getattr(spec, "Vin_nom_Vrms", None) or 0.0) * (2**0.5)

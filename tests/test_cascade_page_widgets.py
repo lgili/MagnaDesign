@@ -6,6 +6,7 @@ top-N table column reveal, and the new `selection_applied`
 signal that lets MainWindow promote a cascade winner without
 leaving the page.
 """
+
 from __future__ import annotations
 
 import os
@@ -23,6 +24,7 @@ from pfc_inductor.optimize.cascade import CandidateRow
 @pytest.fixture(scope="module")
 def app():
     from PySide6.QtWidgets import QApplication
+
     inst = QApplication.instance() or QApplication([])
     yield inst
 
@@ -30,10 +32,18 @@ def app():
 def _spec() -> Spec:
     return Spec(
         topology="boost_ccm",
-        Vin_min_Vrms=85.0, Vin_max_Vrms=265.0, Vin_nom_Vrms=220.0,
-        Vout_V=400.0, Pout_W=800.0, eta=0.97,
-        f_sw_kHz=65.0, ripple_pct=30.0,
-        T_amb_C=40.0, T_max_C=100.0, Ku_max=0.40, Bsat_margin=0.20,
+        Vin_min_Vrms=85.0,
+        Vin_max_Vrms=265.0,
+        Vin_nom_Vrms=220.0,
+        Vout_V=400.0,
+        Pout_W=800.0,
+        eta=0.97,
+        f_sw_kHz=65.0,
+        ripple_pct=30.0,
+        T_amb_C=40.0,
+        T_max_C=100.0,
+        Ku_max=0.40,
+        Bsat_margin=0.20,
     )
 
 
@@ -115,12 +125,10 @@ def test_run_config_card_fea_badge_reflects_backend(app):
     from pfc_inductor.ui.workspace.cascade_page import _RunConfigCard
 
     cfg = _RunConfigCard()
-    with patch("pfc_inductor.ui.workspace.cascade_page.supports_tier3",
-               return_value=True):
+    with patch("pfc_inductor.ui.workspace.cascade_page.supports_tier3", return_value=True):
         cfg.refresh_fea_status()
         assert "configured" in cfg.fea_badge.text().lower()
-    with patch("pfc_inductor.ui.workspace.cascade_page.supports_tier3",
-               return_value=False):
+    with patch("pfc_inductor.ui.workspace.cascade_page.supports_tier3", return_value=False):
         cfg.refresh_fea_status()
         assert "unavailable" in cfg.fea_badge.text().lower()
 
@@ -175,14 +183,19 @@ def _row(
     return CandidateRow(
         candidate_key=candidate_key,
         core_id=candidate_key.split("|")[0] if "|" in candidate_key else candidate_key,
-        material_id="mat", wire_id="wire",
-        N=45, gap_mm=None,
+        material_id="mat",
+        wire_id="wire",
+        N=45,
+        gap_mm=None,
         highest_tier=3 if L_t3_uH is not None else (2 if notes and "tier2" in notes else 1),
         feasible_t0=True,
-        loss_t1_W=loss_t1, temp_t1_C=80.0, cost_t1_USD=5.0,
+        loss_t1_W=loss_t1,
+        temp_t1_C=80.0,
+        cost_t1_USD=5.0,
         loss_t2_W=loss_t1 if notes and "tier2" in notes else None,
         saturation_t2=saturation_t2,
-        L_t3_uH=L_t3_uH, Bpk_t3_T=Bpk_t3_T,
+        L_t3_uH=L_t3_uH,
+        Bpk_t3_T=Bpk_t3_T,
         L_t4_uH=None,
         notes=notes,
     )
@@ -202,9 +215,11 @@ def test_top_n_table_widens_when_tier2_present(app):
 
     table = _TopNTable()
     rows = [
-        _row(f"core_{i}|mat|wire",
-             notes={"tier2": {"L_avg_uH": 380.0, "B_pk_T": 0.36}},
-             saturation_t2=False)
+        _row(
+            f"core_{i}|mat|wire",
+            notes={"tier2": {"L_avg_uH": 380.0, "B_pk_T": 0.36}},
+            saturation_t2=False,
+        )
         for i in range(2)
     ]
     table.populate(rows)
@@ -229,15 +244,14 @@ def test_top_n_table_widens_again_when_tier3_present(app):
                 },
             },
             saturation_t2=False,
-            L_t3_uH=420.0, Bpk_t3_T=0.34,
+            L_t3_uH=420.0,
+            Bpk_t3_T=0.34,
         )
         for i in range(2)
     ]
     table.populate(rows)
     expected = (
-        len(_TopNTable.BASE_HEADERS)
-        + len(_TopNTable.T2_HEADERS)
-        + len(_TopNTable.T3_HEADERS)
+        len(_TopNTable.BASE_HEADERS) + len(_TopNTable.T2_HEADERS) + len(_TopNTable.T3_HEADERS)
     )
     assert table.columnCount() == expected
 
@@ -274,7 +288,9 @@ def test_cascade_page_apply_button_emits_selection_applied(app, tmp_path: Path):
     page._table.setColumnCount(len(page._table.BASE_HEADERS))
     page._table.setRowCount(1)
     page._table.setItem(
-        0, 0, QTableWidgetItem("1"),
+        0,
+        0,
+        QTableWidgetItem("1"),
     )
     page._table.item(0, 0).setData(_USER_ROLE_KEY, "core_x|mat_x|wire_x|_|_")
     page._table.setItem(0, 1, QTableWidgetItem("core_x"))
@@ -310,7 +326,8 @@ def test_cascade_page_catalog_summary_initial_state(app, tmp_path: Path):
 
 
 def test_cascade_page_catalog_summary_reflects_filtered_materials(
-    app, tmp_path: Path,
+    app,
+    tmp_path: Path,
 ):
     """`set_inputs` is the seam where MainWindow hands the page a
     pre-filtered material list. The summary must show that count
@@ -323,27 +340,49 @@ def test_cascade_page_catalog_summary_reflects_filtered_materials(
     page = CascadePage(store_path=tmp_path / "cascade.db")
     materials = [
         Material(
-            id="ss-1", vendor="v", family="f", name="ss",
-            type="silicon-steel", mu_initial=7000.0,
-            Bsat_25C_T=1.7, Bsat_100C_T=1.6,
+            id="ss-1",
+            vendor="v",
+            family="f",
+            name="ss",
+            type="silicon-steel",
+            mu_initial=7000.0,
+            Bsat_25C_T=1.7,
+            Bsat_100C_T=1.6,
             steinmetz=SteinmetzParams(
-                Pv_ref_mWcm3=10.0, alpha=1.5, beta=2.0,
+                Pv_ref_mWcm3=10.0,
+                alpha=1.5,
+                beta=2.0,
             ),
         ),
         Material(
-            id="amorph-1", vendor="v", family="f", name="amorph",
-            type="amorphous", mu_initial=30000.0,
-            Bsat_25C_T=1.6, Bsat_100C_T=1.5,
+            id="amorph-1",
+            vendor="v",
+            family="f",
+            name="amorph",
+            type="amorphous",
+            mu_initial=30000.0,
+            Bsat_25C_T=1.6,
+            Bsat_100C_T=1.5,
             steinmetz=SteinmetzParams(
-                Pv_ref_mWcm3=20.0, alpha=1.5, beta=2.0,
+                Pv_ref_mWcm3=20.0,
+                alpha=1.5,
+                beta=2.0,
             ),
         ),
     ]
     cores = [
         Core(
-            id="c1", vendor="v", shape="Toroid", part_number="P1",
-            default_material_id="ss-1", Ae_mm2=100.0, le_mm=80.0,
-            Ve_mm3=8000.0, Wa_mm2=200.0, MLT_mm=80.0, AL_nH=200.0,
+            id="c1",
+            vendor="v",
+            shape="Toroid",
+            part_number="P1",
+            default_material_id="ss-1",
+            Ae_mm2=100.0,
+            le_mm=80.0,
+            Ve_mm3=8000.0,
+            Wa_mm2=200.0,
+            MLT_mm=80.0,
+            AL_nH=200.0,
         ),
     ]
     wires = [Wire(id="AWG14", type="round", awg=14, d_cu_mm=1.628, A_cu_mm2=2.08)]

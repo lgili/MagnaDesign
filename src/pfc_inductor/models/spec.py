@@ -33,28 +33,45 @@ class Spec(BaseModel):
     )
     f_line_Hz: float = Field(50.0, description="Line frequency (50 or 60 Hz)")
 
-    Vout_V: float = Field(400.0, description="DC bus voltage. Ignored for passive choke / line reactor.")
+    Vout_V: float = Field(
+        400.0, description="DC bus voltage. Ignored for passive choke / line reactor."
+    )
     Pout_W: float = Field(800.0, description="Output power")
-    eta: float = Field(0.97, ge=0.5, le=1.0, description="Assumed converter efficiency for current calc")
+    eta: float = Field(
+        0.97, ge=0.5, le=1.0, description="Assumed converter efficiency for current calc"
+    )
 
-    f_sw_kHz: float = Field(65.0, description="Switching frequency. Ignored for passive choke / line reactor.")
-    ripple_pct: float = Field(30.0, ge=1.0, le=100.0,
-                              description="Peak-to-peak inductor current ripple, % of peak line current")
+    f_sw_kHz: float = Field(
+        65.0, description="Switching frequency. Ignored for passive choke / line reactor."
+    )
+    ripple_pct: float = Field(
+        30.0,
+        ge=1.0,
+        le=100.0,
+        description="Peak-to-peak inductor current ripple, % of peak line current",
+    )
 
     T_amb_C: float = Field(40.0, description="Ambient temperature for thermal calc")
     T_max_C: float = Field(125.0, description="Max allowable winding temp")
 
-    Ku_max: float = Field(0.7, ge=0.05, le=0.7, description="Max window utilization (0.4 round, 0.2 litz)")
-    Bsat_margin: float = Field(0.20, ge=0.0, le=0.5,
-                               description="Saturation margin (20% means use Bsat*0.8 as limit)")
+    Ku_max: float = Field(
+        0.7, ge=0.05, le=0.7, description="Max window utilization (0.4 round, 0.2 litz)"
+    )
+    Bsat_margin: float = Field(
+        0.20, ge=0.0, le=0.5, description="Saturation margin (20% means use Bsat*0.8 as limit)"
+    )
 
     # --- line reactor only ---
     n_phases: int = Field(
-        3, ge=1, le=3,
+        3,
+        ge=1,
+        le=3,
         description="1 or 3 — only used when topology == 'line_reactor'",
     )
     L_req_mH: float = Field(
-        10.0, ge=0.05, le=1000.0,
+        10.0,
+        ge=0.05,
+        le=1000.0,
         description=(
             "Target inductance for the reactor (mH). The legacy "
             "``pct_impedance`` kwarg auto-converts to this field via "
@@ -63,7 +80,8 @@ class Spec(BaseModel):
         ),
     )
     I_rated_Arms: float = Field(
-        2.2, gt=0.0,
+        2.2,
+        gt=0.0,
         description="Rated continuous RMS current at the reactor (line side).",
     )
 
@@ -115,7 +133,8 @@ class Spec(BaseModel):
     # output capacitance. Ignored for non-buck topologies.
     ripple_ratio: Optional[float] = Field(
         None,
-        ge=0.05, le=1.0,
+        ge=0.05,
+        le=1.0,
         description=(
             "Target ΔI_pp / I_out for buck designs. 0.20–0.40 typical. "
             "When None, the legacy ``ripple_pct`` field is reused as "
@@ -156,7 +175,7 @@ class Spec(BaseModel):
         if self.topology == "boost_ccm":
             if self.Vout_V <= self.Vin_max_Vrms * 1.41:
                 raise ValueError(
-                    f"Vout_V={self.Vout_V} must exceed Vin_max_pk={self.Vin_max_Vrms*1.41:.1f} for boost"
+                    f"Vout_V={self.Vout_V} must exceed Vin_max_pk={self.Vin_max_Vrms * 1.41:.1f} for boost"
                 )
         if self.topology == "line_reactor":
             if self.n_phases not in (1, 3):
@@ -166,12 +185,9 @@ class Spec(BaseModel):
             # ratio < 0.99). Use ``Vin_dc_min_V`` if provided, else
             # ``Vin_dc_V``, else fall back to the legacy AC field so
             # specs migrated from boost-CCM tests don't fail loading.
-            v_in = (self.Vin_dc_min_V or self.Vin_dc_V
-                    or self.Vin_min_Vrms)
+            v_in = self.Vin_dc_min_V or self.Vin_dc_V or self.Vin_min_Vrms
             if v_in is None or v_in <= 0:
-                raise ValueError(
-                    "buck_ccm: Vin_dc_V (or Vin_dc_min_V) must be > 0"
-                )
+                raise ValueError("buck_ccm: Vin_dc_V (or Vin_dc_min_V) must be > 0")
             if self.Vout_V >= v_in * 0.99:
                 raise ValueError(
                     f"buck_ccm: Vout_V={self.Vout_V} must be < "
@@ -182,15 +198,15 @@ class Spec(BaseModel):
 
     @property
     def Vin_min_pk(self) -> float:
-        return self.Vin_min_Vrms * (2 ** 0.5)
+        return self.Vin_min_Vrms * (2**0.5)
 
     @property
     def Vin_max_pk(self) -> float:
-        return self.Vin_max_Vrms * (2 ** 0.5)
+        return self.Vin_max_Vrms * (2**0.5)
 
     @property
     def Vin_nom_pk(self) -> float:
-        return self.Vin_nom_Vrms * (2 ** 0.5)
+        return self.Vin_nom_Vrms * (2**0.5)
 
     @property
     def phase_voltage_Vrms(self) -> float:

@@ -14,6 +14,7 @@ A subset of fields (``project_name``, ``last_saved_at``,
 runtime-only fields (``warnings``, ``errors``, ``validations_passed``)
 reset on launch — they describe the *current* design, not history.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -29,14 +30,14 @@ from PySide6.QtCore import QObject, QSettings, Signal
 # 8-step linear PFC inductor design workflow. Order is significant — index
 # in this tuple is the canonical `current_step` integer.
 WORKFLOW_STEPS: tuple[tuple[str, str], ...] = (
-    ("topologia",   "Topology"),
-    ("entrada",     "Data Entry"),
-    ("calculo",     "Calculation"),
-    ("nucleo",      "Core"),
+    ("topologia", "Topology"),
+    ("entrada", "Data Entry"),
+    ("calculo", "Calculation"),
+    ("nucleo", "Core"),
     ("bobinamento", "Winding"),
-    ("simulacao",   "FEM Simulation"),
-    ("mecanico",    "Mechanical"),
-    ("relatorio",   "Report"),
+    ("simulacao", "FEM Simulation"),
+    ("mecanico", "Mechanical"),
+    ("relatorio", "Report"),
 )
 
 
@@ -44,10 +45,12 @@ WORKFLOW_STEPS: tuple[tuple[str, str], ...] = (
 # State container
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class _StateValues:
     """Plain-data view of the mutable state, used internally and exposed
     by ``WorkflowState.snapshot()`` for read-only consumers."""
+
     project_name: str = "Untitled Project"
     current_step: int = 0
     completed_steps: frozenset[int] = field(default_factory=frozenset)

@@ -5,6 +5,7 @@ Verifies:
 - Loader auto-detects MAS vs legacy by shape.
 - Saved MAS files re-load and recompute the same design results.
 """
+
 from __future__ import annotations
 
 import json
@@ -99,13 +100,13 @@ def test_loader_detects_mas_layout(tmp_path, monkeypatch):
     mats_internal = load_materials()[:3]
     mas_payload = {
         "materials": [
-            material_to_mas(m).model_dump(mode="json", by_alias=True,
-                                          exclude_none=True)
+            material_to_mas(m).model_dump(mode="json", by_alias=True, exclude_none=True)
             for m in mats_internal
         ],
     }
     (user_dir / "materials.json").write_text(
-        json.dumps(mas_payload), encoding="utf-8",
+        json.dumps(mas_payload),
+        encoding="utf-8",
     )
 
     # The loader should detect MAS shape and convert back
@@ -128,7 +129,8 @@ def test_loader_falls_back_to_legacy_format(tmp_path, monkeypatch):
         "materials": [m.model_dump(mode="json") for m in mats_internal],
     }
     (user_dir / "materials.json").write_text(
-        json.dumps(legacy_payload), encoding="utf-8",
+        json.dumps(legacy_payload),
+        encoding="utf-8",
     )
 
     loaded = dl.load_materials()
@@ -159,14 +161,21 @@ def test_design_runs_unchanged_when_db_loaded_via_mas():
 
     mat = find_material(mats, "magnetics-60_highflux")
     core = next(
-        c for c in cores
-        if c.default_material_id == "magnetics-60_highflux"
-        and 40000 < c.Ve_mm3 < 100000
+        c
+        for c in cores
+        if c.default_material_id == "magnetics-60_highflux" and 40000 < c.Ve_mm3 < 100000
     )
     wire = next(w for w in wires if w.id == "AWG14")
-    spec = Spec(Vin_min_Vrms=85.0, Vin_max_Vrms=265.0, Vin_nom_Vrms=220.0,
-                Vout_V=400.0, Pout_W=800.0, eta=0.97,
-                f_sw_kHz=65.0, ripple_pct=30.0)
+    spec = Spec(
+        Vin_min_Vrms=85.0,
+        Vin_max_Vrms=265.0,
+        Vin_nom_Vrms=220.0,
+        Vout_V=400.0,
+        Pout_W=800.0,
+        eta=0.97,
+        f_sw_kHz=65.0,
+        ripple_pct=30.0,
+    )
     r = design(spec, core, wire, mat)
     # Same numbers we documented in test_design_engine.test_800W_design_with_high_flux_60
     assert 350 < r.L_required_uH < 400

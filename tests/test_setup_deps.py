@@ -4,6 +4,7 @@ Network calls and ``codesign`` invocations are not exercised here — those
 need a real macOS machine and bandwidth, and we cover them manually as
 part of the release checklist.
 """
+
 from __future__ import annotations
 
 import json
@@ -25,21 +26,27 @@ from pfc_inductor.setup_deps.urls import onelab_archive_url
 # ---------------------------------------------------------------------------
 # Platform detection
 # ---------------------------------------------------------------------------
-@pytest.mark.parametrize("system,machine,expected", [
-    ("Darwin", "arm64", PlatformInfo("darwin", "arm64")),
-    ("Darwin", "x86_64", PlatformInfo("darwin", "x86_64")),
-    ("Linux", "x86_64", PlatformInfo("linux", "x86_64")),
-    ("Linux", "aarch64", PlatformInfo("linux", "arm64")),
-    ("Windows", "AMD64", PlatformInfo("windows", "x86_64")),
-])
+@pytest.mark.parametrize(
+    "system,machine,expected",
+    [
+        ("Darwin", "arm64", PlatformInfo("darwin", "arm64")),
+        ("Darwin", "x86_64", PlatformInfo("darwin", "x86_64")),
+        ("Linux", "x86_64", PlatformInfo("linux", "x86_64")),
+        ("Linux", "aarch64", PlatformInfo("linux", "arm64")),
+        ("Windows", "AMD64", PlatformInfo("windows", "x86_64")),
+    ],
+)
 def test_detect_platform_known(system, machine, expected):
     assert detect_platform(system=system, machine=machine) == expected
 
 
-@pytest.mark.parametrize("system,machine", [
-    ("FreeBSD", "x86_64"),
-    ("Linux", "ppc64le"),
-])
+@pytest.mark.parametrize(
+    "system,machine",
+    [
+        ("FreeBSD", "x86_64"),
+        ("Linux", "ppc64le"),
+    ],
+)
 def test_detect_platform_unsupported(system, machine):
     with pytest.raises(UnsupportedPlatform):
         detect_platform(system=system, machine=machine)
@@ -112,9 +119,7 @@ def test_write_femmt_config_writes_both_when_pkg_present(tmp_path, monkeypatch):
 
 
 def test_read_configured_onelab_returns_none_when_missing(tmp_path, monkeypatch):
-    monkeypatch.setattr(
-        femmt_config, "HOME_CONFIG", tmp_path / "missing.json"
-    )
+    monkeypatch.setattr(femmt_config, "HOME_CONFIG", tmp_path / "missing.json")
     monkeypatch.setattr(femmt_config, "_femmt_package_config", lambda: None)
     assert femmt_config.read_configured_onelab() is None
 
@@ -148,9 +153,11 @@ def test_cli_check_returns_zero_when_ready(monkeypatch, capsys):
     from pfc_inductor.setup_deps.verify import VerifyReport
 
     rep = VerifyReport(
-        femmt_importable=True, femmt_version="0.5.4",
+        femmt_importable=True,
+        femmt_version="0.5.4",
         onelab_dir=Path("/tmp/onelab"),
-        onelab_binaries_present=True, config_consistent=True,
+        onelab_binaries_present=True,
+        config_consistent=True,
     )
     monkeypatch.setattr(cli_mod, "check_fea_setup", lambda: rep)
     code = cli_mod.main(["--check", "--no-color"])

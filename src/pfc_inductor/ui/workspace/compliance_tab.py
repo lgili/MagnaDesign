@@ -26,10 +26,10 @@ UI shape
     │  …                                                    │
     └───────────────────────────────────────────────────────┘
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Optional
 
 from PySide6.QtCore import QObject, Qt, QThread, Signal
@@ -71,7 +71,7 @@ class _DesignContext:
 
 
 class _ComplianceWorker(QObject):
-    done = Signal(object)   # ComplianceBundle
+    done = Signal(object)  # ComplianceBundle
     failed = Signal(str)
     finished = Signal()
 
@@ -91,15 +91,17 @@ class _ComplianceWorker(QObject):
     def run(self) -> None:
         try:
             bundle = evaluate(
-                self._ctx.spec, self._ctx.core,
-                self._ctx.wire, self._ctx.material,
+                self._ctx.spec,
+                self._ctx.core,
+                self._ctx.wire,
+                self._ctx.material,
                 self._ctx.result,
                 project_name=self._project_name,
                 region=self._region,  # type: ignore[arg-type]
                 edition=self._edition,  # type: ignore[arg-type]
             )
             self.done.emit(bundle)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             self.failed.emit(f"{type(exc).__name__}: {exc}")
         finally:
             self.finished.emit()
@@ -125,7 +127,8 @@ class _VerdictStrip(QFrame):
         self._label.setObjectName("ComplianceVerdictLabel")
         self._label.setWordWrap(True)
         self._label.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred,
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Preferred,
         )
 
         h.addWidget(self._marker)
@@ -139,26 +142,25 @@ class _VerdictStrip(QFrame):
         p = get_theme().palette
         t = get_theme().type
         color = {
-            "PASS":            p.success,
-            "MARGINAL":        p.warning,
-            "FAIL":            p.danger,
-            "NOT APPLICABLE":  p.text_muted,
+            "PASS": p.success,
+            "MARGINAL": p.warning,
+            "FAIL": p.danger,
+            "NOT APPLICABLE": p.text_muted,
         }.get(conclusion, p.text_muted)
         marker = {
-            "PASS": "✓", "MARGINAL": "~", "FAIL": "✗",
+            "PASS": "✓",
+            "MARGINAL": "~",
+            "FAIL": "✗",
         }.get(conclusion, "•")
         self._marker.setText(marker)
         self._marker.setStyleSheet(
-            f"color: {color}; font-weight: {t.semibold};"
-            f"font-size: {t.title_md}px;"
+            f"color: {color}; font-weight: {t.semibold};font-size: {t.title_md}px;"
         )
         text = f"{conclusion}"
         if summary:
             text += f" — {summary}"
         self._label.setText(text)
-        self._label.setStyleSheet(
-            f"color: {p.text}; font-size: {t.body_md}px;"
-        )
+        self._label.setStyleSheet(f"color: {p.text}; font-size: {t.body_md}px;")
         # Background uses the existing ``surface`` token; the
         # verdict colour lives on the marker + the left border so
         # we don't have to invent new pass/warn/fail subtle-bg
@@ -166,7 +168,8 @@ class _VerdictStrip(QFrame):
         r = get_theme().radius
         border_left = (
             f"  border-left: 4px solid {color};"
-            if conclusion in ("PASS", "MARGINAL", "FAIL") else ""
+            if conclusion in ("PASS", "MARGINAL", "FAIL")
+            else ""
         )
         self.setStyleSheet(
             f"QFrame#ComplianceVerdictStrip {{"
@@ -208,7 +211,8 @@ class _StandardCardBody(QFrame):
         h = self.table.horizontalHeader()
         for col in range(5):
             h.setSectionResizeMode(
-                col, QHeaderView.ResizeMode.ResizeToContents,
+                col,
+                QHeaderView.ResizeMode.ResizeToContents,
             )
         v.addWidget(self.table)
 
@@ -229,8 +233,7 @@ class _StandardCardBody(QFrame):
             mark = QTableWidgetItem("PASS" if passed else "FAIL")
             mark.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             mark.setForeground(
-                Qt.GlobalColor.darkGreen if passed
-                else Qt.GlobalColor.darkRed,
+                Qt.GlobalColor.darkGreen if passed else Qt.GlobalColor.darkRed,
             )
             self.table.setItem(r, 4, mark)
         if std.notes:
@@ -250,8 +253,7 @@ class ComplianceTab(QWidget):
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
-        self.setSizePolicy(QSizePolicy.Policy.Expanding,
-                           QSizePolicy.Policy.Expanding)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
         self._ctx: Optional[_DesignContext] = None
         self._project_name: str = "Untitled Project"
@@ -333,16 +335,18 @@ class ComplianceTab(QWidget):
         material: Material,
     ) -> None:
         self._ctx = _DesignContext(
-            spec=spec, core=core, wire=wire,
-            material=material, result=result,
+            spec=spec,
+            core=core,
+            wire=wire,
+            material=material,
+            result=result,
         )
         # Don't auto-run — same rationale as Worst-case tab. The
         # user clicks Evaluate when they're ready to see the
         # snapshot; otherwise every spec keystroke would re-run.
         if self._bundle is None:
             self._status.setText(
-                f"Ready · {spec.topology}. Click Evaluate to run "
-                f"the standards dispatcher.",
+                f"Ready · {spec.topology}. Click Evaluate to run the standards dispatcher.",
             )
 
     def set_project_name(self, name: str) -> None:
@@ -390,8 +394,7 @@ class ComplianceTab(QWidget):
         # a useful cover-page artefact for the audit trail.
         self._btn_pdf.setEnabled(True)
         self._status.setText(
-            f"Evaluated {len(bundle.standards)} standard(s) for "
-            f"region = {bundle.region}.",
+            f"Evaluated {len(bundle.standards)} standard(s) for region = {bundle.region}.",
         )
 
     def _on_failed(self, message: str) -> None:
@@ -434,18 +437,18 @@ class ComplianceTab(QWidget):
         # File-dialog title carries the project + verdict so the
         # default filename suggestion ("Compliance — <project>")
         # makes sense.
-        suggested = (
-            f"compliance_{self._project_name}.pdf"
-            .replace(" ", "_").replace("/", "-")
-        )
+        suggested = f"compliance_{self._project_name}.pdf".replace(" ", "_").replace("/", "-")
         path, _ = QFileDialog.getSaveFileName(
-            self, "Export compliance report",
-            suggested, "PDF (*.pdf)",
+            self,
+            "Export compliance report",
+            suggested,
+            "PDF (*.pdf)",
         )
         if not path:
             return
         try:
             from importlib.metadata import version as _version
+
             try:
                 app_version = _version("magnadesign")
             except Exception:
@@ -453,11 +456,13 @@ class ComplianceTab(QWidget):
             from pfc_inductor.compliance.pdf_writer import (
                 write_compliance_pdf,
             )
+
             out = write_compliance_pdf(
-                self._bundle, path,
+                self._bundle,
+                path,
                 app_version=app_version,
             )
-        except Exception as exc:  # noqa: BLE001 — surface anything
+        except Exception as exc:
             self._status.setText(f"PDF export failed: {exc}")
             return
         self._status.setText(f"PDF saved to {out}")

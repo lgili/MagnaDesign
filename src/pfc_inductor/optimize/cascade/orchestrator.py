@@ -19,9 +19,9 @@ orch.cancel()
 this `run_id` are skipped. After a crash, calling `run` again with
 the same `run_id` resumes without re-evaluation.
 """
+
 from __future__ import annotations
 
-import multiprocessing as mp
 import os
 import threading
 from concurrent.futures import ProcessPoolExecutor
@@ -42,7 +42,6 @@ from pfc_inductor.models import (
 from pfc_inductor.optimize.cascade.generators import cartesian
 from pfc_inductor.optimize.cascade.store import CandidateRow, RunStore
 from pfc_inductor.optimize.cascade.tier0 import filter_candidates
-from pfc_inductor.optimize.feasibility import viable_wires_for_spec
 from pfc_inductor.optimize.cascade.tier1 import (
     cost_USD,
     evaluate_candidate_safe,
@@ -66,9 +65,11 @@ from pfc_inductor.optimize.cascade.tier4 import (
 from pfc_inductor.optimize.cascade.tier4 import (
     evaluate_candidate_safe as evaluate_tier4_safe,
 )
+from pfc_inductor.optimize.feasibility import viable_wires_for_spec
 from pfc_inductor.topology.registry import model_for
 
 # ─── Public configuration & progress types ────────────────────────
+
 
 @dataclass(frozen=True)
 class CascadeConfig:
@@ -160,7 +161,11 @@ def _tier1_worker(
     core = s["cores"][candidate.core_id]
     wire = s["wires"][candidate.wire_id]
     result, error = evaluate_candidate_safe(
-        s["model"], candidate, core, mat, wire,
+        s["model"],
+        candidate,
+        core,
+        mat,
+        wire,
     )
     cost: Optional[float] = None
     if result is not None:
@@ -169,6 +174,7 @@ def _tier1_worker(
 
 
 # ─── Row builders ─────────────────────────────────────────────────
+
 
 def _row_from_tier0(t0: Tier0Result) -> CandidateRow:
     return CandidateRow(
@@ -204,13 +210,20 @@ def _row_with_tier4(
             notes_in["tier4_skipped"] = True
         return CandidateRow(
             candidate_key=base.candidate_key,
-            core_id=base.core_id, material_id=base.material_id,
-            wire_id=base.wire_id, N=base.N, gap_mm=base.gap_mm,
-            highest_tier=base.highest_tier, feasible_t0=base.feasible_t0,
-            loss_t1_W=base.loss_t1_W, temp_t1_C=base.temp_t1_C,
+            core_id=base.core_id,
+            material_id=base.material_id,
+            wire_id=base.wire_id,
+            N=base.N,
+            gap_mm=base.gap_mm,
+            highest_tier=base.highest_tier,
+            feasible_t0=base.feasible_t0,
+            loss_t1_W=base.loss_t1_W,
+            temp_t1_C=base.temp_t1_C,
             cost_t1_USD=base.cost_t1_USD,
-            loss_t2_W=base.loss_t2_W, saturation_t2=base.saturation_t2,
-            L_t3_uH=base.L_t3_uH, Bpk_t3_T=base.Bpk_t3_T,
+            loss_t2_W=base.loss_t2_W,
+            saturation_t2=base.saturation_t2,
+            L_t3_uH=base.L_t3_uH,
+            Bpk_t3_T=base.Bpk_t3_T,
             L_t4_uH=base.L_t4_uH,
             notes=notes_in or None,
         )
@@ -229,15 +242,20 @@ def _row_with_tier4(
     }
     return CandidateRow(
         candidate_key=base.candidate_key,
-        core_id=base.core_id, material_id=base.material_id,
-        wire_id=base.wire_id, N=base.N, gap_mm=base.gap_mm,
+        core_id=base.core_id,
+        material_id=base.material_id,
+        wire_id=base.wire_id,
+        N=base.N,
+        gap_mm=base.gap_mm,
         highest_tier=max(base.highest_tier, 4),
         feasible_t0=base.feasible_t0,
-        loss_t1_W=base.loss_t1_W, temp_t1_C=base.temp_t1_C,
+        loss_t1_W=base.loss_t1_W,
+        temp_t1_C=base.temp_t1_C,
         cost_t1_USD=base.cost_t1_USD,
         loss_t2_W=base.loss_t2_W,
         saturation_t2=base.saturation_t2,
-        L_t3_uH=base.L_t3_uH, Bpk_t3_T=base.Bpk_t3_T,
+        L_t3_uH=base.L_t3_uH,
+        Bpk_t3_T=base.Bpk_t3_T,
         L_t4_uH=tier4.L_avg_FEA_uH,
         notes=notes_in or None,
     )
@@ -264,13 +282,20 @@ def _row_with_tier3(
             notes_in["tier3_skipped"] = True
         return CandidateRow(
             candidate_key=base.candidate_key,
-            core_id=base.core_id, material_id=base.material_id,
-            wire_id=base.wire_id, N=base.N, gap_mm=base.gap_mm,
-            highest_tier=base.highest_tier, feasible_t0=base.feasible_t0,
-            loss_t1_W=base.loss_t1_W, temp_t1_C=base.temp_t1_C,
+            core_id=base.core_id,
+            material_id=base.material_id,
+            wire_id=base.wire_id,
+            N=base.N,
+            gap_mm=base.gap_mm,
+            highest_tier=base.highest_tier,
+            feasible_t0=base.feasible_t0,
+            loss_t1_W=base.loss_t1_W,
+            temp_t1_C=base.temp_t1_C,
             cost_t1_USD=base.cost_t1_USD,
-            loss_t2_W=base.loss_t2_W, saturation_t2=base.saturation_t2,
-            L_t3_uH=base.L_t3_uH, Bpk_t3_T=base.Bpk_t3_T,
+            loss_t2_W=base.loss_t2_W,
+            saturation_t2=base.saturation_t2,
+            L_t3_uH=base.L_t3_uH,
+            Bpk_t3_T=base.Bpk_t3_T,
             L_t4_uH=base.L_t4_uH,
             notes=notes_in or None,
         )
@@ -284,11 +309,15 @@ def _row_with_tier3(
     }
     return CandidateRow(
         candidate_key=base.candidate_key,
-        core_id=base.core_id, material_id=base.material_id,
-        wire_id=base.wire_id, N=base.N, gap_mm=base.gap_mm,
+        core_id=base.core_id,
+        material_id=base.material_id,
+        wire_id=base.wire_id,
+        N=base.N,
+        gap_mm=base.gap_mm,
         highest_tier=max(base.highest_tier, 3),
         feasible_t0=base.feasible_t0,
-        loss_t1_W=base.loss_t1_W, temp_t1_C=base.temp_t1_C,
+        loss_t1_W=base.loss_t1_W,
+        temp_t1_C=base.temp_t1_C,
         cost_t1_USD=base.cost_t1_USD,
         loss_t2_W=base.loss_t2_W,
         saturation_t2=base.saturation_t2,
@@ -320,13 +349,20 @@ def _row_with_tier2(
             notes_in["tier2_skipped"] = True
         return CandidateRow(
             candidate_key=base.candidate_key,
-            core_id=base.core_id, material_id=base.material_id,
-            wire_id=base.wire_id, N=base.N, gap_mm=base.gap_mm,
-            highest_tier=base.highest_tier, feasible_t0=base.feasible_t0,
-            loss_t1_W=base.loss_t1_W, temp_t1_C=base.temp_t1_C,
+            core_id=base.core_id,
+            material_id=base.material_id,
+            wire_id=base.wire_id,
+            N=base.N,
+            gap_mm=base.gap_mm,
+            highest_tier=base.highest_tier,
+            feasible_t0=base.feasible_t0,
+            loss_t1_W=base.loss_t1_W,
+            temp_t1_C=base.temp_t1_C,
             cost_t1_USD=base.cost_t1_USD,
-            loss_t2_W=base.loss_t2_W, saturation_t2=base.saturation_t2,
-            L_t3_uH=base.L_t3_uH, Bpk_t3_T=base.Bpk_t3_T,
+            loss_t2_W=base.loss_t2_W,
+            saturation_t2=base.saturation_t2,
+            L_t3_uH=base.L_t3_uH,
+            Bpk_t3_T=base.Bpk_t3_T,
             L_t4_uH=base.L_t4_uH,
             notes=notes_in or None,
         )
@@ -344,18 +380,24 @@ def _row_with_tier2(
     }
     return CandidateRow(
         candidate_key=base.candidate_key,
-        core_id=base.core_id, material_id=base.material_id,
-        wire_id=base.wire_id, N=base.N, gap_mm=base.gap_mm,
+        core_id=base.core_id,
+        material_id=base.material_id,
+        wire_id=base.wire_id,
+        N=base.N,
+        gap_mm=base.gap_mm,
         highest_tier=max(base.highest_tier, 2),
         feasible_t0=base.feasible_t0,
-        loss_t1_W=base.loss_t1_W, temp_t1_C=base.temp_t1_C,
+        loss_t1_W=base.loss_t1_W,
+        temp_t1_C=base.temp_t1_C,
         cost_t1_USD=base.cost_t1_USD,
         # Carry Tier-1 loss into the t2 column so downstream rankers
         # that order on `loss_t2_W` work transparently. If a future
         # tier recomputes loss, it overwrites this.
         loss_t2_W=base.loss_t1_W,
         saturation_t2=tier2.saturation_t2,
-        L_t3_uH=base.L_t3_uH, Bpk_t3_T=base.Bpk_t3_T, L_t4_uH=base.L_t4_uH,
+        L_t3_uH=base.L_t3_uH,
+        Bpk_t3_T=base.Bpk_t3_T,
+        L_t4_uH=base.L_t4_uH,
         notes=notes_in or None,
     )
 
@@ -401,6 +443,7 @@ def _row_from_tier1(
 
 # ─── Orchestrator ─────────────────────────────────────────────────
 
+
 @dataclass
 class CascadeOrchestrator:
     """Drives a cascade run from start to completion (or cancellation).
@@ -423,7 +466,9 @@ class CascadeOrchestrator:
     store: RunStore
     parallelism: int = field(default_factory=lambda: os.cpu_count() or 1)
     _cancel: threading.Event = field(
-        default_factory=threading.Event, init=False, repr=False,
+        default_factory=threading.Event,
+        init=False,
+        repr=False,
     )
 
     # ─── Lifecycle ────────────────────────────────────────────────
@@ -450,7 +495,9 @@ class CascadeOrchestrator:
         """Insert a new `runs` row and return the generated `run_id`."""
         cfg = config or CascadeConfig()
         return self.store.create_run(
-            spec, current_db_versions(), cfg.to_dict(),
+            spec,
+            current_db_versions(),
+            cfg.to_dict(),
         )
 
     # ─── Main entry point ────────────────────────────────────────
@@ -495,8 +542,11 @@ class CascadeOrchestrator:
         viable_wires = viable_wires_for_spec(spec, wires)
 
         all_candidates = [
-            c for c in cartesian(
-                materials, cores, viable_wires,
+            c
+            for c in cartesian(
+                materials,
+                cores,
+                viable_wires,
                 only_compatible_cores=cfg.only_compatible_cores,
                 only_round_wires=cfg.only_round_wires,
             )
@@ -520,10 +570,15 @@ class CascadeOrchestrator:
                 self.store.write_candidates_batch(run_id, pending_rows)
                 pending_rows.clear()
 
-        for i, t0 in enumerate(filter_candidates(
-            model, all_candidates,
-            materials_by_id, cores_by_id, wires_by_id,
-        )):
+        for i, t0 in enumerate(
+            filter_candidates(
+                model,
+                all_candidates,
+                materials_by_id,
+                cores_by_id,
+                wires_by_id,
+            )
+        ):
             if self._cancel.is_set():
                 _flush_pending()
                 self.store.update_status(run_id, "cancelled")
@@ -551,11 +606,23 @@ class CascadeOrchestrator:
 
         if self.parallelism > 1:
             self._run_tier1_parallel(
-                run_id, spec, materials, cores, wires, survivors, progress_cb,
+                run_id,
+                spec,
+                materials,
+                cores,
+                wires,
+                survivors,
+                progress_cb,
             )
         else:
             self._run_tier1_sequential(
-                run_id, spec, materials, cores, wires, survivors, progress_cb,
+                run_id,
+                spec,
+                materials,
+                cores,
+                wires,
+                survivors,
+                progress_cb,
             )
 
         # ── Tier 2 — sequential transient simulation on top-K survivors ──
@@ -565,7 +632,13 @@ class CascadeOrchestrator:
         # when `tier2_top_k == 0` or the topology lacks Tier-2 support.
         if cfg.tier2_top_k > 0 and not self._cancel.is_set():
             self._run_tier2_top_k(
-                run_id, spec, materials, cores, wires, cfg, progress_cb,
+                run_id,
+                spec,
+                materials,
+                cores,
+                wires,
+                cfg,
+                progress_cb,
             )
 
         # ── Tier 3 — magnetostatic FEA on top-K survivors ─────────
@@ -576,7 +649,13 @@ class CascadeOrchestrator:
         # as a `tier3_skipped` notes entry on each row instead.
         if cfg.tier3_top_k > 0 and not self._cancel.is_set():
             self._run_tier3_top_k(
-                run_id, spec, materials, cores, wires, cfg, progress_cb,
+                run_id,
+                spec,
+                materials,
+                cores,
+                wires,
+                cfg,
+                progress_cb,
             )
 
         # ── Tier 4 — swept-magnetostatic FEA on top-K survivors ──
@@ -588,7 +667,13 @@ class CascadeOrchestrator:
         # contract Tier 3 has.
         if cfg.tier4_top_k > 0 and not self._cancel.is_set():
             self._run_tier4_top_k(
-                run_id, spec, materials, cores, wires, cfg, progress_cb,
+                run_id,
+                spec,
+                materials,
+                cores,
+                wires,
+                cfg,
+                progress_cb,
             )
 
         if self._cancel.is_set():
@@ -621,13 +706,15 @@ class CascadeOrchestrator:
                 if self._cancel.is_set():
                     ex.shutdown(wait=False, cancel_futures=True)
                     return
-                batch = survivors[start:start + batch_size]
+                batch = survivors[start : start + batch_size]
                 # `map` preserves order across the batch — we need that to
                 # zip results back to candidates.
                 rows = [
                     _row_from_tier1(cand, t1, err, cost)
                     for cand, (t1, err, cost) in zip(
-                        batch, ex.map(_tier1_worker, batch), strict=False,
+                        batch,
+                        ex.map(_tier1_worker, batch),
+                        strict=False,
                     )
                 ]
                 # Single batched write per pool batch — Tier 1 surfaces
@@ -705,7 +792,9 @@ class CascadeOrchestrator:
             return
 
         top_rows = self.store.top_candidates(
-            run_id, n=cfg.tier2_top_k, order_by="loss_t1_W",
+            run_id,
+            n=cfg.tier2_top_k,
+            order_by="loss_t1_W",
         )
         if not top_rows:
             return
@@ -725,16 +814,21 @@ class CascadeOrchestrator:
                 # The store points at an entry the live DB no longer has;
                 # leave the row untouched, mark notes for later debugging.
                 self.store.write_candidate(
-                    run_id, _row_with_tier2(row, None, "missing_db_entry"),
+                    run_id,
+                    _row_with_tier2(row, None, "missing_db_entry"),
                 )
                 continue
             cand = Candidate(
-                core_id=row.core_id, material_id=row.material_id,
-                wire_id=row.wire_id, N=row.N, gap_mm=row.gap_mm,
+                core_id=row.core_id,
+                material_id=row.material_id,
+                wire_id=row.wire_id,
+                N=row.N,
+                gap_mm=row.gap_mm,
             )
             t2, err = evaluate_tier2_safe(model, cand, core, mat, wire)
             self.store.write_candidate(
-                run_id, _row_with_tier2(row, t2, err),
+                run_id,
+                _row_with_tier2(row, t2, err),
             )
             if progress_cb is not None:
                 progress_cb(TierProgress(tier=2, done=i + 1, total=total))
@@ -765,22 +859,29 @@ class CascadeOrchestrator:
             # Mark each top-K row with a notes entry instead of
             # writing nothing — tells the user "we tried, no FEA".
             top_rows = self.store.top_candidates(
-                run_id, n=cfg.tier3_top_k,
+                run_id,
+                n=cfg.tier3_top_k,
                 order_by=_tier3_order_column(cfg),
             )
             for row in top_rows:
                 self.store.write_candidate(
-                    run_id, _row_with_tier3(row, None, "tier3_unavailable: no FEA backend"),
+                    run_id,
+                    _row_with_tier3(row, None, "tier3_unavailable: no FEA backend"),
                 )
             if progress_cb is not None:
-                progress_cb(TierProgress(
-                    tier=3, done=len(top_rows), total=len(top_rows),
-                ))
+                progress_cb(
+                    TierProgress(
+                        tier=3,
+                        done=len(top_rows),
+                        total=len(top_rows),
+                    )
+                )
             return
 
         model = model_for(spec)
         top_rows = self.store.top_candidates(
-            run_id, n=cfg.tier3_top_k,
+            run_id,
+            n=cfg.tier3_top_k,
             order_by=_tier3_order_column(cfg),
         )
         if not top_rows:
@@ -799,20 +900,29 @@ class CascadeOrchestrator:
             wire = wires_by_id.get(row.wire_id)
             if mat is None or core is None or wire is None:
                 self.store.write_candidate(
-                    run_id, _row_with_tier3(row, None, "missing_db_entry"),
+                    run_id,
+                    _row_with_tier3(row, None, "missing_db_entry"),
                 )
                 continue
             cand = Candidate(
-                core_id=row.core_id, material_id=row.material_id,
-                wire_id=row.wire_id, N=row.N, gap_mm=row.gap_mm,
+                core_id=row.core_id,
+                material_id=row.material_id,
+                wire_id=row.wire_id,
+                N=row.N,
+                gap_mm=row.gap_mm,
             )
             t3, err = evaluate_tier3_safe(
-                model, cand, core, mat, wire,
+                model,
+                cand,
+                core,
+                mat,
+                wire,
                 timeout_s=cfg.tier3_timeout_s,
                 disagree_pct=cfg.tier3_disagree_pct,
             )
             self.store.write_candidate(
-                run_id, _row_with_tier3(row, t3, err),
+                run_id,
+                _row_with_tier3(row, t3, err),
             )
             if progress_cb is not None:
                 progress_cb(TierProgress(tier=3, done=i + 1, total=total))
@@ -840,22 +950,30 @@ class CascadeOrchestrator:
         """
         if not supports_tier4():
             top_rows = self.store.top_candidates(
-                run_id, n=cfg.tier4_top_k,
+                run_id,
+                n=cfg.tier4_top_k,
                 order_by=_tier4_order_column(cfg),
             )
             for row in top_rows:
                 self.store.write_candidate(
-                    run_id, _row_with_tier4(row, None, "tier4_unavailable: no FEA backend"),
+                    run_id,
+                    _row_with_tier4(row, None, "tier4_unavailable: no FEA backend"),
                 )
             if progress_cb is not None:
-                progress_cb(TierProgress(
-                    tier=4, done=len(top_rows), total=len(top_rows),
-                ))
+                progress_cb(
+                    TierProgress(
+                        tier=4,
+                        done=len(top_rows),
+                        total=len(top_rows),
+                    )
+                )
             return
 
         model = model_for(spec)
         top_rows = self.store.top_candidates(
-            run_id, n=cfg.tier4_top_k, order_by=_tier4_order_column(cfg),
+            run_id,
+            n=cfg.tier4_top_k,
+            order_by=_tier4_order_column(cfg),
         )
         if not top_rows:
             return
@@ -875,20 +993,29 @@ class CascadeOrchestrator:
             wire = wires_by_id.get(row.wire_id)
             if mat is None or core is None or wire is None:
                 self.store.write_candidate(
-                    run_id, _row_with_tier4(row, None, "missing_db_entry"),
+                    run_id,
+                    _row_with_tier4(row, None, "missing_db_entry"),
                 )
                 continue
             cand = Candidate(
-                core_id=row.core_id, material_id=row.material_id,
-                wire_id=row.wire_id, N=row.N, gap_mm=row.gap_mm,
+                core_id=row.core_id,
+                material_id=row.material_id,
+                wire_id=row.wire_id,
+                N=row.N,
+                gap_mm=row.gap_mm,
             )
             t4, err = evaluate_tier4_safe(
-                model, cand, core, mat, wire,
+                model,
+                cand,
+                core,
+                mat,
+                wire,
                 sweep_fractions=sweep_fractions,
                 timeout_s=cfg.tier4_timeout_s,
             )
             self.store.write_candidate(
-                run_id, _row_with_tier4(row, t4, err),
+                run_id,
+                _row_with_tier4(row, t4, err),
             )
             if progress_cb is not None:
                 progress_cb(TierProgress(tier=4, done=i + 1, total=total))

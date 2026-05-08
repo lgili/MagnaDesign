@@ -22,6 +22,7 @@ Why bento, not a fixed 2-col grid:
   rather than a 2×3 ``ResumoCard`` block — recovers ~120 px of vertical
   room for the table-and-3D row.
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -85,9 +86,7 @@ class DashboardPage(QWidget):
 
     def _apply_palette_bg(self) -> None:
         bg = get_theme().palette.bg
-        self._scroll.setStyleSheet(
-            f"QScrollArea {{ background: {bg}; border: 0; }}"
-        )
+        self._scroll.setStyleSheet(f"QScrollArea {{ background: {bg}; border: 0; }}")
         self._inner.setStyleSheet(f"background: {bg};")
 
         # Avoid re-creating the grid on every theme toggle.
@@ -157,18 +156,22 @@ class DashboardPage(QWidget):
         # Typed as ``list[DesignDisplay]`` so mypy/pyright catch a card
         # that drifts away from the contract.
         self._cards: list[DesignDisplay] = [
-            self.kpi_strip, self.card_formas,
-            self.card_nucleo, self.card_viz3d,
-            self.card_perdas, self.card_bobinamento,
-            self.card_entreferro, self.card_proximos,
+            self.kpi_strip,
+            self.card_formas,
+            self.card_nucleo,
+            self.card_viz3d,
+            self.card_perdas,
+            self.card_bobinamento,
+            self.card_entreferro,
+            self.card_proximos,
         ]
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
-    def update_from_design(self, result: DesignResult, spec: Spec,
-                           core: Core, wire: Wire,
-                           material: Material) -> None:
+    def update_from_design(
+        self, result: DesignResult, spec: Spec, core: Core, wire: Wire, material: Material
+    ) -> None:
         for card in self._cards:
             card.update_from_design(result, spec, core, wire, material)
 

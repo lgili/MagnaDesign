@@ -6,6 +6,7 @@ against each other in CCM steady state, exercise the diode clamp
 in DCM, and confirm the topology guard / DCM behaviour the
 docstring promises.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -38,7 +39,8 @@ def db():
 def _ref_inductor(db, *, N: int = 45) -> NonlinearInductor:
     material = find_material(db["materials"], "magnetics-60_highflux")
     core = next(
-        c for c in db["cores"]
+        c
+        for c in db["cores"]
         if c.default_material_id == material.id and 40_000 < c.Ve_mm3 < 100_000
     )
     return NonlinearInductor(core=core, material=material, N=N)
@@ -47,14 +49,23 @@ def _ref_inductor(db, *, N: int = 45) -> NonlinearInductor:
 def _spec_at_pout(Pout_W: float = 800.0) -> Spec:
     return Spec(
         topology="boost_ccm",
-        Vin_min_Vrms=85.0, Vin_max_Vrms=265.0, Vin_nom_Vrms=220.0,
-        Vout_V=400.0, Pout_W=Pout_W, eta=0.97,
-        f_sw_kHz=65.0, ripple_pct=30.0,
-        T_amb_C=40.0, T_max_C=100.0, Ku_max=0.40, Bsat_margin=0.20,
+        Vin_min_Vrms=85.0,
+        Vin_max_Vrms=265.0,
+        Vin_nom_Vrms=220.0,
+        Vout_V=400.0,
+        Pout_W=Pout_W,
+        eta=0.97,
+        f_sw_kHz=65.0,
+        ripple_pct=30.0,
+        T_amb_C=40.0,
+        T_max_C=100.0,
+        Ku_max=0.40,
+        Bsat_margin=0.20,
     )
 
 
 # ─── Topology guard ────────────────────────────────────────────────
+
 
 def test_simulate_transient_passive_topologies_delegate_to_step1(db):
     """Phase B Step 3: passive topologies use the imposed-trajectory
@@ -77,6 +88,7 @@ def test_simulate_transient_passive_topologies_delegate_to_step1(db):
 
 # ─── CCM steady-state agreement with Step 1 ───────────────────────
 
+
 def test_step2_agrees_with_step1_on_ccm_peak(db):
     """In CCM steady state, Step 2's mean trailing-cycle peak must
     agree with Step 1's analytical peak.
@@ -98,9 +110,7 @@ def test_step2_agrees_with_step1_on_ccm_peak(db):
     trailing = wf_step2.cycle_stats.i_pk_per_cycle_A[-4:]
     mean_pk = float(np.mean(trailing))
     rel_err_i = abs(mean_pk - wf_step1.i_pk_A) / wf_step1.i_pk_A
-    assert rel_err_i < 0.15, (
-        f"Step 2 / Step 1 mean i_pk disagreement {100*rel_err_i:.1f}% > 15 %"
-    )
+    assert rel_err_i < 0.15, f"Step 2 / Step 1 mean i_pk disagreement {100 * rel_err_i:.1f}% > 15 %"
 
 
 def test_step2_returns_well_formed_waveform(db):
@@ -124,6 +134,7 @@ def test_step2_returns_well_formed_waveform(db):
 
 # ─── Diode clamp / DCM behaviour ──────────────────────────────────
 
+
 def test_step2_diode_clamp_prevents_negative_current(db):
     """Force DCM with a deeply under-loaded spec (Pout 5 W on a
     big inductor at 65 kHz). The current must never go below zero
@@ -135,9 +146,7 @@ def test_step2_diode_clamp_prevents_negative_current(db):
 
     wf = simulate_transient(model, inductor, n_line_cycles=2)
 
-    assert (wf.i_L_A >= -1e-12).all(), (
-        f"diode clamp violated: min i_L = {wf.i_L_A.min():.3e}"
-    )
+    assert (wf.i_L_A >= -1e-12).all(), f"diode clamp violated: min i_L = {wf.i_L_A.min():.3e}"
 
 
 def test_step2_diode_clamp_engages_on_high_Kp(db):
@@ -158,12 +167,11 @@ def test_step2_diode_clamp_engages_on_high_Kp(db):
     # Very high Kp to provoke aggressive duty modulation that, sans
     # the clamp, would drive the integrator into negative current.
     wf = simulate_transient(model, inductor, Kp=2.0, n_line_cycles=2)
-    assert (wf.i_L_A >= 0.0).all(), (
-        f"diode clamp violated: min i_L = {wf.i_L_A.min():.6e}"
-    )
+    assert (wf.i_L_A >= 0.0).all(), f"diode clamp violated: min i_L = {wf.i_L_A.min():.6e}"
 
 
 # ─── Auto-tuned Kp ────────────────────────────────────────────────
+
 
 def test_step2_default_Kp_produces_stable_result(db):
     """Auto-tuned Kp should always produce a finite, monotone-bounded
@@ -192,6 +200,7 @@ def test_step2_explicit_Kp_overrides_auto_tune(db):
 
 
 # ─── SimulationConfig knobs apply ─────────────────────────────────
+
 
 def test_step2_honours_steps_per_switching_period(db):
     """Bumping `steps_per_switching_period` increases the trace length."""

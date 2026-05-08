@@ -9,10 +9,10 @@ Three guarantees:
 3. End-to-end ``parse_cores`` produces a non-empty list of validated
    :class:`Core` objects from the bundled snapshot.
 """
+
 from __future__ import annotations
 
 import importlib.util
-import json
 import sys
 from pathlib import Path
 
@@ -24,7 +24,8 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 
 def _load_script(name: str):
     spec = importlib.util.spec_from_file_location(
-        name, REPO_ROOT / "scripts" / f"{name}.py",
+        name,
+        REPO_ROOT / "scripts" / f"{name}.py",
     )
     if spec is None or spec.loader is None:
         raise RuntimeError(f"could not load script {name}")
@@ -50,15 +51,14 @@ def shapes_index(script):
 # Toroid decoder — closed-form, must be exact
 # ---------------------------------------------------------------------------
 
+
 def test_toroid_decoder_matches_closed_form(script):
     """T 13/7/6 (Magnetics 0077121A7) datasheet:
     Ae=19.4 mm², le=32.1 mm, Ve=624 mm³.
 
     Toroid formula has no approximation — match to ±2 %.
     """
-    Ae, le, Ve, Wa, MLT, OD, ID, HT = script._decode_toroid(
-        {"A": 13.0, "B": 7.0, "C": 6.0}
-    )
+    Ae, le, Ve, _Wa, _MLT, OD, ID, HT = script._decode_toroid({"A": 13.0, "B": 7.0, "C": 6.0})
     assert Ae == pytest.approx(18.0, rel=0.05)  # (13-7)/2 * 6 = 18
     # Datasheet 19.4 includes the round corner — accept ±10 %.
     assert le == pytest.approx(31.42, rel=0.05)  # π * (13+7)/2
@@ -79,6 +79,7 @@ def test_toroid_zero_dim_returns_none(script):
 # Dim conversion
 # ---------------------------------------------------------------------------
 
+
 def test_nominal_mm_handles_min_max_envelope(script):
     """``{minimum, maximum}`` returns the midpoint × 1000 (m → mm)."""
     assert script._nominal_mm({"minimum": 0.010, "maximum": 0.012}) == pytest.approx(11.0)
@@ -98,6 +99,7 @@ def test_nominal_mm_handles_single_bound(script):
 # PyETK decoder reuse
 # ---------------------------------------------------------------------------
 
+
 def test_etd39_dispatches_to_pyetk_decoder(script, shapes_index):
     """ETD 39/20/13 routes through the ETD decoder.
 
@@ -113,7 +115,7 @@ def test_etd39_dispatches_to_pyetk_decoder(script, shapes_index):
     """
     s = shapes_index.get("ETD 39/20/13")
     assert s is not None, "ETD 39/20/13 must exist in vendored snapshot"
-    Ae, le, Ve, *_ = script.decode(s["family"], s["dims"])
+    Ae, le, _Ve, *_ = script.decode(s["family"], s["dims"])
     # Ferroxcube ETD39: Ae=125, le=92.2, Ve=11500.
     assert abs(Ae - 125.0) / 125.0 < 0.05
     assert abs(le - 92.2) / 92.2 < 0.25
@@ -122,6 +124,7 @@ def test_etd39_dispatches_to_pyetk_decoder(script, shapes_index):
 # ---------------------------------------------------------------------------
 # End-to-end smoke
 # ---------------------------------------------------------------------------
+
 
 def test_parse_cores_returns_non_empty(script, shapes_index):
     cores, stats = script.parse_cores(
@@ -141,6 +144,7 @@ def test_loader_picks_up_mas_cores():
     """End-to-end: ``load_cores()`` must surface MAS-imported cores
     once ``import_mas_cores.py`` has run."""
     from pfc_inductor.data_loader import load_cores, load_curated_ids
+
     catalog = REPO_ROOT / "data" / "mas" / "catalog" / "cores.json"
     if not catalog.exists():
         pytest.skip("MAS cores catalog not generated — run import_mas_cores.py")

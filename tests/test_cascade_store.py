@@ -1,4 +1,5 @@
 """RunStore (SQLite persistence) regression tests."""
+
 from __future__ import annotations
 
 import multiprocessing
@@ -22,10 +23,18 @@ def store(tmp_path: Path) -> RunStore:
 def _make_spec(Pout: float = 800.0) -> Spec:
     return Spec(
         topology="boost_ccm",
-        Vin_min_Vrms=85.0, Vin_max_Vrms=265.0, Vin_nom_Vrms=220.0,
-        Vout_V=400.0, Pout_W=Pout, eta=0.97,
-        f_sw_kHz=65.0, ripple_pct=30.0,
-        T_amb_C=40.0, T_max_C=100.0, Ku_max=0.40, Bsat_margin=0.20,
+        Vin_min_Vrms=85.0,
+        Vin_max_Vrms=265.0,
+        Vin_nom_Vrms=220.0,
+        Vout_V=400.0,
+        Pout_W=Pout,
+        eta=0.97,
+        f_sw_kHz=65.0,
+        ripple_pct=30.0,
+        T_amb_C=40.0,
+        T_max_C=100.0,
+        Ku_max=0.40,
+        Bsat_margin=0.20,
     )
 
 
@@ -46,6 +55,7 @@ def _make_candidate(i: int, *, loss: float | None = None) -> CandidateRow:
 
 # ─── Spec.canonical_hash ────────────────────────────────────────────
 
+
 def test_spec_canonical_hash_is_deterministic():
     s1 = _make_spec()
     s2 = _make_spec()
@@ -60,6 +70,7 @@ def test_spec_canonical_hash_changes_with_any_field():
 
 # ─── current_db_versions ────────────────────────────────────────────
 
+
 def test_current_db_versions_returns_three_hashes():
     versions = current_db_versions()
     assert set(versions.keys()) == {"materials", "cores", "wires"}
@@ -73,6 +84,7 @@ def test_current_db_versions_is_stable_across_calls():
 
 
 # ─── RunStore — runs ───────────────────────────────────────────────
+
 
 def test_create_run_returns_id_and_record(store: RunStore):
     spec = _make_spec()
@@ -122,6 +134,7 @@ def test_find_resumable_run_ignores_other_specs(store: RunStore):
 
 
 # ─── RunStore — candidates ─────────────────────────────────────────
+
 
 def test_write_and_read_candidate(store: RunStore):
     run_id = store.create_run(_make_spec(), current_db_versions())
@@ -173,6 +186,7 @@ def test_top_candidates_rejects_unsupported_order_by(store: RunStore):
 
 # ─── Resumability — kill, restart, no re-evaluation ────────────────
 
+
 def _writer_subprocess(db_path: str, run_id: str, n: int) -> None:
     """Helper run in a separate process so we can simulate a crash."""
     store = RunStore(Path(db_path))
@@ -217,6 +231,7 @@ def test_resume_finds_already_evaluated_keys(tmp_path: Path):
 # of the user-visible "first step never finishes" symptom. Below we lock
 # in the batch contract so a regression would surface immediately.
 
+
 def test_write_candidates_batch_persists_all_rows(store):
     """All rows in the iterable land in the table, in INSERT order."""
     spec = Spec()
@@ -224,9 +239,13 @@ def test_write_candidates_batch_persists_all_rows(store):
     rows = [
         CandidateRow(
             candidate_key=f"k{i}",
-            core_id=f"core{i % 10}", material_id="mat", wire_id="wire",
-            N=None, gap_mm=None,
-            highest_tier=0, feasible_t0=(i % 2 == 0),
+            core_id=f"core{i % 10}",
+            material_id="mat",
+            wire_id="wire",
+            N=None,
+            gap_mm=None,
+            highest_tier=0,
+            feasible_t0=(i % 2 == 0),
         )
         for i in range(2_500)
     ]
@@ -243,9 +262,13 @@ def test_write_candidates_batch_idempotent_on_replay(store):
     run_id = store.create_run(spec, current_db_versions())
     row = CandidateRow(
         candidate_key="k0",
-        core_id="c", material_id="m", wire_id="w",
-        N=None, gap_mm=None,
-        highest_tier=0, feasible_t0=True,
+        core_id="c",
+        material_id="m",
+        wire_id="w",
+        N=None,
+        gap_mm=None,
+        highest_tier=0,
+        feasible_t0=True,
     )
     store.write_candidates_batch(run_id, [row])
     store.write_candidates_batch(run_id, [row])  # replay
@@ -273,9 +296,13 @@ def test_write_candidates_batch_chunks_large_input(store):
     rows = [
         CandidateRow(
             candidate_key=f"k{i}",
-            core_id="c", material_id="m", wire_id="w",
-            N=None, gap_mm=None,
-            highest_tier=0, feasible_t0=True,
+            core_id="c",
+            material_id="m",
+            wire_id="w",
+            N=None,
+            gap_mm=None,
+            highest_tier=0,
+            feasible_t0=True,
         )
         for i in range(7_500)
     ]

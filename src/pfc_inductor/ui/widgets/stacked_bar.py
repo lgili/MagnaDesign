@@ -9,6 +9,7 @@ Designed to look right at any width from ~180 px upward — uses
 ``QFrame`` rectangles tinted by inline QSS instead of matplotlib so
 there is no fixed ``figsize`` to fight with the parent layout.
 """
+
 from __future__ import annotations
 
 import math
@@ -35,6 +36,7 @@ class Segment(NamedTuple):
     (``seg[0]`` vs ``seg.label``). Tuple unpacking still works for the
     legacy callsites that destructure ``(label, value, color)``.
     """
+
     label: str
     value: float
     color: Optional[str] = None
@@ -60,8 +62,7 @@ class HorizontalStackedBar(QWidget):
         parent: Optional[QWidget] = None,
     ) -> None:
         super().__init__(parent)
-        self.setSizePolicy(QSizePolicy.Policy.Expanding,
-                           QSizePolicy.Policy.Preferred)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self._total_format = total_format
         self._total_caption = total_caption
         self._unit = unit
@@ -90,8 +91,7 @@ class HorizontalStackedBar(QWidget):
         # ---- the bar itself -------------------------------------------
         self._track = QFrame()
         self._track.setFixedHeight(self.BAR_HEIGHT)
-        self._track.setSizePolicy(QSizePolicy.Policy.Expanding,
-                                  QSizePolicy.Policy.Fixed)
+        self._track.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self._track_lay = QHBoxLayout(self._track)
         self._track_lay.setContentsMargins(0, 0, 0, 0)
         self._track_lay.setSpacing(0)
@@ -151,9 +151,7 @@ class HorizontalStackedBar(QWidget):
             self._lbl_total.setText("—")
             # Empty track placeholder so the bar doesn't disappear.
             ph = QFrame()
-            ph.setStyleSheet(
-                f"background:{p.bg}; border-radius:{self.BAR_HEIGHT // 2}px;"
-            )
+            ph.setStyleSheet(f"background:{p.bg}; border-radius:{self.BAR_HEIGHT // 2}px;")
             self._track_lay.addWidget(ph, 1)
             return
 
@@ -195,23 +193,16 @@ class HorizontalStackedBar(QWidget):
             sw_l.addWidget(swatch, 0, Qt.AlignmentFlag.AlignVCenter)
 
             lbl = QLabel(label)
-            lbl.setStyleSheet(
-                f"color:{p.text_secondary}; font-size:{t.body}px;"
-            )
+            lbl.setStyleSheet(f"color:{p.text_secondary}; font-size:{t.body}px;")
             val = QLabel(self._total_format.format(value))
             val.setStyleSheet(
                 f"color:{p.text}; font-size:{t.body_md}px;"
                 f" font-family:{t.numeric_family}; font-weight:{t.semibold};"
             )
             val.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-            pct_text = (
-                f"{100.0 * max(0.0, value) / total:.0f}%"
-                if total > 0 else "—"
-            )
+            pct_text = f"{100.0 * max(0.0, value) / total:.0f}%" if total > 0 else "—"
             pct = QLabel(pct_text)
-            pct.setStyleSheet(
-                f"color:{p.text_muted}; font-size:{t.caption}px;"
-            )
+            pct.setStyleSheet(f"color:{p.text_muted}; font-size:{t.caption}px;")
             self._legend.addWidget(swatch_wrap, row, 0)
             self._legend.addWidget(lbl, row, 1)
             self._legend.addWidget(val, row, 2)
@@ -226,8 +217,6 @@ class HorizontalStackedBar(QWidget):
             f" font-family:{t.numeric_family}; font-weight:{t.bold};"
         )
         # Bar track background acts as the "rest" segment when total is 0.
-        self._track.setStyleSheet(
-            f"background:{p.bg}; border-radius:{self.BAR_HEIGHT // 2}px;"
-        )
+        self._track.setStyleSheet(f"background:{p.bg}; border-radius:{self.BAR_HEIGHT // 2}px;")
         # Re-render so segment QSS uses the latest palette.
         self._render()

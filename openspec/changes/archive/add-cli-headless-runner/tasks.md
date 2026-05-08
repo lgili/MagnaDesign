@@ -54,10 +54,13 @@
 
 ## Phase 5 — Reporting subcommands
 
-- [ ] `magnadesign datasheet PROJECT.pfc --out FILE.html` →
-      reuses `report.datasheet.generate_datasheet`.
-- [ ] `magnadesign mfg-spec PROJECT.pfc --out FILE.pdf` (depends
-      on `add-manufacturing-spec-export`).
+- [x] `magnadesign datasheet PROJECT.pfc --out FILE.{pdf,html}`
+       — extension drives format. _Shipped in `89e464e
+       feat(cli): datasheet, catalog, report subcommands`._
+- [x] `magnadesign mfg-spec PROJECT.pfc --out FILE.{pdf,xlsx}`
+       — vendor-quotable PDF or ERP-friendly XLSX with Specs /
+       BOM / Tests sheets. _Shipped in `65b6ada
+       feat(manufacturing): vendor-quotable spec export`._
 - [x] `magnadesign compliance PROJECT.pfc --region EU --out FILE.pdf`
        — runs the dispatcher, prints overall + per-standard
        verdict, optionally writes the PDF, exits with
@@ -67,28 +70,51 @@
         --pretty/--json]` — runs the corner DOE + Monte-Carlo,
        prints the per-metric worst corner + yield + verdict.
        Exit codes: ``0`` PASS, ``3`` WORST_CASE_FAIL.
-- [ ] `magnadesign report PROJECT.pfc --out DIR/` — convenience:
-      datasheet + mfg-spec + compliance into one directory.
+- [x] `magnadesign report PROJECT.pfc --out DIR/` — bundle of
+       datasheet.pdf + kpi.json + compliance_<REGION>.pdf +
+       manifest.json (with per-file SHA-256). _Shipped in
+       `89e464e`._
+- [x] `magnadesign circuit PROJECT.pfc --format {ltspice|psim|
+       modelica} --out FILE` — saturable-inductor model with the
+       engine's L(I) rolloff. _Shipped in `c1210f1 feat(export):
+       circuit-simulator export`._
 
 ## Phase 6 — Catalog + validate
 
-- [ ] `magnadesign catalog (materials|cores|wires) [--filter type=ferrite]
-       [--csv OUT]`.
-- [ ] `magnadesign validate REFERENCE_ID` — runs the named
-      validation notebook via papermill and prints PASS/FAIL.
+- [x] `magnadesign catalog (materials|cores|wires) [--filter
+       key=value]... [--csv OUT] [--limit N]` — _shipped in
+       `89e464e`. Filters are AND'd, case-insensitive substring
+       match against the row's attribute (or model_dump fallback
+       for nested keys)._
+- [~] `magnadesign validate REFERENCE_ID` — runs the named
+      validation notebook via papermill. *Deferred — gated on
+      `add-validation-reference-set` shipping the notebooks
+      first; the CLI hook is ~30 LOC of papermill glue once they
+      land.*
 
 ## Phase 7 — Exit codes + machine-readable output
 
-- [ ] Standardise exit codes in `pfc_inductor/cli/exit_codes.py`:
-      `0 OK, 1 GENERIC_ERROR, 2 COMPLIANCE_FAIL, 3 WORST_CASE_FAIL,
-      4 USAGE_ERROR`.
-- [ ] Default output: JSON-LD on stdout for every subcommand.
-      `--pretty` switches to a Rich-based table render.
+- [x] Standardise exit codes in `pfc_inductor/cli/exit_codes.py`:
+      ``0 OK, 1 GENERIC_ERROR, 2 COMPLIANCE_FAIL, 3
+      WORST_CASE_FAIL, 4 USAGE_ERROR``. Documented per-subcommand
+      in their docstrings.
+- [x] Default output: JSON on stdout (machine-friendly);
+      ``--pretty`` switches to a key-value table render via the
+      shared ``emit()`` helper. _Rich-based tables not adopted —
+      the lighter helper covers the spot-check use case without
+      pulling a 2 MB dep into the CLI._
 
 ## Phase 8 — Docs + release
 
-- [ ] `docs/cli.md`: usage cheat sheet; copy-pasteable Bash
-      examples for the most common workflows.
-- [ ] CI: add a job that runs the CLI on the example project and
-      asserts a non-zero exit on a deliberately-broken spec.
-- [ ] CHANGELOG + README mention the new CLI.
+- [x] `docs/getting-started/cli.rst` — Sphinx CLI cheat sheet
+      shipped in `da5c40e feat(docs): Sphinx site`. Copy-
+      pasteable subcommand examples + exit codes.
+- [~] CI: add a job that runs the CLI on the example project
+      and asserts a non-zero exit on a deliberately-broken
+      spec. *Deferred — the CLI is exercised by 60+ unit tests
+      in `tests/test_cli_*` already; a dedicated CI job lands
+      with the next pipeline pass.*
+- [~] CHANGELOG + README mention the new CLI.
+      *Deferred — README + CHANGELOG sweep planned alongside
+      the next release tag. POSITIONING.md was updated to drop
+      the "no CLI" claim.*

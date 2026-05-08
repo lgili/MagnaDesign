@@ -1,4 +1,5 @@
 """Integrator (imposed-trajectory) regression tests."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -29,23 +30,33 @@ def db():
 def _spec() -> Spec:
     return Spec(
         topology="boost_ccm",
-        Vin_min_Vrms=85.0, Vin_max_Vrms=265.0, Vin_nom_Vrms=220.0,
-        Vout_V=400.0, Pout_W=800.0, eta=0.97,
-        f_sw_kHz=65.0, ripple_pct=30.0,
-        T_amb_C=40.0, T_max_C=100.0, Ku_max=0.40, Bsat_margin=0.20,
+        Vin_min_Vrms=85.0,
+        Vin_max_Vrms=265.0,
+        Vin_nom_Vrms=220.0,
+        Vout_V=400.0,
+        Pout_W=800.0,
+        eta=0.97,
+        f_sw_kHz=65.0,
+        ripple_pct=30.0,
+        T_amb_C=40.0,
+        T_max_C=100.0,
+        Ku_max=0.40,
+        Bsat_margin=0.20,
     )
 
 
 def _ref_inductor(db, N: int = 45) -> NonlinearInductor:
     material = find_material(db["materials"], "magnetics-60_highflux")
     core = next(
-        c for c in db["cores"]
+        c
+        for c in db["cores"]
         if c.default_material_id == material.id and 40_000 < c.Ve_mm3 < 100_000
     )
     return NonlinearInductor(core=core, material=material, N=N)
 
 
 # ─── Waveform shape ─────────────────────────────────────────────
+
 
 def test_waveform_spans_one_line_cycle(db):
     spec = _spec()
@@ -83,10 +94,10 @@ def test_waveform_peak_exceeds_line_envelope_by_ripple(db):
 
     # Topology-supplied peak (no ripple).
     from pfc_inductor.optimize.feasibility import peak_current_A
+
     I_pk_line = peak_current_A(spec)
     assert wf.i_pk_A > I_pk_line, (
-        f"Tier 2 must report a peak > line envelope ({I_pk_line:.2f}); "
-        f"got {wf.i_pk_A:.2f}",
+        f"Tier 2 must report a peak > line envelope ({I_pk_line:.2f}); got {wf.i_pk_A:.2f}",
     )
     # And not absurdly higher (e.g. 30% of I_pk default ripple).
     overage = (wf.i_pk_A - I_pk_line) / I_pk_line
@@ -94,6 +105,7 @@ def test_waveform_peak_exceeds_line_envelope_by_ripple(db):
 
 
 # ─── Non-linear L(i) actually applied ──────────────────────────
+
 
 def test_simulator_uses_non_linear_inductance_at_each_sample(db):
     """B is computed with L(i_inst), not constant L."""
@@ -109,6 +121,7 @@ def test_simulator_uses_non_linear_inductance_at_each_sample(db):
 
 
 # ─── Convergence flag is honest ─────────────────────────────────
+
 
 def test_cycle_stats_convergence_is_consistent_with_data(db):
     spec = _spec()
@@ -126,6 +139,7 @@ def test_cycle_stats_convergence_is_consistent_with_data(db):
 
 # ─── Sample-rate config is honoured ─────────────────────────────
 
+
 def test_config_samples_per_line_cycle_minimum_is_floor(db):
     spec = _spec()
     model = BoostCCMModel(spec)
@@ -136,6 +150,7 @@ def test_config_samples_per_line_cycle_minimum_is_floor(db):
 
 
 # ─── last_cycle slice ──────────────────────────────────────────
+
 
 def test_last_cycle_returns_just_one_period(db):
     spec = _spec()

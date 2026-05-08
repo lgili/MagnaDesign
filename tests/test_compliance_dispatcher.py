@@ -7,9 +7,9 @@ glue (topology routing, harmonic-spectrum extraction, verdict
 aggregation) and a PDF smoke test that asserts the file is
 written + non-empty.
 """
+
 from __future__ import annotations
 
-import io
 from pathlib import Path
 
 import pytest
@@ -47,13 +47,17 @@ def line_reactor_design(catalogue):
     mats, cores, wires = catalogue
     spec = Spec(
         topology="line_reactor",
-        Vin_min_Vrms=85, Vin_max_Vrms=265, Vin_nom_Vrms=230,
-        Pout_W=600, n_phases=1, L_req_mH=10.0,
-        I_rated_Arms=2.6, T_amb_C=40,
+        Vin_min_Vrms=85,
+        Vin_max_Vrms=265,
+        Vin_nom_Vrms=230,
+        Pout_W=600,
+        n_phases=1,
+        L_req_mH=10.0,
+        I_rated_Arms=2.6,
+        T_amb_C=40,
     )
     mat = next(m for m in mats if m.id == "magnetics-60_highflux")
-    core = next(c for c in cores
-                if c.id == "magnetics-c058777a2-60_highflux")
+    core = next(c for c in cores if c.id == "magnetics-c058777a2-60_highflux")
     wire = next(w for w in wires if w.id == "AWG14")
     result = run_design(spec, core, wire, mat)
     return spec, core, wire, mat, result
@@ -66,13 +70,17 @@ def boost_design(catalogue):
     "trivially compliant + measurement still required" note."""
     mats, cores, wires = catalogue
     spec = Spec(
-        topology="boost_ccm", Pout_W=600,
-        Vin_min_Vrms=85, Vin_max_Vrms=265, Vout_V=400,
-        f_sw_kHz=65, ripple_pct=20, T_amb_C=40,
+        topology="boost_ccm",
+        Pout_W=600,
+        Vin_min_Vrms=85,
+        Vin_max_Vrms=265,
+        Vout_V=400,
+        f_sw_kHz=65,
+        ripple_pct=20,
+        T_amb_C=40,
     )
     mat = next(m for m in mats if m.id == "magnetics-60_highflux")
-    core = next(c for c in cores
-                if c.id == "magnetics-c058777a2-60_highflux")
+    core = next(c for c in cores if c.id == "magnetics-c058777a2-60_highflux")
     wire = next(w for w in wires if w.id == "AWG14")
     result = run_design(spec, core, wire, mat)
     return spec, core, wire, mat, result
@@ -103,8 +111,7 @@ def test_line_reactor_compliance_returns_iec_result(
     line_reactor_design,
 ) -> None:
     spec, core, wire, mat, result = line_reactor_design
-    bundle = evaluate(spec, core, wire, mat, result,
-                      project_name="lr-test", region="EU")
+    bundle = evaluate(spec, core, wire, mat, result, project_name="lr-test", region="EU")
     assert isinstance(bundle, ComplianceBundle)
     assert bundle.project_name == "lr-test"
     assert len(bundle.standards) == 1
@@ -126,9 +133,7 @@ def test_line_reactor_iec_result_has_per_harmonic_rows(
         assert value.endswith(" mA")
         assert limit.endswith(" mA")
         assert isinstance(margin, float)
-        assert isinstance(passed, bool), (
-            "passed must be a Python bool (numpy.bool_ trips JSON)"
-        )
+        assert isinstance(passed, bool), "passed must be a Python bool (numpy.bool_ trips JSON)"
 
 
 def test_line_reactor_overall_aggregates_per_standard(
@@ -168,14 +173,13 @@ def test_compliance_bundle_overall_picks_worst() -> None:
     be FAIL if any standard fails, else MARGINAL if any is
     marginal, else PASS."""
     bundle = ComplianceBundle(
-        project_name="x", topology="boost_ccm", region="EU",
+        project_name="x",
+        topology="boost_ccm",
+        region="EU",
         standards=[
-            StandardResult(standard="A", edition="1", scope="",
-                           conclusion="PASS", summary=""),
-            StandardResult(standard="B", edition="1", scope="",
-                           conclusion="MARGINAL", summary=""),
-            StandardResult(standard="C", edition="1", scope="",
-                           conclusion="FAIL", summary=""),
+            StandardResult(standard="A", edition="1", scope="", conclusion="PASS", summary=""),
+            StandardResult(standard="B", edition="1", scope="", conclusion="MARGINAL", summary=""),
+            StandardResult(standard="C", edition="1", scope="", conclusion="FAIL", summary=""),
         ],
     )
     assert bundle.overall == "FAIL"
@@ -183,7 +187,9 @@ def test_compliance_bundle_overall_picks_worst() -> None:
 
 def test_empty_bundle_overall_is_not_applicable() -> None:
     bundle = ComplianceBundle(
-        project_name="x", topology="boost_ccm", region="EU",
+        project_name="x",
+        topology="boost_ccm",
+        region="EU",
         standards=[],
     )
     assert bundle.overall == "NOT APPLICABLE"
@@ -193,7 +199,8 @@ def test_empty_bundle_overall_is_not_applicable() -> None:
 # PDF writer
 # ---------------------------------------------------------------------------
 def test_pdf_writer_produces_non_empty_file(
-    line_reactor_design, tmp_path: Path,
+    line_reactor_design,
+    tmp_path: Path,
 ) -> None:
     """Smoke test — full pipeline (engine → dispatcher → PDF).
     We don't assert PDF content (golden-file diffs would be too
@@ -201,11 +208,12 @@ def test_pdf_writer_produces_non_empty_file(
     exists, parses as a PDF, and has at least one page worth of
     bytes."""
     spec, core, wire, mat, result = line_reactor_design
-    bundle = evaluate(spec, core, wire, mat, result,
-                      project_name="pdf-smoke", region="EU")
+    bundle = evaluate(spec, core, wire, mat, result, project_name="pdf-smoke", region="EU")
     out = write_compliance_pdf(
-        bundle, tmp_path / "compliance.pdf",
-        app_version="0.1.0", git_sha="abc1234",
+        bundle,
+        tmp_path / "compliance.pdf",
+        app_version="0.1.0",
+        git_sha="abc1234",
     )
     assert out.is_file()
     payload = out.read_bytes()
@@ -221,11 +229,15 @@ def test_pdf_writer_handles_no_standards_gracefully(tmp_path: Path) -> None:
     with a "no applicable standards" notice — the writer never
     raises on a no-op bundle."""
     bundle = ComplianceBundle(
-        project_name="empty", topology="boost_ccm", region="US",
+        project_name="empty",
+        topology="boost_ccm",
+        region="US",
         standards=[],
     )
     out = write_compliance_pdf(
-        bundle, tmp_path / "empty.pdf", app_version="0.1.0",
+        bundle,
+        tmp_path / "empty.pdf",
+        app_version="0.1.0",
     )
     assert out.is_file()
     assert out.read_bytes().startswith(b"%PDF-")

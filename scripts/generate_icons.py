@@ -22,6 +22,7 @@ matching macOS slots automatically. We pre-render PNG variants so
 the encoders sample our hand-tuned source instead of doing their
 own (possibly worse) downscaling.
 """
+
 from __future__ import annotations
 
 import sys
@@ -64,8 +65,7 @@ def main() -> int:
         sizes=[(s, s) for s in ICO_SIZES],
         append_images=ico_imgs[:-1],
     )
-    print(f"  wrote {ico_path.relative_to(REPO_ROOT)} "
-          f"({', '.join(str(s) for s in ICO_SIZES)})")
+    print(f"  wrote {ico_path.relative_to(REPO_ROOT)} ({', '.join(str(s) for s in ICO_SIZES)})")
 
     # 2. .icns — macOS
     icns_path = OUT_DIR / "logo.icns"

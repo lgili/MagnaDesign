@@ -4,6 +4,7 @@ Runs ``scripts/import_mas_catalog.py`` (the ``run_import`` function) on a
 ``QThread`` so a 5–10 s import doesn't block the UI. Emits a summary so
 the caller can reload the in-memory database when it's done.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -26,8 +27,8 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 class _ImportWorker(QObject):
-    finished = Signal(int, str)   # exit_code, captured stdout
-    progress = Signal(str)        # streaming log line
+    finished = Signal(int, str)  # exit_code, captured stdout
+    progress = Signal(str)  # streaming log line
 
     def __init__(self, source_dir: Path):
         super().__init__()
@@ -79,7 +80,9 @@ class CatalogUpdateDialog(QDialog):
     completed = Signal()  # caller should reload the in-memory db
 
     def __init__(
-        self, source_dir: Optional[Path] = None, parent=None,
+        self,
+        source_dir: Optional[Path] = None,
+        parent=None,
     ):
         super().__init__(parent)
         self.setWindowTitle("Update component catalog")
@@ -131,8 +134,7 @@ class CatalogUpdateDialog(QDialog):
             return
         if not self._source.exists():
             self.lbl_result.setText(
-                f"<span style='color:#a01818'>Directory does not exist: "
-                f"{self._source}</span>"
+                f"<span style='color:#a01818'>Directory does not exist: {self._source}</span>"
             )
             return
         self.btn_run.setEnabled(False)
@@ -154,8 +156,7 @@ class CatalogUpdateDialog(QDialog):
         self.btn_run.setEnabled(True)
         if code != 0:
             self.lbl_result.setText(
-                f"<span style='color:#a01818'>Failed (code {code}). "
-                f"See the log above.</span>"
+                f"<span style='color:#a01818'>Failed (code {code}). See the log above.</span>"
             )
             return
         self.lbl_result.setText(

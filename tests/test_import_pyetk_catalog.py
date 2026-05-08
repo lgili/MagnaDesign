@@ -11,6 +11,7 @@ Three guarantees:
 3. The end-to-end ``parse_cores`` / ``parse_materials`` produce
    non-empty, validated Pydantic objects for the bundled snapshot.
 """
+
 from __future__ import annotations
 
 import importlib.util
@@ -56,12 +57,12 @@ def vendor_data():
 # Steinmetz round-trip
 # ---------------------------------------------------------------------------
 
+
 def test_steinmetz_round_trip_at_anchor_point(script):
     """``Pv(f_ref, B_ref)`` from the converted params must equal
     ``Pv_ref_mWcm3`` (it's literally the anchor)."""
     # 3C90: cm=3.2e-3, x=1.46, y=2.75 (rough Ferroxcube values).
-    sp = script.convert_steinmetz(cm=3.2e-3, x=1.46, y=2.75,
-                                  f_ref_kHz=100.0, B_ref_mT=100.0)
+    sp = script.convert_steinmetz(cm=3.2e-3, x=1.46, y=2.75, f_ref_kHz=100.0, B_ref_mT=100.0)
     # Pv at the anchor must equal the stored Pv_ref.
     f_ratio = (100.0 / sp.f_ref_kHz) ** sp.alpha
     B_ratio = (100.0 / sp.B_ref_mT) ** sp.beta
@@ -72,9 +73,7 @@ def test_steinmetz_round_trip_at_anchor_point(script):
 def test_steinmetz_pv_units_are_mwcm3(script):
     """1 W/m³ = 0.001 mW/cm³; the conversion must apply this factor."""
     # cm=1.0, x=1, y=1 → Pv_W_per_m3(f=1Hz, B=1T) = 1.0 → mW/cm³ = 0.001
-    sp = script.convert_steinmetz(cm=1.0, x=1.0, y=1.0,
-                                  f_ref_kHz=1.0 / 1000.0,
-                                  B_ref_mT=1000.0)
+    sp = script.convert_steinmetz(cm=1.0, x=1.0, y=1.0, f_ref_kHz=1.0 / 1000.0, B_ref_mT=1000.0)
     assert sp.Pv_ref_mWcm3 == pytest.approx(1e-3, rel=1e-9)
 
 
@@ -104,25 +103,30 @@ _DATASHEET_CHECKS = [
 
 @pytest.mark.parametrize("shape,name,Ae_ds,le_ds,Ve_ds,tol", _DATASHEET_CHECKS)
 def test_core_decoder_matches_datasheet(
-    script, vendor_data, shape, name, Ae_ds, le_ds, Ve_ds, tol,
+    script,
+    vendor_data,
+    shape,
+    name,
+    Ae_ds,
+    le_ds,
+    Ve_ds,
+    tol,
 ):
     cores_raw, _ = vendor_data
-    dims = (
-        cores_raw.get("Ferroxcube", {}).get(shape, {}).get(name)
-        or cores_raw.get("Phillips", {}).get(shape, {}).get(name)
-    )
+    dims = cores_raw.get("Ferroxcube", {}).get(shape, {}).get(name) or cores_raw.get(
+        "Phillips", {}
+    ).get(shape, {}).get(name)
     assert dims is not None, f"{name} not in vendored snapshot"
     Ae, le, Ve, _Wa, _MLT, _OD, _ID, _HT = script.decode_core(shape, dims)
     assert Ae is not None and le is not None and Ve is not None
     err_Ve = abs(Ve - Ve_ds) / Ve_ds * 100.0
-    assert err_Ve <= tol, (
-        f"{name}: Ve={Ve:.0f} mm³ vs datasheet {Ve_ds} ({err_Ve:.1f}% > {tol}%)"
-    )
+    assert err_Ve <= tol, f"{name}: Ve={Ve:.0f} mm³ vs datasheet {Ve_ds} ({err_Ve:.1f}% > {tol}%)"
 
 
 # ---------------------------------------------------------------------------
 # End-to-end smoke
 # ---------------------------------------------------------------------------
+
 
 def test_parse_materials_returns_validated_models(script, vendor_data):
     _, materials_raw = vendor_data

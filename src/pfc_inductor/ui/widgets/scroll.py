@@ -34,6 +34,7 @@ Use it like this::
     outer.addWidget(WorkspacePageHeader(...))      # sticky header
     outer.addWidget(wrap_scrollable(body), 1)       # scrolling body
 """
+
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
@@ -53,6 +54,7 @@ def wrap_scrollable(widget: QWidget) -> QScrollArea:
     scroll.setFrameShape(QFrame.Shape.NoFrame)
     scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
     scroll.setSizePolicy(
-        QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding,
+        QSizePolicy.Policy.Expanding,
+        QSizePolicy.Policy.Expanding,
     )
     return scroll

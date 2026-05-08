@@ -226,8 +226,10 @@ Contribution guidelines and scope guardrails are in
 [`CONTRIBUTING.md`](CONTRIBUTING.md). Architecture decisions live in
 [`docs/adr/`](docs/adr/). Positioning against comparable open-source
 magnetics tools is documented in
-[`docs/POSITIONING.md`](docs/POSITIONING.md). Versioned change
-proposals are tracked under [`openspec/`](openspec/).
+[`docs/POSITIONING.md`](docs/POSITIONING.md). The UI layout, design
+tokens, and recipes for adding cards / 3D-viewer overlays are in
+[`docs/UI.md`](docs/UI.md). Versioned change proposals are tracked
+under [`openspec/`](openspec/).
 
 ## License
 

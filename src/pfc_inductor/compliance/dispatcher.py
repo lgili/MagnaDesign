@@ -31,10 +31,11 @@ NBR, GB) can be added without changing call sites. Today only
 and ``BR`` route through the same Class A/D check until the
 follow-up commits land their UL / NBR variants.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Literal, Optional
+from typing import Literal
 
 from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
 from pfc_inductor.standards import en55032, iec61000_3_2, ul1411
@@ -55,11 +56,11 @@ class StandardResult:
     "compared against limit" table without per-standard branching.
     """
 
-    standard: str             # e.g. "IEC 61000-3-2:2018"
-    edition: str              # e.g. "Edition 5.0"
-    scope: str                # plain-language description
+    standard: str  # e.g. "IEC 61000-3-2:2018"
+    edition: str  # e.g. "Edition 5.0"
+    scope: str  # plain-language description
     conclusion: ConclusionLabel
-    summary: str              # one-line headline
+    summary: str  # one-line headline
     rows: list[tuple[str, str, str, float, bool]] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
     """Free-form notes shown under the table — calibration warnings,
@@ -160,17 +161,36 @@ def evaluate(
 
     applicable = applicable_standards(spec, region)
     if "IEC 61000-3-2" in applicable:
-        bundle.standards.append(_evaluate_iec61000_3_2(
-            spec, core, wire, material, result, edition=edition,
-        ))
+        bundle.standards.append(
+            _evaluate_iec61000_3_2(
+                spec,
+                core,
+                wire,
+                material,
+                result,
+                edition=edition,
+            )
+        )
     if "EN 55032" in applicable:
-        bundle.standards.append(_evaluate_en55032(
-            spec, core, wire, material, result,
-        ))
+        bundle.standards.append(
+            _evaluate_en55032(
+                spec,
+                core,
+                wire,
+                material,
+                result,
+            )
+        )
     if "UL 1411" in applicable:
-        bundle.standards.append(_evaluate_ul1411(
-            spec, core, wire, material, result,
-        ))
+        bundle.standards.append(
+            _evaluate_ul1411(
+                spec,
+                core,
+                wire,
+                material,
+                result,
+            )
+        )
 
     return bundle
 
@@ -193,8 +213,7 @@ def _evaluate_ul1411(
     Spec model gains the field.
     """
     if spec.topology == "buck_ccm":
-        v_work = float(getattr(spec, "Vin_dc_V", None)
-                       or spec.Vin_min_Vrms or 12.0)
+        v_work = float(getattr(spec, "Vin_dc_V", None) or spec.Vin_min_Vrms or 12.0)
     else:
         v_work = float(spec.Vin_nom_Vrms)
 
@@ -219,7 +238,7 @@ def _evaluate_ul1411(
             "—",
             0.0,
             True,  # the calculator never "fails" — it tells the
-                   # lab what to apply.
+            # lab what to apply.
         ),
     ]
 
@@ -260,9 +279,9 @@ def _evaluate_ul1411(
         rows=rows,
         notes=list(report.notes),
         extras={
-            "insulation_class":     report.insulation_class,
-            "hipot_voltage_Vrms":   report.hipot_voltage_Vrms,
-            "needs_hipot":          report.passes_hipot_required,
+            "insulation_class": report.insulation_class,
+            "hipot_voltage_Vrms": report.hipot_voltage_Vrms,
+            "needs_hipot": report.passes_hipot_required,
         },
     )
 
@@ -291,14 +310,15 @@ def _evaluate_en55032(
 
     rows: list[tuple[str, str, str, float, bool]] = []
     for pt in report.points:
-        rows.append((
-            f"n = {pt.n}",
-            f"{pt.measured_dbuv:.1f} dBµV @ "
-            f"{pt.frequency_Hz / 1e6:.2f} MHz",
-            f"{pt.limit_dbuv:.1f} dBµV",
-            float(pt.margin_dB),
-            bool(pt.passes),
-        ))
+        rows.append(
+            (
+                f"n = {pt.n}",
+                f"{pt.measured_dbuv:.1f} dBµV @ {pt.frequency_Hz / 1e6:.2f} MHz",
+                f"{pt.limit_dbuv:.1f} dBµV",
+                float(pt.margin_dB),
+                bool(pt.passes),
+            )
+        )
 
     if not rows:
         conclusion: ConclusionLabel = "PASS"
@@ -319,10 +339,7 @@ def _evaluate_en55032(
             )
         else:
             conclusion = "PASS"
-            summary = (
-                f"PASS — worst margin {report.worst_margin_dB:.1f} dB "
-                f"at h={report.worst_n}."
-            )
+            summary = f"PASS — worst margin {report.worst_margin_dB:.1f} dB at h={report.worst_n}."
     else:
         conclusion = "FAIL"
         summary = (
@@ -358,12 +375,12 @@ def _evaluate_en55032(
         rows=rows,
         notes=notes,
         extras={
-            "fsw_Hz":          report.fsw_Hz,
+            "fsw_Hz": report.fsw_Hz,
             "worst_margin_dB": report.worst_margin_dB,
-            "worst_n":         report.worst_n,
-            "n_harmonics":     len(report.points),
-            "class":           report.class_,
-            "detector":        report.detector,
+            "worst_n": report.worst_n,
+            "n_harmonics": len(report.points),
+            "class": report.class_,
+            "detector": report.detector,
         },
     )
 
@@ -399,23 +416,17 @@ def _evaluate_iec61000_3_2(
     #     the auditor sees the spectrum was checked.
     pct = _resolve_harmonic_pct(spec, result)
     fundamental_a = _resolve_fundamental(spec, result)
-    harmonics_a = {
-        n + 1: pct[n] / 100.0 * fundamental_a
-        for n in range(1, len(pct))
-        if pct[n] > 0
-    }
+    harmonics_a = {n + 1: pct[n] / 100.0 * fundamental_a for n in range(1, len(pct)) if pct[n] > 0}
 
     # Apparent input power for the limit calc — IEC 61000-3-2
     # uses Pi (W) ≈ Vr × Ifund × pf_norm. Use the design's actual
     # Vin_nom + the standard's normalised pf 0.78.
-    pi_w = (
-        iec61000_3_2.DEFAULT_VR
-        * fundamental_a
-        * iec61000_3_2.DEFAULT_PF_NORMALIZED
-    )
+    pi_w = iec61000_3_2.DEFAULT_VR * fundamental_a * iec61000_3_2.DEFAULT_PF_NORMALIZED
 
     report = iec61000_3_2.evaluate_compliance(
-        harmonics_a, pi_w, edition=edition,
+        harmonics_a,
+        pi_w,
+        edition=edition,
     )
 
     rows: list[tuple[str, str, str, float, bool]] = []
@@ -423,13 +434,15 @@ def _evaluate_iec61000_3_2(
         # Force a Python bool — the IEC evaluator can yield a
         # numpy.bool_ when the input dict came from FFT outputs,
         # and json.dumps refuses np.bool_ in some versions.
-        rows.append((
-            f"n = {chk.n}",
-            f"{chk.measured_A * 1000:.1f} mA",
-            f"{chk.limit_A * 1000:.1f} mA",
-            float(chk.margin_pct),
-            bool(chk.passes),
-        ))
+        rows.append(
+            (
+                f"n = {chk.n}",
+                f"{chk.measured_A * 1000:.1f} mA",
+                f"{chk.limit_A * 1000:.1f} mA",
+                float(chk.margin_pct),
+                bool(chk.passes),
+            )
+        )
 
     if not report.checks:
         # No harmonic content to evaluate — typical for active
@@ -475,8 +488,7 @@ def _evaluate_iec61000_3_2(
         f"{iec61000_3_2.DEFAULT_PF_NORMALIZED:.2f} per IEC 61000-3-2 §6.2.3.",
     )
     notes.append(
-        f"Pi (apparent input power used for limit calculation) "
-        f"= {pi_w:.0f} W.",
+        f"Pi (apparent input power used for limit calculation) = {pi_w:.0f} W.",
     )
     if spec.topology == "boost_ccm":
         notes.append(
@@ -501,11 +513,11 @@ def _evaluate_iec61000_3_2(
         rows=rows,
         notes=notes,
         extras={
-            "harmonic_pct":      list(pct),
-            "fundamental_A":     fundamental_a,
-            "Pi_W":              pi_w,
+            "harmonic_pct": list(pct),
+            "fundamental_A": fundamental_a,
+            "Pi_W": pi_w,
             "limiting_harmonic": report.limiting_harmonic,
-            "margin_min_pct":    report.margin_min_pct,
+            "margin_min_pct": report.margin_min_pct,
         },
     )
 
@@ -529,6 +541,7 @@ def _resolve_harmonic_pct(spec: Spec, result: DesignResult) -> list[float]:
             from pfc_inductor.topology.line_reactor import (
                 harmonic_amplitudes_pct,
             )
+
             pct = harmonic_amplitudes_pct(
                 spec,
                 result.L_actual_uH * 1e-3,  # uH → mH
@@ -559,7 +572,5 @@ def _resolve_fundamental(spec: Spec, result: DesignResult) -> float:
     if pout <= 0:
         return 1.0
     return pout / (
-        iec61000_3_2.DEFAULT_VR
-        * iec61000_3_2.DEFAULT_PF_NORMALIZED
-        * float(spec.eta or 1.0)
+        iec61000_3_2.DEFAULT_VR * iec61000_3_2.DEFAULT_PF_NORMALIZED * float(spec.eta or 1.0)
     )

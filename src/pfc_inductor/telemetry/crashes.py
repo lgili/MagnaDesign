@@ -25,6 +25,7 @@ them as public), but committing one to a public repo invites
 abuse from random GitHub crawlers, so the env-var path is
 preferred for downstream forks.
 """
+
 from __future__ import annotations
 
 import os
@@ -32,7 +33,6 @@ import re
 from typing import Any, Optional
 
 from pfc_inductor.telemetry.consent import has_consent, is_telemetry_disabled
-
 
 # A DSN looks like ``https://<key>@<host>/<project_id>``. Empty
 # string disables the reporter; that's the shipped default.
@@ -113,9 +113,9 @@ def scrub_event(
         values = breadcrumbs.get("values")
         if isinstance(values, list):
             breadcrumbs["values"] = [
-                bc for bc in values
-                if not (isinstance(bc, dict)
-                        and bc.get("category") == "project_file")
+                bc
+                for bc in values
+                if not (isinstance(bc, dict) and bc.get("category") == "project_file")
             ]
     return event
 
@@ -155,8 +155,10 @@ def _set_release_tags(sentry_sdk) -> None:
     """Attach the canonical release / OS / Qt tags so events are
     bucketed by version + platform without further wiring."""
     import platform
+
     try:
         from importlib.metadata import version as _v
+
         release = _v("magnadesign")
     except Exception:
         release = "unknown"

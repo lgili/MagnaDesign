@@ -23,6 +23,7 @@ Public API
   (i.e. the chip should be read as "include everything").
 - Signal :attr:`selection_changed(list[str])` — fires on every toggle.
 """
+
 from __future__ import annotations
 
 from typing import Iterable, Optional
@@ -116,8 +117,7 @@ class _SearchPopup(QFrame):
         self._suspend = False
 
     # ------------------------------------------------------------------
-    def populate(self, items: list[tuple[str, str, str]],
-                 selected: set[str]) -> None:
+    def populate(self, items: list[tuple[str, str, str]], selected: set[str]) -> None:
         """Rebuild the list. ``items`` are ``(id, label, tooltip)`` rows."""
         self._suspend = True
         self._list.clear()
@@ -126,8 +126,7 @@ class _SearchPopup(QFrame):
             li.setData(Qt.ItemDataRole.UserRole, item_id)
             li.setFlags(li.flags() | Qt.ItemFlag.ItemIsUserCheckable)
             li.setCheckState(
-                Qt.CheckState.Checked if item_id in selected
-                else Qt.CheckState.Unchecked,
+                Qt.CheckState.Checked if item_id in selected else Qt.CheckState.Unchecked,
             )
             if tooltip:
                 li.setToolTip(tooltip)
@@ -140,9 +139,11 @@ class _SearchPopup(QFrame):
     # ------------------------------------------------------------------
     def _toggle_clicked(self, item: QListWidgetItem) -> None:
         # Allow clicking anywhere on the row, not just the checkbox.
-        new = (Qt.CheckState.Unchecked
-               if item.checkState() == Qt.CheckState.Checked
-               else Qt.CheckState.Checked)
+        new = (
+            Qt.CheckState.Unchecked
+            if item.checkState() == Qt.CheckState.Checked
+            else Qt.CheckState.Checked
+        )
         item.setCheckState(new)
 
     def _on_item_changed(self, _item: QListWidgetItem) -> None:
@@ -277,8 +278,7 @@ class MultiSelectChip(QToolButton):
 
         self.setObjectName("MultiSelectChip")
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setSizePolicy(QSizePolicy.Policy.Maximum,
-                           QSizePolicy.Policy.Fixed)
+        self.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
         self.setMinimumHeight(28)
         self.setText(f"All 0 {label_plural}")
         self.setToolButtonStyle(
@@ -346,16 +346,13 @@ class MultiSelectChip(QToolButton):
         if not self._selected:
             self.setText(f"All {total} {self._label_plural}")
             self.setToolTip(
-                f"All {total} {self._label_plural} included. "
-                "Click to filter.",
+                f"All {total} {self._label_plural} included. Click to filter.",
             )
         else:
             n = len(self._selected)
             # Tooltip lists every selected label so the user can audit
             # without re-opening the popup.
-            labels = [
-                lbl for (i, lbl, _t) in self._items if i in self._selected
-            ]
+            labels = [lbl for (i, lbl, _t) in self._items if i in self._selected]
             self.setText(f"{n} of {total} {self._label_plural}")
             self.setToolTip("Selected:\n• " + "\n• ".join(labels))
 

@@ -13,6 +13,7 @@ Public API
   footer's sun/moon icon is clicked, and ``overflow_action_requested(name)``
   when the footer's "…" menu fires.
 """
+
 # All user-visible labels and tooltips are English. Internal IDs
 # (``area_id`` keys, ``QSettings`` slots, signal payloads) keep their
 # legacy names so saved geometry and routing logic survive the rewrite.
@@ -57,30 +58,41 @@ from pfc_inductor.ui.theme import SIDEBAR, get_theme
 # two optimizer entries — without them, "Full optimizer" is internal
 # jargon that pushes a casual user toward the wrong choice.
 SIDEBAR_AREAS: tuple[tuple[str, str, str, str], ...] = (
-    ("dashboard",     "Project",     "layout-dashboard",
-     "Main workspace — spec, selection, analysis, validation and export."),
-    ("otimizador",    "Optimizer",   "sliders",
-     "Fast Pareto sweep (≈ 30 s) — losses × volume × cost."),
-    ("cascade",       "Full optimizer", "layers",
-     "Multi-tier optimization with RK4 transient and FEM validation "
-     "(≈ 5–15 min). Use when you need the defensible final design."),
-    ("catalogo",      "Catalog",     "database",
-     "Edit materials, cores and wires. Imports from OpenMagnetics MAS."),
-    ("configuracoes", "Settings",    "cog",
-     "Theme, FEA, Litz and project information."),
+    (
+        "dashboard",
+        "Project",
+        "layout-dashboard",
+        "Main workspace — spec, selection, analysis, validation and export.",
+    ),
+    ("otimizador", "Optimizer", "sliders", "Fast Pareto sweep (≈ 30 s) — losses × volume × cost."),
+    (
+        "cascade",
+        "Full optimizer",
+        "layers",
+        "Multi-tier optimization with RK4 transient and FEM validation "
+        "(≈ 5–15 min). Use when you need the defensible final design.",
+    ),
+    (
+        "catalogo",
+        "Catalog",
+        "database",
+        "Edit materials, cores and wires. Imports from OpenMagnetics MAS.",
+    ),
+    ("configuracoes", "Settings", "cog", "Theme, FEA, Litz and project information."),
 )
 
 # Overflow menu — kept lean for the few tools that don't deserve a
 # sidebar slot but need a discoverable home anyway.
 OVERFLOW_ACTIONS: tuple[tuple[str, str, str], ...] = (
     ("compare", "Compare designs", "compare"),
-    ("about",   "About",            "info"),
+    ("about", "About", "info"),
 )
 
 
 # ---------------------------------------------------------------------------
 # Sidebar widget
 # ---------------------------------------------------------------------------
+
 
 class Sidebar(QFrame):
     """Left-edge navigation chrome. 220 px wide, navy, brand-invariant.
@@ -90,14 +102,13 @@ class Sidebar(QFrame):
     labels truncating (longest is "Full optimizer" at ~110 px @ 13 px).
     """
 
-    navigation_requested = Signal(str)        # area_id
+    navigation_requested = Signal(str)  # area_id
     theme_toggle_requested = Signal()
-    overflow_action_requested = Signal(str)   # action key
+    overflow_action_requested = Signal(str)  # action key
 
     WIDTH = 220
 
-    def __init__(self, parent: Optional[QWidget] = None,
-                 dark_theme: bool = False) -> None:
+    def __init__(self, parent: Optional[QWidget] = None, dark_theme: bool = False) -> None:
         super().__init__(parent)
         self.setObjectName("Sidebar")
         self.setFixedWidth(self.WIDTH)
@@ -123,8 +134,7 @@ class Sidebar(QFrame):
         header = QFrame()
         header.setObjectName("SidebarHeader")
         header.setStyleSheet(
-            "QFrame#SidebarHeader { background: transparent; "
-            "border: 0; padding: 0; }"
+            "QFrame#SidebarHeader { background: transparent; border: 0; padding: 0; }"
         )
         h = QHBoxLayout(header)
         # Slimmed top/bottom 18/14 → 12/10 (-10 px) and dropped the
@@ -139,9 +149,7 @@ class Sidebar(QFrame):
         h.setSpacing(10)
 
         logo = QLabel()
-        logo.setPixmap(
-            ui_icon("cube", color=SIDEBAR.accent, size=20).pixmap(20, 20)
-        )
+        logo.setPixmap(ui_icon("cube", color=SIDEBAR.accent, size=20).pixmap(20, 20))
         logo.setStyleSheet("background: transparent; border: 0;")
 
         t = get_theme().type
@@ -164,9 +172,7 @@ class Sidebar(QFrame):
     def _build_nav(self) -> QWidget:
         nav = QFrame()
         nav.setObjectName("SidebarNav")
-        nav.setStyleSheet(
-            "QFrame#SidebarNav { background: transparent; border: 0; }"
-        )
+        nav.setStyleSheet("QFrame#SidebarNav { background: transparent; border: 0; }")
         v = QVBoxLayout(nav)
         v.setContentsMargins(12, 8, 12, 8)
         v.setSpacing(2)
@@ -199,17 +205,14 @@ class Sidebar(QFrame):
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
             btn.setIcon(ui_icon(icon_name, color=SIDEBAR.text_muted, size=16))
             btn.setIconSize(QSize(16, 16))
-            btn.setSizePolicy(QSizePolicy.Policy.Expanding,
-                              QSizePolicy.Policy.Fixed)
+            btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             btn.setStyleSheet(nav_item_qss)
             # Tooltip disambiguates the two optimizer entries; also
             # surfaces what each area does for first-time users.
             btn.setToolTip(tooltip)
             btn.setAccessibleName(label)
             btn.setAccessibleDescription(tooltip)
-            btn.clicked.connect(
-                lambda _checked=False, a=area_id: self._on_nav_clicked(a)
-            )
+            btn.clicked.connect(lambda _checked=False, a=area_id: self._on_nav_clicked(a))
             self._button_group.addButton(btn)
             self._nav_buttons[area_id] = btn
             v.addWidget(btn)
@@ -249,9 +252,7 @@ class Sidebar(QFrame):
 
         # Overflow menu
         self._btn_overflow = QToolButton()
-        self._btn_overflow.setIcon(
-            ui_icon("more-horizontal", color=SIDEBAR.text_muted, size=18)
-        )
+        self._btn_overflow.setIcon(ui_icon("more-horizontal", color=SIDEBAR.text_muted, size=18))
         self._btn_overflow.setIconSize(QSize(18, 18))
         self._btn_overflow.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_overflow.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
@@ -312,9 +313,5 @@ class Sidebar(QFrame):
     def _refresh_theme_icon(self) -> None:
         # If currently dark, show "sun" (click goes to light) and vice versa.
         name = "sun" if self._dark_theme else "moon"
-        self._btn_theme.setIcon(
-            ui_icon(name, color=SIDEBAR.text, size=16)
-        )
-        self._btn_theme.setToolTip(
-            "Light theme" if self._dark_theme else "Dark theme"
-        )
+        self._btn_theme.setIcon(ui_icon(name, color=SIDEBAR.text, size=16))
+        self._btn_theme.setToolTip("Light theme" if self._dark_theme else "Dark theme")

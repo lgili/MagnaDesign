@@ -1,4 +1,5 @@
 """Core-loss model tests including iGSE Jensen factor."""
+
 import numpy as np
 
 from pfc_inductor.data_loader import find_material, load_materials

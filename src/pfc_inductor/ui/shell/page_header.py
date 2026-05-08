@@ -20,6 +20,7 @@ The original ``WorkspaceHeader`` (with editable project name + 3 CTAs
 + save pill) stays distinct on Project — Project **is** a workspace,
 not a page, and earns the richer chrome.
 """
+
 from __future__ import annotations
 
 from typing import Optional, Sequence

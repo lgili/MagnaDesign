@@ -4,6 +4,7 @@ Asserts that every field promised by the ``ui-design-system`` capability
 exists on both palettes, parses as a valid colour, and that the named
 spacing / radius / typography constants match the documented values.
 """
+
 from __future__ import annotations
 
 import os
@@ -31,6 +32,7 @@ from pfc_inductor.ui.theme import (
 @pytest.fixture(scope="module")
 def app():
     from PySide6.QtWidgets import QApplication
+
     inst = QApplication.instance() or QApplication([])
     yield inst
 
@@ -56,6 +58,7 @@ def test_v2_palette_fields_exist(field):
 @pytest.mark.parametrize("palette,name", [(LIGHT, "LIGHT"), (DARK, "DARK")])
 def test_palette_hex_strings_parse_via_qcolor(palette: Palette, name, app):
     from PySide6.QtGui import QColor
+
     # All hex-style colour fields on Palette should QColor-parse cleanly.
     for fname in palette.__dataclass_fields__:
         v = getattr(palette, fname)
@@ -83,6 +86,7 @@ def test_card_shadow_specs_are_structured(palette: Palette):
 # Spacing / Radius constants
 # ---------------------------------------------------------------------------
 
+
 def test_spacing_dashboard_density_constants():
     sp = Spacing()
     assert sp.page == 24
@@ -103,6 +107,7 @@ def test_radius_card_button_chip():
 # ---------------------------------------------------------------------------
 # Sidebar invariance
 # ---------------------------------------------------------------------------
+
 
 def test_sidebar_is_theme_invariant():
     """Toggling theme must not change the sidebar palette."""
@@ -130,6 +135,7 @@ def test_sidebar_text_contrast_against_bg(app):
         def chan(x: float) -> float:
             x /= 255.0
             return x / 12.92 if x <= 0.03928 else ((x + 0.055) / 1.055) ** 2.4
+
         return 0.2126 * chan(c.red()) + 0.7152 * chan(c.green()) + 0.0722 * chan(c.blue())
 
     l1, l2 = _luminance(fg), _luminance(bg)
@@ -142,6 +148,7 @@ def test_sidebar_text_contrast_against_bg(app):
 # ---------------------------------------------------------------------------
 # Typography
 # ---------------------------------------------------------------------------
+
 
 def test_typography_brand_face_starts_with_inter():
     t = Typography()

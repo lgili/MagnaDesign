@@ -1,4 +1,5 @@
 """Bottom action bar: Explodir / Corte / Medidas / Exportar."""
+
 from __future__ import annotations
 
 from typing import Optional
@@ -48,24 +49,18 @@ class BottomActions(QFrame):
 
         self.btn_export = self._make_button("Exportar", "download")
         export_menu = QMenu(self)
-        for label, key in (("PNG (imagem)", "png"),
-                            ("STL (mesh)", "stl"),
-                            ("VRML (cena)", "vrml")):
+        for label, key in (("PNG (imagem)", "png"), ("STL (mesh)", "stl"), ("VRML (cena)", "vrml")):
             act = export_menu.addAction(label)
-            act.triggered.connect(
-                lambda _checked=False, k=key: self.export_requested.emit(k)
-            )
+            act.triggered.connect(lambda _checked=False, k=key: self.export_requested.emit(k))
         self.btn_export.setMenu(export_menu)
 
-        for btn in (self.btn_explode, self.btn_section,
-                    self.btn_measure, self.btn_export):
+        for btn in (self.btn_explode, self.btn_section, self.btn_measure, self.btn_export):
             h.addWidget(btn)
         on_theme_changed(self._refresh_qss)
 
     def _refresh_qss(self) -> None:
         self.setStyleSheet(self._self_qss())
-        for btn in (self.btn_explode, self.btn_section,
-                    self.btn_measure, self.btn_export):
+        for btn in (self.btn_explode, self.btn_section, self.btn_measure, self.btn_export):
             btn.setStyleSheet(self._button_qss())
 
     # ------------------------------------------------------------------

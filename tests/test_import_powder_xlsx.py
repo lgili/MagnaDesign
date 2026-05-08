@@ -16,6 +16,7 @@ Three guarantees:
    manufacturer-published values intact (Ae=0.245 cm² →
    24.5 mm², le=5.67 cm → 56.7 mm).
 """
+
 from __future__ import annotations
 
 import importlib.util
@@ -52,6 +53,7 @@ def script():
 # Column / unit detection
 # ---------------------------------------------------------------------------
 
+
 def test_normalise_strips_unit_decoration(script):
     assert script._normalise("Effective Area [cm²]") == "effectiveareacm"
     assert script._normalise("AL [nH/N²]") == "alnhn"
@@ -61,8 +63,11 @@ def test_detect_columns_resolves_id_vs_inner_diameter(script):
     """`Part Number` and `Inner Diameter [mm]` both contain the
     substring ``id``. ``part_number`` must win that column race."""
     headers = [
-        "Part Number", "Material", "Effective Area [cm²]",
-        "Effective Path Length [cm]", "Inner Diameter [mm]",
+        "Part Number",
+        "Material",
+        "Effective Area [cm²]",
+        "Effective Path Length [cm]",
+        "Inner Diameter [mm]",
     ]
     cols = script._detect_columns(headers)
     assert cols["part_number"] == 0
@@ -87,6 +92,7 @@ def test_unit_detection_falls_back_to_default_when_header_silent(script):
 # ---------------------------------------------------------------------------
 # End-to-end via the synthetic fixture
 # ---------------------------------------------------------------------------
+
 
 def test_parse_xlsx_returns_three_valid_cores(script):
     if not FIXTURE.exists():

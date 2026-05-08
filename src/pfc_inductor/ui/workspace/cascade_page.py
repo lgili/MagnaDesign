@@ -28,6 +28,7 @@ Layout, top to bottom:
 Phase B / Phase C wiring lives in `optimize.cascade.orchestrator`;
 the page is purely a view / controller around that.
 """
+
 from __future__ import annotations
 
 import time
@@ -153,10 +154,11 @@ class _RunConfigCard(QWidget):
         # ~10 even on fast workstations. Default 0 (off).
         self.tier4_spin = self._make_spin(0, 50, 0)
         import os as _os
-        self.workers_spin = self._make_spin(1, max(_os.cpu_count() or 1, 1),
-                                            min(4, _os.cpu_count() or 1))
-        for spin in (self.tier2_spin, self.tier3_spin, self.tier4_spin,
-                     self.workers_spin):
+
+        self.workers_spin = self._make_spin(
+            1, max(_os.cpu_count() or 1, 1), min(4, _os.cpu_count() or 1)
+        )
+        for spin in (self.tier2_spin, self.tier3_spin, self.tier4_spin, self.workers_spin):
             # QSpinBox.valueChanged passes the int value; our signal
             # is parameter-less, so wrap with a lambda.
             spin.valueChanged.connect(lambda _value: self.config_changed.emit())
@@ -216,8 +218,7 @@ class _RunConfigCard(QWidget):
         return int(self.workers_spin.value())
 
     def set_busy(self, busy: bool) -> None:
-        for spin in (self.tier2_spin, self.tier3_spin, self.tier4_spin,
-                     self.workers_spin):
+        for spin in (self.tier2_spin, self.tier3_spin, self.tier4_spin, self.workers_spin):
             spin.setEnabled(not busy)
 
 
@@ -308,9 +309,15 @@ class _StatsCard(QWidget):
         self._t3_evaluated = self._stat_block("TIER 3")
         self._t4_evaluated = self._stat_block("TIER 4")
 
-        for block in (self._t0_total, self._t0_feasible, self._t0_rejected,
-                      self._t1_evaluated, self._t2_evaluated,
-                      self._t3_evaluated, self._t4_evaluated):
+        for block in (
+            self._t0_total,
+            self._t0_feasible,
+            self._t0_rejected,
+            self._t1_evaluated,
+            self._t2_evaluated,
+            self._t3_evaluated,
+            self._t4_evaluated,
+        ):
             layout.addLayout(block[0])
         layout.addWidget(self._reasons, 1)
 
@@ -327,9 +334,15 @@ class _StatsCard(QWidget):
         return v, val
 
     def reset(self) -> None:
-        for _, label in (self._t0_total, self._t0_feasible, self._t0_rejected,
-                         self._t1_evaluated, self._t2_evaluated,
-                         self._t3_evaluated, self._t4_evaluated):
+        for _, label in (
+            self._t0_total,
+            self._t0_feasible,
+            self._t0_rejected,
+            self._t1_evaluated,
+            self._t2_evaluated,
+            self._t3_evaluated,
+            self._t4_evaluated,
+        ):
             label.setText("0")
         self._reasons.setText("—")
 
@@ -342,28 +355,28 @@ class _StatsCard(QWidget):
                 (run_id,),
             ).fetchone()["n"]
             t0_ok = conn.execute(
-                "SELECT COUNT(*) AS n FROM candidates "
-                "WHERE run_id=? AND feasible_t0=1", (run_id,),
+                "SELECT COUNT(*) AS n FROM candidates WHERE run_id=? AND feasible_t0=1",
+                (run_id,),
             ).fetchone()["n"]
             t0_rej = conn.execute(
-                "SELECT COUNT(*) AS n FROM candidates "
-                "WHERE run_id=? AND feasible_t0=0", (run_id,),
+                "SELECT COUNT(*) AS n FROM candidates WHERE run_id=? AND feasible_t0=0",
+                (run_id,),
             ).fetchone()["n"]
             t1 = conn.execute(
-                "SELECT COUNT(*) AS n FROM candidates "
-                "WHERE run_id=? AND highest_tier>=1", (run_id,),
+                "SELECT COUNT(*) AS n FROM candidates WHERE run_id=? AND highest_tier>=1",
+                (run_id,),
             ).fetchone()["n"]
             t2 = conn.execute(
-                "SELECT COUNT(*) AS n FROM candidates "
-                "WHERE run_id=? AND highest_tier>=2", (run_id,),
+                "SELECT COUNT(*) AS n FROM candidates WHERE run_id=? AND highest_tier>=2",
+                (run_id,),
             ).fetchone()["n"]
             t3 = conn.execute(
-                "SELECT COUNT(*) AS n FROM candidates "
-                "WHERE run_id=? AND highest_tier>=3", (run_id,),
+                "SELECT COUNT(*) AS n FROM candidates WHERE run_id=? AND highest_tier>=3",
+                (run_id,),
             ).fetchone()["n"]
             t4 = conn.execute(
-                "SELECT COUNT(*) AS n FROM candidates "
-                "WHERE run_id=? AND highest_tier>=4", (run_id,),
+                "SELECT COUNT(*) AS n FROM candidates WHERE run_id=? AND highest_tier>=4",
+                (run_id,),
             ).fetchone()["n"]
             reason_rows = conn.execute(
                 "SELECT notes FROM candidates "
@@ -381,6 +394,7 @@ class _StatsCard(QWidget):
         # Reasons.
         import json
         from collections import Counter
+
         counts: Counter[str] = Counter()
         for row in reason_rows:
             try:
@@ -390,10 +404,7 @@ class _StatsCard(QWidget):
             for r in payload.get("reasons", []):
                 counts[str(r)] += 1
         if counts:
-            parts = [
-                f"{name}={count}"
-                for name, count in counts.most_common()
-            ]
+            parts = [f"{name}={count}" for name, count in counts.most_common()]
             self._reasons.setText("Tier 0 rejects: " + " · ".join(parts))
         else:
             self._reasons.setText("—")
@@ -402,6 +413,7 @@ class _StatsCard(QWidget):
 def _figure_imports():
     from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as Canvas
     from matplotlib.figure import Figure
+
     return Canvas, Figure
 
 
@@ -426,8 +438,7 @@ class _ParetoChart(QWidget):
         self._fig = Figure(figsize=(5.4, 3.6), dpi=100, tight_layout=True)
         self._ax = self._fig.add_subplot(1, 1, 1)
         self._canvas = Canvas(self._fig)
-        self.setSizePolicy(QSizePolicy.Policy.Expanding,
-                           QSizePolicy.Policy.Expanding)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
@@ -471,8 +482,14 @@ class _ParetoChart(QWidget):
 
         # All-points scatter.
         self._ax.scatter(
-            xs, ys, s=42, c="#7c8696", alpha=0.65,
-            edgecolors="#3a4351", linewidths=0.6, picker=8,
+            xs,
+            ys,
+            s=42,
+            c="#7c8696",
+            alpha=0.65,
+            edgecolors="#3a4351",
+            linewidths=0.6,
+            picker=8,
             label="Candidates",
         )
         # Compute Pareto front: lower loss AND lower (or equal) volume.
@@ -485,9 +502,15 @@ class _ParetoChart(QWidget):
             xp_sorted = [xp[i] for i in order]
             yp_sorted = [yp[i] for i in order]
             self._ax.plot(
-                xp_sorted, yp_sorted, color="#ee7c2b", linewidth=1.4,
-                marker="o", markersize=7, markerfacecolor="#ee7c2b",
-                markeredgecolor="#a85013", label="Pareto",
+                xp_sorted,
+                yp_sorted,
+                color="#ee7c2b",
+                linewidth=1.4,
+                marker="o",
+                markersize=7,
+                markerfacecolor="#ee7c2b",
+                markeredgecolor="#a85013",
+                label="Pareto",
             )
         self._ax.set_xlabel("Volume Ve [cm³]")
         self._ax.set_ylabel("Loss total [W]")
@@ -500,11 +523,14 @@ class _ParetoChart(QWidget):
     def _render_empty(self) -> None:
         self._ax.clear()
         self._ax.text(
-            0.5, 0.5,
-            "No Tier 1 results yet.\n"
-            "Run a cascade to populate the chart.",
-            transform=self._ax.transAxes, ha="center", va="center",
-            color="#7c8696", fontsize=10,
+            0.5,
+            0.5,
+            "No Tier 1 results yet.\nRun a cascade to populate the chart.",
+            transform=self._ax.transAxes,
+            ha="center",
+            va="center",
+            color="#7c8696",
+            fontsize=10,
         )
         self._ax.set_xticks([])
         self._ax.set_yticks([])
@@ -529,8 +555,7 @@ def _pareto_indices(xs: list[float], ys: list[float]) -> list[int]:
         for j in range(n):
             if i == j:
                 continue
-            if (xs[j] <= xs[i] and ys[j] <= ys[i]
-                    and (xs[j] < xs[i] or ys[j] < ys[i])):
+            if xs[j] <= xs[i] and ys[j] <= ys[i] and (xs[j] < xs[i] or ys[j] < ys[i]):
                 dominated = True
                 break
         if not dominated:
@@ -544,8 +569,14 @@ class _TopNTable(QTableWidget):
     selection_changed = Signal(str)  # candidate_key (or empty)
 
     BASE_HEADERS: tuple[str, ...] = (
-        "#", "Core", "Mat", "Wire", "N",
-        "Loss W", "ΔT °C", "Cost $",
+        "#",
+        "Core",
+        "Mat",
+        "Wire",
+        "N",
+        "Loss W",
+        "ΔT °C",
+        "Cost $",
     )
     T2_HEADERS: tuple[str, ...] = ("L_avg µH", "B_pk T", "sat")
     T3_HEADERS: tuple[str, ...] = ("L_FEA µH", "ΔL₃ %", "B_FEA T", "conf")
@@ -593,15 +624,15 @@ class _TopNTable(QTableWidget):
                 cells += [
                     f"{t2['L_avg_uH']:.1f}" if "L_avg_uH" in t2 else "—",
                     f"{t2['B_pk_T']:.3f}" if "B_pk_T" in t2 else "—",
-                    "Y" if r.saturation_t2 else
-                    "N" if r.saturation_t2 is not None else "—",
+                    "Y" if r.saturation_t2 else "N" if r.saturation_t2 is not None else "—",
                 ]
             if has_t3:
                 cells += [
                     f"{r.L_t3_uH:.1f}" if r.L_t3_uH is not None else "—",
                     (
                         f"{t3['L_relative_error_pct']:+.1f}"
-                        if t3.get("L_relative_error_pct") is not None else "—"
+                        if t3.get("L_relative_error_pct") is not None
+                        else "—"
                     ),
                     f"{r.Bpk_t3_T:.3f}" if r.Bpk_t3_T is not None else "—",
                     str(t3.get("confidence", "—")),
@@ -612,7 +643,9 @@ class _TopNTable(QTableWidget):
                     item.setData(_USER_ROLE_KEY, r.candidate_key)
                 self.setItem(i, col, item)
 
-    def selected_candidate(self) -> tuple[Optional[str], Optional[str], Optional[str], Optional[str]]:
+    def selected_candidate(
+        self,
+    ) -> tuple[Optional[str], Optional[str], Optional[str], Optional[str]]:
         """Return (candidate_key, core_id, material_id, wire_id) for the
         currently selected row, or all-None if none."""
         rows = self.selectionModel().selectedRows()
@@ -679,8 +712,7 @@ class _RunHistoryDialog(QDialog):
         layout.addWidget(self._list, 1)
 
         self._buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Open
-            | QDialogButtonBox.StandardButton.Cancel,
+            QDialogButtonBox.StandardButton.Open | QDialogButtonBox.StandardButton.Cancel,
         )
         self._buttons.button(QDialogButtonBox.StandardButton.Open).setEnabled(False)
         self._buttons.accepted.connect(self.accept)
@@ -778,11 +810,16 @@ class _CascadeWorker(QObject):
     def run(self) -> None:
         def _cb(p: TierProgress) -> None:
             self.progress.emit(p.tier, p.done, p.total)
+
         try:
             self._orch.run(
-                self._run_id, self._spec,
-                self._materials, self._cores, self._wires,
-                self._config, progress_cb=_cb,
+                self._run_id,
+                self._spec,
+                self._materials,
+                self._cores,
+                self._wires,
+                self._config,
+                progress_cb=_cb,
             )
             record = self._orch.store.get_run(self._run_id)
             status = record.status if record is not None else "error: no record"
@@ -812,9 +849,12 @@ class CascadePage(QWidget):
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
         if store_path is None:
-            store_path = Path(
-                user_data_dir("PFCInductorDesigner", "indutor"),
-            ) / "cascade.db"
+            store_path = (
+                Path(
+                    user_data_dir("PFCInductorDesigner", "indutor"),
+                )
+                / "cascade.db"
+            )
         self._store = RunStore(store_path)
         self._orch = CascadeOrchestrator(self._store)
 
@@ -992,7 +1032,9 @@ class CascadePage(QWidget):
         # current selection survives so long as the items are still
         # in the new catalogue (set_items prunes ids that disappeared).
         self._filters.set_catalogs(
-            self._materials, self._cores, self._wires,
+            self._materials,
+            self._cores,
+            self._wires,
         )
         # Refresh the FEA badge so the user sees if FEMMT got
         # provisioned between sessions.
@@ -1012,8 +1054,7 @@ class CascadePage(QWidget):
         types = sorted({m.type for m in self._materials})
         topology = self._spec.topology if self._spec is not None else "—"
         self._catalog_summary.setText(
-            f"Eligible catalog: {n} materials "
-            f"({', '.join(types)}) · topology: {topology}",
+            f"Eligible catalog: {n} materials ({', '.join(types)}) · topology: {topology}",
         )
 
     def run(self) -> None:
@@ -1061,8 +1102,13 @@ class CascadePage(QWidget):
 
         self._thread = QThread(self)
         self._worker = _CascadeWorker(
-            self._orch, run_id, self._spec,
-            materials, cores, wires, config,
+            self._orch,
+            run_id,
+            self._spec,
+            materials,
+            cores,
+            wires,
+            config,
         )
         self._worker.moveToThread(self._thread)
         self._thread.started.connect(self._worker.run)
@@ -1148,12 +1194,13 @@ class CascadePage(QWidget):
         self._worker = None
         try:
             self._poll_timer.stop()
-        except Exception:  # noqa: BLE001
+        except Exception:
             pass
         try:
             self._refresh_dynamic()
-        except Exception:  # noqa: BLE001
+        except Exception:
             import traceback
+
             traceback.print_exc()
         # Make sure tiers that got no progress events are visibly
         # done (the orchestrator can finish a tier without firing a
@@ -1162,7 +1209,7 @@ class CascadePage(QWidget):
             for t in self._scheduled_tiers:
                 self._tiers.update_tier(t, 1, 1)
             self._status_label.setText(f"{status} · run_id={self._run_id}")
-        except Exception:  # noqa: BLE001
+        except Exception:
             pass
 
     # Map ``OptimizerFiltersBar`` objective keys → store ``order_by``
@@ -1170,9 +1217,9 @@ class CascadePage(QWidget):
     # in the store, so we order by loss server-side and re-rank
     # client-side with the volume / score weighting applied below.
     _OBJECTIVE_TO_COLUMN = {
-        "loss":  "loss_t1_W",
-        "temp":  "temp_t1_C",
-        "cost":  "cost_t1_USD",
+        "loss": "loss_t1_W",
+        "temp": "temp_t1_C",
+        "cost": "cost_t1_USD",
     }
 
     def _refresh_dynamic(self) -> None:
@@ -1186,7 +1233,8 @@ class CascadePage(QWidget):
 
         if objective in self._OBJECTIVE_TO_COLUMN:
             rows = self._store.top_candidates(
-                self._run_id, n=self.TOP_N,
+                self._run_id,
+                n=self.TOP_N,
                 order_by=self._OBJECTIVE_TO_COLUMN[objective],
             )
         else:
@@ -1197,11 +1245,11 @@ class CascadePage(QWidget):
             # 5× ``TOP_N`` is enough to surface the volume / cost
             # winners without paying for a full table scan.
             wide = self._store.top_candidates(
-                self._run_id, n=self.TOP_N * 5, order_by="loss_t1_W",
+                self._run_id,
+                n=self.TOP_N * 5,
+                order_by="loss_t1_W",
             )
-            rows = self._rerank_client_side(wide, cores_by_id, objective)[
-                : self.TOP_N
-            ]
+            rows = self._rerank_client_side(wide, cores_by_id, objective)[: self.TOP_N]
 
         self._table.populate(rows)
         # Pareto chart needs core volumes — provide the live DB lookup.
@@ -1221,6 +1269,7 @@ class CascadePage(QWidget):
         the simple optimizer's :func:`pfc_inductor.optimize.sweep.rank`
         uses, so the cascade and Pareto sweep agree on ordering.
         """
+
         def vol_of(r: CandidateRow) -> float:
             c = cores_by_id.get(r.core_id)
             if c is None:
@@ -1249,24 +1298,15 @@ class CascadePage(QWidget):
                 return [0.0] * len(values)
             lo, hi = min(finite), max(finite)
             span = hi - lo or 1.0
-            return [
-                (v - lo) / span if v != float("inf") else 1.0
-                for v in values
-            ]
+            return [(v - lo) / span if v != float("inf") else 1.0 for v in values]
 
         losses = norm([r.loss_t1_W or float("inf") for r in rows])
-        vols   = norm([vol_of(r) for r in rows])
+        vols = norm([vol_of(r) for r in rows])
         if objective == "score_with_cost":
             costs = norm([r.cost_t1_USD or float("inf") for r in rows])
-            scores = [
-                0.4 * losses[i] + 0.3 * vols[i] + 0.3 * costs[i]
-                for i in range(len(rows))
-            ]
+            scores = [0.4 * losses[i] + 0.3 * vols[i] + 0.3 * costs[i] for i in range(len(rows))]
         else:  # "score" (60/40 loss/vol) or unknown → behave as score
-            scores = [
-                0.6 * losses[i] + 0.4 * vols[i]
-                for i in range(len(rows))
-            ]
+            scores = [0.6 * losses[i] + 0.4 * vols[i] for i in range(len(rows))]
         order = sorted(range(len(rows)), key=lambda i: scores[i])
         return [rows[i] for i in order]
 

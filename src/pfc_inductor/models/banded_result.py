@@ -27,13 +27,13 @@ Two design notes
    the failures correctly instead of conflating them into a
    single "worst point".
 """
+
 from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
 from typing import Optional, Union
 
-from pfc_inductor.models.modulation import FswModulation
 from pfc_inductor.models.result import DesignResult
 from pfc_inductor.models.spec import Spec
 
@@ -124,7 +124,10 @@ def aggregate_band(
     band: list[BandPoint],
     *,
     metrics: tuple[str, ...] = (
-        "T_winding_C", "B_pk_T", "P_total_W", "T_rise_C",
+        "T_winding_C",
+        "B_pk_T",
+        "P_total_W",
+        "T_rise_C",
     ),
     edge_weighted: bool = False,
 ) -> BandedDesignResult:
@@ -139,19 +142,18 @@ def aggregate_band(
     """
     if not band:
         return BandedDesignResult(
-            spec=spec, band=(), nominal=None,
-            worst_per_metric={}, flagged_points=(),
+            spec=spec,
+            band=(),
+            nominal=None,
+            worst_per_metric={},
+            flagged_points=(),
         )
 
     flagged = tuple(p for p in band if p.result is None)
     nominal = _pick_nominal(band)
 
     # Restrict the worst-case search per the edge-weighted hint.
-    candidates = (
-        (band[0], band[-1])
-        if edge_weighted and len(band) >= 2
-        else tuple(band)
-    )
+    candidates = (band[0], band[-1]) if edge_weighted and len(band) >= 2 else tuple(band)
 
     worst: dict[str, BandPoint] = {}
     for metric in metrics:

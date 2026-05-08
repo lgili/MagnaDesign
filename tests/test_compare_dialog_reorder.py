@@ -10,6 +10,7 @@ silently shuffle the user's data) and the auto-REF promotion that
 the user explicitly asked for: dragging any column to position 0
 makes it the new reference, automatically.
 """
+
 from __future__ import annotations
 
 import os
@@ -19,18 +20,18 @@ import pytest
 # Force offscreen Qt so the test runs headless on CI / dev machines.
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtWidgets import QApplication  # noqa: E402
+from PySide6.QtWidgets import QApplication
 
-from pfc_inductor.compare.slot import CompareSlot  # noqa: E402
-from pfc_inductor.data_loader import (  # noqa: E402
+from pfc_inductor.compare.slot import CompareSlot
+from pfc_inductor.data_loader import (
     find_material,
     load_cores,
     load_materials,
     load_wires,
 )
-from pfc_inductor.design import design  # noqa: E402
-from pfc_inductor.models import Spec  # noqa: E402
-from pfc_inductor.ui.compare_dialog import CompareDialog  # noqa: E402
+from pfc_inductor.design import design
+from pfc_inductor.models import Spec
+from pfc_inductor.ui.compare_dialog import CompareDialog
 
 
 @pytest.fixture(scope="module")
@@ -46,23 +47,31 @@ def four_slots():
     what the user actually cares about."""
     mats, cores, wires = load_materials(), load_cores(), load_wires()
     spec = Spec(
-        Vin_min_Vrms=85.0, Vin_max_Vrms=265.0, Vin_nom_Vrms=220.0,
-        Vout_V=400.0, Pout_W=800.0, eta=0.97,
-        f_sw_kHz=65.0, ripple_pct=30.0,
+        Vin_min_Vrms=85.0,
+        Vin_max_Vrms=265.0,
+        Vin_nom_Vrms=220.0,
+        Vout_V=400.0,
+        Pout_W=800.0,
+        eta=0.97,
+        f_sw_kHz=65.0,
+        ripple_pct=30.0,
     )
     mat_a = find_material(mats, "magnetics-60_highflux")
     mat_b = find_material(mats, "magnetics-60_xflux")
     core = next(
-        c for c in cores
-        if c.default_material_id == "magnetics-60_highflux"
-        and 40000 < c.Ve_mm3 < 100000
+        c
+        for c in cores
+        if c.default_material_id == "magnetics-60_highflux" and 40000 < c.Ve_mm3 < 100000
     )
     w14 = next(w for w in wires if w.id == "AWG14")
     w16 = next(w for w in wires if w.id == "AWG16")
     combos = [(mat_a, w14), (mat_a, w16), (mat_b, w14), (mat_b, w16)]
     return [
         CompareSlot(
-            spec=spec, core=core, wire=w, material=m,
+            spec=spec,
+            core=core,
+            wire=w,
+            material=m,
             result=design(spec, core, w, m),
         )
         for (m, w) in combos
@@ -78,9 +87,7 @@ def _populated_dialog(qapp, slots) -> CompareDialog:
 
 
 def _slot_ids(dlg: CompareDialog) -> list[str]:
-    return [
-        f"{s.material.id}|{s.wire.id}" for s in dlg._slots
-    ]
+    return [f"{s.material.id}|{s.wire.id}" for s in dlg._slots]
 
 
 def test_drop_at_index_zero_promotes_to_ref(qapp, four_slots):

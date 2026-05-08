@@ -12,6 +12,7 @@ For ideal PFC with sinusoidal current i_in(t) = I_pk * sin(wt):
 Max ripple occurs when d/dt[delta_iL_pp] = 0, i.e. when vin_inst = Vout/2.
 At that point delta_iL_pp_max = Vout / (4 * L * fsw).
 """
+
 from __future__ import annotations
 
 import math
@@ -98,8 +99,8 @@ def rms_inductor_current_A(wf: dict) -> float:
     """
     iL_avg = wf["iL_avg_A"]
     delta = wf["delta_iL_pp_A"]
-    I_avg_rms_sq = float(np.mean(iL_avg ** 2))
-    I_rip_rms_sq = float(np.mean(delta ** 2 / 12.0))
+    I_avg_rms_sq = float(np.mean(iL_avg**2))
+    I_rip_rms_sq = float(np.mean(delta**2 / 12.0))
     return math.sqrt(I_avg_rms_sq + I_rip_rms_sq)
 
 
@@ -120,8 +121,10 @@ def peak_inductor_current_A(wf: dict) -> float:
 # Line-side THD — design-quality metric for the Análise card
 # ---------------------------------------------------------------------------
 
-def estimate_thd_pct(spec: Spec, ripple_pct: float | None = None,
-                     L_actual_uH: float | None = None) -> float:
+
+def estimate_thd_pct(
+    spec: Spec, ripple_pct: float | None = None, L_actual_uH: float | None = None
+) -> float:
     """Estimated input-current THD for a PFC boost converter.
 
     The PFC controller forces the line current to track ``v_in(t)``,

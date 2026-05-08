@@ -12,6 +12,7 @@ Convention: every model uses `model_config = ConfigDict(populate_by_name=True)`
 so we can write JSON with the MAS canonical names and read it via
 PEP-8-friendly Python attribute names.
 """
+
 from __future__ import annotations
 
 from typing import Any, Literal, Optional
@@ -29,6 +30,7 @@ class MasPermeability(BaseModel):
     etc.). For our PFC use we keep the canonical initial value plus optional
     extensions.
     """
+
     model_config = ConfigDict(populate_by_name=True)
 
     initial_value: float = Field(alias="initialValue")
@@ -36,6 +38,7 @@ class MasPermeability(BaseModel):
 
 class MasSaturation(BaseModel):
     """One row of `magnetic.material.saturation` — Bsat at a temperature."""
+
     model_config = ConfigDict(populate_by_name=True)
 
     temperature_C: float = Field(alias="temperature")
@@ -44,6 +47,7 @@ class MasSaturation(BaseModel):
 
 class MasSteinmetzCoeffs(BaseModel):
     """Coefficients for the anchored Steinmetz law."""
+
     model_config = ConfigDict(populate_by_name=True)
 
     k: float
@@ -53,15 +57,18 @@ class MasSteinmetzCoeffs(BaseModel):
 
 class MasCoreLoss(BaseModel):
     """`magnetic.material.coreLossesMethods[]` entry."""
+
     model_config = ConfigDict(populate_by_name=True)
 
     method: Literal["steinmetz", "iGSE", "table"]
     coefficients: Optional[MasSteinmetzCoeffs] = None
     reference_frequency_Hz: Optional[float] = Field(
-        default=None, alias="referenceFrequency",
+        default=None,
+        alias="referenceFrequency",
     )
     reference_flux_density_T: Optional[float] = Field(
-        default=None, alias="referenceFluxDensity",
+        default=None,
+        alias="referenceFluxDensity",
     )
 
 
@@ -72,23 +79,26 @@ class MasMaterial(BaseModel):
     under the `x-pfc-inductor` namespace so MAS validators don't choke on
     unknown fields.
     """
+
     model_config = ConfigDict(populate_by_name=True)
 
     name: str
     manufacturer: str
     family: str = ""
-    type: str = "powder"   # MAS uses lowercase; we mirror
+    type: str = "powder"  # MAS uses lowercase; we mirror
 
     permeability: MasPermeability
     saturation: list[MasSaturation] = Field(default_factory=list)
     core_losses_methods: list[MasCoreLoss] = Field(
-        default_factory=list, alias="coreLossesMethods",
+        default_factory=list,
+        alias="coreLossesMethods",
     )
     density_kg_m3: Optional[float] = Field(default=None, alias="density")
 
     notes: str = ""
     x_pfc_inductor: dict[str, Any] = Field(
-        default_factory=dict, alias="x-pfc-inductor",
+        default_factory=dict,
+        alias="x-pfc-inductor",
     )
 
 
@@ -97,10 +107,11 @@ class MasMaterial(BaseModel):
 # ---------------------------------------------------------------------------
 class MasCoreShape(BaseModel):
     """`magnetic.core.shape` — name + family (e.g. "T-25-15-10" / "Toroid")."""
+
     model_config = ConfigDict(populate_by_name=True)
 
     name: str
-    family: str = ""   # toroid, e, etd, pq, ...
+    family: str = ""  # toroid, e, etd, pq, ...
 
 
 class MasCoreDimensions(BaseModel):
@@ -109,6 +120,7 @@ class MasCoreDimensions(BaseModel):
     MAS keeps these under `magnetic.core.functionalDescription[].coreFunctionalDescription`
     in the spec, but for our pragmatic interop we flatten them.
     """
+
     model_config = ConfigDict(populate_by_name=True)
 
     Ae_mm2: float = Field(alias="effectiveArea")
@@ -123,9 +135,10 @@ class MasCoreDimensions(BaseModel):
 
 class MasCore(BaseModel):
     """`magnetic.core` subset."""
+
     model_config = ConfigDict(populate_by_name=True)
 
-    name: str             # part number
+    name: str  # part number
     manufacturer: str
     shape: MasCoreShape
     dimensions: MasCoreDimensions
@@ -134,7 +147,8 @@ class MasCore(BaseModel):
     gap_length_mm: float = Field(default=0.0, alias="gapLength")
     notes: str = ""
     x_pfc_inductor: dict[str, Any] = Field(
-        default_factory=dict, alias="x-pfc-inductor",
+        default_factory=dict,
+        alias="x-pfc-inductor",
     )
 
 
@@ -143,34 +157,41 @@ class MasCore(BaseModel):
 # ---------------------------------------------------------------------------
 class MasWire(BaseModel):
     """Subset of `magnetic.coil.functionalDescription[].wire`."""
+
     model_config = ConfigDict(populate_by_name=True)
 
     name: str
     type: Literal["round", "litz", "foil"] = "round"
     awg: Optional[int] = None
     conducting_diameter_mm: Optional[float] = Field(
-        default=None, alias="conductingDiameter",
+        default=None,
+        alias="conductingDiameter",
     )
     insulated_diameter_mm: Optional[float] = Field(
-        default=None, alias="outerDiameter",
+        default=None,
+        alias="outerDiameter",
     )
     conducting_area_mm2: float = Field(alias="conductingArea")
     # Litz extras
     strand_awg: Optional[int] = Field(default=None, alias="strandAwg")
     strand_diameter_mm: Optional[float] = Field(
-        default=None, alias="strandDiameter",
+        default=None,
+        alias="strandDiameter",
     )
     number_strands: Optional[int] = Field(default=None, alias="numberStrands")
     bundle_diameter_mm: Optional[float] = Field(
-        default=None, alias="bundleDiameter",
+        default=None,
+        alias="bundleDiameter",
     )
     # Cost (custom)
     cost_per_meter: Optional[float] = Field(default=None, alias="costPerMeter")
     mass_per_meter_g: Optional[float] = Field(
-        default=None, alias="massPerMeter",
+        default=None,
+        alias="massPerMeter",
     )
 
     notes: str = ""
     x_pfc_inductor: dict[str, Any] = Field(
-        default_factory=dict, alias="x-pfc-inductor",
+        default_factory=dict,
+        alias="x-pfc-inductor",
     )

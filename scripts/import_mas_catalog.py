@@ -28,7 +28,9 @@ Run from project root:
 Exit code is 0 even when zero new entries are added; the merge summary
 is printed on stdout. ``--dry-run`` skips the write step.
 """
+
 from __future__ import annotations
+
 import argparse
 import json
 import sys
@@ -46,10 +48,13 @@ OUT_DIR = REPO_ROOT / "data" / "mas" / "catalog"
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from pfc_inductor.models import (  # type: ignore[import-not-found] # noqa: E402
-    Material, SteinmetzParams, Wire,
+    Material,
+    SteinmetzParams,
+    Wire,
 )
 from pfc_inductor.models.mas import (  # type: ignore[import-not-found] # noqa: E402
-    material_to_mas, wire_to_mas,
+    material_to_mas,
+    wire_to_mas,
 )
 from pfc_inductor.models.mas.adapters import _slug  # type: ignore[import-not-found] # noqa: E402
 
@@ -126,10 +131,7 @@ def _initial_permeability(perm: dict) -> Optional[float]:
 def _bsat_at_temperature(saturation: list[dict], target_C: float) -> Optional[float]:
     if not isinstance(saturation, list):
         return None
-    rows = [
-        r for r in saturation
-        if isinstance(r, dict) and "magneticFluxDensity" in r
-    ]
+    rows = [r for r in saturation if isinstance(r, dict) and "magneticFluxDensity" in r]
     if not rows:
         return None
     rows.sort(key=lambda r: abs(r.get("temperature", target_C) - target_C))
@@ -156,13 +158,16 @@ def _steinmetz_from_volumetric(losses: list[dict]) -> Optional[SteinmetzParams]:
         k_raw = coeffs.get("k", coeffs.get("kc"))
         alpha_raw = coeffs.get("alpha")
         beta_raw = coeffs.get("beta")
-        if not (isinstance(k_raw, (int, float))
-                and isinstance(alpha_raw, (int, float))
-                and isinstance(beta_raw, (int, float))):
+        if not (
+            isinstance(k_raw, (int, float))
+            and isinstance(alpha_raw, (int, float))
+            and isinstance(beta_raw, (int, float))
+        ):
             continue
         f_ref = float(entry.get("referenceFrequency", 100_000.0))
-        b_ref = float(entry.get("referenceMagneticFluxDensity",
-                                entry.get("referenceFluxDensity", 0.1)))
+        b_ref = float(
+            entry.get("referenceMagneticFluxDensity", entry.get("referenceFluxDensity", 0.1))
+        )
         return SteinmetzParams(
             Pv_ref_mWcm3=float(k_raw),
             f_ref_kHz=f_ref / 1000.0,
@@ -211,8 +216,13 @@ def _material_from_mas_doc(doc: dict, *, version_tag: str) -> Optional[Material]
         # Conservative ferrite default — better to flag in notes than to
         # leave an entry without any loss model at all.
         steinmetz = SteinmetzParams(
-            Pv_ref_mWcm3=200.0, f_ref_kHz=100.0, B_ref_mT=100.0,
-            alpha=1.4, beta=2.5, f_min_kHz=1.0, f_max_kHz=500.0,
+            Pv_ref_mWcm3=200.0,
+            f_ref_kHz=100.0,
+            B_ref_mT=100.0,
+            alpha=1.4,
+            beta=2.5,
+            f_min_kHz=1.0,
+            f_max_kHz=500.0,
         )
         notes = (
             f"Imported from OpenMagnetics MAS @ {version_tag}. "
@@ -303,6 +313,7 @@ def _wire_from_mas_doc(doc: dict, *, version_tag: str) -> Optional[Wire]:
         A_cu_mm2 = float(a_cu_doc) * 1e6
     else:
         import math
+
         A_cu_mm2 = math.pi * (d_cu_mm / 2.0) ** 2
 
     wid = _slug(name)
@@ -373,7 +384,11 @@ def _user_data_dir() -> Optional[Path]:
 # Main
 # ---------------------------------------------------------------------------
 def _import_materials(
-    src: Path, *, version_tag: str, curated_ids: set[str], user_ids: set[str],
+    src: Path,
+    *,
+    version_tag: str,
+    curated_ids: set[str],
+    user_ids: set[str],
 ) -> tuple[list[Material], MergeReport]:
     rep = MergeReport()
     out: list[Material] = []
@@ -400,7 +415,11 @@ def _import_materials(
 
 
 def _import_wires(
-    src: Path, *, version_tag: str, curated_ids: set[str], user_ids: set[str],
+    src: Path,
+    *,
+    version_tag: str,
+    curated_ids: set[str],
+    user_ids: set[str],
 ) -> tuple[list[Wire], MergeReport]:
     rep = MergeReport()
     out: list[Wire] = []
@@ -425,7 +444,11 @@ def _import_wires(
 
 
 def _write_payload(
-    out_path: Path, key: str, items: list[dict], *, version_tag: str,
+    out_path: Path,
+    key: str,
+    items: list[dict],
+    *,
+    version_tag: str,
 ) -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
@@ -439,7 +462,8 @@ def _write_payload(
         key: items,
     }
     out_path.write_text(
-        json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8",
+        json.dumps(payload, indent=2, ensure_ascii=False),
+        encoding="utf-8",
     )
 
 
@@ -467,8 +491,10 @@ def run_import(src_dir: Path, *, dry_run: bool = False) -> int:
         curated = _existing_ids(bundled_dir / "materials.json", "materials")
         user = _existing_ids(user_dir / "materials.json", "materials") if user_dir else set()
         materials_out, mrep = _import_materials(
-            mats_path, version_tag=version_tag,
-            curated_ids=curated, user_ids=user,
+            mats_path,
+            version_tag=version_tag,
+            curated_ids=curated,
+            user_ids=user,
         )
         reports.append(mrep.line("materials"))
     else:
@@ -478,8 +504,10 @@ def run_import(src_dir: Path, *, dry_run: bool = False) -> int:
         curated = _existing_ids(bundled_dir / "wires.json", "wires")
         user = _existing_ids(user_dir / "wires.json", "wires") if user_dir else set()
         wires_out, wrep = _import_wires(
-            wires_path, version_tag=version_tag,
-            curated_ids=curated, user_ids=user,
+            wires_path,
+            version_tag=version_tag,
+            curated_ids=curated,
+            user_ids=user,
         )
         reports.append(wrep.line("wires"))
     else:
@@ -495,14 +523,18 @@ def run_import(src_dir: Path, *, dry_run: bool = False) -> int:
         items = []
         for m in materials_out:
             mas = material_to_mas(m).model_dump(
-                mode="json", by_alias=True, exclude_none=True,
+                mode="json",
+                by_alias=True,
+                exclude_none=True,
             )
             ext = mas.setdefault("x-pfc-inductor", {})
             ext["source"] = "openmagnetics"
             ext["catalog_version"] = version_tag
             items.append(mas)
         _write_payload(
-            OUT_DIR / "materials.json", "materials", items,
+            OUT_DIR / "materials.json",
+            "materials",
+            items,
             version_tag=version_tag,
         )
 
@@ -510,14 +542,18 @@ def run_import(src_dir: Path, *, dry_run: bool = False) -> int:
         items = []
         for w in wires_out:
             mas = wire_to_mas(w).model_dump(
-                mode="json", by_alias=True, exclude_none=True,
+                mode="json",
+                by_alias=True,
+                exclude_none=True,
             )
             ext = mas.setdefault("x-pfc-inductor", {})
             ext["source"] = "openmagnetics"
             ext["catalog_version"] = version_tag
             items.append(mas)
         _write_payload(
-            OUT_DIR / "wires.json", "wires", items,
+            OUT_DIR / "wires.json",
+            "wires",
+            items,
             version_tag=version_tag,
         )
 

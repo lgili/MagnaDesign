@@ -3,6 +3,7 @@
 Runs the cross-platform installer with sensible defaults. Suitable for
 CI, headless boxes and users who prefer the terminal.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -33,8 +34,10 @@ def _print_step(s: SetupStep, *, color: bool) -> None:
         marker = f"{_GREEN}✓{_RESET}" if color else "ok"
     else:
         marker = f"{_RED}✗{_RESET}" if color else "FAIL"
-    detail = f" {_DIM}({s.detail}){_RESET}" if (color and s.detail) else (
-        f" ({s.detail})" if s.detail else ""
+    detail = (
+        f" {_DIM}({s.detail}){_RESET}"
+        if (color and s.detail)
+        else (f" ({s.detail})" if s.detail else "")
     )
     print(f"  [{marker}] {s.name}{detail}")
 
@@ -68,19 +71,24 @@ def main(argv: Optional[list[str]] = None) -> int:
         ),
     )
     p.add_argument(
-        "--onelab-dir", type=Path, default=None,
+        "--onelab-dir",
+        type=Path,
+        default=None,
         help="Diretório destino do ONELAB (padrão: ~/onelab).",
     )
     p.add_argument(
-        "--skip-codesign", action="store_true",
+        "--skip-codesign",
+        action="store_true",
         help="Pula codesign do macOS (use se já tiver feito manualmente).",
     )
     p.add_argument(
-        "--check", action="store_true",
+        "--check",
+        action="store_true",
         help="Apenas verifica o estado atual; não instala nada.",
     )
     p.add_argument(
-        "--no-color", action="store_true",
+        "--no-color",
+        action="store_true",
         help="Desabilita cores ANSI.",
     )
     args = p.parse_args(argv)
@@ -89,11 +97,12 @@ def main(argv: Optional[list[str]] = None) -> int:
     if args.check:
         v = check_fea_setup()
         print("Estado do backend FEA:")
-        print(f"  FEMMT importável  : {'sim' if v.femmt_importable else 'não'}"
-              + (f"  (v{v.femmt_version})" if v.femmt_version else ""))
+        print(
+            f"  FEMMT importável  : {'sim' if v.femmt_importable else 'não'}"
+            + (f"  (v{v.femmt_version})" if v.femmt_version else "")
+        )
         print(f"  ONELAB configurado: {v.onelab_dir or '(não definido)'}")
-        print("  Pronto para usar  : "
-              + ("sim" if v.fea_ready else "NÃO"))
+        print("  Pronto para usar  : " + ("sim" if v.fea_ready else "NÃO"))
         for note in v.notes:
             print(f"  - {note}")
         return 0 if v.fea_ready else 1

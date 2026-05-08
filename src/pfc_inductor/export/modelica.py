@@ -17,10 +17,11 @@ inductor as a non-linear two-pin element parameterised by L(i),
 which matches what we *do* compute (L_effective(I) via rolloff)
 without overstating the model's fidelity.
 """
+
 from __future__ import annotations
 
 import textwrap
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from pfc_inductor.export.curves import L_vs_I_table
 from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
@@ -41,22 +42,21 @@ def to_modelica(
     I_max = max(_peak_current_A(result), 1e-3) * 1.5
 
     L_table = L_vs_I_table(
-        material=material, core=core, n_turns=n_turns,
-        I_max=I_max, n_points=n_points,
+        material=material,
+        core=core,
+        n_turns=n_turns,
+        I_max=I_max,
+        n_points=n_points,
     )
 
     R_dc = float(getattr(result, "R_dc_ohm", 0.0) or 0.0)
     if R_dc <= 0 and hasattr(result, "losses"):
         R_dc = float(getattr(result.losses, "R_dc_ohm", 0.0) or 0.0)
 
-    table_literal = ";\n        ".join(
-        f"{I:.6f}, {L:.9e}" for I, L in L_table
-    )
-    L_nominal_H = (
-        float(result.L_actual_uH) * 1e-6 if result.L_actual_uH else 0.0
-    )
+    table_literal = ";\n        ".join(f"{I:.6f}, {L:.9e}" for I, L in L_table)
+    L_nominal_H = float(result.L_actual_uH) * 1e-6 if result.L_actual_uH else 0.0
 
-    timestamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    timestamp = datetime.now(UTC).isoformat(timespec="seconds")
     info = textwrap.dedent(f"""\
         Topology     : {spec.topology}
         Core         : {core.part_number} ({core.shape}, {material.name})

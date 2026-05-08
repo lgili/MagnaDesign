@@ -1,4 +1,5 @@
 """Positioning module + AboutDialog + README invariants."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -20,8 +21,13 @@ def test_seven_differentials_protected():
     """The seven defended differentials must all exist in the module."""
     keys = {d.key for d in DIFFERENTIALS}
     expected = {
-        "pfc_topology", "cost_model", "litz_optimizer",
-        "multi_compare", "bh_loop", "polished_ux", "br_market",
+        "pfc_topology",
+        "cost_model",
+        "litz_optimizer",
+        "multi_compare",
+        "bh_loop",
+        "polished_ux",
+        "br_market",
     }
     assert keys == expected, (
         f"Missing or extra differentials. Found: {keys - expected}; "
@@ -34,18 +40,14 @@ def test_every_differential_covers_every_competitor():
     comp_ids = {c.id for c in COMPETITORS}
     for diff in DIFFERENTIALS:
         missing = comp_ids - set(diff.coverage.keys())
-        assert not missing, (
-            f"Differential {diff.key!r} missing coverage for: {missing}"
-        )
+        assert not missing, f"Differential {diff.key!r} missing coverage for: {missing}"
 
 
 def test_coverage_values_are_known():
     valid = {"yes", "partial", "no", "na"}
     for d in DIFFERENTIALS:
         for cid, cov in d.coverage.items():
-            assert cov in valid, (
-                f"Invalid coverage value {cov!r} in {d.key} for {cid}"
-            )
+            assert cov in valid, f"Invalid coverage value {cov!r} in {d.key} for {cid}"
 
 
 def test_coverage_label_returns_known_glyph():
@@ -64,9 +66,7 @@ def test_get_competitor_lookup():
 
 def test_competitor_urls_are_https():
     for c in COMPETITORS:
-        assert c.url.startswith("https://"), (
-            f"Competitor {c.id} url must be https: got {c.url!r}"
-        )
+        assert c.url.startswith("https://"), f"Competitor {c.id} url must be https: got {c.url!r}"
 
 
 def test_pitch_is_present_and_short():
@@ -81,9 +81,7 @@ def test_positioning_doc_exists_and_mentions_each_competitor():
     assert p.exists(), "docs/POSITIONING.md is required (ADR 0001)"
     text = p.read_text(encoding="utf-8")
     for c in COMPETITORS:
-        assert c.short in text, (
-            f"docs/POSITIONING.md must reference competitor {c.short!r}"
-        )
+        assert c.short in text, f"docs/POSITIONING.md must reference competitor {c.short!r}"
 
 
 def test_adr_exists():
@@ -133,15 +131,10 @@ def test_readme_pitch_precedes_install():
         if idx >= 0 and (install_idx < 0 or idx < install_idx):
             install_idx = idx
     assert pitch_idx >= 0, (
-        "README must contain a differential-pitch section "
-        f"(any of {pitch_candidates})"
+        f"README must contain a differential-pitch section (any of {pitch_candidates})"
     )
-    assert install_idx >= 0, (
-        f"README must have an install section (any of {install_candidates})"
-    )
-    assert pitch_idx < install_idx, (
-        "README hero must come before installation"
-    )
+    assert install_idx >= 0, f"README must have an install section (any of {install_candidates})"
+    assert pitch_idx < install_idx, "README hero must come before installation"
 
 
 def test_readme_links_to_positioning():
@@ -149,6 +142,4 @@ def test_readme_links_to_positioning():
     text = p.read_text(encoding="utf-8")
     # The reference may be relative (``docs/POSITIONING.md``) or in a
     # markdown link form. Accept either; just require the filename.
-    assert "POSITIONING.md" in text, (
-        "README must reference docs/POSITIONING.md somewhere"
-    )
+    assert "POSITIONING.md" in text, "README must reference docs/POSITIONING.md somewhere"

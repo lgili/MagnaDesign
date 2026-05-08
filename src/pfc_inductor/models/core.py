@@ -12,6 +12,7 @@ class Core(BaseModel):
     DC bias with the listed default_material_id. For powder cores, the
     effective AL is reduced by the rolloff curve at the operating H.
     """
+
     id: str
     vendor: str
     shape: str
@@ -28,12 +29,14 @@ class Core(BaseModel):
     Wa_mm2: float
     MLT_mm: float
 
-    AL_nH: float = Field(description="Inductance index nH/N^2 at zero DC bias with default material")
+    AL_nH: float = Field(
+        description="Inductance index nH/N^2 at zero DC bias with default material"
+    )
     lgap_mm: float = 0.0
     cost_per_piece: Optional[float] = Field(
         default=None,
         description="Per-piece cost in the material's currency. Preferred "
-                    "over deriving from mass × material.cost_per_kg.",
+        "over deriving from mass × material.cost_per_kg.",
     )
     mass_g: Optional[float] = Field(
         default=None,

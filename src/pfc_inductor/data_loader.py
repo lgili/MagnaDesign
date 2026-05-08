@@ -25,6 +25,7 @@ Source precedence, highest first:
 Entries with the same ``id`` collapse: only the highest-precedence copy
 is returned. The auto-detect for MAS shape vs legacy is per-file.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -199,12 +200,7 @@ def _is_mas_payload(items: list[dict]) -> bool:
     s = items[0]
     if not isinstance(s, dict):
         return False
-    return (
-        "manufacturer" in s
-        or "permeability" in s
-        or "dimensions" in s
-        or "conductingArea" in s
-    )
+    return "manufacturer" in s or "permeability" in s or "dimensions" in s or "conductingArea" in s
 
 
 def _decode_entries(items: list[dict], kind: str) -> list:
@@ -214,11 +210,14 @@ def _decode_entries(items: list[dict], kind: str) -> list:
     if _is_mas_payload(items):
         if kind == "materials":
             from pfc_inductor.models.mas import MasMaterial, material_from_mas
+
             return [material_from_mas(MasMaterial(**m)) for m in items]
         if kind == "cores":
             from pfc_inductor.models.mas import MasCore, core_from_mas
+
             return [core_from_mas(MasCore(**c)) for c in items]
         from pfc_inductor.models.mas import MasWire, wire_from_mas
+
         return [wire_from_mas(MasWire(**w)) for w in items]
     if kind == "materials":
         return [Material(**m) for m in items]
@@ -252,10 +251,7 @@ def _merge_with_catalog(file_name: str, key: str, kind: str) -> list:
     # cores" carve-out has been dropped).
     mas_payload = _open_catalog(file_name)
     if mas_payload is not None:
-        mas_raw = [
-            e for e in mas_payload.get(key, [])
-            if _entry_id(e) not in seen_ids
-        ]
+        mas_raw = [e for e in mas_payload.get(key, []) if _entry_id(e) not in seen_ids]
         mas_entries = _decode_entries(mas_raw, kind)
         extras.extend(mas_entries)
         seen_ids.update(getattr(e, "id", None) for e in mas_entries)
@@ -263,10 +259,7 @@ def _merge_with_catalog(file_name: str, key: str, kind: str) -> list:
     # Layer 2: PyETK catalog (covers both materials and cores).
     pyetk_payload = _open_pyetk(file_name)
     if pyetk_payload is not None:
-        pyetk_raw = [
-            e for e in pyetk_payload.get(key, [])
-            if _entry_id(e) not in seen_ids
-        ]
+        pyetk_raw = [e for e in pyetk_payload.get(key, []) if _entry_id(e) not in seen_ids]
         pyetk_entries = _decode_entries(pyetk_raw, kind)
         extras.extend(pyetk_entries)
 
@@ -370,9 +363,9 @@ def save_materials(materials: list[Material], *, as_mas: bool = False) -> Path:
     p = user_data_path() / "materials.json"
     if as_mas:
         from pfc_inductor.models.mas import material_to_mas
+
         items = [
-            material_to_mas(m).model_dump(mode="json", by_alias=True,
-                                          exclude_none=True)
+            material_to_mas(m).model_dump(mode="json", by_alias=True, exclude_none=True)
             for m in materials
         ]
     else:
@@ -381,8 +374,7 @@ def save_materials(materials: list[Material], *, as_mas: bool = False) -> Path:
         "_comment": "Edited via MagnaDesign DB editor.",
         "materials": items,
     }
-    p.write_text(json.dumps(payload, indent=2, ensure_ascii=False),
-                 encoding="utf-8")
+    p.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
     return p
 
 
@@ -390,10 +382,9 @@ def save_cores(cores: list[Core], *, as_mas: bool = False) -> Path:
     p = user_data_path() / "cores.json"
     if as_mas:
         from pfc_inductor.models.mas import core_to_mas
+
         items = [
-            core_to_mas(c).model_dump(mode="json", by_alias=True,
-                                      exclude_none=True)
-            for c in cores
+            core_to_mas(c).model_dump(mode="json", by_alias=True, exclude_none=True) for c in cores
         ]
     else:
         items = [c.model_dump(mode="json") for c in cores]
@@ -401,8 +392,7 @@ def save_cores(cores: list[Core], *, as_mas: bool = False) -> Path:
         "_comment": "Edited via MagnaDesign DB editor.",
         "cores": items,
     }
-    p.write_text(json.dumps(payload, indent=2, ensure_ascii=False),
-                 encoding="utf-8")
+    p.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
     return p
 
 
@@ -410,10 +400,9 @@ def save_wires(wires: list[Wire], *, as_mas: bool = False) -> Path:
     p = user_data_path() / "wires.json"
     if as_mas:
         from pfc_inductor.models.mas import wire_to_mas
+
         items = [
-            wire_to_mas(w).model_dump(mode="json", by_alias=True,
-                                      exclude_none=True)
-            for w in wires
+            wire_to_mas(w).model_dump(mode="json", by_alias=True, exclude_none=True) for w in wires
         ]
     else:
         items = [w.model_dump(mode="json") for w in wires]
@@ -421,6 +410,5 @@ def save_wires(wires: list[Wire], *, as_mas: bool = False) -> Path:
         "_comment": "Edited via MagnaDesign DB editor.",
         "wires": items,
     }
-    p.write_text(json.dumps(payload, indent=2, ensure_ascii=False),
-                 encoding="utf-8")
+    p.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
     return p

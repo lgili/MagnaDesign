@@ -6,15 +6,13 @@ Given a :class:`DesignResult` from the engine and a
 The notebook's last cell renders the list as a table and emits
 the PASS/FAIL summary CI keys on.
 """
+
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Optional
+from dataclasses import dataclass
 
 from pfc_inductor.models import DesignResult
-
 from validation.lib.measure_loader import MeasurementSet
-
 
 # Map threshold-key → (metric_in_csv, predicted_lookup,
 #                      kind: "pct" | "abs", short_label).
@@ -23,13 +21,13 @@ from validation.lib.measure_loader import MeasurementSet
 # ``DesignResult`` — handles nested access (e.g. losses.P_cu_total_W)
 # and unit conversion (T → mT) where the bench convention differs.
 _METRIC_MAP: dict[str, tuple[str, str, str, str]] = {
-    "inductance_pct":       ("L",         "L_actual_uH * 1e-6",          "pct", "L"),
-    "flux_density_pct":     ("B_pk",      "B_pk_T",                      "pct", "B_pk"),
-    "temperature_C":        ("T_winding", "T_winding_C",                 "abs", "T_winding"),
-    "copper_loss_pct":      ("P_cu",      "losses.P_cu_total_W",          "pct", "P_cu"),
-    "core_loss_pct":        ("P_core",    "losses.P_core_total_W",        "pct", "P_core"),
-    "total_loss_pct":       ("P_total",   "losses.P_total_W",             "pct", "P_total"),
-    "ac_resistance_pct":    ("R_ac",      "R_ac_ohm",                     "pct", "R_ac"),
+    "inductance_pct": ("L", "L_actual_uH * 1e-6", "pct", "L"),
+    "flux_density_pct": ("B_pk", "B_pk_T", "pct", "B_pk"),
+    "temperature_C": ("T_winding", "T_winding_C", "abs", "T_winding"),
+    "copper_loss_pct": ("P_cu", "losses.P_cu_total_W", "pct", "P_cu"),
+    "core_loss_pct": ("P_core", "losses.P_core_total_W", "pct", "P_core"),
+    "total_loss_pct": ("P_total", "losses.P_total_W", "pct", "P_total"),
+    "ac_resistance_pct": ("R_ac", "R_ac_ohm", "pct", "R_ac"),
 }
 
 
@@ -87,25 +85,37 @@ def compare(
         if spec is None:
             # Unknown threshold key — surface as a no-op entry so
             # the notebook doesn't silently drop it.
-            comparisons.append(MetricComparison(
-                metric=threshold_key, predicted=float("nan"),
-                measured=float("nan"), unit="?",
-                threshold=value, kind="pct",
-                delta=float("nan"), passed=False,
-                note="unknown threshold key",
-            ))
+            comparisons.append(
+                MetricComparison(
+                    metric=threshold_key,
+                    predicted=float("nan"),
+                    measured=float("nan"),
+                    unit="?",
+                    threshold=value,
+                    kind="pct",
+                    delta=float("nan"),
+                    passed=False,
+                    note="unknown threshold key",
+                )
+            )
             continue
 
         metric_in_csv, predicted_path, kind, label = spec
         bench = measurements.first(metric_in_csv)
         if bench is None:
-            comparisons.append(MetricComparison(
-                metric=label, predicted=float("nan"),
-                measured=float("nan"), unit="—",
-                threshold=value, kind=kind,
-                delta=float("nan"), passed=False,
-                note="no measurement",
-            ))
+            comparisons.append(
+                MetricComparison(
+                    metric=label,
+                    predicted=float("nan"),
+                    measured=float("nan"),
+                    unit="—",
+                    threshold=value,
+                    kind=kind,
+                    delta=float("nan"),
+                    passed=False,
+                    note="no measurement",
+                )
+            )
             continue
 
         predicted = _eval_predicted(predicted_path, result)
@@ -113,10 +123,7 @@ def compare(
         unit = bench.unit or "—"
 
         if kind == "pct":
-            delta = (
-                (predicted - measured) / measured * 100.0
-                if measured != 0 else float("nan")
-            )
+            delta = (predicted - measured) / measured * 100.0 if measured != 0 else float("nan")
             passed = abs(delta) <= value
         else:  # "abs"
             delta = predicted - measured
@@ -205,10 +212,7 @@ def render_summary(
             delta_text = f"{c.delta:+.2f} %" if c.delta == c.delta else "n/a"
             thresh_text = f"±{c.threshold:.0f} %"
         else:
-            delta_text = (
-                f"{c.delta:+.2f} {c.unit}"
-                if c.delta == c.delta else "n/a"
-            )
+            delta_text = f"{c.delta:+.2f} {c.unit}" if c.delta == c.delta else "n/a"
             thresh_text = f"±{c.threshold:.0f} {c.unit}"
 
         if c.passed:
@@ -218,14 +222,8 @@ def render_summary(
         else:
             mark = "✗ FAIL"
 
-        pred_text = (
-            f"{c.predicted:.3g} {c.unit}"
-            if c.predicted == c.predicted else "n/a"
-        )
-        meas_text = (
-            f"{c.measured:.3g} {c.unit}"
-            if c.measured == c.measured else "n/a"
-        )
+        pred_text = f"{c.predicted:.3g} {c.unit}" if c.predicted == c.predicted else "n/a"
+        meas_text = f"{c.measured:.3g} {c.unit}" if c.measured == c.measured else "n/a"
         lines.append(
             f"{c.metric:12s}  {pred_text:>12s}  {meas_text:>12s}  "
             f"{delta_text:>10s}  {thresh_text:>8s}  {mark}"
@@ -234,8 +232,7 @@ def render_summary(
     lines.append("")
     if summary.all_passed:
         lines.append(
-            f"verdict: ✓ PASS  ({summary.n_passed} of "
-            f"{summary.n_total} metrics)",
+            f"verdict: ✓ PASS  ({summary.n_passed} of {summary.n_total} metrics)",
         )
     else:
         lines.append(

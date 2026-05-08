@@ -1,4 +1,5 @@
 """Detect available FEM backends (FEMMT preferred; FEMM/xfemm legacy)."""
+
 from __future__ import annotations
 
 import importlib
@@ -52,8 +53,7 @@ def femm_version() -> Optional[str]:
     if binary is None:
         return None
     try:
-        r = subprocess.run([binary, "--version"], capture_output=True,
-                           text=True, timeout=4)
+        r = subprocess.run([binary, "--version"], capture_output=True, text=True, timeout=4)
         out = (r.stdout or r.stderr).strip()
         return out or "unknown"
     except Exception:
@@ -80,6 +80,7 @@ def is_femmt_onelab_configured() -> bool:
     candidates = []
     try:
         import femmt
+
         candidates.append(Path(femmt.__file__).parent / "config.json")
     except Exception:
         pass
@@ -91,6 +92,7 @@ def is_femmt_onelab_configured() -> bool:
         if p.exists():
             try:
                 import json
+
                 data = json.loads(p.read_text())
                 onelab = data.get("onelab") or data.get("ONELAB")
                 if not onelab:
@@ -108,6 +110,7 @@ def femmt_config_path() -> Optional[Path]:
     """Return the path FEMMT reads its ONELAB config from."""
     try:
         import femmt
+
         return Path(femmt.__file__).parent / "config.json"
     except Exception:
         return None
@@ -161,7 +164,7 @@ def select_backend_for_shape(shape_kind: str) -> Backend:
     if forced == "femm":
         return "femm" if is_femm_available() else "none"
 
-    is_toroid = (shape_kind == "toroid")
+    is_toroid = shape_kind == "toroid"
     if is_toroid:
         if is_femm_available():
             return "femm"
@@ -209,18 +212,12 @@ def install_hint() -> str:
         "Alternativa legada (FEMM): "
     )
     if sys == "darwin":
-        base += (
-            "no macOS, `brew install xfemm` ou rode FEMM original via "
-            "Wine/CrossOver."
-        )
+        base += "no macOS, `brew install xfemm` ou rode FEMM original via Wine/CrossOver."
     elif sys == "linux":
         base += (
             "no Linux, `apt install xfemm` ou compile do fonte "
             "(https://femm.foster-miller.net/wiki/HomePage)."
         )
     elif sys == "windows":
-        base += (
-            "no Windows, baixe o instalador FEMM 4.2 em "
-            "https://www.femm.info."
-        )
+        base += "no Windows, baixe o instalador FEMM 4.2 em https://www.femm.info."
     return base

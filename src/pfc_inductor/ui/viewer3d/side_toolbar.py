@@ -1,4 +1,5 @@
 """Vertical right-edge icon toolbar for the 3D viewer."""
+
 from __future__ import annotations
 
 from typing import Optional
@@ -19,12 +20,12 @@ from pfc_inductor.ui.theme import get_theme, on_theme_changed
 
 # (icon-name, signal-attr, tooltip)
 _BUTTONS = (
-    ("maximize-2",   "fullscreen_requested",  "Fullscreen"),
-    ("image",        "screenshot_requested",  "Screenshot (PNG)"),
-    ("layers",       None,                     "Layers"),
-    ("crop",         "section_toggled",       "Section"),
-    ("ruler",        "measure_toggled",       "Measure"),
-    ("settings-2",   "settings_requested",    "Settings"),
+    ("maximize-2", "fullscreen_requested", "Fullscreen"),
+    ("image", "screenshot_requested", "Screenshot (PNG)"),
+    ("layers", None, "Layers"),
+    ("crop", "section_toggled", "Section"),
+    ("ruler", "measure_toggled", "Measure"),
+    ("settings-2", "settings_requested", "Settings"),
 )
 
 
@@ -33,7 +34,7 @@ class SideToolbar(QFrame):
 
     fullscreen_requested = Signal()
     screenshot_requested = Signal()
-    layers_requested = Signal(dict)        # {winding: bool, bobbin: bool, airgap: bool}
+    layers_requested = Signal(dict)  # {winding: bool, bobbin: bool, airgap: bool}
     section_toggled = Signal(bool)
     measure_toggled = Signal(bool)
     settings_requested = Signal()
@@ -49,10 +50,7 @@ class SideToolbar(QFrame):
         self._buttons: dict[str, QToolButton] = {}
         for icon_name, sig_name, tooltip in _BUTTONS:
             btn = QToolButton()
-            btn.setIcon(
-                ui_icon(icon_name,
-                        color=get_theme().palette.text_secondary, size=18)
-            )
+            btn.setIcon(ui_icon(icon_name, color=get_theme().palette.text_secondary, size=18))
             btn.setIconSize(QSize(18, 18))
             btn.setToolTip(tooltip)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -78,11 +76,9 @@ class SideToolbar(QFrame):
             btn.setStyleSheet(self._button_qss())
         # Re-tint icons.
         from pfc_inductor.ui.icons import icon as ui_icon
+
         for icon_name, btn in self._buttons.items():
-            btn.setIcon(
-                ui_icon(icon_name,
-                        color=get_theme().palette.text_secondary, size=18)
-            )
+            btn.setIcon(ui_icon(icon_name, color=get_theme().palette.text_secondary, size=18))
 
     # ------------------------------------------------------------------
     # Layer popup
@@ -96,9 +92,7 @@ class SideToolbar(QFrame):
         self._chk_bobbin.setChecked(False)
         self._chk_airgap.setChecked(True)
         for chk in (self._chk_winding, self._chk_bobbin, self._chk_airgap):
-            chk.setStyleSheet(
-                "QCheckBox { padding: 6px 12px; min-width: 140px; }"
-            )
+            chk.setStyleSheet("QCheckBox { padding: 6px 12px; min-width: 140px; }")
             wact = QWidgetAction(menu)
             wact.setDefaultWidget(chk)
             menu.addAction(wact)
@@ -106,16 +100,17 @@ class SideToolbar(QFrame):
         btn.setMenu(menu)
         btn.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         btn.setStyleSheet(
-            self._button_qss()
-            + "QToolButton::menu-indicator { image: none; width: 0; }"
+            self._button_qss() + "QToolButton::menu-indicator { image: none; width: 0; }"
         )
 
     def _emit_layers(self) -> None:
-        self.layers_requested.emit({
-            "winding": self._chk_winding.isChecked(),
-            "bobbin":  self._chk_bobbin.isChecked(),
-            "airgap":  self._chk_airgap.isChecked(),
-        })
+        self.layers_requested.emit(
+            {
+                "winding": self._chk_winding.isChecked(),
+                "bobbin": self._chk_bobbin.isChecked(),
+                "airgap": self._chk_airgap.isChecked(),
+            }
+        )
 
     # ------------------------------------------------------------------
     @staticmethod

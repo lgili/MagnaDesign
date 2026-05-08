@@ -7,6 +7,7 @@ spawning the engine in a worker thread (the worker is
 exercised manually + has a slow integration cousin gated on
 ``-m slow`` for CI).
 """
+
 from __future__ import annotations
 
 import os
@@ -19,6 +20,7 @@ import pytest
 @pytest.fixture(scope="module")
 def app():
     from PySide6.QtWidgets import QApplication
+
     inst = QApplication.instance() or QApplication([])
     yield inst
 
@@ -26,6 +28,7 @@ def app():
 @pytest.fixture
 def tab(app):
     from pfc_inductor.ui.workspace.worst_case_tab import WorstCaseTab
+
     w = WorstCaseTab()
     yield w
     w.deleteLater()
@@ -34,7 +37,10 @@ def tab(app):
 @pytest.fixture(scope="module")
 def reference_inputs():
     from pfc_inductor.data_loader import (
-        ensure_user_data, load_cores, load_materials, load_wires,
+        ensure_user_data,
+        load_cores,
+        load_materials,
+        load_wires,
     )
     from pfc_inductor.design import design as run_design
     from pfc_inductor.models import Spec
@@ -44,13 +50,17 @@ def reference_inputs():
     cores = load_cores()
     wires = load_wires()
     spec = Spec(
-        topology="boost_ccm", Pout_W=600,
-        Vin_min_Vrms=85, Vin_max_Vrms=265, Vout_V=400,
-        f_sw_kHz=65, ripple_pct=20, T_amb_C=40,
+        topology="boost_ccm",
+        Pout_W=600,
+        Vin_min_Vrms=85,
+        Vin_max_Vrms=265,
+        Vout_V=400,
+        f_sw_kHz=65,
+        ripple_pct=20,
+        T_amb_C=40,
     )
     mat = next(m for m in mats if m.id == "magnetics-60_highflux")
-    core = next(c for c in cores
-                if c.id == "magnetics-c058777a2-60_highflux")
+    core = next(c for c in cores if c.id == "magnetics-c058777a2-60_highflux")
     wire = next(w for w in wires if w.id == "AWG14")
     result = run_design(spec, core, wire, mat)
     return spec, core, wire, mat, result
@@ -67,7 +77,8 @@ def test_worst_case_tab_starts_with_buttons_enabled(tab) -> None:
 
 
 def test_worst_case_tab_status_updates_on_design(
-    tab, reference_inputs,
+    tab,
+    reference_inputs,
 ) -> None:
     """``update_from_design`` caches the engine inputs and reflects
     the topology/material/core in the status line."""
@@ -87,13 +98,15 @@ def test_worst_case_tab_default_yield_label_is_neutral(tab) -> None:
 
 
 def test_worst_case_tab_populates_table_when_corner_run_completes(
-    tab, reference_inputs,
+    tab,
+    reference_inputs,
 ) -> None:
     """Drive ``_on_corners_done`` directly with a synthesised
     summary — the table picks up four rows (one per tracked
     metric) and the status line reports the corner count."""
     from pfc_inductor.worst_case import (
-        DEFAULT_TOLERANCES, evaluate_corners,
+        DEFAULT_TOLERANCES,
+        evaluate_corners,
     )
 
     spec, core, wire, mat, result = reference_inputs
@@ -110,7 +123,8 @@ def test_worst_case_tab_populates_table_when_corner_run_completes(
 
 
 def test_worst_case_tab_yield_label_colors_per_band(
-    tab, reference_inputs,
+    tab,
+    reference_inputs,
 ) -> None:
     """100 % rate → green; 80 % → red; 92 % → amber. We assert
     the QSS string changes between bands rather than parsing the
@@ -120,16 +134,26 @@ def test_worst_case_tab_yield_label_colors_per_band(
     spec, core, wire, mat, result = reference_inputs
     tab.update_from_design(result, spec, core, wire, mat)
 
-    tab._on_yield_done(YieldReport(
-        n_samples=100, n_pass=100, n_fail=0, n_engine_error=0,
-        pass_rate=1.0,
-    ))
+    tab._on_yield_done(
+        YieldReport(
+            n_samples=100,
+            n_pass=100,
+            n_fail=0,
+            n_engine_error=0,
+            pass_rate=1.0,
+        )
+    )
     green_qss = tab._lbl_yield_pct.styleSheet()
 
-    tab._on_yield_done(YieldReport(
-        n_samples=100, n_pass=80, n_fail=20, n_engine_error=0,
-        pass_rate=0.80,
-    ))
+    tab._on_yield_done(
+        YieldReport(
+            n_samples=100,
+            n_pass=80,
+            n_fail=20,
+            n_engine_error=0,
+            pass_rate=0.80,
+        )
+    )
     red_qss = tab._lbl_yield_pct.styleSheet()
 
     assert green_qss != red_qss
@@ -153,7 +177,9 @@ def test_worst_case_tab_relaunch_after_finished_clears_thread(tab):
 
 
 def test_worst_case_tab_launch_survives_dead_thread_wrapper(
-    tab, reference_inputs, monkeypatch,
+    tab,
+    reference_inputs,
+    monkeypatch,
 ):
     """Regression: if the Python wrapper for a previous QThread
     still points at a deleted C++ object, ``_launch`` must
@@ -166,7 +192,7 @@ def test_worst_case_tab_launch_survives_dead_thread_wrapper(
     tab.update_from_design(result, spec, core, wire, mat)
 
     class _DeadThread:
-        def isRunning(self):  # noqa: N802 (Qt camelCase)
+        def isRunning(self):
             raise RuntimeError(
                 "Internal C++ object (QThread) already deleted.",
             )
@@ -177,7 +203,8 @@ def test_worst_case_tab_launch_survives_dead_thread_wrapper(
     # Stop the launch from spawning a real worker — we only care
     # that the dead-wrapper guard recovers and clears the refs.
     monkeypatch.setattr(
-        tab, "_status",
+        tab,
+        "_status",
         type("S", (), {"setText": lambda self, _t: None})(),
     )
 
@@ -200,6 +227,5 @@ def test_worst_case_tab_launch_survives_dead_thread_wrapper(
         tab.__class__._launch.__globals__["_WorstCaseWorker"] = original_init
 
     assert captured["reached_post_guard"], (
-        "the dead-wrapper guard did not recover — _launch never "
-        "reached the worker construction"
+        "the dead-wrapper guard did not recover — _launch never reached the worker construction"
     )

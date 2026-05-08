@@ -6,6 +6,7 @@ tests guard the wiring at the page boundary — internal card
 behaviour is exercised in test_nucleo_selection_page and
 test_analise_page.
 """
+
 from __future__ import annotations
 
 import os
@@ -18,6 +19,7 @@ import pytest
 @pytest.fixture(scope="module")
 def app():
     from PySide6.QtWidgets import QApplication
+
     inst = QApplication.instance() or QApplication([])
     yield inst
 
@@ -56,6 +58,7 @@ def test_projeto_page_has_six_tabs(app, design_bundle):
     pass before reaching the export pane.
     """
     from pfc_inductor.ui.workspace.projeto_page import ProjetoPage
+
     *_, materials, cores, wires = design_bundle
     p = ProjetoPage(materials, cores, wires)
     assert p.tabs.count() == 6
@@ -71,6 +74,7 @@ def test_projeto_page_kpi_strip_persistent(app, design_bundle):
     """The ResumoStrip lives above the tab widget — it must be a
     direct child of ProjetoPage's column, not of any tab body."""
     from pfc_inductor.ui.workspace.projeto_page import ProjetoPage
+
     *_, materials, cores, wires = design_bundle
     p = ProjetoPage(materials, cores, wires)
     assert p.kpi_strip is not None
@@ -80,26 +84,31 @@ def test_projeto_page_kpi_strip_persistent(app, design_bundle):
 
 def test_projeto_page_switch_to_each_tab(app, design_bundle):
     from pfc_inductor.ui.workspace.projeto_page import ProjetoPage
+
     *_, materials, cores, wires = design_bundle
     p = ProjetoPage(materials, cores, wires)
-    for key, idx in [("nucleo", 0), ("analise", 1),
-                     ("validar", 2), ("worst_case", 3),
-                     ("compliance", 4), ("exportar", 5)]:
+    for key, idx in [
+        ("nucleo", 0),
+        ("analise", 1),
+        ("validar", 2),
+        ("worst_case", 3),
+        ("compliance", 4),
+        ("exportar", 5),
+    ]:
         p.switch_to(key)
         assert p.tabs.currentIndex() == idx
 
 
 def test_projeto_page_update_from_design_fans_out(app, design_bundle):
     from pfc_inductor.ui.workspace.projeto_page import ProjetoPage
+
     result, spec, core, wire, material, materials, cores, wires = design_bundle
     p = ProjetoPage(materials, cores, wires)
     p.update_from_design(result, spec, core, wire, material)
     # KPI strip got the L value.
     assert p.kpi_strip.m_L._val.text() == f"{result.L_actual_uH:.0f}"
     # Analysis's PerdasCard got the loss total.
-    assert abs(
-        p.analise_tab.card_perdas._pbody._bar.total() - result.losses.P_total_W
-    ) < 1e-6
+    assert abs(p.analise_tab.card_perdas._pbody._bar.total() - result.losses.P_total_W) < 1e-6
 
 
 def test_projeto_page_selection_applied_bubbles_up(app, design_bundle):
@@ -107,12 +116,11 @@ def test_projeto_page_selection_applied_bubbles_up(app, design_bundle):
     bubble up via ``ProjetoPage.selection_applied`` so MainWindow can
     re-run design()."""
     from pfc_inductor.ui.workspace.projeto_page import ProjetoPage
+
     *_, materials, cores, wires = design_bundle
     p = ProjetoPage(materials, cores, wires)
     received = []
-    p.selection_applied.connect(
-        lambda mid, cid, wid: received.append((mid, cid, wid))
-    )
+    p.selection_applied.connect(lambda mid, cid, wid: received.append((mid, cid, wid)))
     p.nucleo_tab.selection_applied.emit("M", "C", "W")
     assert received == [("M", "C", "W")]
 
@@ -127,6 +135,7 @@ def test_projeto_page_selection_applied_bubbles_up(app, design_bundle):
 def test_projeto_page_mark_action_done_is_noop(app, design_bundle):
     """Legacy ProximosPassosCard hook — kept callable for back-compat."""
     from pfc_inductor.ui.workspace.projeto_page import ProjetoPage
+
     *_, materials, cores, wires = design_bundle
     p = ProjetoPage(materials, cores, wires)
     p.mark_action_done("report")  # must not raise

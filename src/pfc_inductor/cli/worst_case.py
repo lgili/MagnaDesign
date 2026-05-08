@@ -16,6 +16,7 @@ Exit codes
 - ``3`` (``WORST_CASE_FAIL``) — at least one corner violates
   the envelope, OR the yield falls below the threshold.
 """
+
 from __future__ import annotations
 
 import json
@@ -50,7 +51,7 @@ def register(group: click.Group) -> None:
     type=click.Path(dir_okay=False, path_type=Path),
     default=None,
     help="JSON file describing a custom ToleranceSet. When omitted "
-         "the bundled IPC + IEC + vendor defaults apply.",
+    "the bundled IPC + IEC + vendor defaults apply.",
 )
 @click.option(
     "--samples",
@@ -72,7 +73,7 @@ def register(group: click.Group) -> None:
     show_default=True,
     type=click.FloatRange(min=0.0, max=100.0),
     help="Pass-rate (in percent) below which the run exits with "
-         f"code {int(ExitCode.WORST_CASE_FAIL)}.",
+    f"code {int(ExitCode.WORST_CASE_FAIL)}.",
 )
 @click.option(
     "--csv",
@@ -80,7 +81,7 @@ def register(group: click.Group) -> None:
     type=click.Path(dir_okay=False, path_type=Path),
     default=None,
     help="Write the per-corner CSV to this path (one row per "
-         "DOE point with deltas + headline metrics).",
+    "DOE point with deltas + headline metrics).",
 )
 @click.option(
     "--pretty/--json",
@@ -138,14 +139,11 @@ def _worst_case_cmd(
 
     # Resolve the tolerance set: custom JSON path or bundled default.
     tolerance_set = (
-        ToleranceSet.from_path(tolerance_path)
-        if tolerance_path is not None
-        else DEFAULT_TOLERANCES
+        ToleranceSet.from_path(tolerance_path) if tolerance_path is not None else DEFAULT_TOLERANCES
     )
 
     click.echo(
-        f"corner DOE: {len(tolerance_set.tolerances)} tolerances, "
-        f"running...",
+        f"corner DOE: {len(tolerance_set.tolerances)} tolerances, running...",
         err=True,
     )
     summary = evaluate_corners(
@@ -156,8 +154,7 @@ def _worst_case_cmd(
         tolerance_set,
     )
     click.echo(
-        f"  → {summary.n_corners_evaluated} corners, "
-        f"{summary.n_corners_failed} engine failures",
+        f"  → {summary.n_corners_evaluated} corners, {summary.n_corners_failed} engine failures",
         err=True,
     )
 
@@ -176,34 +173,30 @@ def _worst_case_cmd(
     )
 
     pass_rate_pct = yield_report.pass_rate * 100.0
-    every_corner_feasible = (
-        summary.n_corners_failed == 0
-        and _all_corners_within_envelope(summary, loaded)
+    every_corner_feasible = summary.n_corners_failed == 0 and _all_corners_within_envelope(
+        summary, loaded
     )
     yield_meets_threshold = pass_rate_pct >= yield_threshold
-    verdict = (
-        "PASS" if (every_corner_feasible and yield_meets_threshold)
-        else "FAIL"
-    )
+    verdict = "PASS" if (every_corner_feasible and yield_meets_threshold) else "FAIL"
 
     payload = {
-        "project":     loaded.project.name,
-        "topology":    loaded.spec.topology,
-        "tolerances":  tolerance_set.name,
-        "n_corners":   summary.n_corners_evaluated,
-        "n_failed":    summary.n_corners_failed,
+        "project": loaded.project.name,
+        "topology": loaded.spec.topology,
+        "tolerances": tolerance_set.name,
+        "n_corners": summary.n_corners_evaluated,
+        "n_failed": summary.n_corners_failed,
         "worst": {
             metric: {
                 "corner": cr.label,
-                "value":  _read_metric_value(cr, metric),
+                "value": _read_metric_value(cr, metric),
             }
             for metric, cr in summary.worst_per_metric.items()
         },
         "yield": {
-            "samples":         yield_report.n_samples,
-            "pass_rate":       round(pass_rate_pct, 2),
-            "fail_modes":      yield_report.fail_modes,
-            "engine_errors":   yield_report.n_engine_error,
+            "samples": yield_report.n_samples,
+            "pass_rate": round(pass_rate_pct, 2),
+            "fail_modes": yield_report.fail_modes,
+            "engine_errors": yield_report.n_engine_error,
         },
         "thresholds": {
             "yield_pct": yield_threshold,
@@ -253,7 +246,9 @@ def _all_corners_within_envelope(summary, loaded) -> bool:
         if cr.result is None:
             return False
         passed, _reasons = _default_pass_fn(
-            cr.result, loaded.spec, loaded.selected_material,
+            cr.result,
+            loaded.spec,
+            loaded.selected_material,
         )
         if not passed:
             return False
@@ -262,10 +257,16 @@ def _all_corners_within_envelope(summary, loaded) -> bool:
 
 def _write_corner_csv(path: Path, summary) -> None:
     import csv
+
     path.parent.mkdir(parents=True, exist_ok=True)
     fieldnames = [
-        "label", "feasible",
-        "T_winding_C", "T_rise_C", "B_pk_T", "P_total_W", "N_turns",
+        "label",
+        "feasible",
+        "T_winding_C",
+        "T_rise_C",
+        "B_pk_T",
+        "P_total_W",
+        "N_turns",
         "failure_reason",
     ]
     with path.open("w", newline="") as fp:
@@ -276,8 +277,7 @@ def _write_corner_csv(path: Path, summary) -> None:
             if cr.result is None:
                 row["feasible"] = False
                 row["failure_reason"] = cr.failure_reason or "engine error"
-                for k in ("T_winding_C", "T_rise_C",
-                          "B_pk_T", "P_total_W", "N_turns"):
+                for k in ("T_winding_C", "T_rise_C", "B_pk_T", "P_total_W", "N_turns"):
                     row[k] = ""
             else:
                 row["feasible"] = True
@@ -297,17 +297,16 @@ def _emit_pretty_summary(payload: dict) -> None:
     click.echo(f"project       {payload['project']}")
     click.echo(f"topology      {payload['topology']}")
     click.echo(f"tolerances    {payload['tolerances']}")
-    click.echo(f"corners       {payload['n_corners']}  "
-               f"(failed: {payload['n_failed']})")
+    click.echo(f"corners       {payload['n_corners']}  (failed: {payload['n_failed']})")
     click.echo("")
     click.echo("worst per metric:")
     for metric, info in payload["worst"].items():
         click.echo(f"  {metric:14s}  {info['value']!r:>12}  ← {info['corner']}")
     click.echo("")
     yld = payload["yield"]
-    click.echo(f"yield         {yld['pass_rate']:.2f} % "
-               f"({yld['samples']} samples, "
-               f"seed-reproducible)")
+    click.echo(
+        f"yield         {yld['pass_rate']:.2f} % ({yld['samples']} samples, seed-reproducible)"
+    )
     if yld["fail_modes"]:
         click.echo("fail modes:")
         for mode, count in yld["fail_modes"].items():

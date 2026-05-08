@@ -39,6 +39,7 @@ The store is process-safe via SQLite WAL mode: any number of
 processes (orchestrator + workers) can write concurrently. Reads
 during writes do not block.
 """
+
 from __future__ import annotations
 
 import json
@@ -204,7 +205,8 @@ class RunStore:
     def get_run(self, run_id: str) -> Optional[RunRecord]:
         with self._connect() as conn:
             row = conn.execute(
-                "SELECT * FROM runs WHERE run_id = ?", (run_id,),
+                "SELECT * FROM runs WHERE run_id = ?",
+                (run_id,),
             ).fetchone()
         if row is None:
             return None
@@ -255,12 +257,23 @@ class RunStore:
     @staticmethod
     def _candidate_row_params(run_id: str, row: CandidateRow) -> tuple:
         return (
-            run_id, row.candidate_key, row.core_id, row.material_id,
-            row.wire_id, row.N, row.gap_mm, row.highest_tier,
+            run_id,
+            row.candidate_key,
+            row.core_id,
+            row.material_id,
+            row.wire_id,
+            row.N,
+            row.gap_mm,
+            row.highest_tier,
             _bool_to_int(row.feasible_t0),
-            row.loss_t1_W, row.temp_t1_C, row.cost_t1_USD,
-            row.loss_t2_W, _bool_to_int(row.saturation_t2),
-            row.L_t3_uH, row.Bpk_t3_T, row.L_t4_uH,
+            row.loss_t1_W,
+            row.temp_t1_C,
+            row.cost_t1_USD,
+            row.loss_t2_W,
+            _bool_to_int(row.saturation_t2),
+            row.L_t3_uH,
+            row.Bpk_t3_T,
+            row.L_t4_uH,
             json.dumps(row.notes) if row.notes else None,
         )
 
@@ -280,7 +293,9 @@ class RunStore:
             )
 
     def write_candidates_batch(
-        self, run_id: str, rows: Iterable[CandidateRow],
+        self,
+        run_id: str,
+        rows: Iterable[CandidateRow],
     ) -> int:
         """Insert/replace many rows in a single connection + transaction.
 
@@ -371,6 +386,7 @@ class RunStore:
 
 
 # ─── Row deserialisation helpers ──────────────────────────────────────
+
 
 def _row_to_run(row: sqlite3.Row) -> RunRecord:
     return RunRecord(

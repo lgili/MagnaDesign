@@ -9,13 +9,14 @@ they always know whether the design is sane without switching tabs.
 The Recalculate icon button on the right is bound to ``Ctrl+R`` so the
 inner-loop action is one chord away from anywhere in the workspace.
 """
+
 from __future__ import annotations
 
 import math
 from datetime import datetime
 from typing import Optional
 
-from PySide6.QtCore import QSize, Qt, QTimer, Signal
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QFrame,
@@ -115,14 +116,14 @@ class Scoreboard(QFrame):
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
-    def set_save_status(self, *, unsaved: bool,
-                        last_saved_at: Optional[datetime] = None) -> None:
+    def set_save_status(self, *, unsaved: bool, last_saved_at: Optional[datetime] = None) -> None:
         self._unsaved = unsaved
         self._last_saved_at = last_saved_at
         self._refresh_save_text()
 
-    def update_from_result(self, result: Optional[DesignResult],
-                           spec: Optional[Spec] = None) -> None:
+    def update_from_result(
+        self, result: Optional[DesignResult], spec: Optional[Spec] = None
+    ) -> None:
         if result is None:
             self._kpi.setText("—")
             return
@@ -155,8 +156,9 @@ class Scoreboard(QFrame):
                         parts.append(_finite_kpi("%Z", pctz, "{:.1f}", "%"))
             elif spec is not None and spec.Pout_W > 0:
                 eta_pct = (1.0 - result.losses.P_total_W / spec.Pout_W) * 100.0
-                parts.append(_finite_kpi("η", eta_pct, "{:.1f}", "%",
-                                         clamp_max=100.0, clamp_min=-50.0))
+                parts.append(
+                    _finite_kpi("η", eta_pct, "{:.1f}", "%", clamp_max=100.0, clamp_min=-50.0)
+                )
             self._kpi.setText(" · ".join(parts))
         except (AttributeError, ZeroDivisionError):
             self._kpi.setText("—")

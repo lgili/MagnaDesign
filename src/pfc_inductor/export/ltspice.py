@@ -14,13 +14,13 @@ Header carries the design provenance + the L(0) value the
 engine produced so an LTspice user can spot-check by running
 a 0.1 A AC analysis.
 """
+
 from __future__ import annotations
 
 import textwrap
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
-from pfc_inductor.export.curves import L_vs_I_table, flux_vs_current
+from pfc_inductor.export.curves import flux_vs_current
 from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
 
 
@@ -48,8 +48,11 @@ def to_ltspice_subcircuit(
     # Use flux-vs-current for the lookup; LTspice's `B` source
     # supports a `table()` PWL lookup natively.
     flux_table = flux_vs_current(
-        material=material, core=core, n_turns=n_turns,
-        I_max=I_max, n_points=n_points,
+        material=material,
+        core=core,
+        n_turns=n_turns,
+        I_max=I_max,
+        n_points=n_points,
     )
 
     # Series resistance — engine's DC resistance + a guard for
@@ -59,20 +62,21 @@ def to_ltspice_subcircuit(
         R_dc = float(getattr(result.losses, "R_dc_ohm", 0.0) or 0.0)
     R_series = max(R_dc, 1e-6)
 
-    L_nominal_H = (
-        float(result.L_actual_uH) * 1e-6 if result.L_actual_uH else 0.0
-    )
+    L_nominal_H = float(result.L_actual_uH) * 1e-6 if result.L_actual_uH else 0.0
 
     header = _build_header(
-        spec=spec, core=core, wire=wire, material=material,
-        result=result, n_turns=n_turns, I_max=I_max,
-        L_nominal_H=L_nominal_H, R_series=R_series,
+        spec=spec,
+        core=core,
+        wire=wire,
+        material=material,
+        result=result,
+        n_turns=n_turns,
+        I_max=I_max,
+        L_nominal_H=L_nominal_H,
+        R_series=R_series,
     )
 
-    table_pairs = ", ".join(
-        f"{flux:.6e}, {I:.6f}"
-        for I, flux in flux_table
-    )
+    table_pairs = ", ".join(f"{flux:.6e}, {I:.6f}" for I, flux in flux_table)
 
     body = textwrap.dedent(f"""\
         .subckt {name} p n
@@ -92,12 +96,19 @@ def to_ltspice_subcircuit(
 # Helpers
 # ---------------------------------------------------------------------------
 def _build_header(
-    *, spec: Spec, core: Core, wire: Wire, material: Material,
-    result: DesignResult, n_turns: int, I_max: float,
-    L_nominal_H: float, R_series: float,
+    *,
+    spec: Spec,
+    core: Core,
+    wire: Wire,
+    material: Material,
+    result: DesignResult,
+    n_turns: int,
+    I_max: float,
+    L_nominal_H: float,
+    R_series: float,
 ) -> str:
     """Comment block with provenance + design parameters."""
-    timestamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    timestamp = datetime.now(UTC).isoformat(timespec="seconds")
     return textwrap.dedent(f"""\
         * --------------------------------------------------------------
         * MagnaDesign — LTspice saturable-inductor subcircuit export

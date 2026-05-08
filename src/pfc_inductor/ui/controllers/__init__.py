@@ -7,6 +7,7 @@ return DTO" pipeline into a controller class. Each controller is a
 plain Python object — no Qt inheritance — so it is unit-testable
 without spinning up a ``QApplication``.
 """
+
 from __future__ import annotations
 
 from pfc_inductor.ui.controllers.calculation_controller import (

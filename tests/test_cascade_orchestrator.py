@@ -6,6 +6,7 @@ existing `optimize.sweep.sweep` is in `tests/test_cascade_tier1.py`;
 here we focus on orchestrator-specific behaviour: cancellation,
 resume, store integration, and parallel/sequential equivalence.
 """
+
 from __future__ import annotations
 
 import threading
@@ -45,14 +46,23 @@ def db():
 def _spec() -> Spec:
     return Spec(
         topology="boost_ccm",
-        Vin_min_Vrms=85.0, Vin_max_Vrms=265.0, Vin_nom_Vrms=220.0,
-        Vout_V=400.0, Pout_W=800.0, eta=0.97,
-        f_sw_kHz=65.0, ripple_pct=30.0,
-        T_amb_C=40.0, T_max_C=100.0, Ku_max=0.40, Bsat_margin=0.20,
+        Vin_min_Vrms=85.0,
+        Vin_max_Vrms=265.0,
+        Vin_nom_Vrms=220.0,
+        Vout_V=400.0,
+        Pout_W=800.0,
+        eta=0.97,
+        f_sw_kHz=65.0,
+        ripple_pct=30.0,
+        T_amb_C=40.0,
+        T_max_C=100.0,
+        Ku_max=0.40,
+        Bsat_margin=0.20,
     )
 
 
 # ─── End-to-end run (sequential mode) ───────────────────────────────
+
 
 def test_orchestrator_run_writes_all_candidates(tmp_path: Path, db):
     """Every Cartesian candidate becomes a row in the store."""
@@ -113,6 +123,7 @@ def test_orchestrator_top_candidates_are_feasible(tmp_path: Path, db):
 
 # ─── Resume after partial completion ───────────────────────────────
 
+
 def test_orchestrator_resumes_from_store(tmp_path: Path, db):
     """A second `run` call against the same `run_id` re-evaluates nothing.
 
@@ -138,6 +149,7 @@ def test_orchestrator_resumes_from_store(tmp_path: Path, db):
 
 
 # ─── Cancellation ──────────────────────────────────────────────────
+
 
 def test_orchestrator_cancel_marks_status_and_returns_quickly(tmp_path: Path, db):
     """Calling cancel() during a run aborts within seconds."""
@@ -187,6 +199,7 @@ def test_orchestrator_cancel_mid_run_is_responsive(tmp_path: Path, db):
 
 # ─── Parallel / sequential equivalence ─────────────────────────────
 
+
 def test_orchestrator_parallel_and_sequential_yield_same_top_n(tmp_path: Path, db):
     """The cascade top-5 must not depend on `parallelism`."""
     spec = _spec()
@@ -196,10 +209,7 @@ def test_orchestrator_parallel_and_sequential_yield_same_top_n(tmp_path: Path, d
         orch = CascadeOrchestrator(store, parallelism=parallelism)
         run_id = orch.start_run(spec)
         orch.run(run_id, spec, db["materials"], db["cores"], db["wires"])
-        return [
-            r.candidate_key
-            for r in store.top_candidates(run_id, n=5, order_by="loss_t1_W")
-        ]
+        return [r.candidate_key for r in store.top_candidates(run_id, n=5, order_by="loss_t1_W")]
 
     seq = _run(1)
     par = _run(2)
@@ -209,6 +219,7 @@ def test_orchestrator_parallel_and_sequential_yield_same_top_n(tmp_path: Path, d
 # ─── Spec-hash mismatch must not silently proceed ──────────────────
 
 # ─── Tier 2 stage (Phase B integration) ───────────────────────────
+
 
 def test_orchestrator_runs_tier2_when_top_k_set(tmp_path: Path, db):
     """`tier2_top_k > 0` should invoke the transient simulator on

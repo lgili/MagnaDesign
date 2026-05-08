@@ -15,14 +15,13 @@ The writer keeps the heavy reportlab + matplotlib imports
 local so the rest of the manufacturing module remains importable
 in a CLI script that only needs the engineering payload.
 """
+
 from __future__ import annotations
 
 import io
 from pathlib import Path
-from typing import Iterable
 
 from pfc_inductor.manufacturing.spec import MfgSpec
-
 
 # Visual constants — kept ASCII so the writer can be inspected
 # without touching the theme module.
@@ -48,8 +47,15 @@ def write_mfg_spec_pdf(spec: MfgSpec, output_path: Path | str) -> Path:
     from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
     from reportlab.lib.units import mm
     from reportlab.platypus import (
-        BaseDocTemplate, Frame, KeepTogether, PageBreak,
-        PageTemplate, Paragraph, Spacer, Table, TableStyle,
+        BaseDocTemplate,
+        Frame,
+        KeepTogether,
+        PageBreak,
+        PageTemplate,
+        Paragraph,
+        Spacer,
+        Table,
+        TableStyle,
     )
 
     output_path = Path(output_path)
@@ -71,27 +77,32 @@ def write_mfg_spec_pdf(spec: MfgSpec, output_path: Path | str) -> Path:
         creator="MagnaDesign",
     )
     frame = Frame(
-        doc.leftMargin, doc.bottomMargin,
-        doc.width, doc.height, id="main",
-        leftPadding=0, rightPadding=0, topPadding=0,
+        doc.leftMargin,
+        doc.bottomMargin,
+        doc.width,
+        doc.height,
+        id="main",
+        leftPadding=0,
+        rightPadding=0,
+        topPadding=0,
         bottomPadding=0,
     )
-    doc.addPageTemplates([PageTemplate(id="default", frames=[frame],
-                                       onPage=_make_page_decorator(spec))])
+    doc.addPageTemplates(
+        [PageTemplate(id="default", frames=[frame], onPage=_make_page_decorator(spec))]
+    )
 
     story: list = []
-    story.extend(_cover_page(spec, styles, mm, Paragraph, Spacer,
-                             Table, TableStyle, colors))
+    story.extend(_cover_page(spec, styles, mm, Paragraph, Spacer, Table, TableStyle, colors))
     story.append(PageBreak())
-    story.extend(_construction_page(spec, styles, mm, Paragraph,
-                                    Spacer, Table, TableStyle,
-                                    colors, KeepTogether))
+    story.extend(
+        _construction_page(
+            spec, styles, mm, Paragraph, Spacer, Table, TableStyle, colors, KeepTogether
+        )
+    )
     story.append(PageBreak())
-    story.extend(_acceptance_page(spec, styles, mm, Paragraph,
-                                  Spacer, Table, TableStyle, colors))
+    story.extend(_acceptance_page(spec, styles, mm, Paragraph, Spacer, Table, TableStyle, colors))
     story.append(PageBreak())
-    story.extend(_signature_page(spec, styles, mm, Paragraph,
-                                 Spacer, Table, TableStyle, colors))
+    story.extend(_signature_page(spec, styles, mm, Paragraph, Spacer, Table, TableStyle, colors))
 
     doc.build(story)
     return output_path
@@ -103,30 +114,56 @@ def write_mfg_spec_pdf(spec: MfgSpec, output_path: Path | str) -> Path:
 def _build_styles(base, ParagraphStyle, colors):
     return {
         "title": ParagraphStyle(
-            "title", parent=base["Title"], fontName="Helvetica-Bold",
-            fontSize=22, leading=26, textColor=colors.HexColor(_TEXT),
+            "title",
+            parent=base["Title"],
+            fontName="Helvetica-Bold",
+            fontSize=22,
+            leading=26,
+            textColor=colors.HexColor(_TEXT),
         ),
         "h1": ParagraphStyle(
-            "h1", parent=base["Heading1"], fontName="Helvetica-Bold",
-            fontSize=16, leading=20, textColor=colors.HexColor(_TEXT),
-            spaceBefore=8, spaceAfter=4,
+            "h1",
+            parent=base["Heading1"],
+            fontName="Helvetica-Bold",
+            fontSize=16,
+            leading=20,
+            textColor=colors.HexColor(_TEXT),
+            spaceBefore=8,
+            spaceAfter=4,
         ),
         "h2": ParagraphStyle(
-            "h2", parent=base["Heading2"], fontName="Helvetica-Bold",
-            fontSize=12, leading=16, textColor=colors.HexColor(_TEXT),
-            spaceBefore=8, spaceAfter=2,
+            "h2",
+            parent=base["Heading2"],
+            fontName="Helvetica-Bold",
+            fontSize=12,
+            leading=16,
+            textColor=colors.HexColor(_TEXT),
+            spaceBefore=8,
+            spaceAfter=2,
         ),
         "body": ParagraphStyle(
-            "body", parent=base["BodyText"], fontName="Helvetica",
-            fontSize=9, leading=13, textColor=colors.HexColor(_TEXT),
+            "body",
+            parent=base["BodyText"],
+            fontName="Helvetica",
+            fontSize=9,
+            leading=13,
+            textColor=colors.HexColor(_TEXT),
         ),
         "muted": ParagraphStyle(
-            "muted", parent=base["BodyText"], fontName="Helvetica",
-            fontSize=8, leading=11, textColor=colors.HexColor(_TEXT_MUTED),
+            "muted",
+            parent=base["BodyText"],
+            fontName="Helvetica",
+            fontSize=8,
+            leading=11,
+            textColor=colors.HexColor(_TEXT_MUTED),
         ),
         "warn": ParagraphStyle(
-            "warn", parent=base["BodyText"], fontName="Helvetica-Bold",
-            fontSize=9, leading=12, textColor=colors.HexColor(_WARN),
+            "warn",
+            parent=base["BodyText"],
+            fontName="Helvetica-Bold",
+            fontSize=9,
+            leading=12,
+            textColor=colors.HexColor(_WARN),
         ),
     }
 
@@ -134,27 +171,26 @@ def _build_styles(base, ParagraphStyle, colors):
 # ---------------------------------------------------------------------------
 # Pages
 # ---------------------------------------------------------------------------
-def _cover_page(spec: MfgSpec, styles, mm, Paragraph, Spacer,
-                Table, TableStyle, colors):
+def _cover_page(spec: MfgSpec, styles, mm, Paragraph, Spacer, Table, TableStyle, colors):
     flow: list = []
-    flow.append(Paragraph(
-        "Manufacturing Specification", styles["title"]))
-    flow.append(Paragraph(
-        f"<b>{spec.core.part_number}</b> · "
-        f"{spec.spec.topology} · {spec.material.name}",
-        styles["body"],
-    ))
+    flow.append(Paragraph("Manufacturing Specification", styles["title"]))
+    flow.append(
+        Paragraph(
+            f"<b>{spec.core.part_number}</b> · {spec.spec.topology} · {spec.material.name}",
+            styles["body"],
+        )
+    )
     flow.append(Spacer(1, 8 * mm))
 
     rev_block = [
-        ["Project",       spec.project_name],
-        ["Designer",      spec.designer],
-        ["Revision",      spec.revision],
-        ["Date",          spec.date_iso],
-        ["Topology",      spec.spec.topology],
-        ["Insulation",    spec.insulation.name],
+        ["Project", spec.project_name],
+        ["Designer", spec.designer],
+        ["Revision", spec.revision],
+        ["Date", spec.date_iso],
+        ["Topology", spec.spec.topology],
+        ["Insulation", spec.insulation.name],
         ["Hi-pot voltage", f"{spec.hipot_V:.0f} V AC"],
-        ["MagnaDesign",   _magnadesign_version()],
+        ["MagnaDesign", _magnadesign_version()],
     ]
     flow.append(_kv_table(rev_block, mm, Table, TableStyle, colors))
     flow.append(Spacer(1, 8 * mm))
@@ -162,13 +198,13 @@ def _cover_page(spec: MfgSpec, styles, mm, Paragraph, Spacer,
     flow.append(Paragraph("Mechanical summary", styles["h2"]))
     mech_rows = [
         ["Core part number", spec.core.part_number],
-        ["Core shape",       spec.core.shape],
-        ["OD × ID × HT",     _od_id_ht(spec)],
-        ["Wire",             spec.wire.id],
-        ["Wire OD",          f"{_wire_od(spec):.3f} mm"],
-        ["N turns",          str(int(spec.result.N_turns))],
-        ["Layers planned",   f"{spec.winding.n_layers}"],
-        ["Bobbin used",      f"{spec.winding.bobbin_used_pct:.0f} %"],
+        ["Core shape", spec.core.shape],
+        ["OD × ID × HT", _od_id_ht(spec)],
+        ["Wire", spec.wire.id],
+        ["Wire OD", f"{_wire_od(spec):.3f} mm"],
+        ["N turns", str(int(spec.result.N_turns))],
+        ["Layers planned", f"{spec.winding.n_layers}"],
+        ["Bobbin used", f"{spec.winding.bobbin_used_pct:.0f} %"],
     ]
     flow.append(_kv_table(mech_rows, mm, Table, TableStyle, colors))
 
@@ -176,18 +212,12 @@ def _cover_page(spec: MfgSpec, styles, mm, Paragraph, Spacer,
 
     flow.append(Paragraph("Electrical summary", styles["h2"]))
     elec_rows = [
-        ["Inductance (target)",
-         f"{spec.result.L_required_uH:.1f} µH"],
-        ["Inductance (actual)",
-         f"{spec.result.L_actual_uH:.1f} µH"],
-        ["Peak flux B_pk",
-         f"{spec.result.B_pk_T * 1000:.0f} mT"],
-        ["Total losses",
-         f"{spec.result.losses.P_total_W:.2f} W"],
-        ["Winding temperature",
-         f"{spec.result.T_winding_C:.1f} °C"],
-        ["Temperature rise",
-         f"{spec.result.T_rise_C:.1f} °C"],
+        ["Inductance (target)", f"{spec.result.L_required_uH:.1f} µH"],
+        ["Inductance (actual)", f"{spec.result.L_actual_uH:.1f} µH"],
+        ["Peak flux B_pk", f"{spec.result.B_pk_T * 1000:.0f} mT"],
+        ["Total losses", f"{spec.result.losses.P_total_W:.2f} W"],
+        ["Winding temperature", f"{spec.result.T_winding_C:.1f} °C"],
+        ["Temperature rise", f"{spec.result.T_rise_C:.1f} °C"],
     ]
     flow.append(_kv_table(elec_rows, mm, Table, TableStyle, colors))
 
@@ -200,9 +230,9 @@ def _cover_page(spec: MfgSpec, styles, mm, Paragraph, Spacer,
     return flow
 
 
-def _construction_page(spec: MfgSpec, styles, mm, Paragraph,
-                       Spacer, Table, TableStyle, colors,
-                       KeepTogether):
+def _construction_page(
+    spec: MfgSpec, styles, mm, Paragraph, Spacer, Table, TableStyle, colors, KeepTogether
+):
     flow: list = []
     flow.append(Paragraph("Construction", styles["h1"]))
 
@@ -219,30 +249,31 @@ def _construction_page(spec: MfgSpec, styles, mm, Paragraph,
         ["Layer", "Turns", "Breadth [mm]", "Stack height [mm]"],
     ]
     for layer in spec.winding.layers:
-        rows.append([
-            f"{layer.index}",
-            f"{layer.turns}",
-            f"{layer.breadth_mm:.2f}",
-            f"{layer.height_mm:.2f}",
-        ])
+        rows.append(
+            [
+                f"{layer.index}",
+                f"{layer.turns}",
+                f"{layer.breadth_mm:.2f}",
+                f"{layer.height_mm:.2f}",
+            ]
+        )
     if len(rows) == 1:
         rows.append(["—", "—", "—", "—"])
-    flow.append(_table(rows, mm, Table, TableStyle, colors,
-                       widths=[20 * mm, 25 * mm, 35 * mm, 45 * mm]))
+    flow.append(
+        _table(rows, mm, Table, TableStyle, colors, widths=[20 * mm, 25 * mm, 35 * mm, 45 * mm])
+    )
     flow.append(Spacer(1, 6 * mm))
 
     # Insulation stack.
     flow.append(Paragraph("Insulation stack-up", styles["h2"]))
     insulation_rows = [
-        ["Class",                 spec.insulation.name],
-        ["T_max",                 f"{spec.insulation.T_max_C:.0f} °C"],
-        ["Inter-layer tape",      spec.insulation.inter_layer_tape],
-        ["Tape thickness",
-         f"{spec.insulation.inter_layer_tape_mm:.2f} mm"],
-        ["Wire enamel",           spec.insulation.enamel_grade],
-        ["Hi-pot voltage",        f"{spec.hipot_V:.0f} V AC"],
-        ["Hi-pot dwell",
-         f"{spec.insulation.hipot_dwell_s:.0f} s"],
+        ["Class", spec.insulation.name],
+        ["T_max", f"{spec.insulation.T_max_C:.0f} °C"],
+        ["Inter-layer tape", spec.insulation.inter_layer_tape],
+        ["Tape thickness", f"{spec.insulation.inter_layer_tape_mm:.2f} mm"],
+        ["Wire enamel", spec.insulation.enamel_grade],
+        ["Hi-pot voltage", f"{spec.hipot_V:.0f} V AC"],
+        ["Hi-pot dwell", f"{spec.insulation.hipot_dwell_s:.0f} s"],
     ]
     flow.append(_kv_table(insulation_rows, mm, Table, TableStyle, colors))
     flow.append(Spacer(1, 6 * mm))
@@ -251,88 +282,111 @@ def _construction_page(spec: MfgSpec, styles, mm, Paragraph,
     gap_mm = float(getattr(spec.core, "lgap_mm", 0.0) or 0.0)
     flow.append(Paragraph("Air gap", styles["h2"]))
     if gap_mm > 0:
-        flow.append(Paragraph(
-            f"Total gap <b>{gap_mm:.2f} mm</b> centred on the "
-            f"magnetic path. Use shim material per vendor's "
-            f"standard practice (typically Mylar or Kapton "
-            f"matching the insulation class). Distribute the "
-            f"gap across the centre leg only on EE / ETD cores; "
-            f"toroids ship with their gap built into the powder "
-            f"dilution and need no shim.",
-            styles["body"],
-        ))
+        flow.append(
+            Paragraph(
+                f"Total gap <b>{gap_mm:.2f} mm</b> centred on the "
+                f"magnetic path. Use shim material per vendor's "
+                f"standard practice (typically Mylar or Kapton "
+                f"matching the insulation class). Distribute the "
+                f"gap across the centre leg only on EE / ETD cores; "
+                f"toroids ship with their gap built into the powder "
+                f"dilution and need no shim.",
+                styles["body"],
+            )
+        )
     else:
-        flow.append(Paragraph(
-            "No discrete air gap (powder-core distributed gap "
-            "or ungapped ferrite). No shim required.",
-            styles["body"],
-        ))
+        flow.append(
+            Paragraph(
+                "No discrete air gap (powder-core distributed gap "
+                "or ungapped ferrite). No shim required.",
+                styles["body"],
+            )
+        )
 
     return flow
 
 
-def _acceptance_page(spec: MfgSpec, styles, mm, Paragraph,
-                     Spacer, Table, TableStyle, colors):
+def _acceptance_page(spec: MfgSpec, styles, mm, Paragraph, Spacer, Table, TableStyle, colors):
     flow: list = []
     flow.append(Paragraph("Acceptance Test Plan", styles["h1"]))
-    flow.append(Paragraph(
-        "Every unit must satisfy every row before being released. "
-        "Tolerances follow the conservative magnetics-vendor "
-        "guideline; the customer may tighten on demand.",
-        styles["muted"],
-    ))
+    flow.append(
+        Paragraph(
+            "Every unit must satisfy every row before being released. "
+            "Tolerances follow the conservative magnetics-vendor "
+            "guideline; the customer may tighten on demand.",
+            styles["muted"],
+        )
+    )
     flow.append(Spacer(1, 4 * mm))
 
     rows: list[list[str]] = [
-        ["#", "Test", "Condition", "Expected",
-         "Tolerance", "Instrument"],
+        ["#", "Test", "Condition", "Expected", "Tolerance", "Instrument"],
     ]
     for idx, test in enumerate(spec.acceptance_tests, start=1):
-        rows.append([
-            str(idx),
-            test.name,
-            test.condition,
-            test.expected,
-            test.tolerance,
-            test.instrument,
-        ])
-    flow.append(_table(rows, mm, Table, TableStyle, colors,
-                       widths=[8 * mm, 32 * mm, 36 * mm,
-                               30 * mm, 26 * mm, 38 * mm]))
+        rows.append(
+            [
+                str(idx),
+                test.name,
+                test.condition,
+                test.expected,
+                test.tolerance,
+                test.instrument,
+            ]
+        )
+    flow.append(
+        _table(
+            rows,
+            mm,
+            Table,
+            TableStyle,
+            colors,
+            widths=[8 * mm, 32 * mm, 36 * mm, 30 * mm, 26 * mm, 38 * mm],
+        )
+    )
 
     return flow
 
 
-def _signature_page(spec: MfgSpec, styles, mm, Paragraph,
-                    Spacer, Table, TableStyle, colors):
+def _signature_page(spec: MfgSpec, styles, mm, Paragraph, Spacer, Table, TableStyle, colors):
     flow: list = []
     flow.append(Paragraph("Sign-off", styles["h1"]))
-    flow.append(Paragraph(
-        "This specification governs the manufacture of "
-        f"part <b>{spec.core.part_number}</b> revision "
-        f"<b>{spec.revision}</b>. Vendor confirms acceptance by "
-        "signing below; deviations require a written ECN.",
-        styles["body"],
-    ))
+    flow.append(
+        Paragraph(
+            "This specification governs the manufacture of "
+            f"part <b>{spec.core.part_number}</b> revision "
+            f"<b>{spec.revision}</b>. Vendor confirms acceptance by "
+            "signing below; deviations require a written ECN.",
+            styles["body"],
+        )
+    )
     flow.append(Spacer(1, 8 * mm))
 
     sig_rows = [
-        ["Role",      "Name",                    "Date",
-         "Signature"],
-        ["Designer",  spec.designer,             spec.date_iso, ""],
-        ["Approver",  "",                        "",            ""],
-        ["Vendor",    "",                        "",            ""],
+        ["Role", "Name", "Date", "Signature"],
+        ["Designer", spec.designer, spec.date_iso, ""],
+        ["Approver", "", "", ""],
+        ["Vendor", "", "", ""],
     ]
-    flow.append(_table(sig_rows, mm, Table, TableStyle, colors,
-                       widths=[28 * mm, 50 * mm, 30 * mm, 60 * mm],
-                       row_height=18 * mm))
+    flow.append(
+        _table(
+            sig_rows,
+            mm,
+            Table,
+            TableStyle,
+            colors,
+            widths=[28 * mm, 50 * mm, 30 * mm, 60 * mm],
+            row_height=18 * mm,
+        )
+    )
 
     flow.append(Spacer(1, 8 * mm))
-    flow.append(Paragraph(
-        "Generated by MagnaDesign — see manifest.json in the "
-        "exported bundle for the SHA-256 of this document.",
-        styles["muted"],
-    ))
+    flow.append(
+        Paragraph(
+            "Generated by MagnaDesign — see manifest.json in the "
+            "exported bundle for the SHA-256 of this document.",
+            styles["muted"],
+        )
+    )
     return flow
 
 
@@ -342,42 +396,51 @@ def _signature_page(spec: MfgSpec, styles, mm, Paragraph,
 def _kv_table(rows: list[list[str]], mm, Table, TableStyle, colors):
     """Two-column key-value table with the canonical visual."""
     table = Table(rows, colWidths=[55 * mm, 100 * mm])
-    table.setStyle(TableStyle([
-        ("FONTNAME",   (0, 0), (-1, -1), "Helvetica"),
-        ("FONTSIZE",   (0, 0), (-1, -1), 9),
-        ("FONTNAME",   (0, 0), (0, -1),  "Helvetica-Bold"),
-        ("BACKGROUND", (0, 0), (0, -1),  colors.HexColor(_BAND_BG)),
-        ("BOX",        (0, 0), (-1, -1), 0.5, colors.HexColor(_BORDER)),
-        ("INNERGRID",  (0, 0), (-1, -1), 0.25, colors.HexColor(_BORDER)),
-        ("VALIGN",     (0, 0), (-1, -1), "MIDDLE"),
-        ("LEFTPADDING",  (0, 0), (-1, -1), 6),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-        ("TOPPADDING",   (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING",(0, 0), (-1, -1), 4),
-    ]))
+    table.setStyle(
+        TableStyle(
+            [
+                ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
+                ("FONTSIZE", (0, 0), (-1, -1), 9),
+                ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+                ("BACKGROUND", (0, 0), (0, -1), colors.HexColor(_BAND_BG)),
+                ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor(_BORDER)),
+                ("INNERGRID", (0, 0), (-1, -1), 0.25, colors.HexColor(_BORDER)),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ]
+        )
+    )
     return table
 
 
-def _table(rows: list[list[str]], mm, Table, TableStyle, colors,
-           *, widths, row_height: float | None = None):
+def _table(
+    rows: list[list[str]], mm, Table, TableStyle, colors, *, widths, row_height: float | None = None
+):
     """Generic bordered table with a header band."""
     kwargs = {"colWidths": widths}
     if row_height is not None and len(rows) > 1:
         kwargs["rowHeights"] = [None] + [row_height] * (len(rows) - 1)
     table = Table(rows, **kwargs)
-    table.setStyle(TableStyle([
-        ("FONTNAME",   (0, 0), (-1, -1), "Helvetica"),
-        ("FONTSIZE",   (0, 0), (-1, -1), 8),
-        ("FONTNAME",   (0, 0), (-1, 0),  "Helvetica-Bold"),
-        ("BACKGROUND", (0, 0), (-1, 0),  colors.HexColor(_BAND_BG)),
-        ("BOX",        (0, 0), (-1, -1), 0.5, colors.HexColor(_BORDER)),
-        ("INNERGRID",  (0, 0), (-1, -1), 0.25, colors.HexColor(_BORDER)),
-        ("VALIGN",     (0, 0), (-1, -1), "MIDDLE"),
-        ("LEFTPADDING",  (0, 0), (-1, -1), 5),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
-        ("TOPPADDING",   (0, 0), (-1, -1), 3),
-        ("BOTTOMPADDING",(0, 0), (-1, -1), 3),
-    ]))
+    table.setStyle(
+        TableStyle(
+            [
+                ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
+                ("FONTSIZE", (0, 0), (-1, -1), 8),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(_BAND_BG)),
+                ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor(_BORDER)),
+                ("INNERGRID", (0, 0), (-1, -1), 0.25, colors.HexColor(_BORDER)),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 5),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+                ("TOPPADDING", (0, 0), (-1, -1), 3),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+            ]
+        )
+    )
     return table
 
 
@@ -387,6 +450,7 @@ def _winding_diagram(spec: MfgSpec, mm):
     importable (CLI-only environments)."""
     try:
         import matplotlib
+
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
         from reportlab.platypus import Image as RLImage
@@ -395,19 +459,27 @@ def _winding_diagram(spec: MfgSpec, mm):
 
     fig, ax = plt.subplots(figsize=(6.5, 2.5), dpi=150)
     if not spec.winding.layers:
-        ax.text(0.5, 0.5, "No winding plan available",
-                ha="center", va="center", fontsize=10,
-                color=_TEXT_MUTED, transform=ax.transAxes)
+        ax.text(
+            0.5,
+            0.5,
+            "No winding plan available",
+            ha="center",
+            va="center",
+            fontsize=10,
+            color=_TEXT_MUTED,
+            transform=ax.transAxes,
+        )
     else:
         for layer in spec.winding.layers:
-            base = layer.height_mm - (layer.height_mm
-                                       - (spec.winding.layers[layer.index - 2].height_mm
-                                          if layer.index > 1 else 0))
-            ax.barh(layer.index, layer.breadth_mm,
-                    color=_ACCENT, edgecolor=_TEXT, linewidth=0.6)
-            ax.text(layer.breadth_mm + 1, layer.index,
-                    f"{layer.turns} turns @ {layer.height_mm:.2f} mm",
-                    va="center", fontsize=8, color=_TEXT)
+            ax.barh(layer.index, layer.breadth_mm, color=_ACCENT, edgecolor=_TEXT, linewidth=0.6)
+            ax.text(
+                layer.breadth_mm + 1,
+                layer.index,
+                f"{layer.turns} turns @ {layer.height_mm:.2f} mm",
+                va="center",
+                fontsize=8,
+                color=_TEXT,
+            )
         ax.invert_yaxis()
         ax.set_xlabel("Layer breadth [mm]", fontsize=8)
         ax.set_ylabel("Layer #", fontsize=8)
@@ -446,6 +518,7 @@ def _make_page_decorator(spec: MfgSpec):
             "MagnaDesign manufacturing spec",
         )
         canvas.restoreState()
+
     return _onPage
 
 
@@ -468,6 +541,7 @@ def _wire_od(spec: MfgSpec) -> float:
 def _magnadesign_version() -> str:
     try:
         from importlib.metadata import version as _v
+
         return _v("magnadesign")
     except Exception:
         return "unknown"

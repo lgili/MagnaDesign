@@ -6,6 +6,7 @@ or CSV. The synchronous sibling of the GUI's ``OptimizerEmbed``;
 suitable for CI pipelines that need to verify "the engineer's
 preferred core still wins after the catalogue update".
 """
+
 from __future__ import annotations
 
 import csv
@@ -19,7 +20,6 @@ from pfc_inductor.cli.exit_codes import ExitCode
 from pfc_inductor.cli.utils import load_session, wrap_design_error
 from pfc_inductor.optimize.sweep import rank, sweep
 from pfc_inductor.topology.material_filter import materials_for_topology
-
 
 # Same six keys the GUI's OptimizerFiltersBar exposes, re-stated
 # here so the CLI doesn't drag in the Qt widget tree just to read
@@ -57,7 +57,7 @@ def register(group: click.Group) -> None:
     "material_filter",
     multiple=True,
     help="Restrict to specific material IDs (repeatable). "
-         "Empty == all topology-eligible materials.",
+    "Empty == all topology-eligible materials.",
 )
 @click.option(
     "--feasible-only/--all",
@@ -102,9 +102,9 @@ def _sweep_cmd(
         eligible = [m for m in eligible if m.id in wanted]
         if not eligible:
             raise click.UsageError(
-                f"None of the requested materials match the "
-                f"topology-eligible set. Use `magnadesign catalog "
-                f"materials` to see what's available.",
+                "None of the requested materials match the "
+                "topology-eligible set. Use `magnadesign catalog "
+                "materials` to see what's available.",
             )
 
     click.echo(
@@ -133,8 +133,7 @@ def _sweep_cmd(
 
     ranked = rank(results, by=rank_key, feasible_first=True)[:top]
     click.echo(
-        f"swept {n_total} candidates "
-        f"({n_feasible} feasible) → keeping top {len(ranked)}",
+        f"swept {n_total} candidates ({n_feasible} feasible) → keeping top {len(ranked)}",
         err=True,
     )
 
@@ -148,6 +147,7 @@ def _sweep_cmd(
     # Default JSON output to stdout. Each row is an independent
     # dict so a downstream `jq` consumer can stream one at a time.
     import json
+
     json.dump(rows, sys.stdout, indent=2)
     sys.stdout.write("\n")
     return ExitCode.OK
@@ -157,22 +157,23 @@ def _row_for(sweep_result) -> dict:
     """Flatten a ``SweepResult`` into a CSV/JSON-friendly row."""
     r = sweep_result.result
     return {
-        "core_id":       sweep_result.core.id,
-        "core_pn":       sweep_result.core.part_number,
-        "wire_id":       sweep_result.wire.id,
-        "material_id":   sweep_result.material.id,
+        "core_id": sweep_result.core.id,
+        "core_pn": sweep_result.core.part_number,
+        "wire_id": sweep_result.wire.id,
+        "material_id": sweep_result.material.id,
         "material_name": sweep_result.material.name,
-        "L_actual_uH":   round(r.L_actual_uH, 2),
-        "N_turns":       int(r.N_turns),
-        "B_pk_mT":       round(r.B_pk_T * 1000.0, 1),
-        "T_rise_C":      round(r.T_rise_C, 1),
-        "P_total_W":     round(r.losses.P_total_W, 4),
-        "volume_cm3":    round(sweep_result.volume_cm3, 2),
-        "cost":          (
+        "L_actual_uH": round(r.L_actual_uH, 2),
+        "N_turns": int(r.N_turns),
+        "B_pk_mT": round(r.B_pk_T * 1000.0, 1),
+        "T_rise_C": round(r.T_rise_C, 1),
+        "P_total_W": round(r.losses.P_total_W, 4),
+        "volume_cm3": round(sweep_result.volume_cm3, 2),
+        "cost": (
             f"{sweep_result.cost.currency} {sweep_result.cost.total_cost:.2f}"
-            if sweep_result.cost is not None else ""
+            if sweep_result.cost is not None
+            else ""
         ),
-        "feasible":      bool(sweep_result.feasible),
+        "feasible": bool(sweep_result.feasible),
     }
 
 
@@ -181,9 +182,19 @@ def _row_for(sweep_result) -> dict:
 # documents the schema for downstream consumers (the same
 # vocabulary appears in `_row_for` above).
 _CSV_FIELDS: tuple[str, ...] = (
-    "core_id", "core_pn", "wire_id", "material_id", "material_name",
-    "L_actual_uH", "N_turns", "B_pk_mT", "T_rise_C",
-    "P_total_W", "volume_cm3", "cost", "feasible",
+    "core_id",
+    "core_pn",
+    "wire_id",
+    "material_id",
+    "material_name",
+    "L_actual_uH",
+    "N_turns",
+    "B_pk_mT",
+    "T_rise_C",
+    "P_total_W",
+    "volume_cm3",
+    "cost",
+    "feasible",
 )
 
 

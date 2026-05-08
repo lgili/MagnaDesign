@@ -8,6 +8,7 @@ Phase A ships a single Cartesian generator over a fixed material/
 core/wire selection. Future phases may add stratified or
 random-restart generators for very large search spaces.
 """
+
 from __future__ import annotations
 
 from typing import Iterable, Iterator
@@ -46,9 +47,7 @@ def cartesian(
 
     for material in materials_list:
         if only_compatible_cores:
-            candidate_cores = [
-                c for c in cores_list if c.default_material_id == material.id
-            ]
+            candidate_cores = [c for c in cores_list if c.default_material_id == material.id]
         else:
             candidate_cores = cores_list
         for core in candidate_cores:
@@ -82,9 +81,7 @@ def cartesian_count(
     total = 0
     for material in materials_list:
         if only_compatible_cores:
-            n_cores = sum(
-                1 for c in cores_list if c.default_material_id == material.id
-            )
+            n_cores = sum(1 for c in cores_list if c.default_material_id == material.id)
         else:
             n_cores = len(cores_list)
         total += n_cores * n_wires

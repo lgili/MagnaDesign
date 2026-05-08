@@ -9,6 +9,7 @@ Also provides anhysteretic B(H) — the static, single-valued B–H curve — by
 integrating the small-signal permeability over H. Used for the operating-loop
 visualization at the design point.
 """
+
 from __future__ import annotations
 
 import math
@@ -48,7 +49,7 @@ def mu_pct(material: Material, H_Oe: float) -> float:
         return 1.0
     a, b, c = material.rolloff.a, material.rolloff.b, material.rolloff.c
     H = max(H_Oe, 1e-6)
-    val = 1.0 / (a + b * (H ** c))
+    val = 1.0 / (a + b * (H**c))
     return max(0.0, min(1.0, val))
 
 
@@ -77,7 +78,7 @@ def mu_pct_array(material: Material, H_Oe_arr: ArrayLike) -> np.ndarray:
     if material.rolloff is None:
         return np.ones_like(H)
     a, b, c = material.rolloff.a, material.rolloff.b, material.rolloff.c
-    val = 1.0 / (a + b * (H ** c))
+    val = 1.0 / (a + b * (H**c))
     return np.clip(val, 0.0, 1.0)
 
 
@@ -105,9 +106,7 @@ def B_anhysteretic_array_T(material: Material, H_Oe_arr: ArrayLike) -> np.ndarra
             B = np.zeros_like(H_abs)
         else:
             n_dense = max(400, H_abs.size * 2)
-            grid = np.unique(np.concatenate(
-                [np.linspace(0.0, H_max, n_dense), H_abs]
-            ))
+            grid = np.unique(np.concatenate([np.linspace(0.0, H_max, n_dense), H_abs]))
             grid_Am = grid / OE_PER_AM
             mu_eff = material.mu_initial * mu_pct_array(material, grid)
             integrand = MU_0 * mu_eff

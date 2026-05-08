@@ -7,6 +7,7 @@ subcommand. Round-trip checks on the XLSX file verify cells
 through ``openpyxl.load_workbook``; PDF tests stay at the smoke
 level (``startswith %PDF-`` + size > 5 KB).
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -35,13 +36,17 @@ def reference_design():
     cores = load_cores()
     wires = load_wires()
     spec = Spec(
-        topology="boost_ccm", Pout_W=600,
-        Vin_min_Vrms=85, Vin_max_Vrms=265, Vout_V=400,
-        f_sw_kHz=65, ripple_pct=20, T_amb_C=40,
+        topology="boost_ccm",
+        Pout_W=600,
+        Vin_min_Vrms=85,
+        Vin_max_Vrms=265,
+        Vout_V=400,
+        f_sw_kHz=65,
+        ripple_pct=20,
+        T_amb_C=40,
     )
     mat = next(m for m in mats if m.id == "magnetics-60_highflux")
-    core = next(c for c in cores
-                if c.id == "magnetics-c058777a2-60_highflux")
+    core = next(c for c in cores if c.id == "magnetics-c058777a2-60_highflux")
     wire = next(w for w in wires if w.id == "AWG14")
     result = run_design(spec, core, wire, mat)
     return spec, core, wire, mat, result
@@ -68,7 +73,9 @@ def test_plan_winding_happy_path(reference_design) -> None:
 
     _, core, wire, _, result = reference_design
     plan = plan_winding(
-        core=core, wire=wire, n_turns=int(result.N_turns),
+        core=core,
+        wire=wire,
+        n_turns=int(result.N_turns),
     )
     assert plan.n_turns == int(result.N_turns)
     assert plan.n_layers >= 1
@@ -86,8 +93,7 @@ def test_plan_winding_overfill_emits_warning(reference_design) -> None:
     _, core, wire, _, _ = reference_design
     plan = plan_winding(core=core, wire=wire, n_turns=1000)
     assert plan.bobbin_used_pct > 90.0
-    assert any("won't fit" in w or "% full" in w
-               for w in plan.warnings)
+    assert any("won't fit" in w or "% full" in w for w in plan.warnings)
 
 
 def test_plan_winding_underfill_emits_warning(reference_design) -> None:
@@ -150,8 +156,11 @@ def test_build_acceptance_tests_carries_six_rows(reference_design) -> None:
 
     spec, core, wire, mat, result = reference_design
     tests = build_acceptance_tests(
-        spec=spec, core=core, wire=wire,
-        material=mat, result=result,
+        spec=spec,
+        core=core,
+        wire=wire,
+        material=mat,
+        result=result,
     )
     # Standard six-row plan; biased-L is optional (depends on
     # I_pk being set), so allow 5–6.
@@ -173,8 +182,11 @@ def test_build_acceptance_tests_hipot_uses_iec_61558(
 
     spec, core, wire, mat, result = reference_design
     tests = build_acceptance_tests(
-        spec=spec, core=core, wire=wire,
-        material=mat, result=result,
+        spec=spec,
+        core=core,
+        wire=wire,
+        material=mat,
+        result=result,
     )
     hipot = next(t for t in tests if t.name == "Hi-pot")
     # The condition string carries the voltage; just check it's
@@ -182,8 +194,12 @@ def test_build_acceptance_tests_hipot_uses_iec_61558(
     assert "V AC" in hipot.condition
     # 265 V_rms × √2 ≈ 374.77 V → 2×374.77 + 1000 = 1749.5 V,
     # which the writer rounds to "1750 V AC" via {:.0f}.
-    assert "1750" in hipot.condition or "1748" in hipot.condition or \
-           "1800" in hipot.condition or "1500" in hipot.condition
+    assert (
+        "1750" in hipot.condition
+        or "1748" in hipot.condition
+        or "1800" in hipot.condition
+        or "1500" in hipot.condition
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -194,7 +210,11 @@ def test_build_mfg_spec_carries_every_block(reference_design) -> None:
 
     spec, core, wire, mat, result = reference_design
     pack = build_mfg_spec(
-        spec=spec, core=core, wire=wire, material=mat, result=result,
+        spec=spec,
+        core=core,
+        wire=wire,
+        material=mat,
+        result=result,
         project_name="test-project",
         designer="QA Bot",
         revision="A.0",
@@ -219,7 +239,11 @@ def test_pdf_writer_smoke(reference_design, tmp_path: Path) -> None:
 
     spec, core, wire, mat, result = reference_design
     pack = build_mfg_spec(
-        spec=spec, core=core, wire=wire, material=mat, result=result,
+        spec=spec,
+        core=core,
+        wire=wire,
+        material=mat,
+        result=result,
     )
     out = tmp_path / "mfg.pdf"
     written = write_mfg_spec_pdf(pack, out)
@@ -242,7 +266,11 @@ def test_xlsx_writer_round_trips(reference_design, tmp_path: Path) -> None:
 
     spec, core, wire, mat, result = reference_design
     pack = build_mfg_spec(
-        spec=spec, core=core, wire=wire, material=mat, result=result,
+        spec=spec,
+        core=core,
+        wire=wire,
+        material=mat,
+        result=result,
     )
     out = tmp_path / "mfg.xlsx"
     write_mfg_spec_xlsx(pack, out)
@@ -284,9 +312,14 @@ def _write_boost_project(tmp_path: Path) -> Path:
     from pfc_inductor.project import ProjectFile, save_project
 
     spec = Spec(
-        topology="boost_ccm", Pout_W=600,
-        Vin_min_Vrms=85, Vin_max_Vrms=265, Vout_V=400,
-        f_sw_kHz=65, ripple_pct=20, T_amb_C=40,
+        topology="boost_ccm",
+        Pout_W=600,
+        Vin_min_Vrms=85,
+        Vin_max_Vrms=265,
+        Vout_V=400,
+        f_sw_kHz=65,
+        ripple_pct=20,
+        T_amb_C=40,
     )
     pf = ProjectFile.from_session(
         name="cli-mfg-boost",
@@ -302,6 +335,7 @@ def _write_boost_project(tmp_path: Path) -> Path:
 
 def test_mfg_spec_subcommand_registered() -> None:
     from pfc_inductor.cli import SUBCOMMANDS
+
     assert "mfg-spec" in SUBCOMMANDS
 
 
@@ -310,20 +344,21 @@ def test_mfg_spec_help_lists_options(cli_runner: CliRunner) -> None:
 
     result = cli_runner.invoke(cli, ["mfg-spec", "--help"])
     assert result.exit_code == 0
-    for opt in ("--out", "--designer", "--revision",
-                "--project-name"):
+    for opt in ("--out", "--designer", "--revision", "--project-name"):
         assert opt in result.output, f"missing {opt} in help"
 
 
 def test_mfg_spec_writes_pdf(
-    cli_runner: CliRunner, tmp_path: Path,
+    cli_runner: CliRunner,
+    tmp_path: Path,
 ) -> None:
     from pfc_inductor.cli import cli
 
     project_path = _write_boost_project(tmp_path)
     out = tmp_path / "out.pdf"
     result = cli_runner.invoke(
-        cli, ["mfg-spec", str(project_path), "--out", str(out)],
+        cli,
+        ["mfg-spec", str(project_path), "--out", str(out)],
     )
     assert result.exit_code == 0, result.output
     assert out.is_file()
@@ -332,14 +367,16 @@ def test_mfg_spec_writes_pdf(
 
 
 def test_mfg_spec_writes_xlsx(
-    cli_runner: CliRunner, tmp_path: Path,
+    cli_runner: CliRunner,
+    tmp_path: Path,
 ) -> None:
     from pfc_inductor.cli import cli
 
     project_path = _write_boost_project(tmp_path)
     out = tmp_path / "out.xlsx"
     result = cli_runner.invoke(
-        cli, ["mfg-spec", str(project_path), "--out", str(out)],
+        cli,
+        ["mfg-spec", str(project_path), "--out", str(out)],
     )
     assert result.exit_code == 0, result.output
     assert out.is_file()
@@ -348,15 +385,15 @@ def test_mfg_spec_writes_xlsx(
 
 
 def test_mfg_spec_unknown_extension_errors(
-    cli_runner: CliRunner, tmp_path: Path,
+    cli_runner: CliRunner,
+    tmp_path: Path,
 ) -> None:
     from pfc_inductor.cli import cli
 
     project_path = _write_boost_project(tmp_path)
     result = cli_runner.invoke(
-        cli, ["mfg-spec", str(project_path),
-              "--out", str(tmp_path / "out.docx")],
+        cli,
+        ["mfg-spec", str(project_path), "--out", str(tmp_path / "out.docx")],
     )
     assert result.exit_code != 0
-    assert "Unsupported" in result.output or \
-           "extension" in result.output
+    assert "Unsupported" in result.output or "extension" in result.output

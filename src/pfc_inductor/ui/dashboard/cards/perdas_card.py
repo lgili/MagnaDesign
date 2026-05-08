@@ -5,6 +5,7 @@ clearly in the bottom-strip column width (~155 px). The new
 ``HorizontalStackedBar`` reads at any width down to ~180 px and brings
 total + per-segment value/percent together in a single, compact block.
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -31,9 +32,9 @@ class _PerdasBody(QWidget):
         )
         v.addWidget(self._bar, 1)
 
-    def update_from_design(self, result: DesignResult, spec: Spec,
-                           core: Core, wire: Wire,
-                           material: Material) -> None:
+    def update_from_design(
+        self, result: DesignResult, spec: Spec, core: Core, wire: Wire, material: Material
+    ) -> None:
         p = get_theme().palette
         losses = result.losses
         # Segment colours pinned to semantic palette tokens so the bar
@@ -43,14 +44,14 @@ class _PerdasBody(QWidget):
         # was P_core_total), which hid the engineer's most
         # diagnostic loss split: low-frequency hysteresis-ish core
         # losses vs switching-ripple losses.
-        self._bar.set_segments([
-            Segment("Cu DC", losses.P_cu_dc_W, p.data_series_1),
-            Segment("Cu AC", losses.P_cu_ac_W, p.data_series_2),
-            Segment("Core @ line", losses.P_core_line_W,
-                    p.data_series_3),
-            Segment("Core @ ripple", losses.P_core_ripple_W,
-                    p.copper_bright),
-        ])
+        self._bar.set_segments(
+            [
+                Segment("Cu DC", losses.P_cu_dc_W, p.data_series_1),
+                Segment("Cu AC", losses.P_cu_ac_W, p.data_series_2),
+                Segment("Core @ line", losses.P_core_line_W, p.data_series_3),
+                Segment("Core @ ripple", losses.P_core_ripple_W, p.copper_bright),
+            ]
+        )
 
     def clear(self) -> None:
         self._bar.set_segments([])

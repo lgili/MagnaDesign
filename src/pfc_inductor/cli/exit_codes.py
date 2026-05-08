@@ -26,6 +26,7 @@ needs ``$? == 2`` to mean "compliance failure on a real design",
 not "you forgot --top". The shift is small but matters when the
 script branches on exit code to decide whether to escalate.
 """
+
 from __future__ import annotations
 
 from enum import IntEnum
@@ -41,10 +42,9 @@ class ExitCode(IntEnum):
 
 # Human-readable map for ``--help`` and error messages.
 EXIT_CODES: dict[ExitCode, str] = {
-    ExitCode.OK:               "Successful execution",
-    ExitCode.GENERIC_ERROR:    "Generic error (bug, I/O failure)",
-    ExitCode.COMPLIANCE_FAIL:  "Design fails a regulatory check",
-    ExitCode.WORST_CASE_FAIL:  "Design fails at least one tolerance corner",
-    ExitCode.USAGE_ERROR:      "Bad invocation (missing argument, "
-                               "malformed file)",
+    ExitCode.OK: "Successful execution",
+    ExitCode.GENERIC_ERROR: "Generic error (bug, I/O failure)",
+    ExitCode.COMPLIANCE_FAIL: "Design fails a regulatory check",
+    ExitCode.WORST_CASE_FAIL: "Design fails at least one tolerance corner",
+    ExitCode.USAGE_ERROR: "Bad invocation (missing argument, malformed file)",
 }

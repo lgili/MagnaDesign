@@ -1,4 +1,5 @@
 """B-H loop / anhysteretic curve tests."""
+
 import numpy as np
 import pytest
 
@@ -39,7 +40,9 @@ def test_B_capped_at_Bsat_for_powder(db):
     B_huge = B_anhysteretic_T(m, 5000.0)
     Bsat = m.Bsat_100C_T
     assert B_huge <= Bsat * 1.06
-    assert B_huge >= Bsat * 0.9, f"B_anhysteretic at huge H should approach Bsat, got {B_huge*1000:.0f} mT"
+    assert B_huge >= Bsat * 0.9, (
+        f"B_anhysteretic at huge H should approach Bsat, got {B_huge * 1000:.0f} mT"
+    )
 
 
 def test_B_linear_for_ferrite(db):
@@ -55,6 +58,7 @@ def test_B_linear_for_ferrite(db):
 def test_mu_pct_array_matches_scalar(db):
     """Vectorized mu_pct_array must agree with the scalar mu_pct."""
     from pfc_inductor.physics.rolloff import mu_pct
+
     mats, _, _ = db
     m = find_material(mats, "magnetics-60_highflux")
     H_arr = [0.1, 10.0, 80.0, 200.0, 500.0]
@@ -65,25 +69,46 @@ def test_mu_pct_array_matches_scalar(db):
 
 def test_trajectory_returns_expected_keys(db):
     mats, cores, wires = db
-    spec = Spec(Vin_min_Vrms=85.0, Vin_max_Vrms=265.0, Vin_nom_Vrms=220.0,
-                Vout_V=400.0, Pout_W=800.0, eta=0.97,
-                f_sw_kHz=65.0, ripple_pct=30.0)
+    spec = Spec(
+        Vin_min_Vrms=85.0,
+        Vin_max_Vrms=265.0,
+        Vin_nom_Vrms=220.0,
+        Vout_V=400.0,
+        Pout_W=800.0,
+        eta=0.97,
+        f_sw_kHz=65.0,
+        ripple_pct=30.0,
+    )
     m = find_material(mats, "magnetics-60_highflux")
     c = next(c for c in cores if c.default_material_id == m.id and 40000 < c.Ve_mm3 < 100000)
     w = next(w for w in wires if w.id == "AWG14")
     r = design(spec, c, w, m)
     tr = compute_bh_trajectory(r, c, m)
-    for k in ("H_static_Oe", "B_static_T", "H_envelope_Oe", "B_envelope_T",
-              "H_pk_Oe", "B_pk_T", "Bsat_T"):
+    for k in (
+        "H_static_Oe",
+        "B_static_T",
+        "H_envelope_Oe",
+        "B_envelope_T",
+        "H_pk_Oe",
+        "B_pk_T",
+        "Bsat_T",
+    ):
         assert k in tr, f"Missing key {k} in trajectory result"
 
 
 def test_trajectory_envelope_matches_design_pk(db):
     """The envelope's peak B should be close to the engine's B_pk_T."""
     mats, cores, wires = db
-    spec = Spec(Vin_min_Vrms=85.0, Vin_max_Vrms=265.0, Vin_nom_Vrms=220.0,
-                Vout_V=400.0, Pout_W=800.0, eta=0.97,
-                f_sw_kHz=65.0, ripple_pct=30.0)
+    spec = Spec(
+        Vin_min_Vrms=85.0,
+        Vin_max_Vrms=265.0,
+        Vin_nom_Vrms=220.0,
+        Vout_V=400.0,
+        Pout_W=800.0,
+        eta=0.97,
+        f_sw_kHz=65.0,
+        ripple_pct=30.0,
+    )
     m = find_material(mats, "magnetics-60_highflux")
     c = next(c for c in cores if c.default_material_id == m.id and 40000 < c.Ve_mm3 < 100000)
     w = next(w for w in wires if w.id == "AWG14")
@@ -97,9 +122,16 @@ def test_trajectory_envelope_matches_design_pk(db):
 def test_trajectory_has_ripple_for_boost(db):
     """A boost-CCM design has nonzero HF ripple, so the ripple segment exists."""
     mats, cores, wires = db
-    spec = Spec(Vin_min_Vrms=85.0, Vin_max_Vrms=265.0, Vin_nom_Vrms=220.0,
-                Vout_V=400.0, Pout_W=800.0, eta=0.97,
-                f_sw_kHz=65.0, ripple_pct=30.0)
+    spec = Spec(
+        Vin_min_Vrms=85.0,
+        Vin_max_Vrms=265.0,
+        Vin_nom_Vrms=220.0,
+        Vout_V=400.0,
+        Pout_W=800.0,
+        eta=0.97,
+        f_sw_kHz=65.0,
+        ripple_pct=30.0,
+    )
     m = find_material(mats, "magnetics-60_highflux")
     c = next(c for c in cores if c.default_material_id == m.id and 40000 < c.Ve_mm3 < 100000)
     w = next(w for w in wires if w.id == "AWG14")

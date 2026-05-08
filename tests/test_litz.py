@@ -1,4 +1,5 @@
 """Litz optimizer tests."""
+
 import math
 
 import pytest
@@ -45,9 +46,8 @@ def test_closest_strand_AWG_known():
 
 
 def test_strand_count_meets_current_density():
-    n = strand_count_for_current(I_rms_A=10, target_J_A_mm2=4.0,
-                                  d_strand_mm=0.10)
-    A_strand = math.pi * 0.10 ** 2 / 4.0
+    n = strand_count_for_current(I_rms_A=10, target_J_A_mm2=4.0, d_strand_mm=0.10)
+    A_strand = math.pi * 0.10**2 / 4.0
     assert n * A_strand >= 10 / 4.0
 
 
@@ -69,17 +69,23 @@ def test_make_litz_wire_has_derived_fields():
 
 def test_recommend_returns_candidates_in_published_AWG_range(db):
     mats, cores, wires = db
-    spec = Spec(Vin_min_Vrms=85.0, Vin_max_Vrms=265.0, Vin_nom_Vrms=220.0,
-                Vout_V=400.0, Pout_W=800.0, eta=0.97,
-                f_sw_kHz=65.0, ripple_pct=30.0)
+    spec = Spec(
+        Vin_min_Vrms=85.0,
+        Vin_max_Vrms=265.0,
+        Vin_nom_Vrms=220.0,
+        Vout_V=400.0,
+        Pout_W=800.0,
+        eta=0.97,
+        f_sw_kHz=65.0,
+        ripple_pct=30.0,
+    )
     mat = find_material(mats, "magnetics-60_highflux")
     core = next(
-        c for c in cores
-        if c.default_material_id == "magnetics-60_highflux"
-        and 40000 < c.Ve_mm3 < 100000
+        c
+        for c in cores
+        if c.default_material_id == "magnetics-60_highflux" and 40000 < c.Ve_mm3 < 100000
     )
-    rec = recommend_litz(spec, core, mat, wires,
-                         target_J_A_mm2=4.0, target_AC_DC=1.10)
+    rec = recommend_litz(spec, core, mat, wires, target_J_A_mm2=4.0, target_AC_DC=1.10)
     assert len(rec.candidates) > 0
     for c in rec.candidates:
         assert 32 <= c.awg_strand <= 44
@@ -88,14 +94,21 @@ def test_recommend_returns_candidates_in_published_AWG_range(db):
 def test_recommend_AC_DC_below_target(db):
     """Built Litz should achieve AC/DC ≤ target (since strands are below d_opt)."""
     mats, cores, wires = db
-    spec = Spec(Vin_min_Vrms=85.0, Vin_max_Vrms=265.0, Vin_nom_Vrms=220.0,
-                Vout_V=400.0, Pout_W=800.0, eta=0.97,
-                f_sw_kHz=65.0, ripple_pct=30.0)
+    spec = Spec(
+        Vin_min_Vrms=85.0,
+        Vin_max_Vrms=265.0,
+        Vin_nom_Vrms=220.0,
+        Vout_V=400.0,
+        Pout_W=800.0,
+        eta=0.97,
+        f_sw_kHz=65.0,
+        ripple_pct=30.0,
+    )
     mat = find_material(mats, "magnetics-60_highflux")
     core = next(
-        c for c in cores
-        if c.default_material_id == "magnetics-60_highflux"
-        and 40000 < c.Ve_mm3 < 100000
+        c
+        for c in cores
+        if c.default_material_id == "magnetics-60_highflux" and 40000 < c.Ve_mm3 < 100000
     )
     rec = recommend_litz(spec, core, mat, wires, target_AC_DC=1.10)
     # Every candidate should have AC/DC ≤ 1.10 (since AWG list is at-or-below d_opt)
@@ -104,14 +117,21 @@ def test_recommend_AC_DC_below_target(db):
 
 def test_recommend_provides_round_wire_baseline(db):
     mats, cores, wires = db
-    spec = Spec(Vin_min_Vrms=85.0, Vin_max_Vrms=265.0, Vin_nom_Vrms=220.0,
-                Vout_V=400.0, Pout_W=800.0, eta=0.97,
-                f_sw_kHz=65.0, ripple_pct=30.0)
+    spec = Spec(
+        Vin_min_Vrms=85.0,
+        Vin_max_Vrms=265.0,
+        Vin_nom_Vrms=220.0,
+        Vout_V=400.0,
+        Pout_W=800.0,
+        eta=0.97,
+        f_sw_kHz=65.0,
+        ripple_pct=30.0,
+    )
     mat = find_material(mats, "magnetics-60_highflux")
     core = next(
-        c for c in cores
-        if c.default_material_id == "magnetics-60_highflux"
-        and 40000 < c.Ve_mm3 < 100000
+        c
+        for c in cores
+        if c.default_material_id == "magnetics-60_highflux" and 40000 < c.Ve_mm3 < 100000
     )
     rec = recommend_litz(spec, core, mat, wires)
     assert rec.round_wire_baseline is not None

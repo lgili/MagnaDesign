@@ -10,6 +10,7 @@ The workaround is to symlink the FEMMT package into a no-spaces path
 the symlink target survives) and prepend that to ``sys.path`` before
 ``import femmt`` happens.
 """
+
 from __future__ import annotations
 
 import os

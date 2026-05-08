@@ -15,6 +15,7 @@ only check that:
   it because spawning the full window in this test would defeat
   the "no Qt" guarantee).
 """
+
 from __future__ import annotations
 
 import json
@@ -97,7 +98,8 @@ def test_sweep_help(cli_runner: CliRunner) -> None:
 
 
 def test_design_missing_project_file_is_usage_error(
-    cli_runner: CliRunner, tmp_path: Path,
+    cli_runner: CliRunner,
+    tmp_path: Path,
 ) -> None:
     """Pointing the design subcommand at a non-existent file
     surfaces a clean ``UsageError`` (exit != 0) instead of an
@@ -111,7 +113,8 @@ def test_design_missing_project_file_is_usage_error(
 
 
 def test_design_runs_engine_on_valid_project(
-    cli_runner: CliRunner, tmp_path: Path,
+    cli_runner: CliRunner,
+    tmp_path: Path,
 ) -> None:
     """End-to-end: write a minimal `.pfc`, invoke the design
     subcommand, parse the JSON output, assert headline KPIs are
@@ -123,9 +126,14 @@ def test_design_runs_engine_on_valid_project(
     from pfc_inductor.project import ProjectFile, save_project
 
     spec = Spec(
-        topology="boost_ccm", Pout_W=600,
-        Vin_min_Vrms=85, Vin_max_Vrms=265, Vout_V=400,
-        f_sw_kHz=65, ripple_pct=20, T_amb_C=40,
+        topology="boost_ccm",
+        Pout_W=600,
+        Vin_min_Vrms=85,
+        Vin_max_Vrms=265,
+        Vout_V=400,
+        f_sw_kHz=65,
+        ripple_pct=20,
+        T_amb_C=40,
     )
     pf = ProjectFile.from_session(
         name="cli-test",
@@ -146,11 +154,19 @@ def test_design_runs_engine_on_valid_project(
     payload = json.loads(result.stdout)
     # Schema check: every headline key is present.
     expected_keys = {
-        "project", "topology", "selection",
-        "L_target_uH", "L_actual_uH", "N_turns",
-        "B_pk_mT", "B_sat_pct",
-        "T_winding_C", "T_rise_C",
-        "P_total_W", "P_cu_W", "P_core_W",
+        "project",
+        "topology",
+        "selection",
+        "L_target_uH",
+        "L_actual_uH",
+        "N_turns",
+        "B_pk_mT",
+        "B_sat_pct",
+        "T_winding_C",
+        "T_rise_C",
+        "P_total_W",
+        "P_cu_W",
+        "P_core_W",
         "warnings",
     }
     assert expected_keys.issubset(payload.keys())
@@ -163,7 +179,8 @@ def test_design_runs_engine_on_valid_project(
 
 
 def test_design_fails_on_missing_selection(
-    cli_runner: CliRunner, tmp_path: Path,
+    cli_runner: CliRunner,
+    tmp_path: Path,
 ) -> None:
     """A `.pfc` without a selection block surfaces a clear
     ``UsageError`` listing which IDs are missing — better than
@@ -173,9 +190,14 @@ def test_design_fails_on_missing_selection(
     from pfc_inductor.project import ProjectFile, save_project
 
     spec = Spec(
-        topology="boost_ccm", Pout_W=600,
-        Vin_min_Vrms=85, Vin_max_Vrms=265, Vout_V=400,
-        f_sw_kHz=65, ripple_pct=20, T_amb_C=40,
+        topology="boost_ccm",
+        Pout_W=600,
+        Vin_min_Vrms=85,
+        Vin_max_Vrms=265,
+        Vout_V=400,
+        f_sw_kHz=65,
+        ripple_pct=20,
+        T_amb_C=40,
     )
     pf = ProjectFile.from_session(
         name="no-selection",

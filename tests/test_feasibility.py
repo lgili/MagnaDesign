@@ -1,4 +1,5 @@
 """Cheap feasibility heuristic for core selection."""
+
 from __future__ import annotations
 
 from pfc_inductor.data_loader import (
@@ -22,9 +23,14 @@ from pfc_inductor.optimize.feasibility import (
 
 def _spec_800W():
     return Spec(
-        Vin_min_Vrms=85.0, Vin_max_Vrms=265.0, Vin_nom_Vrms=220.0,
-        Vout_V=400.0, Pout_W=800.0, eta=0.97,
-        f_sw_kHz=65.0, ripple_pct=30.0,
+        Vin_min_Vrms=85.0,
+        Vin_max_Vrms=265.0,
+        Vin_nom_Vrms=220.0,
+        Vout_V=400.0,
+        Pout_W=800.0,
+        eta=0.97,
+        f_sw_kHz=65.0,
+        ripple_pct=30.0,
     )
 
 
@@ -81,9 +87,7 @@ def test_filter_returns_non_empty_for_typical_spec():
     wire = next(w for w in wires if w.id == "AWG14")
     compat = [c for c in cores if c.default_material_id == mat.id]
     viable, _ = filter_viable_cores(_spec_800W(), compat, mat, wire)
-    assert len(viable) >= 5, (
-        f"only {len(viable)} viable for typical PFC — filter too aggressive"
-    )
+    assert len(viable) >= 5, f"only {len(viable)} viable for typical PFC — filter too aggressive"
 
 
 def test_filter_reason_counts_sum_to_hidden():
@@ -116,8 +120,11 @@ def test_n_hard_cap_dispatches_via_spec_topology():
     passive = boost.model_copy(update={"topology": "passive_choke"})
     reactor = Spec(
         topology="line_reactor",
-        Vin_nom_Vrms=400.0, f_line_Hz=60.0, n_phases=3,
-        L_req_mH=1.0, I_rated_Arms=30.0,
+        Vin_nom_Vrms=400.0,
+        f_line_Hz=60.0,
+        n_phases=3,
+        L_req_mH=1.0,
+        I_rated_Arms=30.0,
     )
     assert _n_hard_cap(boost) == 250
     assert _n_hard_cap(passive) == 1000
@@ -137,10 +144,18 @@ def test_passive_choke_quick_check_now_passes_some_cores():
     wire = next(w for w in wires if w.id == "AWG14")
     spec = Spec(
         topology="passive_choke",
-        Vin_min_Vrms=85.0, Vin_max_Vrms=265.0, Vin_nom_Vrms=220.0,
-        Vout_V=400.0, Pout_W=400.0, eta=0.97,
-        f_sw_kHz=65.0, ripple_pct=30.0,
-        T_amb_C=40.0, T_max_C=100.0, Ku_max=0.40, Bsat_margin=0.20,
+        Vin_min_Vrms=85.0,
+        Vin_max_Vrms=265.0,
+        Vin_nom_Vrms=220.0,
+        Vout_V=400.0,
+        Pout_W=400.0,
+        eta=0.97,
+        f_sw_kHz=65.0,
+        ripple_pct=30.0,
+        T_amb_C=40.0,
+        T_max_C=100.0,
+        Ku_max=0.40,
+        Bsat_margin=0.20,
     )
     compat = [c for c in cores if c.default_material_id == mat.id]
     verdicts = [core_quick_check(spec, c, mat, wire) for c in compat]
@@ -152,6 +167,7 @@ def test_passive_choke_quick_check_now_passes_some_cores():
 # ---------------------------------------------------------------------------
 # Wire pre-filter — guards the cascade Tier-0 hot path
 # ---------------------------------------------------------------------------
+
 
 def test_rated_current_boost_ccm_uses_spec_eta():
     """boost_ccm rated current should account for converter efficiency."""

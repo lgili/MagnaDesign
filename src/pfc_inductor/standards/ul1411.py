@@ -41,11 +41,11 @@ Public API
   ``UlReport``-shaped result the dispatcher consumes.
 - :func:`hipot_test_voltage` — ``2 × V_work + 1000 V`` per §40.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Literal, Optional
-
+from typing import Literal
 
 InsulationClass = Literal["A", "B", "F", "H"]
 
@@ -53,10 +53,10 @@ InsulationClass = Literal["A", "B", "F", "H"]
 # Per-class temperature-rise limits per UL 1411:2024 §39.2.
 # Values are *rise above ambient*, not absolute temperatures.
 _TEMP_RISE_LIMITS_C: dict[InsulationClass, float] = {
-    "A": 65.0,    # 105 °C absolute - 40 °C ambient = 65 °C rise
-    "B": 90.0,    # 130 °C abs
-    "F": 115.0,   # 155 °C abs
-    "H": 140.0,   # 180 °C abs
+    "A": 65.0,  # 105 °C absolute - 40 °C ambient = 65 °C rise
+    "B": 90.0,  # 130 °C abs
+    "F": 115.0,  # 155 °C abs
+    "H": 140.0,  # 180 °C abs
 }
 
 
@@ -147,10 +147,7 @@ def evaluate(
             f"max winding rise {rise_limit:.0f} °C above ambient "
             f"per UL 1411:2024 §39.2."
         ),
-        (
-            f"Hi-pot test voltage = 2·V_work + 1000 = "
-            f"{hipot:.0f} Vrms for 60 s per §40."
-        ),
+        (f"Hi-pot test voltage = 2·V_work + 1000 = {hipot:.0f} Vrms for 60 s per §40."),
     ]
     if not needs_hipot:
         notes.append(

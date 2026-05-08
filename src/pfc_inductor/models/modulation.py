@@ -46,12 +46,12 @@ running through ``design()`` unchanged — every existing `.pfc`
 file round-trips identically. Round-trip tests live in
 ``tests/test_spec_modulation_roundtrip.py``.
 """
+
 from __future__ import annotations
 
 from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, model_validator
-
 
 ModulationProfile = Literal["uniform", "triangular_dither", "rpm_band"]
 
@@ -100,8 +100,7 @@ class FswModulation(BaseModel):
         None,
         ge=0.0,
         description=(
-            "Compressor minimum speed (RPM). Used with "
-            "``pole_pairs`` to derive ``fsw_min_kHz``."
+            "Compressor minimum speed (RPM). Used with ``pole_pairs`` to derive ``fsw_min_kHz``."
         ),
     )
     rpm_max: Optional[float] = Field(
@@ -120,11 +119,10 @@ class FswModulation(BaseModel):
     )
 
     @model_validator(mode="after")
-    def _check_band(self) -> "FswModulation":
+    def _check_band(self) -> FswModulation:
         if self.fsw_max_kHz <= self.fsw_min_kHz:
             raise ValueError(
-                f"fsw_max_kHz ({self.fsw_max_kHz}) must exceed "
-                f"fsw_min_kHz ({self.fsw_min_kHz})",
+                f"fsw_max_kHz ({self.fsw_max_kHz}) must exceed fsw_min_kHz ({self.fsw_min_kHz})",
             )
         if self.profile == "rpm_band":
             missing: list[str] = []
@@ -136,14 +134,12 @@ class FswModulation(BaseModel):
                 missing.append("pole_pairs")
             if missing:
                 raise ValueError(
-                    f"profile='rpm_band' requires "
-                    f"{', '.join(missing)}",
+                    f"profile='rpm_band' requires {', '.join(missing)}",
                 )
             if self.rpm_max is not None and self.rpm_min is not None:
                 if self.rpm_max <= self.rpm_min:
                     raise ValueError(
-                        f"rpm_max ({self.rpm_max}) must exceed "
-                        f"rpm_min ({self.rpm_min})",
+                        f"rpm_max ({self.rpm_max}) must exceed rpm_min ({self.rpm_min})",
                     )
         return self
 

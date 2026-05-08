@@ -9,6 +9,7 @@ reactor variants).
 The dialog is intentionally light — no engine calls, no heavy state.
 It is a presentational widget over a ``Literal`` choice.
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -30,37 +31,58 @@ from pfc_inductor.ui.widgets import TopologySchematicWidget
 
 # (key, label, n_phases-or-None, description)
 _OPTIONS: list[tuple[str, str, Optional[int], str]] = [
-    ("boost_ccm", "Boost CCM Active", None,
-     "Active PFC. Inductor + switch + diode + bus capacitor. "
-     "Typical fsw 50–200 kHz."),
-    ("passive_choke", "Passive PFC Choke", None,
-     "Passive choke on the rectifier output. Soft filtering, "
-     "lower cost, no switching."),
-    ("line_reactor_1ph", "Line Reactor (1ph)", 1,
-     "1φ line reactor on the input of a diode rectifier. "
-     "For IEC 61000-3-2 compliance."),
-    ("line_reactor_3ph", "Line Reactor (3ph)", 3,
-     "3φ line reactor on the input of a 6-pulse rectifier. "
-     "Reduces harmonic THD for industrial drives."),
-    ("buck_ccm", "Buck CCM (sync DC-DC)", None,
-     "Synchronous DC-DC step-down. Output inductor sees triangle "
-     "ripple on top of DC. POL, automotive 12→5 V, telecom 48→12 V."),
+    (
+        "boost_ccm",
+        "Boost CCM Active",
+        None,
+        "Active PFC. Inductor + switch + diode + bus capacitor. Typical fsw 50–200 kHz.",
+    ),
+    (
+        "passive_choke",
+        "Passive PFC Choke",
+        None,
+        "Passive choke on the rectifier output. Soft filtering, lower cost, no switching.",
+    ),
+    (
+        "line_reactor_1ph",
+        "Line Reactor (1ph)",
+        1,
+        "1φ line reactor on the input of a diode rectifier. For IEC 61000-3-2 compliance.",
+    ),
+    (
+        "line_reactor_3ph",
+        "Line Reactor (3ph)",
+        3,
+        "3φ line reactor on the input of a 6-pulse rectifier. "
+        "Reduces harmonic THD for industrial drives.",
+    ),
+    (
+        "buck_ccm",
+        "Buck CCM (sync DC-DC)",
+        None,
+        "Synchronous DC-DC step-down. Output inductor sees triangle "
+        "ripple on top of DC. POL, automotive 12→5 V, telecom 48→12 V.",
+    ),
 ]
 
 
 class _TopologyOption(QFrame):
     """Single selectable topology card."""
 
-    def __init__(self, key: str, label: str, description: str,
-                 schematic_kind: str,
-                 parent: Optional[QWidget] = None) -> None:
+    def __init__(
+        self,
+        key: str,
+        label: str,
+        description: str,
+        schematic_kind: str,
+        parent: Optional[QWidget] = None,
+    ) -> None:
         super().__init__(parent)
         self._key = key
         self._selected = False
         self._click_cb = None
         self.setObjectName("TopologyOption")
-        self.setSizePolicy(QSizePolicy.Policy.Expanding,
-                           QSizePolicy.Policy.Preferred)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setStyleSheet(self._self_qss(False))
 
@@ -144,18 +166,14 @@ class TopologyPickerDialog(QDialog):
         title.setProperty("role", "title")
         outer.addWidget(title)
 
-        subtitle = QLabel(
-            "The choice defines the inductor math "
-            "(waveform, losses, sizing)."
-        )
+        subtitle = QLabel("The choice defines the inductor math (waveform, losses, sizing).")
         subtitle.setProperty("role", "muted")
         subtitle.setWordWrap(True)
         outer.addWidget(subtitle)
 
         # Resolve which option matches the current selection.
         if current == "line_reactor":
-            current_key = ("line_reactor_3ph"
-                           if n_phases == 3 else "line_reactor_1ph")
+            current_key = "line_reactor_3ph" if n_phases == 3 else "line_reactor_1ph"
         else:
             current_key = current
 
@@ -167,8 +185,9 @@ class TopologyPickerDialog(QDialog):
 
         self._options: dict[str, _TopologyOption] = {}
         for i, (key, label, _phases, desc) in enumerate(_OPTIONS):
-            opt = _TopologyOption(key=key, label=label, description=desc,
-                                   schematic_kind=key, parent=self)
+            opt = _TopologyOption(
+                key=key, label=label, description=desc, schematic_kind=key, parent=self
+            )
             opt.set_click_callback(self._on_option_clicked)
             r, c = divmod(i, 2)
             grid.addWidget(opt, r, c)
@@ -176,8 +195,7 @@ class TopologyPickerDialog(QDialog):
 
         # ---- buttons --------------------------------------------------
         btns = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok |
-            QDialogButtonBox.StandardButton.Cancel,
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
             self,
         )
         btns.accepted.connect(self.accept)
@@ -193,8 +211,7 @@ class TopologyPickerDialog(QDialog):
             cancel_btn.setText("Cancel")
         outer.addWidget(btns)
 
-        self._selected_key: str = current_key if current_key in self._options \
-            else "boost_ccm"
+        self._selected_key: str = current_key if current_key in self._options else "boost_ccm"
         self._refresh_selection()
 
     # ------------------------------------------------------------------

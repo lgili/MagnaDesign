@@ -5,6 +5,7 @@ material / core / wire, prints the headline KPIs the user would
 otherwise read off the GUI's KPI strip. The fastest possible
 "is this design feasible?" invocation.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -29,8 +30,7 @@ def register(group: click.Group) -> None:
 @click.option(
     "--pretty/--json",
     default=False,
-    help="Render KPIs as a key-value table (--pretty) or as "
-         "machine-readable JSON (default).",
+    help="Render KPIs as a key-value table (--pretty) or as machine-readable JSON (default).",
 )
 @wrap_design_error
 def _design_cmd(project_file: Path, pretty: bool) -> int:
@@ -80,24 +80,21 @@ def _design_cmd(project_file: Path, pretty: bool) -> int:
             "core": loaded.selected_core.part_number,
             "wire": loaded.selected_wire.id,
         },
-        "L_target_uH":   _round(result.L_required_uH, 2),
-        "L_actual_uH":   _round(result.L_actual_uH, 2),
-        "N_turns":       int(result.N_turns),
-        "B_pk_mT":       _round(result.B_pk_T * 1000.0, 1),
-        "B_sat_pct":     _round(
-            (result.B_pk_T / result.B_sat_limit_T * 100.0)
-            if result.B_sat_limit_T else 0.0,
+        "L_target_uH": _round(result.L_required_uH, 2),
+        "L_actual_uH": _round(result.L_actual_uH, 2),
+        "N_turns": int(result.N_turns),
+        "B_pk_mT": _round(result.B_pk_T * 1000.0, 1),
+        "B_sat_pct": _round(
+            (result.B_pk_T / result.B_sat_limit_T * 100.0) if result.B_sat_limit_T else 0.0,
             1,
         ),
-        "T_winding_C":   _round(result.T_winding_C, 1),
-        "T_rise_C":      _round(result.T_rise_C, 1),
-        "P_total_W":     _round(result.losses.P_total_W, 3),
-        "P_cu_W":        _round(result.losses.P_cu_total_W, 3),
-        "P_core_W":      _round(result.losses.P_core_total_W, 3),
-        "feasible":      bool(result.feasible)
-                         if hasattr(result, "feasible")
-                         else None,
-        "warnings":      list(result.warnings) if result.warnings else [],
+        "T_winding_C": _round(result.T_winding_C, 1),
+        "T_rise_C": _round(result.T_rise_C, 1),
+        "P_total_W": _round(result.losses.P_total_W, 3),
+        "P_cu_W": _round(result.losses.P_cu_total_W, 3),
+        "P_core_W": _round(result.losses.P_core_total_W, 3),
+        "feasible": bool(result.feasible) if hasattr(result, "feasible") else None,
+        "warnings": list(result.warnings) if result.warnings else [],
     }
 
     if pretty:
@@ -105,13 +102,12 @@ def _design_cmd(project_file: Path, pretty: bool) -> int:
         # pretty mode — JSON consumers want the nested shape but
         # a stdout reader benefits from a flat key=value list.
         flat = {
-            "project":      payload["project"],
-            "topology":     payload["topology"],
-            "material":     payload["selection"]["material"],
-            "core":         payload["selection"]["core"],
-            "wire":         payload["selection"]["wire"],
-            **{k: v for k, v in payload.items()
-               if k not in ("project", "topology", "selection")},
+            "project": payload["project"],
+            "topology": payload["topology"],
+            "material": payload["selection"]["material"],
+            "core": payload["selection"]["core"],
+            "wire": payload["selection"]["wire"],
+            **{k: v for k, v in payload.items() if k not in ("project", "topology", "selection")},
         }
         emit(flat, pretty=True)
     else:
@@ -125,6 +121,7 @@ def _round(value: float, digits: int) -> float:
     consumer to spot. (NaN/inf are valid signals from the engine
     when something diverged.)"""
     import math
+
     if not math.isfinite(value):
         return value
     return round(value, digits)

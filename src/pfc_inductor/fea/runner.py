@@ -1,4 +1,5 @@
 """High-level orchestration for FEA validation — picks the right backend."""
+
 from __future__ import annotations
 
 import tempfile
@@ -34,14 +35,25 @@ def validate_design(
     backend = select_backend_for_shape(shape)
     if backend == "femmt":
         from pfc_inductor.fea.femmt_runner import validate_design_femmt
+
         return validate_design_femmt(
-            spec, core, wire, material, result,
-            output_dir=output_dir, timeout_s=timeout_s,
+            spec,
+            core,
+            wire,
+            material,
+            result,
+            output_dir=output_dir,
+            timeout_s=timeout_s,
         )
     if backend == "femm":
         return _validate_design_femm(
-            spec, core, wire, material, result,
-            output_dir=output_dir, timeout_s=timeout_s,
+            spec,
+            core,
+            wire,
+            material,
+            result,
+            output_dir=output_dir,
+            timeout_s=timeout_s,
         )
     raise FEMMNotAvailable(
         "No FEA backend available. Install FEMMT "
@@ -67,14 +79,17 @@ def _validate_design_femm(
         output_dir.mkdir(parents=True, exist_ok=True)
 
     inputs = FEAJobInputs(
-        core=core, material=material,
+        core=core,
+        material=material,
         N_turns=result.N_turns,
         I_pk_A=result.I_line_pk_A,
         output_dir=output_dir,
     )
     write_lua_script(inputs)
     out = solve_lua(
-        inputs.lua_path, inputs.fem_path, inputs.results_path,
+        inputs.lua_path,
+        inputs.fem_path,
+        inputs.results_path,
         timeout_s=timeout_s,
     )
     raw = parse_results_file(inputs.results_path)
@@ -98,10 +113,7 @@ def _validate_design_femm(
         femm_binary=out.binary,
         fem_path=str(inputs.fem_path),
         log_excerpt=(out.stdout or out.stderr)[-400:],
-        notes=(
-            "Legacy FEMM backend. Static magnetostatic; AC/eddy not "
-            "modelled in this v1."
-        ),
+        notes=("Legacy FEMM backend. Static magnetostatic; AC/eddy not modelled in this v1."),
     )
 
 

@@ -24,6 +24,7 @@ Exit codes
 - ``4``  — usage error (project not found, selection incomplete).
 - ``1``  — generic error (engine crash, IO failure).
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -51,13 +52,12 @@ def register(group: click.Group) -> None:
     required=True,
     type=click.Path(dir_okay=False, path_type=Path),
     help="Destination file. Extension drives format: "
-         "`.pdf` → ReportLab native PDF, anything else → HTML.",
+    "`.pdf` → ReportLab native PDF, anything else → HTML.",
 )
 @click.option(
     "--designer",
     default="—",
-    help="Designer name embedded into the PDF metadata + footer "
-         "(PDF format only).",
+    help="Designer name embedded into the PDF metadata + footer (PDF format only).",
 )
 @click.option(
     "--revision",
@@ -121,6 +121,7 @@ def _datasheet_cmd(
         # Lazy import — pulls reportlab + matplotlib which aren't
         # needed for the lighter subcommands.
         from pfc_inductor.report.pdf_report import generate_pdf_datasheet
+
         written = generate_pdf_datasheet(
             spec=loaded.spec,
             core=loaded.selected_core,
@@ -133,6 +134,7 @@ def _datasheet_cmd(
         )
     else:
         from pfc_inductor.report.html_report import generate_html_report
+
         written = generate_html_report(
             spec=loaded.spec,
             core=loaded.selected_core,

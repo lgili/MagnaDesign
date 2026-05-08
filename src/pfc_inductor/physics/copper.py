@@ -1,4 +1,5 @@
 """DC and AC copper loss for an inductor winding."""
+
 from __future__ import annotations
 
 import math
@@ -32,9 +33,7 @@ def Rac_ohm(
 ) -> float:
     """AC resistance of the winding at frequency f."""
     if wire.type == "litz" and wire.d_strand_mm and wire.n_strands:
-        Fr = Rac_over_Rdc_litz(
-            wire.d_strand_mm * 1e-3, wire.n_strands, f_Hz, layers, T_C
-        )
+        Fr = Rac_over_Rdc_litz(wire.d_strand_mm * 1e-3, wire.n_strands, f_Hz, layers, T_C)
     elif wire.type == "round" and wire.d_cu_mm:
         Fr = Rac_over_Rdc_round(wire.d_cu_mm * 1e-3, f_Hz, layers, T_C)
     else:
@@ -55,14 +54,14 @@ def estimate_layers(N: int, wire: Wire, Wa_mm2: float) -> int:
     window_side_mm = math.sqrt(Wa_mm2)
     if window_side_mm <= 0:
         return 1
-    layers = max(1, int(math.ceil(N * d / window_side_mm)))
+    layers = max(1, math.ceil(N * d / window_side_mm))
     return layers
 
 
 def window_utilization(N: int, wire: Wire, Wa_mm2: float) -> float:
     """Ku = N * A_iso / Wa. Uses outer (insulated) diameter."""
     d_iso_mm = wire.outer_diameter_mm()
-    A_iso_mm2 = math.pi * (d_iso_mm ** 2) / 4.0
+    A_iso_mm2 = math.pi * (d_iso_mm**2) / 4.0
     return (N * A_iso_mm2) / max(Wa_mm2, 1e-9)
 
 

@@ -20,6 +20,7 @@ manufacturing-spec / datasheet rewrite. The bits we need here
 ~100 LOC; once both modules stabilise the duplicate can move
 to a ``report._pdf_kit`` shared module.
 """
+
 from __future__ import annotations
 
 import io
@@ -32,20 +33,21 @@ import matplotlib
 # ``Agg`` backend keeps the PDF generation thread-safe and
 # headless-friendly. Set BEFORE pyplot imports anything else.
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt  # noqa: E402
-
+import matplotlib.pyplot as plt
+from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.platypus import (
     Image as RLImage,
+)
+from reportlab.platypus import (
     Paragraph,
     SimpleDocTemplate,
     Spacer,
     Table,
     TableStyle,
 )
-from reportlab.lib import colors
 
 from pfc_inductor.compliance.dispatcher import (
     ComplianceBundle,
@@ -60,14 +62,14 @@ from pfc_inductor.compliance.dispatcher import (
 # ---------------------------------------------------------------------------
 @dataclass(frozen=True)
 class _Style:
-    text:        str = "#18181B"
-    text_muted:  str = "#52525B"
-    accent:      str = "#A78BFA"
-    pass_color:  str = "#15803D"
-    warn_color:  str = "#A16207"
-    fail_color:  str = "#B91C1C"
-    border:      str = "#D4D4D8"
-    band_bg:     str = "#F4F4F5"
+    text: str = "#18181B"
+    text_muted: str = "#52525B"
+    accent: str = "#A78BFA"
+    pass_color: str = "#15803D"
+    warn_color: str = "#A16207"
+    fail_color: str = "#B91C1C"
+    border: str = "#D4D4D8"
+    band_bg: str = "#F4F4F5"
 
 
 _STYLE = _Style()
@@ -75,9 +77,9 @@ _STYLE = _Style()
 
 def _color_for(conclusion: ConclusionLabel) -> str:
     return {
-        "PASS":           _STYLE.pass_color,
-        "MARGINAL":       _STYLE.warn_color,
-        "FAIL":           _STYLE.fail_color,
+        "PASS": _STYLE.pass_color,
+        "MARGINAL": _STYLE.warn_color,
+        "FAIL": _STYLE.fail_color,
         "NOT APPLICABLE": _STYLE.text_muted,
     }.get(conclusion, _STYLE.text_muted)
 
@@ -103,8 +105,10 @@ def write_compliance_pdf(
     doc = SimpleDocTemplate(
         str(out),
         pagesize=A4,
-        leftMargin=18 * mm, rightMargin=18 * mm,
-        topMargin=18 * mm, bottomMargin=22 * mm,
+        leftMargin=18 * mm,
+        rightMargin=18 * mm,
+        topMargin=18 * mm,
+        bottomMargin=22 * mm,
         title=f"Compliance report — {bundle.project_name}",
         author="MagnaDesign",
     )
@@ -119,13 +123,15 @@ def write_compliance_pdf(
         story.append(Spacer(1, 8 * mm))
 
     if not bundle.standards:
-        story.append(Paragraph(
-            "No standards were applicable for the supplied "
-            "topology + region combination. The compliance report "
-            "is a no-op for this design — verify the topology and "
-            "region tags are correct.",
-            styles["body_muted"],
-        ))
+        story.append(
+            Paragraph(
+                "No standards were applicable for the supplied "
+                "topology + region combination. The compliance report "
+                "is a no-op for this design — verify the topology and "
+                "region tags are correct.",
+                styles["body_muted"],
+            )
+        )
 
     doc.build(
         story,
@@ -147,23 +153,29 @@ def _cover_section(
     """Title + verdict + applicable-standards summary."""
     flow = []
 
-    flow.append(Paragraph(
-        f"Compliance report",
-        styles["title"],
-    ))
-    flow.append(Paragraph(
-        f"<b>{bundle.project_name}</b>  ·  topology: "
-        f"<b>{bundle.topology}</b>  ·  region: <b>{bundle.region}</b>",
-        styles["body_muted"],
-    ))
+    flow.append(
+        Paragraph(
+            "Compliance report",
+            styles["title"],
+        )
+    )
+    flow.append(
+        Paragraph(
+            f"<b>{bundle.project_name}</b>  ·  topology: "
+            f"<b>{bundle.topology}</b>  ·  region: <b>{bundle.region}</b>",
+            styles["body_muted"],
+        )
+    )
     flow.append(Spacer(1, 4 * mm))
 
     overall = bundle.overall
     color = _color_for(overall)
-    flow.append(Paragraph(
-        f'<font color="{color}"><b>Overall verdict: {overall}</b></font>',
-        styles["verdict_strip"],
-    ))
+    flow.append(
+        Paragraph(
+            f'<font color="{color}"><b>Overall verdict: {overall}</b></font>',
+            styles["verdict_strip"],
+        )
+    )
     flow.append(Spacer(1, 3 * mm))
 
     # Applicable-standards table
@@ -172,30 +184,34 @@ def _cover_section(
         for std in bundle.standards:
             rows.append([std.standard, std.edition, std.conclusion])
         table = Table(rows, colWidths=[60 * mm, 35 * mm, 40 * mm])
-        table.setStyle(TableStyle([
-            ("FONTNAME",   (0, 0), (-1, -1), "Helvetica"),
-            ("FONTSIZE",   (0, 0), (-1, -1), 9),
-            ("FONTNAME",   (0, 0), (-1, 0),  "Helvetica-Bold"),
-            ("BACKGROUND", (0, 0), (-1, 0),  colors.HexColor(_STYLE.band_bg)),
-            ("BOX",        (0, 0), (-1, -1), 0.5,
-                                              colors.HexColor(_STYLE.border)),
-            ("INNERGRID",  (0, 0), (-1, -1), 0.25,
-                                              colors.HexColor(_STYLE.border)),
-            ("VALIGN",     (0, 0), (-1, -1), "MIDDLE"),
-            ("TEXTCOLOR",  (2, 1), (2, -1),  colors.black),
-            ("LEFTPADDING",  (0, 0), (-1, -1), 6),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-            ("TOPPADDING",   (0, 0), (-1, -1), 4),
-            ("BOTTOMPADDING",(0, 0), (-1, -1), 4),
-        ]))
+        table.setStyle(
+            TableStyle(
+                [
+                    ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 9),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(_STYLE.band_bg)),
+                    ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor(_STYLE.border)),
+                    ("INNERGRID", (0, 0), (-1, -1), 0.25, colors.HexColor(_STYLE.border)),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("TEXTCOLOR", (2, 1), (2, -1), colors.black),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                    ("TOPPADDING", (0, 0), (-1, -1), 4),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ]
+            )
+        )
         flow.append(table)
 
     flow.append(Spacer(1, 4 * mm))
     if app_version:
-        flow.append(Paragraph(
-            f"Generated by MagnaDesign {app_version}.",
-            styles["body_muted"],
-        ))
+        flow.append(
+            Paragraph(
+                f"Generated by MagnaDesign {app_version}.",
+                styles["body_muted"],
+            )
+        )
     return flow
 
 
@@ -209,18 +225,21 @@ def _standard_section(
     flow = []
 
     flow.append(Paragraph(std.standard, styles["section_title"]))
-    flow.append(Paragraph(
-        f"{std.edition}  ·  {std.scope}",
-        styles["body_muted"],
-    ))
+    flow.append(
+        Paragraph(
+            f"{std.edition}  ·  {std.scope}",
+            styles["body_muted"],
+        )
+    )
     flow.append(Spacer(1, 2 * mm))
 
     color = _color_for(std.conclusion)
-    flow.append(Paragraph(
-        f'<font color="{color}"><b>{std.conclusion}</b></font>  '
-        f'· {std.summary}',
-        styles["verdict_strip"],
-    ))
+    flow.append(
+        Paragraph(
+            f'<font color="{color}"><b>{std.conclusion}</b></font>  · {std.summary}',
+            styles["verdict_strip"],
+        )
+    )
     flow.append(Spacer(1, 3 * mm))
 
     # Per-row table — generic shape so any future standard's rows
@@ -231,37 +250,38 @@ def _standard_section(
             ["Order", "Measured", "Limit", "Margin", "Result"],
         ]
         for label, value, limit, margin, passed in std.rows:
-            rows.append([
-                label, value, limit,
-                f"{margin:+.1f} %",
-                "PASS" if passed else "FAIL",
-            ])
-        table = Table(rows, colWidths=[20 * mm, 30 * mm, 30 * mm,
-                                       25 * mm, 25 * mm])
-        style = TableStyle([
-            ("FONTNAME",   (0, 0), (-1, -1), "Helvetica"),
-            ("FONTSIZE",   (0, 0), (-1, -1), 8),
-            ("FONTNAME",   (0, 0), (-1, 0),  "Helvetica-Bold"),
-            ("BACKGROUND", (0, 0), (-1, 0),  colors.HexColor(_STYLE.band_bg)),
-            ("BOX",        (0, 0), (-1, -1), 0.5,
-                                              colors.HexColor(_STYLE.border)),
-            ("INNERGRID",  (0, 0), (-1, -1), 0.25,
-                                              colors.HexColor(_STYLE.border)),
-            ("ALIGN",      (1, 1), (-1, -1), "RIGHT"),
-            ("ALIGN",      (-1, 1), (-1, -1), "CENTER"),
-            ("VALIGN",     (0, 0), (-1, -1), "MIDDLE"),
-            ("LEFTPADDING",  (0, 0), (-1, -1), 4),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
-        ])
+            rows.append(
+                [
+                    label,
+                    value,
+                    limit,
+                    f"{margin:+.1f} %",
+                    "PASS" if passed else "FAIL",
+                ]
+            )
+        table = Table(rows, colWidths=[20 * mm, 30 * mm, 30 * mm, 25 * mm, 25 * mm])
+        style = TableStyle(
+            [
+                ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
+                ("FONTSIZE", (0, 0), (-1, -1), 8),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(_STYLE.band_bg)),
+                ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor(_STYLE.border)),
+                ("INNERGRID", (0, 0), (-1, -1), 0.25, colors.HexColor(_STYLE.border)),
+                ("ALIGN", (1, 1), (-1, -1), "RIGHT"),
+                ("ALIGN", (-1, 1), (-1, -1), "CENTER"),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+            ]
+        )
         # Colour the "Result" cells per pass/fail, scanning the
         # source rows so we don't have to re-evaluate predicates.
         for row_idx, row in enumerate(std.rows, start=1):
             _label, _value, _limit, _margin, passed = row
             cell_color = _STYLE.pass_color if passed else _STYLE.fail_color
-            style.add("TEXTCOLOR", (-1, row_idx), (-1, row_idx),
-                      colors.HexColor(cell_color))
-            style.add("FONTNAME",  (-1, row_idx), (-1, row_idx),
-                      "Helvetica-Bold")
+            style.add("TEXTCOLOR", (-1, row_idx), (-1, row_idx), colors.HexColor(cell_color))
+            style.add("FONTNAME", (-1, row_idx), (-1, row_idx), "Helvetica-Bold")
         table.setStyle(style)
         flow.append(table)
         flow.append(Spacer(1, 3 * mm))
@@ -295,8 +315,12 @@ def _harmonic_plot(std: StandardResult) -> Optional[RLImage]:
     fig, ax = plt.subplots(figsize=(6.0, 2.6), dpi=150)
     orders = list(range(1, len(pct) + 1))
     ax.bar(
-        orders, pct,
-        color=_STYLE.accent, alpha=0.85, width=0.7, label="Measured",
+        orders,
+        pct,
+        color=_STYLE.accent,
+        alpha=0.85,
+        width=0.7,
+        label="Measured",
     )
 
     # Overlay per-order limits as percentage of fundamental, so the
@@ -323,9 +347,12 @@ def _harmonic_plot(std: StandardResult) -> Optional[RLImage]:
                     continue
             if limit_orders:
                 ax.plot(
-                    limit_orders, limit_pcts,
-                    color=_STYLE.fail_color, linewidth=1.4,
-                    marker="_", markersize=8,
+                    limit_orders,
+                    limit_pcts,
+                    color=_STYLE.fail_color,
+                    linewidth=1.4,
+                    marker="_",
+                    markersize=8,
                     label="IEC limit",
                 )
 
@@ -353,39 +380,54 @@ def _build_styles() -> dict[str, ParagraphStyle]:
     base = getSampleStyleSheet()["BodyText"]
     return {
         "title": ParagraphStyle(
-            "title", parent=base,
+            "title",
+            parent=base,
             fontName="Helvetica-Bold",
-            fontSize=20, leading=24, spaceAfter=4,
+            fontSize=20,
+            leading=24,
+            spaceAfter=4,
             textColor=colors.HexColor(_STYLE.text),
         ),
         "section_title": ParagraphStyle(
-            "section_title", parent=base,
+            "section_title",
+            parent=base,
             fontName="Helvetica-Bold",
-            fontSize=14, leading=18, spaceAfter=2,
+            fontSize=14,
+            leading=18,
+            spaceAfter=2,
             textColor=colors.HexColor(_STYLE.text),
         ),
         "verdict_strip": ParagraphStyle(
-            "verdict_strip", parent=base,
+            "verdict_strip",
+            parent=base,
             fontName="Helvetica",
-            fontSize=10, leading=14,
+            fontSize=10,
+            leading=14,
             textColor=colors.HexColor(_STYLE.text),
         ),
         "body": ParagraphStyle(
-            "body", parent=base,
+            "body",
+            parent=base,
             fontName="Helvetica",
-            fontSize=9, leading=13,
+            fontSize=9,
+            leading=13,
             textColor=colors.HexColor(_STYLE.text),
         ),
         "body_muted": ParagraphStyle(
-            "body_muted", parent=base,
+            "body_muted",
+            parent=base,
             fontName="Helvetica",
-            fontSize=9, leading=13,
+            fontSize=9,
+            leading=13,
             textColor=colors.HexColor(_STYLE.text_muted),
         ),
         "note": ParagraphStyle(
-            "note", parent=base,
+            "note",
+            parent=base,
             fontName="Helvetica-Oblique",
-            fontSize=8, leading=11, spaceAfter=2,
+            fontSize=8,
+            leading=11,
+            spaceAfter=2,
             textColor=colors.HexColor(_STYLE.text_muted),
         ),
     }
@@ -406,17 +448,16 @@ def _paginator_factory(
     project + page count + build SHA so an auditor can match a
     PDF back to an exact build.
     """
+
     def _draw(canvas, doc):
         canvas.saveState()
         canvas.setFont("Helvetica", 7)
         canvas.setFillColor(colors.HexColor(_STYLE.text_muted))
         page_w, _h = A4
-        line = (
-            f"{bundle.project_name}  ·  page {doc.page}  ·  "
-            f"MagnaDesign {app_version}"
-        )
+        line = f"{bundle.project_name}  ·  page {doc.page}  ·  MagnaDesign {app_version}"
         if git_sha:
             line += f"  ·  build {git_sha[:7]}"
         canvas.drawCentredString(page_w / 2, 12 * mm, line)
         canvas.restoreState()
+
     return _draw

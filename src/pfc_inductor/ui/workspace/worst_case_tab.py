@@ -29,6 +29,7 @@ takes ~30 ms for the bundled tolerance set, so the UI rarely
 blocks; but we use a `QThread` anyway for forward-compat with
 the next iteration that adds 1 000+ corner sweeps.
 """
+
 from __future__ import annotations
 
 import math
@@ -81,10 +82,10 @@ class _WorstCaseWorker(QObject):
     thread. Emits one signal per phase so the UI can refresh
     incrementally even when both passes were requested at once."""
 
-    corners_done = Signal(object)   # WorstCaseSummary
-    yield_done   = Signal(object)   # YieldReport
-    failed       = Signal(str)
-    finished     = Signal()
+    corners_done = Signal(object)  # WorstCaseSummary
+    yield_done = Signal(object)  # YieldReport
+    failed = Signal(str)
+    finished = Signal()
 
     def __init__(
         self,
@@ -108,21 +109,25 @@ class _WorstCaseWorker(QObject):
         try:
             if self._run_corners:
                 summary = evaluate_corners(
-                    self._ctx.spec, self._ctx.core,
-                    self._ctx.wire, self._ctx.material,
+                    self._ctx.spec,
+                    self._ctx.core,
+                    self._ctx.wire,
+                    self._ctx.material,
                     self._tols,
                 )
                 self.corners_done.emit(summary)
             if self._run_yield:
                 report = simulate_yield(
-                    self._ctx.spec, self._ctx.core,
-                    self._ctx.wire, self._ctx.material,
+                    self._ctx.spec,
+                    self._ctx.core,
+                    self._ctx.wire,
+                    self._ctx.material,
                     self._tols,
                     n_samples=self._n_samples,
                     seed=self._seed,
                 )
                 self.yield_done.emit(report)
-        except Exception as exc:  # noqa: BLE001 — surface anything
+        except Exception as exc:
             self.failed.emit(f"{type(exc).__name__}: {exc}")
         finally:
             self.finished.emit()
@@ -136,8 +141,7 @@ class WorstCaseTab(QWidget):
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
-        self.setSizePolicy(QSizePolicy.Policy.Expanding,
-                           QSizePolicy.Policy.Expanding)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
         self._ctx: Optional[_DesignContext] = None
         self._thread: Optional[QThread] = None
@@ -160,7 +164,8 @@ class WorstCaseTab(QWidget):
         # "Default" (IPC + IEC + vendor blend) which is what every
         # other entry point in the app honours by default.
         self._cmb_tolerances.addItem(
-            "Default — IPC + IEC + vendor", DEFAULT_TOLERANCES,
+            "Default — IPC + IEC + vendor",
+            DEFAULT_TOLERANCES,
         )
         self._cmb_tolerances.setMinimumWidth(280)
         ch.addWidget(self._cmb_tolerances)
@@ -221,21 +226,26 @@ class WorstCaseTab(QWidget):
         self._worst_table.verticalHeader().setVisible(False)
         self._worst_table.setMinimumHeight(150)
         self._worst_table.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred,
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Preferred,
         )
         h = self._worst_table.horizontalHeader()
         h.setSectionResizeMode(
-            0, QHeaderView.ResizeMode.ResizeToContents,
+            0,
+            QHeaderView.ResizeMode.ResizeToContents,
         )
         h.setSectionResizeMode(
-            1, QHeaderView.ResizeMode.ResizeToContents,
+            1,
+            QHeaderView.ResizeMode.ResizeToContents,
         )
         h.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         h.setSectionResizeMode(
-            3, QHeaderView.ResizeMode.ResizeToContents,
+            3,
+            QHeaderView.ResizeMode.ResizeToContents,
         )
         h.setSectionResizeMode(
-            4, QHeaderView.ResizeMode.ResizeToContents,
+            4,
+            QHeaderView.ResizeMode.ResizeToContents,
         )
 
         outer.addWidget(Card("Worst per metric", self._worst_table))
@@ -288,11 +298,13 @@ class WorstCaseTab(QWidget):
         self._sensitivity_table.setMinimumHeight(140)
         sh = self._sensitivity_table.horizontalHeader()
         sh.setSectionResizeMode(
-            0, QHeaderView.ResizeMode.ResizeToContents,
+            0,
+            QHeaderView.ResizeMode.ResizeToContents,
         )
         sh.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         sh.setSectionResizeMode(
-            2, QHeaderView.ResizeMode.ResizeToContents,
+            2,
+            QHeaderView.ResizeMode.ResizeToContents,
         )
         outer.addWidget(Card("Top tolerance per metric", self._sensitivity_table))
 
@@ -321,14 +333,16 @@ class WorstCaseTab(QWidget):
         emitted ``changed``, which is dozens of times per minute.
         """
         self._ctx = _DesignContext(
-            spec=spec, core=core, wire=wire, material=material,
+            spec=spec,
+            core=core,
+            wire=wire,
+            material=material,
         )
         # When the user hasn't run anything yet, bump the status
         # line to confirm the inputs are ready.
         if self._worst_table.rowCount() == 0:
             self._status.setText(
-                f"Ready · {spec.topology} · "
-                f"{material.name} on {core.part_number}.",
+                f"Ready · {spec.topology} · {material.name} on {core.part_number}.",
             )
 
     # ------------------------------------------------------------------
@@ -337,8 +351,7 @@ class WorstCaseTab(QWidget):
     def _launch(self, *, run_corners: bool, run_yield: bool) -> None:
         if self._ctx is None:
             self._status.setText(
-                "Run a design first — the worst-case engine needs an "
-                "engine snapshot to perturb.",
+                "Run a design first — the worst-case engine needs an engine snapshot to perturb.",
             )
             return
         # Defensive guard: ``deleteLater`` (wired to ``_thread.finished``
@@ -377,7 +390,8 @@ class WorstCaseTab(QWidget):
             return
 
         self._worker = _WorstCaseWorker(
-            self._ctx, tolerances,
+            self._ctx,
+            tolerances,
             run_corners=run_corners,
             run_yield=run_yield,
             n_samples=int(self._spin_samples.value()),
@@ -413,11 +427,10 @@ class WorstCaseTab(QWidget):
         )
         if report.fail_modes:
             top = sorted(
-                report.fail_modes.items(), key=lambda kv: -kv[1],
+                report.fail_modes.items(),
+                key=lambda kv: -kv[1],
             )[:4]
-            modes = " · ".join(
-                f"{mode} ({count})" for mode, count in top
-            )
+            modes = " · ".join(f"{mode} ({count})" for mode, count in top)
             self._fail_modes.setText(f"Failures: {modes}")
         else:
             self._fail_modes.setText("Failures: none")
@@ -455,11 +468,13 @@ class WorstCaseTab(QWidget):
             if not ranked:
                 continue
             top_name, top_impact = ranked[0]
-            rows.append((
-                self._pretty_metric(metric),
-                top_name,
-                self._format_impact(metric, top_impact),
-            ))
+            rows.append(
+                (
+                    self._pretty_metric(metric),
+                    top_name,
+                    self._format_impact(metric, top_impact),
+                )
+            )
         self._sensitivity_table.setRowCount(len(rows))
         for r, (metric, name, impact) in enumerate(rows):
             self._sensitivity_table.setItem(r, 0, QTableWidgetItem(metric))
@@ -505,23 +520,32 @@ class WorstCaseTab(QWidget):
             if value is None:
                 continue
             margin_text, passed = self._margin_for(
-                metric, value, spec, material,
-            )
-            rows.append((
                 metric,
-                float(value),
-                cr.label,
-                margin_text,
-                passed,
-            ))
+                value,
+                spec,
+                material,
+            )
+            rows.append(
+                (
+                    metric,
+                    float(value),
+                    cr.label,
+                    margin_text,
+                    passed,
+                )
+            )
 
         self._worst_table.setRowCount(len(rows))
         for r, (metric, value, label, margin, passed) in enumerate(rows):
             self._worst_table.setItem(
-                r, 0, QTableWidgetItem(self._pretty_metric(metric)),
+                r,
+                0,
+                QTableWidgetItem(self._pretty_metric(metric)),
             )
             self._worst_table.setItem(
-                r, 1, QTableWidgetItem(self._format_value(metric, value)),
+                r,
+                1,
+                QTableWidgetItem(self._format_value(metric, value)),
             )
             self._worst_table.setItem(r, 2, QTableWidgetItem(label))
             self._worst_table.setItem(r, 3, QTableWidgetItem(margin))
@@ -546,9 +570,9 @@ class WorstCaseTab(QWidget):
     def _pretty_metric(metric: str) -> str:
         return {
             "T_winding_C": "T winding",
-            "T_rise_C":    "ΔT",
-            "B_pk_T":      "B peak",
-            "P_total_W":   "Losses",
+            "T_rise_C": "ΔT",
+            "B_pk_T": "B peak",
+            "P_total_W": "Losses",
         }.get(metric, metric)
 
     @staticmethod

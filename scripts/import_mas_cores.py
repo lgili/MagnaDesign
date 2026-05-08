@@ -53,6 +53,7 @@ Run from project root:
     .venv/bin/python scripts/import_mas_cores.py --dry-run  # preview
     .venv/bin/python scripts/import_mas_cores.py --limit 200
 """
+
 from __future__ import annotations
 
 import argparse
@@ -71,15 +72,16 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from pfc_inductor.models import Core  # type: ignore[import-not-found] # noqa: E402
 
-
 # ---------------------------------------------------------------------------
 # Bring in the PyETK decoder library via importlib (avoids duplicating
 # ~150 lines of shape-specific geometry).
 # ---------------------------------------------------------------------------
 
+
 def _load_pyetk_decoders():
     spec = importlib.util.spec_from_file_location(
-        "ipy_decoders", REPO_ROOT / "scripts" / "import_pyetk_catalog.py",
+        "ipy_decoders",
+        REPO_ROOT / "scripts" / "import_pyetk_catalog.py",
     )
     if spec is None or spec.loader is None:
         raise RuntimeError("could not load PyETK decoder module")
@@ -205,33 +207,33 @@ def _decode_planar_e(dims: dict[str, float]) -> tuple:
 # Family-name → decoder. Falls back to PyETK's catalog for names that
 # share a decoder (e.g. ``e`` → ``_decode_e_core``).
 MAS_FAMILY_DECODERS = {
-    "t":          _decode_toroid,
-    "c":          _decode_c_core,
-    "p":          _decode_pot,
-    "pm":         _decode_pm,
-    "planarE":    _decode_planar_e,
-    "planarEL":   _decode_planar_e,
-    "planarER":   _decode_planar_e,
+    "t": _decode_toroid,
+    "c": _decode_c_core,
+    "p": _decode_pot,
+    "pm": _decode_pm,
+    "planarE": _decode_planar_e,
+    "planarEL": _decode_planar_e,
+    "planarER": _decode_planar_e,
     # Reuse PyETK decoders for everything that maps cleanly. The PyETK
     # decoders take a list-of-8; we wrap them via ``_call_pyetk``.
-    "e":     ("e",   _PYETK._decode_e_core),
-    "ec":    ("e",   _PYETK._decode_e_core),
-    "efd":   ("efd", _PYETK._decode_efd_core),
-    "ep":    ("ep",  _PYETK._decode_ep_core),
-    "epx":   ("ep",  _PYETK._decode_ep_core),
-    "eq":    ("eq",  _PYETK._decode_eq_core),
-    "er":    ("er",  _PYETK._decode_er_core),
-    "etd":   ("etd", _PYETK._decode_etd_core),
-    "pq":    ("pq",  _PYETK._decode_pq_core),
-    "pqi":   ("pq",  _PYETK._decode_pq_core),
-    "rm":    ("rm",  _PYETK._decode_rm_core),
-    "u":     ("u",   _PYETK._decode_u_core),
-    "ui":    ("ui",  _PYETK._decode_u_core),
-    "ur":    ("u",   _PYETK._decode_u_core),
+    "e": ("e", _PYETK._decode_e_core),
+    "ec": ("e", _PYETK._decode_e_core),
+    "efd": ("efd", _PYETK._decode_efd_core),
+    "ep": ("ep", _PYETK._decode_ep_core),
+    "epx": ("ep", _PYETK._decode_ep_core),
+    "eq": ("eq", _PYETK._decode_eq_core),
+    "er": ("er", _PYETK._decode_er_core),
+    "etd": ("etd", _PYETK._decode_etd_core),
+    "pq": ("pq", _PYETK._decode_pq_core),
+    "pqi": ("pq", _PYETK._decode_pq_core),
+    "rm": ("rm", _PYETK._decode_rm_core),
+    "u": ("u", _PYETK._decode_u_core),
+    "ui": ("ui", _PYETK._decode_u_core),
+    "ur": ("u", _PYETK._decode_u_core),
     # ``lp`` (low-profile, like Würth WE-LP) is rectangular outer
     # with a round post — same family as ER for the magnetic math.
-    "lp":    ("er",  _PYETK._decode_er_core),
-    "ut":    ("u",   _PYETK._decode_u_core),
+    "lp": ("er", _PYETK._decode_er_core),
+    "ut": ("u", _PYETK._decode_u_core),
 }
 
 
@@ -268,6 +270,7 @@ def decode(family: str, dims: dict[str, float]) -> tuple:
 # ---------------------------------------------------------------------------
 # Shape index + dimension extraction
 # ---------------------------------------------------------------------------
+
 
 def _nominal_mm(d: dict | float) -> float:
     """Return the nominal dimension in mm.
@@ -324,6 +327,7 @@ def _index_shapes(path: Path) -> dict[str, dict]:
 # Core conversion
 # ---------------------------------------------------------------------------
 
+
 def _slug(s: str) -> str:
     return (
         s.lower()
@@ -359,8 +363,9 @@ def _gap_total_mm(core: dict) -> float:
     return total
 
 
-def _derive_AL_nH(Ae_mm2: float, le_mm: float, gap_mm: float = 0.0,
-                  mu_eff: float = DEFAULT_MATERIAL_MU) -> float:
+def _derive_AL_nH(
+    Ae_mm2: float, le_mm: float, gap_mm: float = 0.0, mu_eff: float = DEFAULT_MATERIAL_MU
+) -> float:
     """``AL = μ₀ · μ_eff · Ae / (le + μ_eff · l_gap)``. Reluctance of
     the airgap dominates as soon as the gap exceeds le/μ — for a
     typical 100 µm gap on a μ=2300 ferrite that's the whole story
@@ -376,7 +381,8 @@ def _derive_AL_nH(Ae_mm2: float, le_mm: float, gap_mm: float = 0.0,
 
 
 def parse_cores(
-    cores_path: Path, shapes_index: dict[str, dict],
+    cores_path: Path,
+    shapes_index: dict[str, dict],
     limit: Optional[int] = None,
 ) -> tuple[list[Core], dict[str, int]]:
     """Walk ``cores.ndjson`` and build Core objects.
@@ -474,6 +480,7 @@ def parse_cores(
 # I/O
 # ---------------------------------------------------------------------------
 
+
 def _tag_source(entry: dict, commit: str) -> dict:
     entry["x-pfc-inductor"] = {
         "id": entry["id"],
@@ -501,9 +508,7 @@ def _write_catalog(out_dir: Path, cores: list[Core], commit: str) -> None:
             f"@ {commit}. {len(cores)} cores converted via "
             f"scripts/import_mas_cores.py."
         ),
-        "cores": [
-            _tag_source(c.model_dump(mode="json"), commit) for c in cores
-        ],
+        "cores": [_tag_source(c.model_dump(mode="json"), commit) for c in cores],
     }
     (out_dir / "cores.json").write_text(
         json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
@@ -514,13 +519,16 @@ def _write_catalog(out_dir: Path, cores: list[Core], commit: str) -> None:
 def main(argv: Optional[Iterable[str]] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument(
-        "--source", type=Path, default=SRC_DIR_DEFAULT,
+        "--source",
+        type=Path,
+        default=SRC_DIR_DEFAULT,
         help=f"Source dir with cores.ndjson + core_shapes.ndjson (default: {SRC_DIR_DEFAULT.relative_to(REPO_ROOT)})",
     )
     parser.add_argument("--out", type=Path, default=OUT_DIR)
     parser.add_argument("--dry-run", action="store_true")
-    parser.add_argument("--limit", type=int, default=None,
-                        help="Stop after N input rows (debug aid).")
+    parser.add_argument(
+        "--limit", type=int, default=None, help="Stop after N input rows (debug aid)."
+    )
     args = parser.parse_args(list(argv) if argv is not None else None)
 
     src: Path = args.source

@@ -1,4 +1,5 @@
 """FEA validation tests — focus on parts that don't need a live FEMM install."""
+
 import tempfile
 from pathlib import Path
 
@@ -31,13 +32,26 @@ def design_inputs():
     mats = load_materials()
     cores = load_cores()
     mat = find_material(mats, "magnetics-60_highflux")
-    core = next(c for c in cores
-                if c.shape == "Toroid" and c.Wa_mm2 > 500 and c.Ae_mm2 > 50
-                and c.default_material_id == "magnetics-60_highflux")
-    spec = Spec(Vin_min_Vrms=85.0, Vin_max_Vrms=265.0, Vin_nom_Vrms=220.0,
-                Vout_V=400.0, Pout_W=800.0, eta=0.97,
-                f_sw_kHz=65.0, ripple_pct=30.0)
+    core = next(
+        c
+        for c in cores
+        if c.shape == "Toroid"
+        and c.Wa_mm2 > 500
+        and c.Ae_mm2 > 50
+        and c.default_material_id == "magnetics-60_highflux"
+    )
+    spec = Spec(
+        Vin_min_Vrms=85.0,
+        Vin_max_Vrms=265.0,
+        Vin_nom_Vrms=220.0,
+        Vout_V=400.0,
+        Pout_W=800.0,
+        eta=0.97,
+        f_sw_kHz=65.0,
+        ripple_pct=30.0,
+    )
     from pfc_inductor.data_loader import load_wires
+
     wires = load_wires()
     wire = next(w for w in wires if w.id == "AWG14")
     result = design(spec, core, wire, mat)
@@ -58,31 +72,44 @@ def test_install_hint_returns_string():
 
 
 def test_lua_script_for_toroid_contains_required_calls(design_inputs):
-    spec, core, wire, mat, result = design_inputs
+    _spec, core, _wire, mat, result = design_inputs
     inputs = FEAJobInputs(
-        core=core, material=mat, N_turns=result.N_turns,
+        core=core,
+        material=mat,
+        N_turns=result.N_turns,
         I_pk_A=result.I_line_pk_A,
         output_dir=Path(tempfile.gettempdir()),
     )
     script = build_lua_script(inputs)
     # All the FEMM Lua API calls we depend on must be present in the script.
     for token in [
-        "newdocument(0)", "mi_probdef(", "mi_addmaterial",
-        "mi_addboundprop", "mi_addcircprop",
-        "mi_addnode", "mi_addsegment", "mi_addblocklabel",
-        "mi_setblockprop", "mi_analyze", "mi_loadsolution",
-        "mo_getcircuitproperties", "mo_getb",
+        "newdocument(0)",
+        "mi_probdef(",
+        "mi_addmaterial",
+        "mi_addboundprop",
+        "mi_addcircprop",
+        "mi_addnode",
+        "mi_addsegment",
+        "mi_addblocklabel",
+        "mi_setblockprop",
+        "mi_analyze",
+        "mi_loadsolution",
+        "mo_getcircuitproperties",
+        "mo_getb",
         'string.format("L_H=%',
     ]:
         assert token in script, f"Missing Lua token: {token!r}"
 
 
 def test_lua_script_paths_use_temp_output_dir(design_inputs):
-    spec, core, wire, mat, result = design_inputs
+    _spec, core, _wire, mat, result = design_inputs
     with tempfile.TemporaryDirectory() as td:
         inputs = FEAJobInputs(
-            core=core, material=mat, N_turns=result.N_turns,
-            I_pk_A=result.I_line_pk_A, output_dir=Path(td),
+            core=core,
+            material=mat,
+            N_turns=result.N_turns,
+            I_pk_A=result.I_line_pk_A,
+            output_dir=Path(td),
         )
         path = write_lua_script(inputs)
         assert path.exists()
@@ -93,9 +120,11 @@ def test_lua_script_paths_use_temp_output_dir(design_inputs):
 
 def test_lua_script_is_valid_lua_syntax(design_inputs):
     """Best-effort syntax check: balanced parens and no obvious malformation."""
-    spec, core, wire, mat, result = design_inputs
+    _spec, core, _wire, mat, result = design_inputs
     inputs = FEAJobInputs(
-        core=core, material=mat, N_turns=result.N_turns,
+        core=core,
+        material=mat,
+        N_turns=result.N_turns,
         I_pk_A=result.I_line_pk_A,
         output_dir=Path(tempfile.gettempdir()),
     )
@@ -145,12 +174,14 @@ def test_femmt_probe_returns_bool():
 
 
 def test_non_toroid_unsupported_in_v1(design_inputs):
-    spec, _, wire, mat, result = design_inputs
+    _spec, _, _wire, _mat, result = design_inputs
     cores = load_cores()
     ee_core = next(c for c in cores if c.shape == "E" and c.Ve_mm3 > 5000)
     ee_mat = find_material(load_materials(), ee_core.default_material_id)
     inputs = FEAJobInputs(
-        core=ee_core, material=ee_mat, N_turns=result.N_turns,
+        core=ee_core,
+        material=ee_mat,
+        N_turns=result.N_turns,
         I_pk_A=result.I_line_pk_A,
         output_dir=Path(tempfile.gettempdir()),
     )

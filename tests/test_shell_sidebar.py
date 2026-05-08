@@ -1,4 +1,5 @@
 """Sidebar widget regressions."""
+
 from __future__ import annotations
 
 import os
@@ -11,6 +12,7 @@ import pytest
 @pytest.fixture(scope="module")
 def app():
     from PySide6.QtWidgets import QApplication
+
     inst = QApplication.instance() or QApplication([])
     yield inst
 
@@ -23,17 +25,22 @@ def test_sidebar_has_real_nav_destinations(app):
     is a real destination, not navigation back to a dashboard
     subset."""
     from pfc_inductor.ui.shell import SIDEBAR_AREAS, Sidebar
+
     sb = Sidebar()
     assert len(SIDEBAR_AREAS) == len(sb._nav_buttons)
     keys = [a[0] for a in SIDEBAR_AREAS]
     assert keys == [
-        "dashboard", "otimizador", "cascade",
-        "catalogo", "configuracoes",
+        "dashboard",
+        "otimizador",
+        "cascade",
+        "catalogo",
+        "configuracoes",
     ]
 
 
 def test_sidebar_default_active_is_dashboard(app):
     from pfc_inductor.ui.shell import Sidebar
+
     sb = Sidebar()
     assert sb._nav_buttons["dashboard"].isChecked()
     for k, btn in sb._nav_buttons.items():
@@ -43,6 +50,7 @@ def test_sidebar_default_active_is_dashboard(app):
 
 def test_sidebar_click_emits_navigation_requested(app):
     from pfc_inductor.ui.shell import SIDEBAR_AREAS, Sidebar
+
     sb = Sidebar()
     received: list[str] = []
     sb.navigation_requested.connect(received.append)
@@ -58,6 +66,7 @@ def test_sidebar_set_active_does_not_emit(app):
     """Programmatic set_active_area should NOT loop back through the
     navigation_requested signal."""
     from pfc_inductor.ui.shell import Sidebar
+
     sb = Sidebar()
     received: list[str] = []
     sb.navigation_requested.connect(received.append)
@@ -68,6 +77,7 @@ def test_sidebar_set_active_does_not_emit(app):
 
 def test_sidebar_overflow_menu_lists_legacy_tools(app):
     from pfc_inductor.ui.shell.sidebar import OVERFLOW_ACTIONS, Sidebar
+
     sb = Sidebar()
     menu_items = sb._overflow_menu.actions()
     assert len(menu_items) == len(OVERFLOW_ACTIONS)
@@ -79,6 +89,7 @@ def test_sidebar_overflow_menu_lists_legacy_tools(app):
 
 def test_sidebar_theme_toggle_signal(app):
     from pfc_inductor.ui.shell import Sidebar
+
     sb = Sidebar()
     received = [0]
     sb.theme_toggle_requested.connect(lambda: received.__setitem__(0, received[0] + 1))

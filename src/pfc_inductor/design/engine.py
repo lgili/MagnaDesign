@@ -13,6 +13,7 @@ Workflow:
 5. Iterate on temperature until converged.
 6. Generate waveforms for plotting.
 """
+
 from __future__ import annotations
 
 import math
@@ -159,12 +160,12 @@ def design(
     layers = cp.estimate_layers(N, wire, core.Wa_mm2)
     if Ku > spec.Ku_max:
         warnings.append(
-            f"Window utilization {Ku*100:.1f}% exceeds limit {spec.Ku_max*100:.1f}%"
+            f"Window utilization {Ku * 100:.1f}% exceeds limit {spec.Ku_max * 100:.1f}%"
         )
     if B_pk > Bsat_limit:
         warnings.append(
-            f"B_pk={B_pk*1000:.0f} mT exceeds saturation limit "
-            f"{Bsat_limit*1000:.0f} mT (margin {spec.Bsat_margin*100:.0f}%)"
+            f"B_pk={B_pk * 1000:.0f} mT exceeds saturation limit "
+            f"{Bsat_limit * 1000:.0f} mT (margin {spec.Bsat_margin * 100:.0f}%)"
         )
 
     # Waveforms (boost CCM and buck CCM carry switching-frequency
@@ -197,14 +198,8 @@ def design(
     # excitation, so the fsw column in the loss model is set to f_line.
     # That keeps `core_loss_W_pfc`'s "line band" computation honest and
     # zeroes out the "ripple band" by construction (delta_iL_avg = 0).
-    fsw_kHz_for_loss = (
-        spec.f_line_Hz / 1000.0 if spec.topology == "line_reactor"
-        else spec.f_sw_kHz
-    )
-    fsw_Hz_for_skin = (
-        spec.f_line_Hz if spec.topology == "line_reactor"
-        else spec.f_sw_kHz * 1000.0
-    )
+    fsw_kHz_for_loss = spec.f_line_Hz / 1000.0 if spec.topology == "line_reactor" else spec.f_sw_kHz
+    fsw_Hz_for_skin = spec.f_line_Hz if spec.topology == "line_reactor" else spec.f_sw_kHz * 1000.0
 
     Ae_m2 = core.Ae_mm2 * 1e-6
     delta_B_avg_T = (L_actual * 1e-6) * delta_iL_avg / (max(N, 1) * Ae_m2) if N > 0 else 0.0
@@ -225,15 +220,22 @@ def design(
         P_cu_dc = cp.loss_dc_W(I_rms_line, Rdc)
         P_cu_ac = cp.loss_ac_W(I_rip_rms, Rac)
         P_line, P_ripple = cl.core_loss_W_pfc(
-            material, spec.f_line_Hz, fsw_kHz_for_loss,
-            B_pk_for_loss, delta_B_avg_T, core.Ve_mm3,
+            material,
+            spec.f_line_Hz,
+            fsw_kHz_for_loss,
+            B_pk_for_loss,
+            delta_B_avg_T,
+            core.Ve_mm3,
             delta_B_pp_T_array=delta_B_pp_T_array,
         )
         return P_cu_dc + P_cu_ac + P_line + P_ripple
 
     T_init = T_amb + T_init_rise_K
     T_final, conv, _ = th.converge_temperature(
-        total_loss_at_T, A_surface, T_amb, T_init_C=T_init,
+        total_loss_at_T,
+        A_surface,
+        T_amb,
+        T_init_C=T_init,
     )
     if not conv:
         warnings.append("Thermal solve did not fully converge")
@@ -247,15 +249,15 @@ def design(
         material, spec.f_line_Hz, fsw_kHz_for_loss, B_pk_for_loss, delta_B_avg_T, core.Ve_mm3
     )
     losses = LossBreakdown(
-        P_cu_dc_W=P_cu_dc, P_cu_ac_W=P_cu_ac,
-        P_core_line_W=P_line, P_core_ripple_W=P_ripple,
+        P_cu_dc_W=P_cu_dc,
+        P_cu_ac_W=P_cu_ac,
+        P_core_line_W=P_line,
+        P_core_ripple_W=P_ripple,
     )
     T_rise = T_final - T_amb
 
     if T_final > spec.T_max_C:
-        warnings.append(
-            f"Winding temperature {T_final:.1f}°C exceeds limit {spec.T_max_C:.1f}°C"
-        )
+        warnings.append(f"Winding temperature {T_final:.1f}°C exceeds limit {spec.T_max_C:.1f}°C")
 
     sat_margin_pct = ((Bsat_limit - B_pk) / Bsat_limit) * 100.0 if Bsat_limit > 0 else 0.0
 
@@ -276,7 +278,10 @@ def design(
         # the plot panel can show the waveform + spectrum without doing
         # any solver work.
         t_arr, i_arr = line_reactor.line_current_waveform(
-            spec, L_actual_mH, n_cycles=2, n_points=1200,
+            spec,
+            L_actual_mH,
+            n_cycles=2,
+            n_points=1200,
         )
         lr_waveform_t = t_arr.tolist()
         lr_waveform_i = i_arr.tolist()
@@ -304,7 +309,9 @@ def design(
         # Surface pct_Z too so the Análise label can show "pct_Z = X %"
         # the same way line_reactor does.
         pct_Z_actual = passive_choke.voltage_drop_pct(
-            L_actual / 1000.0, spec.Vin_min_Vrms, spec.Pout_W,
+            L_actual / 1000.0,
+            spec.Vin_min_Vrms,
+            spec.Pout_W,
             spec.f_line_Hz,
         )
     elif spec.topology == "buck_ccm":
@@ -336,14 +343,8 @@ def design(
         Ku_max=spec.Ku_max,
         converged=conv,
         warnings=warnings,
-        waveform_t_s=(
-            wf["t_s"].tolist() if wf is not None
-            else lr_waveform_t
-        ),
-        waveform_iL_A=(
-            wf["iL_pk_A"].tolist() if wf is not None
-            else lr_waveform_i
-        ),
+        waveform_t_s=(wf["t_s"].tolist() if wf is not None else lr_waveform_t),
+        waveform_iL_A=(wf["iL_pk_A"].tolist() if wf is not None else lr_waveform_i),
         waveform_B_T=None,
         pct_impedance_actual=pct_Z_actual,
         voltage_drop_pct=v_drop_pct,

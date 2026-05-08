@@ -6,6 +6,7 @@ reachable from the toolbar action **"Reinstall FEA dependencies"**.
 The setup runs in a worker thread so the UI stays responsive — a 50 MB
 download over a slow link can take a couple of minutes.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -38,7 +39,7 @@ _WARN = "#a06700"
 
 class _SetupWorker(QObject):
     progress = Signal(str, float)
-    finished = Signal(object)   # SetupReport
+    finished = Signal(object)  # SetupReport
     failed = Signal(str)
 
     def __init__(self, onelab_dir: Optional[Path]):
@@ -48,9 +49,11 @@ class _SetupWorker(QObject):
     def run(self) -> None:
         def cb(msg: str, frac: float) -> None:
             self.progress.emit(msg, max(0.0, min(1.0, frac)))
+
         try:
             report = setup_fea(
-                onelab_dir=self._onelab_dir, on_progress=cb,
+                onelab_dir=self._onelab_dir,
+                on_progress=cb,
             )
         except Exception as e:
             self.failed.emit(f"{type(e).__name__}: {e}")
@@ -61,7 +64,7 @@ class _SetupWorker(QObject):
 class SetupDepsDialog(QDialog):
     """Walks the user through installing ONELAB + configuring FEMMT."""
 
-    completed = Signal(bool)   # True when fea_ready after the run
+    completed = Signal(bool)  # True when fea_ready after the run
 
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
@@ -122,11 +125,16 @@ class SetupDepsDialog(QDialog):
         v = check_fea_setup()
         self.lst_steps.clear()
         items = [
-            ("FEMMT importable", v.femmt_importable,
-             (v.femmt_version and f"v{v.femmt_version}") or ""),
-            ("ONELAB configured",
-             v.onelab_dir is not None,
-             str(v.onelab_dir) if v.onelab_dir else ""),
+            (
+                "FEMMT importable",
+                v.femmt_importable,
+                (v.femmt_version and f"v{v.femmt_version}") or "",
+            ),
+            (
+                "ONELAB configured",
+                v.onelab_dir is not None,
+                str(v.onelab_dir) if v.onelab_dir else "",
+            ),
             ("ONELAB binaries present", v.onelab_binaries_present, ""),
         ]
         for name, ok, detail in items:
@@ -181,9 +189,7 @@ class SetupDepsDialog(QDialog):
     def _on_failed(self, msg: str) -> None:
         self.btn_run.setEnabled(True)
         self.txt_log.appendPlainText(f"\nERROR: {msg}")
-        self.lbl_result.setText(
-            f"<span style='color:{_BAD}'>● Failed: {msg}</span>"
-        )
+        self.lbl_result.setText(f"<span style='color:{_BAD}'>● Failed: {msg}</span>")
         self.completed.emit(False)
 
     def _on_finished(self, report: SetupReport) -> None:
@@ -208,4 +214,5 @@ class SetupDepsDialog(QDialog):
 
 def _qcolor(hex_str: str):
     from PySide6.QtGui import QColor
+
     return QColor(hex_str)

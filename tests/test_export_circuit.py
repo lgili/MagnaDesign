@@ -7,8 +7,10 @@ non-decreasing flux table). Round-trips into the actual
 simulators belong to a separate manual-validation cycle —
 unit tests stay format-aware but not simulator-bound.
 """
+
 from __future__ import annotations
 
+import itertools
 from pathlib import Path
 
 import pytest
@@ -36,13 +38,17 @@ def reference_design():
     cores = load_cores()
     wires = load_wires()
     spec = Spec(
-        topology="boost_ccm", Pout_W=600,
-        Vin_min_Vrms=85, Vin_max_Vrms=265, Vout_V=400,
-        f_sw_kHz=65, ripple_pct=20, T_amb_C=40,
+        topology="boost_ccm",
+        Pout_W=600,
+        Vin_min_Vrms=85,
+        Vin_max_Vrms=265,
+        Vout_V=400,
+        f_sw_kHz=65,
+        ripple_pct=20,
+        T_amb_C=40,
     )
     mat = next(m for m in mats if m.id == "magnetics-60_highflux")
-    core = next(c for c in cores
-                if c.id == "magnetics-c058777a2-60_highflux")
+    core = next(c for c in cores if c.id == "magnetics-c058777a2-60_highflux")
     wire = next(w for w in wires if w.id == "AWG14")
     result = run_design(spec, core, wire, mat)
     return spec, core, wire, mat, result
@@ -59,15 +65,15 @@ def test_L_vs_I_table_zero_current_returns_nominal(
 
     _spec, core, _wire, mat, result = reference_design
     table = L_vs_I_table(
-        material=mat, core=core,
+        material=mat,
+        core=core,
         n_turns=int(result.N_turns),
-        I_max=10.0, n_points=10,
+        I_max=10.0,
+        n_points=10,
     )
     assert table[0][0] == 0.0
     L0 = table[0][1]
-    expected_L_uH = (
-        int(result.N_turns) ** 2 * core.AL_nH * 1e-3
-    )
+    expected_L_uH = int(result.N_turns) ** 2 * core.AL_nH * 1e-3
     # Allow a 5 % tolerance for floating-point noise.
     assert L0 == pytest.approx(expected_L_uH * 1e-6, rel=0.05)
 
@@ -81,15 +87,17 @@ def test_L_vs_I_table_decreases_with_current(
 
     _spec, core, _wire, mat, result = reference_design
     table = L_vs_I_table(
-        material=mat, core=core,
+        material=mat,
+        core=core,
         n_turns=int(result.N_turns),
-        I_max=20.0, n_points=20,
+        I_max=20.0,
+        n_points=20,
     )
     Ls = [L for _I, L in table]
     # Each adjacent pair must be non-increasing within numeric
     # tolerance — the engine never injects extra inductance under
     # bias.
-    for prev, nxt in zip(Ls, Ls[1:]):
+    for prev, nxt in itertools.pairwise(Ls):
         assert nxt <= prev + 1e-12
 
 
@@ -100,13 +108,15 @@ def test_flux_vs_current_is_monotonic(reference_design) -> None:
 
     _spec, core, _wire, mat, result = reference_design
     table = flux_vs_current(
-        material=mat, core=core,
+        material=mat,
+        core=core,
         n_turns=int(result.N_turns),
-        I_max=20.0, n_points=20,
+        I_max=20.0,
+        n_points=20,
     )
     fluxes = [f for _I, f in table]
     assert fluxes[0] == 0.0
-    for prev, nxt in zip(fluxes, fluxes[1:]):
+    for prev, nxt in itertools.pairwise(fluxes):
         assert nxt >= prev - 1e-15
 
 
@@ -116,7 +126,8 @@ def test_L_vs_I_table_handles_zero_imax(reference_design) -> None:
 
     _spec, core, _wire, mat, result = reference_design
     table = L_vs_I_table(
-        material=mat, core=core,
+        material=mat,
+        core=core,
         n_turns=int(result.N_turns),
         I_max=0.0,
     )
@@ -133,8 +144,12 @@ def test_ltspice_emitter_includes_subckt_directive(
 
     spec, core, wire, mat, result = reference_design
     text = to_ltspice_subcircuit(
-        spec=spec, core=core, wire=wire,
-        material=mat, result=result, name="L_test",
+        spec=spec,
+        core=core,
+        wire=wire,
+        material=mat,
+        result=result,
+        name="L_test",
     )
     assert ".subckt L_test" in text
     assert ".ends L_test" in text
@@ -151,14 +166,14 @@ def test_ltspice_emitter_table_has_pairs(reference_design) -> None:
 
     spec, core, wire, mat, result = reference_design
     text = to_ltspice_subcircuit(
-        spec=spec, core=core, wire=wire,
-        material=mat, result=result,
+        spec=spec,
+        core=core,
+        wire=wire,
+        material=mat,
+        result=result,
     )
     # Find the table line.
-    table_line = next(
-        line for line in text.splitlines()
-        if "table(" in line.lower()
-    )
+    table_line = next(line for line in text.splitlines() if "table(" in line.lower())
     # Comma pairs — every other comma separates a (flux, I) pair.
     assert table_line.count(",") >= 10
 
@@ -173,8 +188,11 @@ def test_psim_emitter_carries_flux_current_table(
 
     spec, core, wire, mat, result = reference_design
     text = to_psim_fragment(
-        spec=spec, core=core, wire=wire,
-        material=mat, result=result,
+        spec=spec,
+        core=core,
+        wire=wire,
+        material=mat,
+        result=result,
     )
     assert "MagnaDesign" in text
     assert "Flux_Current_Table" in text
@@ -190,8 +208,11 @@ def test_psim_emitter_table_is_monotone(reference_design) -> None:
 
     spec, core, wire, mat, result = reference_design
     text = to_psim_fragment(
-        spec=spec, core=core, wire=wire,
-        material=mat, result=result,
+        spec=spec,
+        core=core,
+        wire=wire,
+        material=mat,
+        result=result,
     )
     # Pull the inside of the table block.
     in_table = False
@@ -214,7 +235,7 @@ def test_psim_emitter_table_is_monotone(reference_design) -> None:
             except ValueError:
                 continue
     assert len(pairs) >= 5
-    for prev, nxt in zip(pairs, pairs[1:]):
+    for prev, nxt in itertools.pairwise(pairs):
         assert nxt[1] >= prev[1] - 1e-15
 
 
@@ -228,8 +249,12 @@ def test_modelica_emitter_carries_package_skeleton(
 
     spec, core, wire, mat, result = reference_design
     text = to_modelica(
-        spec=spec, core=core, wire=wire,
-        material=mat, result=result, package="MyTest",
+        spec=spec,
+        core=core,
+        wire=wire,
+        material=mat,
+        result=result,
+        package="MyTest",
     )
     assert text.strip().startswith("within;")
     assert "package MyTest" in text
@@ -253,9 +278,14 @@ def _write_boost_project(tmp_path: Path) -> Path:
     from pfc_inductor.project import ProjectFile, save_project
 
     spec = Spec(
-        topology="boost_ccm", Pout_W=600,
-        Vin_min_Vrms=85, Vin_max_Vrms=265, Vout_V=400,
-        f_sw_kHz=65, ripple_pct=20, T_amb_C=40,
+        topology="boost_ccm",
+        Pout_W=600,
+        Vin_min_Vrms=85,
+        Vin_max_Vrms=265,
+        Vout_V=400,
+        f_sw_kHz=65,
+        ripple_pct=20,
+        T_amb_C=40,
     )
     pf = ProjectFile.from_session(
         name="cli-circuit-boost",
@@ -271,6 +301,7 @@ def _write_boost_project(tmp_path: Path) -> Path:
 
 def test_circuit_subcommand_registered() -> None:
     from pfc_inductor.cli import SUBCOMMANDS
+
     assert "circuit" in SUBCOMMANDS
 
 
@@ -284,7 +315,8 @@ def test_circuit_help_lists_options(cli_runner: CliRunner) -> None:
 
 
 def test_circuit_writes_ltspice_to_disk(
-    cli_runner: CliRunner, tmp_path: Path,
+    cli_runner: CliRunner,
+    tmp_path: Path,
 ) -> None:
     from pfc_inductor.cli import cli
 
@@ -292,8 +324,7 @@ def test_circuit_writes_ltspice_to_disk(
     out = tmp_path / "L_PFC.lib"
     result = cli_runner.invoke(
         cli,
-        ["circuit", str(project_path),
-         "--format", "ltspice", "--out", str(out)],
+        ["circuit", str(project_path), "--format", "ltspice", "--out", str(out)],
     )
     assert result.exit_code == 0, result.output
     assert out.is_file()
@@ -303,7 +334,8 @@ def test_circuit_writes_ltspice_to_disk(
 
 
 def test_circuit_writes_psim_to_disk(
-    cli_runner: CliRunner, tmp_path: Path,
+    cli_runner: CliRunner,
+    tmp_path: Path,
 ) -> None:
     from pfc_inductor.cli import cli
 
@@ -311,8 +343,7 @@ def test_circuit_writes_psim_to_disk(
     out = tmp_path / "L_PFC.psim.txt"
     result = cli_runner.invoke(
         cli,
-        ["circuit", str(project_path),
-         "--format", "psim", "--out", str(out)],
+        ["circuit", str(project_path), "--format", "psim", "--out", str(out)],
     )
     assert result.exit_code == 0, result.output
     assert out.is_file()
@@ -320,7 +351,8 @@ def test_circuit_writes_psim_to_disk(
 
 
 def test_circuit_writes_modelica_to_disk(
-    cli_runner: CliRunner, tmp_path: Path,
+    cli_runner: CliRunner,
+    tmp_path: Path,
 ) -> None:
     from pfc_inductor.cli import cli
 
@@ -328,9 +360,16 @@ def test_circuit_writes_modelica_to_disk(
     out = tmp_path / "PFC.mo"
     result = cli_runner.invoke(
         cli,
-        ["circuit", str(project_path),
-         "--format", "modelica",
-         "--out", str(out), "--name", "MagnaPFC"],
+        [
+            "circuit",
+            str(project_path),
+            "--format",
+            "modelica",
+            "--out",
+            str(out),
+            "--name",
+            "MagnaPFC",
+        ],
     )
     assert result.exit_code == 0, result.output
     text = out.read_text()
@@ -339,28 +378,30 @@ def test_circuit_writes_modelica_to_disk(
 
 
 def test_circuit_stdout_when_no_out_flag(
-    cli_runner: CliRunner, tmp_path: Path,
+    cli_runner: CliRunner,
+    tmp_path: Path,
 ) -> None:
     """Omitting `--out` prints the text on stdout."""
     from pfc_inductor.cli import cli
 
     project_path = _write_boost_project(tmp_path)
     result = cli_runner.invoke(
-        cli, ["circuit", str(project_path), "--format", "ltspice"],
+        cli,
+        ["circuit", str(project_path), "--format", "ltspice"],
     )
     assert result.exit_code == 0
     assert ".subckt" in result.stdout
 
 
 def test_circuit_unknown_format_is_usage_error(
-    cli_runner: CliRunner, tmp_path: Path,
+    cli_runner: CliRunner,
+    tmp_path: Path,
 ) -> None:
     from pfc_inductor.cli import cli
 
     project_path = _write_boost_project(tmp_path)
     result = cli_runner.invoke(
         cli,
-        ["circuit", str(project_path),
-         "--format", "spiceopus"],
+        ["circuit", str(project_path), "--format", "spiceopus"],
     )
     assert result.exit_code != 0

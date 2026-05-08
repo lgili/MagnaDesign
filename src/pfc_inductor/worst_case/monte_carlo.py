@@ -19,6 +19,7 @@ A unit *passes* if **all** of:
 Override per project by passing a callable to
 :func:`simulate_yield`.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -32,10 +33,8 @@ from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
 from pfc_inductor.worst_case.engine import _apply_corner
 from pfc_inductor.worst_case.tolerances import (
     Tolerance,
-    ToleranceDistribution,
     ToleranceSet,
 )
-
 
 PassFn = Callable[[DesignResult, Spec, Material], bool]
 
@@ -121,8 +120,7 @@ def simulate_yield(
         n_fail=n_fail,
         n_engine_error=n_engine_error,
         pass_rate=rate,
-        fail_modes=dict(sorted(fail_modes.items(),
-                               key=lambda kv: -kv[1])),
+        fail_modes=dict(sorted(fail_modes.items(), key=lambda kv: -kv[1])),
     )
 
 

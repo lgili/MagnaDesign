@@ -4,6 +4,7 @@ Each segment renders a numbered circle (or check glyph for completed
 steps) and a label. State is one of ``done`` / ``active`` / ``pending``.
 The QSS for these states ships in :mod:`pfc_inductor.ui.style`.
 """
+
 from __future__ import annotations
 
 from typing import Iterable, Optional
@@ -34,8 +35,7 @@ class _StepSegment(QFrame):
 
     clicked = Signal(int)
 
-    def __init__(self, idx: int, label: str,
-                 parent: Optional[QWidget] = None) -> None:
+    def __init__(self, idx: int, label: str, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.setObjectName("StepperSegment")
         self.setProperty("stepperState", "pending")
@@ -126,8 +126,7 @@ class WorkflowStepper(QFrame):
                 line = QFrame(self)
                 line.setObjectName("StepperLine")
                 line.setFrameShape(QFrame.Shape.HLine)
-                line.setSizePolicy(QSizePolicy.Policy.Expanding,
-                                   QSizePolicy.Policy.Fixed)
+                line.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
                 line.setMinimumWidth(20)
                 line.setMaximumHeight(1)
                 h.addWidget(line, 2)
@@ -138,8 +137,7 @@ class WorkflowStepper(QFrame):
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
-    def set_state(self, active_idx: int,
-                  completed: Iterable[int]) -> None:
+    def set_state(self, active_idx: int, completed: Iterable[int]) -> None:
         completed_set = frozenset(completed)
         for seg in self._segments:
             if seg.idx in completed_set:

@@ -18,12 +18,13 @@ should fire on next GUI launch. ``True`` / ``False`` are
 explicit answers and are honoured forever (the user can always
 flip the toggle in Settings → Privacy).
 """
+
 from __future__ import annotations
 
 import json
 import os
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Optional
 
@@ -82,7 +83,7 @@ def set_consent(
         "analytics": _coerce_bool(
             analytics if analytics is not None else current.analytics,
         ),
-        "asked_at": datetime.now(timezone.utc).date().isoformat(),
+        "asked_at": datetime.now(UTC).date().isoformat(),
     }
     if not _write_qsettings(payload):
         _write_json_file(payload)
@@ -149,6 +150,7 @@ def _write_qsettings(payload: dict) -> bool:
 def _consent_file() -> Path:
     try:
         from platformdirs import user_config_dir
+
         base = Path(user_config_dir("MagnaDesign"))
     except ImportError:
         base = Path.home() / ".config" / "MagnaDesign"
@@ -179,8 +181,8 @@ def _coerce(payload: dict) -> ConsentState:
         crashes=_coerce_bool(payload.get("crashes")),
         analytics=_coerce_bool(payload.get("analytics")),
         asked_at=str(payload["asked_at"])
-                  if "asked_at" in payload and payload["asked_at"]
-                  else None,
+        if payload.get("asked_at")
+        else None,
     )
 
 

@@ -1,4 +1,5 @@
 """Round-trip + edge-case tests for the ``.pfc`` project format."""
+
 from __future__ import annotations
 
 import json
@@ -32,10 +33,19 @@ def test_round_trip_preserves_every_field(tmp_path: Path) -> None:
     """A non-trivial state, serialized then loaded, must match exactly."""
     spec = Spec(
         topology="boost_ccm",
-        Vin_min_Vrms=110.0, Vin_max_Vrms=240.0, Vin_nom_Vrms=220.0,
-        f_line_Hz=60.0, Vout_V=400.0, Pout_W=850.0, eta=0.965,
-        f_sw_kHz=80.0, ripple_pct=25.0,
-        T_amb_C=45.0, T_max_C=120.0, Ku_max=0.55, Bsat_margin=0.20,
+        Vin_min_Vrms=110.0,
+        Vin_max_Vrms=240.0,
+        Vin_nom_Vrms=220.0,
+        f_line_Hz=60.0,
+        Vout_V=400.0,
+        Pout_W=850.0,
+        eta=0.965,
+        f_sw_kHz=80.0,
+        ripple_pct=25.0,
+        T_amb_C=45.0,
+        T_max_C=120.0,
+        Ku_max=0.55,
+        Bsat_margin=0.20,
     )
     state = ProjectFile.from_session(
         name="Reator 850 W",
@@ -80,13 +90,18 @@ def test_load_ignores_unknown_fields(tmp_path: Path) -> None:
     """Forward-compat: future versions may add fields. Unknown keys
     must not break the loader — Pydantic ``extra='ignore'``."""
     p = tmp_path / "future.pfc"
-    p.write_text(json.dumps({
-        "version": "99.0",
-        "name": "From the Future",
-        "spec": Spec().model_dump(mode="json"),
-        "selection": ProjectSelection().model_dump(mode="json"),
-        "future_only_field": [1, 2, 3],
-    }), encoding="utf-8")
+    p.write_text(
+        json.dumps(
+            {
+                "version": "99.0",
+                "name": "From the Future",
+                "spec": Spec().model_dump(mode="json"),
+                "selection": ProjectSelection().model_dump(mode="json"),
+                "future_only_field": [1, 2, 3],
+            }
+        ),
+        encoding="utf-8",
+    )
     state = load_project(p)
     assert state.name == "From the Future"
 

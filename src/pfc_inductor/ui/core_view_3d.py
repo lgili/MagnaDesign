@@ -20,6 +20,7 @@ Overlays sit in a child ``QStackedLayout``-style raised position; mouse
 events outside the overlay rectangles still fall through to the
 ``QtInteractor`` so the user can drag the scene normally.
 """
+
 from __future__ import annotations
 
 import os
@@ -97,9 +98,13 @@ class CoreView3D(QWidget):
         if _can_use_3d():
             try:
                 from pyvistaqt import QtInteractor
+
                 self.plotter = QtInteractor(self)
                 from PySide6.QtWidgets import QSizePolicy
-                self.plotter.interactor.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
+
+                self.plotter.interactor.setSizePolicy(
+                    QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored
+                )
                 outer.addWidget(self.plotter.interactor, 1)
                 self._setup_renderer()
                 # Failure to draw the placeholder text must not kill the
@@ -111,13 +116,9 @@ class CoreView3D(QWidget):
                     pass
             except Exception as e:
                 self.plotter = None
-                self._fallback = QLabel(
-                    f"Visualizador 3D indisponível: {type(e).__name__}: {e}"
-                )
+                self._fallback = QLabel(f"Visualizador 3D indisponível: {type(e).__name__}: {e}")
         else:
-            self._fallback = QLabel(
-                "Visualizador 3D indisponível em modo offscreen."
-            )
+            self._fallback = QLabel("Visualizador 3D indisponível em modo offscreen.")
         if self._fallback is not None:
             self._fallback.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self._fallback.setStyleSheet("color: #888; font-size: 12px;")
@@ -278,8 +279,8 @@ class CoreView3D(QWidget):
             cam = self.plotter.camera
             payload = {
                 "position": tuple(cam.position),
-                "focal":    tuple(cam.focal_point),
-                "up":       tuple(cam.up),
+                "focal": tuple(cam.focal_point),
+                "up": tuple(cam.up),
             }
         except Exception:
             return
@@ -288,8 +289,7 @@ class CoreView3D(QWidget):
     # ==================================================================
     # Public API: scene update
     # ==================================================================
-    def update_view(self, core: Core, wire: Wire, N_turns: int,
-                    material: Material):
+    def update_view(self, core: Core, wire: Wire, N_turns: int, material: Material):
         """Rebuild the scene for the given selection."""
         self._current = (core, wire, N_turns, material)
         if self.plotter is not None:
@@ -311,11 +311,13 @@ class CoreView3D(QWidget):
             wnd = make_winding_mesh(core, wire, N_turns, info)
             leads = (
                 make_winding_leads(core, wire, N_turns, info)
-                if self._layer_state.get("winding", True) else None
+                if self._layer_state.get("winding", True)
+                else None
             )
             bobbin = (
                 make_bobbin_mesh(core, wire, N_turns, info)
-                if self._layer_state.get("bobbin", False) else None
+                if self._layer_state.get("bobbin", False)
+                else None
             )
             fit = winding_fit_info(core, wire, N_turns, info)
         except Exception as e:
@@ -334,17 +336,13 @@ class CoreView3D(QWidget):
         core_color = colors.get(material.type, colors["default"])
         is_closed_shell = kind in ("ee", "etd", "pq")
         if material.type == "silicon-steel":
-            core_kwargs = dict(metallic=0.65, roughness=0.45,
-                               specular=0.6, specular_power=20)
+            core_kwargs = dict(metallic=0.65, roughness=0.45, specular=0.6, specular_power=20)
         elif material.type == "ferrite":
-            core_kwargs = dict(metallic=0.05, roughness=0.40,
-                               specular=0.5, specular_power=18)
+            core_kwargs = dict(metallic=0.05, roughness=0.40, specular=0.5, specular_power=18)
         elif material.type == "amorphous":
-            core_kwargs = dict(metallic=0.7, roughness=0.30,
-                               specular=0.7, specular_power=25)
+            core_kwargs = dict(metallic=0.7, roughness=0.30, specular=0.7, specular_power=25)
         else:
-            core_kwargs = dict(metallic=0.05, roughness=0.65,
-                               specular=0.20, specular_power=10)
+            core_kwargs = dict(metallic=0.05, roughness=0.65, specular=0.20, specular_power=10)
         opacity = 0.62 if is_closed_shell else 1.0
 
         for block in mb:
@@ -354,7 +352,8 @@ class CoreView3D(QWidget):
                 block,
                 color=core_color,
                 smooth_shading=True,
-                ambient=0.20, diffuse=0.85,
+                ambient=0.20,
+                diffuse=0.85,
                 opacity=opacity,
                 pbr=False,
                 **core_kwargs,
@@ -369,9 +368,12 @@ class CoreView3D(QWidget):
                     blk,
                     color=get_theme().viz3d.bobbin,
                     smooth_shading=True,
-                    ambient=0.30, diffuse=0.80,
-                    specular=0.20, specular_power=12,
-                    metallic=0.0, roughness=0.7,
+                    ambient=0.30,
+                    diffuse=0.80,
+                    specular=0.20,
+                    specular_power=12,
+                    metallic=0.0,
+                    roughness=0.7,
                     pbr=False,
                 )
                 self._actor_bobbin.append(act)
@@ -398,9 +400,12 @@ class CoreView3D(QWidget):
                 wnd,
                 color=wire_color,
                 smooth_shading=True,
-                ambient=0.25, diffuse=0.70,
-                specular=0.55, specular_power=24,
-                metallic=0.55, roughness=0.45,
+                ambient=0.25,
+                diffuse=0.70,
+                specular=0.55,
+                specular_power=24,
+                metallic=0.55,
+                roughness=0.45,
                 pbr=False,
             )
             # Wire leads — short stubs poking out of the bobbin so the
@@ -413,9 +418,12 @@ class CoreView3D(QWidget):
                         blk,
                         color=wire_color,
                         smooth_shading=True,
-                        ambient=0.25, diffuse=0.70,
-                        specular=0.55, specular_power=24,
-                        metallic=0.55, roughness=0.45,
+                        ambient=0.25,
+                        diffuse=0.70,
+                        specular=0.55,
+                        specular_power=24,
+                        metallic=0.55,
+                        roughness=0.45,
                         pbr=False,
                     )
             if not fit["fits"]:
@@ -500,7 +508,9 @@ class CoreView3D(QWidget):
             try:
                 self.plotter.camera.position = _lerp(start_pos, target_pos, t)
                 self.plotter.camera.focal_point = _lerp(
-                    start_focal, target_focal, t,
+                    start_focal,
+                    target_focal,
+                    t,
                 )
                 self.plotter.camera.up = _lerp(start_up, target_up, t)
                 self.plotter.render()
@@ -661,8 +671,10 @@ class CoreView3D(QWidget):
         if fmt == "png":
             return self.request_screenshot()
         path, _ = QFileDialog.getSaveFileName(
-            self, f"Exportar {fmt.upper()}",
-            f"viewer3d.{fmt}", f"{fmt.upper()} (*.{fmt})",
+            self,
+            f"Exportar {fmt.upper()}",
+            f"viewer3d.{fmt}",
+            f"{fmt.upper()} (*.{fmt})",
         )
         if not path:
             return None

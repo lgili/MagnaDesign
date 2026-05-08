@@ -1,4 +1,5 @@
 """NucleoCard score-table view (tabbed)."""
+
 from __future__ import annotations
 
 import os
@@ -11,6 +12,7 @@ import pytest
 @pytest.fixture(scope="module")
 def app():
     from PySide6.QtWidgets import QApplication
+
     inst = QApplication.instance() or QApplication([])
     yield inst
 
@@ -23,6 +25,7 @@ def db():
         load_materials,
         load_wires,
     )
+
     ensure_user_data()
     return {
         "materials": load_materials(),
@@ -39,6 +42,7 @@ def test_nucleo_card_three_tabs(app):
     are no longer expected.
     """
     from pfc_inductor.ui.dashboard.cards.nucleo_card import NucleoCard
+
     card = NucleoCard()
     tabs = card._nbody._tabs
     assert tabs.count() == 3
@@ -50,13 +54,13 @@ def test_nucleo_card_three_tabs(app):
 def test_nucleo_card_populates_all_tabs(app, db):
     from pfc_inductor.models import Spec
     from pfc_inductor.ui.dashboard.cards.nucleo_card import NucleoCard
+
     card = NucleoCard()
     spec = Spec()
     mat = db["materials"][0]
     core = db["cores"][0]
     wire = db["wires"][0]
-    card.populate(spec, db["materials"], db["cores"], db["wires"],
-                  mat, core, wire)
+    card.populate(spec, db["materials"], db["cores"], db["wires"], mat, core, wire)
     assert card._nbody.tab_material._model.rowCount() == len(db["materials"])
     assert card._nbody.tab_core._model.rowCount() == len(db["cores"])
     assert card._nbody.tab_wire._model.rowCount() == len(db["wires"])
@@ -65,13 +69,13 @@ def test_nucleo_card_populates_all_tabs(app, db):
 def test_nucleo_card_search_filter_narrows_rows(app, db):
     from pfc_inductor.models import Spec
     from pfc_inductor.ui.dashboard.cards.nucleo_card import NucleoCard
+
     card = NucleoCard()
     spec = Spec()
     mat = db["materials"][0]
     core = db["cores"][0]
     wire = db["wires"][0]
-    card.populate(spec, db["materials"], db["cores"], db["wires"],
-                  mat, core, wire)
+    card.populate(spec, db["materials"], db["cores"], db["wires"], mat, core, wire)
 
     full = card._nbody.tab_core.visible_row_count()
     card._nbody.tab_core._proxy.set_search("magnetics")
@@ -82,13 +86,13 @@ def test_nucleo_card_search_filter_narrows_rows(app, db):
 def test_nucleo_card_curated_filter(app, db):
     from pfc_inductor.models import Spec
     from pfc_inductor.ui.dashboard.cards.nucleo_card import NucleoCard
+
     card = NucleoCard()
     spec = Spec()
     mat = db["materials"][0]
     core = db["cores"][0]
     wire = db["wires"][0]
-    card.populate(spec, db["materials"], db["cores"], db["wires"],
-                  mat, core, wire)
+    card.populate(spec, db["materials"], db["cores"], db["wires"], mat, core, wire)
     full = card._nbody.tab_core.visible_row_count()
     card._nbody.tab_core._proxy.set_curated_only(True)
     curated = card._nbody.tab_core.visible_row_count()
@@ -103,17 +107,15 @@ def test_nucleo_card_no_emission_when_selection_matches_current(app, db):
     """
     from pfc_inductor.models import Spec
     from pfc_inductor.ui.dashboard.cards.nucleo_card import NucleoCard
+
     card = NucleoCard()
     spec = Spec()
     mat = db["materials"][0]
     core = db["cores"][0]
     wire = db["wires"][0]
-    card.populate(spec, db["materials"], db["cores"], db["wires"],
-                  mat, core, wire)
+    card.populate(spec, db["materials"], db["cores"], db["wires"], mat, core, wire)
     received: list[tuple[str, str, str]] = []
-    card.selection_applied.connect(
-        lambda m, c, w: received.append((m, c, w))
-    )
+    card.selection_applied.connect(lambda m, c, w: received.append((m, c, w)))
     # Without picking a different row, no signal should fire.
     assert received == []
 
@@ -131,13 +133,10 @@ def test_nucleo_card_emits_selection_applied_on_different_row(app, db):
     mat = db["materials"][0]
     core = db["cores"][0]
     wire = db["wires"][0]
-    card.populate(spec, db["materials"], db["cores"], db["wires"],
-                  mat, core, wire)
+    card.populate(spec, db["materials"], db["cores"], db["wires"], mat, core, wire)
 
     received: list[tuple[str, str, str]] = []
-    card.selection_applied.connect(
-        lambda m, c, w: received.append((m, c, w))
-    )
+    card.selection_applied.connect(lambda m, c, w: received.append((m, c, w)))
 
     tab = card._nbody.tab_core
     if tab._proxy.rowCount() < 2:
@@ -148,7 +147,7 @@ def test_nucleo_card_emits_selection_applied_on_different_row(app, db):
     # default sort is by score and ties are possible.
     target_row = None
     for r in range(tab._proxy.rowCount()):
-        cand = tab.selected_candidate()  # noqa: F841 — used for shape
+        cand = tab.selected_candidate()
         idx = tab._proxy.index(r, 0)
         candidate = tab._proxy.data(idx, 0x0100)  # Qt.UserRole
         if candidate is not None and getattr(candidate, "id", "") != core.id:
@@ -160,8 +159,7 @@ def test_nucleo_card_emits_selection_applied_on_different_row(app, db):
     idx0 = tab._proxy.index(target_row, 0)
     tab.table.selectionModel().select(
         idx0,
-        QItemSelectionModel.SelectionFlag.ClearAndSelect
-        | QItemSelectionModel.SelectionFlag.Rows,
+        QItemSelectionModel.SelectionFlag.ClearAndSelect | QItemSelectionModel.SelectionFlag.Rows,
     )
     # Auto-apply: at least one emission with material unchanged and
     # core changed to the new id.
@@ -179,6 +177,7 @@ def test_populate_skips_rebuild_when_only_selection_changes(app, db):
     populate)."""
     from pfc_inductor.models import Spec
     from pfc_inductor.ui.dashboard.cards.nucleo_card import NucleoCard
+
     card = NucleoCard()
     spec = Spec()
     mat = db["materials"][0]
@@ -192,9 +191,11 @@ def test_populate_skips_rebuild_when_only_selection_changes(app, db):
     card.populate(spec, db["materials"], cores, db["wires"], mat, core_a, wire)
     rebuilds = []
     original = card._nbody.tab_core._model.set_rows
+
     def _spy(rows):
         rebuilds.append(len(rows))
         return original(rows)
+
     card._nbody.tab_core._model.set_rows = _spy
 
     # Second populate with a different *current* core but same spec / mat
@@ -222,17 +223,16 @@ def test_clear_resets_rebuild_cache(app, db):
     ``populate()`` re-renders even with the same arguments."""
     from pfc_inductor.models import Spec
     from pfc_inductor.ui.dashboard.cards.nucleo_card import NucleoCard
+
     card = NucleoCard()
     spec = Spec()
     mat = db["materials"][0]
     core = db["cores"][0]
     wire = db["wires"][0]
-    card.populate(spec, db["materials"], db["cores"], db["wires"],
-                  mat, core, wire)
+    card.populate(spec, db["materials"], db["cores"], db["wires"], mat, core, wire)
     card.clear()
     rebuilds = []
     original = card._nbody.tab_core._model.set_rows
     card._nbody.tab_core._model.set_rows = lambda rows: (rebuilds.append(1), original(rows))[1]
-    card.populate(spec, db["materials"], db["cores"], db["wires"],
-                  mat, core, wire)
+    card.populate(spec, db["materials"], db["cores"], db["wires"], mat, core, wire)
     assert rebuilds, "populate() after clear() must re-render"

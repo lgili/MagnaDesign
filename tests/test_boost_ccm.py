@@ -1,4 +1,5 @@
 """Boost PFC CCM topology calculations."""
+
 import pytest
 
 from pfc_inductor.models import Spec
@@ -9,9 +10,14 @@ from pfc_inductor.topology import boost_ccm
 def spec_800W():
     return Spec(
         topology="boost_ccm",
-        Vin_min_Vrms=85.0, Vin_max_Vrms=265.0, Vin_nom_Vrms=220.0,
-        Vout_V=400.0, Pout_W=800.0, eta=0.97,
-        f_sw_kHz=65.0, ripple_pct=30.0,
+        Vin_min_Vrms=85.0,
+        Vin_max_Vrms=265.0,
+        Vin_nom_Vrms=220.0,
+        Vout_V=400.0,
+        Pout_W=800.0,
+        eta=0.97,
+        f_sw_kHz=65.0,
+        ripple_pct=30.0,
     )
 
 
@@ -52,9 +58,14 @@ def test_waveforms_have_expected_shape(spec_800W):
 def test_max_ripple_at_half_vout():
     """Max delta_iL at vin_inst = Vout/2 (where d(1-d) is maximized)."""
     spec = Spec(
-        Vin_min_Vrms=85.0, Vin_max_Vrms=265.0, Vin_nom_Vrms=200.0,
-        Vout_V=400.0, Pout_W=800.0, eta=0.97,
-        f_sw_kHz=65.0, ripple_pct=30.0,
+        Vin_min_Vrms=85.0,
+        Vin_max_Vrms=265.0,
+        Vin_nom_Vrms=200.0,
+        Vout_V=400.0,
+        Pout_W=800.0,
+        eta=0.97,
+        f_sw_kHz=65.0,
+        ripple_pct=30.0,
     )
     L_uH = 400.0
     wf = boost_ccm.waveforms(spec, 200.0, L_uH, n_points_per_half_cycle=400)

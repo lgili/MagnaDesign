@@ -1,4 +1,5 @@
 """Tests for the line-reactor topology (50/60 Hz harmonic mitigation)."""
+
 from __future__ import annotations
 
 import math
@@ -16,7 +17,7 @@ def _ref_3ph() -> Spec:
     return Spec(
         topology="line_reactor",
         n_phases=3,
-        Vin_nom_Vrms=380.0,    # L-L
+        Vin_nom_Vrms=380.0,  # L-L
         I_rated_Arms=30.0,
         pct_impedance=5.0,
         f_line_Hz=60.0,
@@ -29,8 +30,14 @@ def test_phase_voltage_3ph_is_VLL_over_sqrt3():
 
 
 def test_phase_voltage_1ph_is_input_value():
-    spec = Spec(topology="line_reactor", n_phases=1, Vin_nom_Vrms=220.0,
-                I_rated_Arms=15.0, pct_impedance=8.0, f_line_Hz=60.0)
+    spec = Spec(
+        topology="line_reactor",
+        n_phases=1,
+        Vin_nom_Vrms=220.0,
+        I_rated_Arms=15.0,
+        pct_impedance=8.0,
+        f_line_Hz=60.0,
+    )
     assert lr.phase_voltage_Vrms(spec) == 220.0
 
 
@@ -42,8 +49,14 @@ def test_required_inductance_3ph_380_30A_5pct_60Hz():
 
 def test_required_inductance_1ph_220_15A_8pct_60Hz():
     """Reference value ≈3.1 mH per spec scenario."""
-    spec = Spec(topology="line_reactor", n_phases=1, Vin_nom_Vrms=220.0,
-                I_rated_Arms=15.0, pct_impedance=8.0, f_line_Hz=60.0)
+    spec = Spec(
+        topology="line_reactor",
+        n_phases=1,
+        Vin_nom_Vrms=220.0,
+        I_rated_Arms=15.0,
+        pct_impedance=8.0,
+        f_line_Hz=60.0,
+    )
     L_mH = lr.required_inductance_mH(spec)
     assert 3.0 <= L_mH <= 3.2
 
@@ -55,12 +68,15 @@ def test_voltage_drop_at_design_L_equals_target_pct():
     assert math.isclose(drop_pct, spec.pct_impedance, abs_tol=0.05)
 
 
-@pytest.mark.parametrize("pct,expected_thd", [
-    (3, 43),
-    (5, 33),
-    (8, 26),
-    (12, 22),
-])
+@pytest.mark.parametrize(
+    "pct,expected_thd",
+    [
+        (3, 43),
+        (5, 33),
+        (8, 26),
+        (12, 22),
+    ],
+)
 def test_thd_estimate_matches_pomilio_rule_3phase(pct, expected_thd):
     """3-phase: textbook ``75/√%Z`` rule (Pomilio Cap. 11)."""
     thd = lr.estimate_thd_pct(pct, n_phases=3)
@@ -123,9 +139,12 @@ def test_engine_design_runs_for_line_reactor():
     wire = next(w for w in wires if w.id == "AWG10")
 
     spec = Spec(
-        topology="line_reactor", n_phases=3,
-        Vin_nom_Vrms=380.0, I_rated_Arms=30.0,
-        pct_impedance=5.0, f_line_Hz=60.0,
+        topology="line_reactor",
+        n_phases=3,
+        Vin_nom_Vrms=380.0,
+        I_rated_Arms=30.0,
+        pct_impedance=5.0,
+        f_line_Hz=60.0,
     )
     res = design(spec, core, wire, m)
 
@@ -144,8 +163,10 @@ def test_engine_skips_boost_validation_for_line_reactor():
     invariant — Vout is irrelevant here."""
     spec = Spec(
         topology="line_reactor",
-        Vin_nom_Vrms=380.0, n_phases=3,
-        I_rated_Arms=30.0, pct_impedance=5.0,
+        Vin_nom_Vrms=380.0,
+        n_phases=3,
+        I_rated_Arms=30.0,
+        pct_impedance=5.0,
         Vout_V=100.0,  # would fail the boost invariant; should be ignored
     )
     assert spec.topology == "line_reactor"
@@ -160,13 +181,19 @@ def test_harmonic_amplitudes_3ph_match_textbook():
     With small µ the magnitudes converge to the textbook 100, 20, 14.3,
     9.1, 7.7 (Mohan eq. 5-66).
     """
-    spec = Spec(topology="line_reactor", n_phases=3, Vin_nom_Vrms=380,
-                I_rated_Arms=30, pct_impedance=0.5, f_line_Hz=60)
+    spec = Spec(
+        topology="line_reactor",
+        n_phases=3,
+        Vin_nom_Vrms=380,
+        I_rated_Arms=30,
+        pct_impedance=0.5,
+        f_line_Hz=60,
+    )
     L_mH = lr.required_inductance_mH(spec)
     p = lr.harmonic_amplitudes_pct(spec, L_mH)
     # Triplens must be near-zero (small leakage from FFT alignment)
     for h in (3, 9, 15):
-        assert p[h - 1] < 1.0, f"triplen h={h} should be ~0, got {p[h-1]}"
+        assert p[h - 1] < 1.0, f"triplen h={h} should be ~0, got {p[h - 1]}"
     # Even harmonics zero
     for h in (2, 4, 6, 8, 10, 12, 14):
         assert p[h - 1] < 1.0
@@ -185,32 +212,48 @@ def test_harmonic_amplitudes_1ph_high_third_for_cap_dc_link():
     'infinite DC inductor' idealisation that gives 1/n harmonics.
     """
     for pct_z, min_third in [(1.5, 70.0), (3.0, 60.0), (5.0, 50.0)]:
-        spec = Spec(topology="line_reactor", n_phases=1, Vin_nom_Vrms=220,
-                    I_rated_Arms=1.0, pct_impedance=pct_z, f_line_Hz=50)
+        spec = Spec(
+            topology="line_reactor",
+            n_phases=1,
+            Vin_nom_Vrms=220,
+            I_rated_Arms=1.0,
+            pct_impedance=pct_z,
+            f_line_Hz=50,
+        )
         L_mH = lr.required_inductance_mH(spec)
         p = lr.harmonic_amplitudes_pct(spec, L_mH)
         assert p[0] == 100.0
-        assert p[2] >= min_third, (
-            f"%Z={pct_z}: h=3 = {p[2]:.1f}, expected ≥ {min_third}"
-        )
+        assert p[2] >= min_third, f"%Z={pct_z}: h=3 = {p[2]:.1f}, expected ≥ {min_third}"
 
 
 def test_harmonic_higher_z_reduces_low_harmonics_1ph():
     """Bigger reactor → wider conduction window → lower 3rd harmonic."""
-    low_z = Spec(topology="line_reactor", n_phases=1, Vin_nom_Vrms=220,
-                 I_rated_Arms=1.0, pct_impedance=1.5, f_line_Hz=50)
-    high_z = Spec(topology="line_reactor", n_phases=1, Vin_nom_Vrms=220,
-                  I_rated_Arms=1.0, pct_impedance=8.0, f_line_Hz=50)
+    low_z = Spec(
+        topology="line_reactor",
+        n_phases=1,
+        Vin_nom_Vrms=220,
+        I_rated_Arms=1.0,
+        pct_impedance=1.5,
+        f_line_Hz=50,
+    )
+    high_z = Spec(
+        topology="line_reactor",
+        n_phases=1,
+        Vin_nom_Vrms=220,
+        I_rated_Arms=1.0,
+        pct_impedance=8.0,
+        f_line_Hz=50,
+    )
     p_low = lr.harmonic_amplitudes_pct(low_z, lr.required_inductance_mH(low_z))
     p_high = lr.harmonic_amplitudes_pct(high_z, lr.required_inductance_mH(high_z))
-    assert p_high[2] < p_low[2]   # h=3 drops
-    assert p_high[4] < p_low[4]   # h=5 drops
+    assert p_high[2] < p_low[2]  # h=3 drops
+    assert p_high[4] < p_low[4]  # h=5 drops
 
 
 def test_waveform_rms_equals_rated_current():
     spec = _ref_3ph()
     L_mH = lr.required_inductance_mH(spec)
-    t, i = lr.line_current_waveform(spec, L_mH, n_cycles=4, n_points=4000)
+    _t, i = lr.line_current_waveform(spec, L_mH, n_cycles=4, n_points=4000)
     rms = float(np.sqrt(np.mean(i * i)))
     assert math.isclose(rms, spec.I_rated_Arms, rel_tol=1e-3)
 
@@ -218,7 +261,7 @@ def test_waveform_rms_equals_rated_current():
 def test_waveform_period_matches_line_frequency():
     spec = _ref_3ph()
     L_mH = lr.required_inductance_mH(spec)
-    t, i = lr.line_current_waveform(spec, L_mH, n_cycles=2, n_points=2000)
+    t, _i = lr.line_current_waveform(spec, L_mH, n_cycles=2, n_points=2000)
     expected_T = 2.0 / spec.f_line_Hz
     assert math.isclose(t[-1] + (t[1] - t[0]), expected_T, rel_tol=1e-6)
 
@@ -229,7 +272,7 @@ def test_fft_round_trip_recovers_input_harmonics():
     spec = _ref_3ph()
     L_mH = lr.required_inductance_mH(spec)
     t, i = lr.line_current_waveform(spec, L_mH, n_cycles=10, n_points=10000)
-    n, pct_fft, _thd = lr.harmonic_spectrum(t, i, f_line_Hz=60)
+    _n, pct_fft, _thd = lr.harmonic_spectrum(t, i, f_line_Hz=60)
     pct_an = lr.harmonic_amplitudes_pct(spec, L_mH, n_harmonics=15)
     # Compare 1, 5, 7, 11, 13 — the dominant content
     for h in (1, 5, 7, 11, 13):
@@ -237,4 +280,4 @@ def test_fft_round_trip_recovers_input_harmonics():
 
 
 # Numpy is needed by the tests above
-import numpy as np  # noqa: E402
+import numpy as np

@@ -4,6 +4,7 @@ Each module exposes a top-level ``QWidget`` used as a page in
 ``MainWindow``'s ``QStackedWidget``. The Project page itself contains
 the four-tab workspace (Core / Analysis / Validate / Export).
 """
+
 from pfc_inductor.ui.workspace.analise_page import AnalisePage
 from pfc_inductor.ui.workspace.cascade_page import CascadePage
 from pfc_inductor.ui.workspace.catalogo_page import CatalogoPage

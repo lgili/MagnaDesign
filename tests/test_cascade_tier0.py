@@ -1,4 +1,5 @@
 """Tier 0 filter + candidate generator tests."""
+
 from __future__ import annotations
 
 import pytest
@@ -30,14 +31,23 @@ def db():
 def _boost_spec(Pout_W: float = 800.0) -> Spec:
     return Spec(
         topology="boost_ccm",
-        Vin_min_Vrms=85.0, Vin_max_Vrms=265.0, Vin_nom_Vrms=220.0,
-        Vout_V=400.0, Pout_W=Pout_W, eta=0.97,
-        f_sw_kHz=65.0, ripple_pct=30.0,
-        T_amb_C=40.0, T_max_C=100.0, Ku_max=0.40, Bsat_margin=0.20,
+        Vin_min_Vrms=85.0,
+        Vin_max_Vrms=265.0,
+        Vin_nom_Vrms=220.0,
+        Vout_V=400.0,
+        Pout_W=Pout_W,
+        eta=0.97,
+        f_sw_kHz=65.0,
+        ripple_pct=30.0,
+        T_amb_C=40.0,
+        T_max_C=100.0,
+        Ku_max=0.40,
+        Bsat_margin=0.20,
     )
 
 
 # ─── cartesian generator ───────────────────────────────────────────
+
 
 def test_cartesian_yields_candidates_with_compatible_pairs(db):
     """Default config pairs every core with its default material only."""
@@ -63,7 +73,10 @@ def test_cartesian_only_round_wires_filter_consistent(db):
     """
     n_round = cartesian_count(db["materials"], db["cores"], db["wires"])
     n_all = cartesian_count(
-        db["materials"], db["cores"], db["wires"], only_round_wires=False,
+        db["materials"],
+        db["cores"],
+        db["wires"],
+        only_round_wires=False,
     )
     assert n_round <= n_all
 
@@ -72,7 +85,9 @@ def test_cartesian_with_no_compatibility_filter_explodes_search_space(db):
     """`only_compatible_cores=False` should yield strictly more candidates."""
     n_compatible = cartesian_count(db["materials"], db["cores"], db["wires"])
     n_full = cartesian_count(
-        db["materials"], db["cores"], db["wires"],
+        db["materials"],
+        db["cores"],
+        db["wires"],
         only_compatible_cores=False,
     )
     assert n_full > n_compatible
@@ -80,12 +95,14 @@ def test_cartesian_with_no_compatibility_filter_explodes_search_space(db):
 
 # ─── Tier 0 evaluation ─────────────────────────────────────────────
 
+
 def test_tier0_evaluate_candidate_returns_envelope(db):
     spec = _boost_spec()
     model = BoostCCMModel(spec)
     material = find_material(db["materials"], "magnetics-60_highflux")
     core = next(
-        c for c in db["cores"]
+        c
+        for c in db["cores"]
         if c.default_material_id == material.id and 40_000 < c.Ve_mm3 < 100_000
     )
     wire = next(w for w in db["wires"] if w.id == "AWG14")
@@ -104,9 +121,15 @@ def test_tier0_filter_yields_one_result_per_input(db):
     wires_by_id = {w.id: w for w in db["wires"]}
 
     candidates = list(cartesian(db["materials"], db["cores"], db["wires"]))[:200]
-    results = list(filter_candidates(
-        model, candidates, materials_by_id, cores_by_id, wires_by_id,
-    ))
+    results = list(
+        filter_candidates(
+            model,
+            candidates,
+            materials_by_id,
+            cores_by_id,
+            wires_by_id,
+        )
+    )
 
     assert len(results) == len(candidates)
     # And the order matches.
@@ -124,9 +147,15 @@ def test_tier0_filter_drops_unknown_db_ids(db):
     cores_by_id = {c.id: c for c in db["cores"]}
     wires_by_id = {w.id: w for w in db["wires"]}
 
-    [result] = list(filter_candidates(
-        model, [cand], materials_by_id, cores_by_id, wires_by_id,
-    ))
+    [result] = list(
+        filter_candidates(
+            model,
+            [cand],
+            materials_by_id,
+            cores_by_id,
+            wires_by_id,
+        )
+    )
     assert result.envelope.feasible is False
     assert "missing_db_entry" in result.envelope.reasons
 
@@ -146,9 +175,15 @@ def test_tier0_filter_separates_feasible_from_infeasible(db):
     wires_by_id = {w.id: w for w in db["wires"]}
 
     candidates = list(cartesian(db["materials"], db["cores"], db["wires"]))
-    results = list(filter_candidates(
-        model, candidates, materials_by_id, cores_by_id, wires_by_id,
-    ))
+    results = list(
+        filter_candidates(
+            model,
+            candidates,
+            materials_by_id,
+            cores_by_id,
+            wires_by_id,
+        )
+    )
     feasible = [r for r in results if r.envelope.feasible]
     infeasible = [r for r in results if not r.envelope.feasible]
     assert feasible, "expected at least one feasible candidate across the whole DB"
@@ -156,6 +191,7 @@ def test_tier0_filter_separates_feasible_from_infeasible(db):
 
 
 # ─── Performance smoke test ───────────────────────────────────────
+
 
 def test_tier0_filter_throughput_reasonable(db):
     """Filtering 5 000 candidates must finish in well under one second.
@@ -175,8 +211,13 @@ def test_tier0_filter_throughput_reasonable(db):
     candidates = list(cartesian(db["materials"], db["cores"], db["wires"]))[:5000]
     start = time.perf_counter()
     consumed = sum(
-        1 for _ in filter_candidates(
-            model, candidates, materials_by_id, cores_by_id, wires_by_id,
+        1
+        for _ in filter_candidates(
+            model,
+            candidates,
+            materials_by_id,
+            cores_by_id,
+            wires_by_id,
         )
     )
     elapsed = time.perf_counter() - start

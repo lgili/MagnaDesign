@@ -10,6 +10,7 @@ Contents (left → right):
   any spec change because auto-recalc is intentionally off (see
   ``MainWindow._auto_calc``). One primary per surface, by design.
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -101,9 +102,7 @@ class WorkspaceHeader(QFrame):
         # for first-time users.
         self._btn_compare = QPushButton("Compare")
         self._btn_compare.setProperty("class", "Secondary")
-        self._btn_compare.setIcon(
-            ui_icon("compare", color=get_theme().palette.text, size=16)
-        )
+        self._btn_compare.setIcon(ui_icon("compare", color=get_theme().palette.text, size=16))
         self._btn_compare.setIconSize(QSize(16, 16))
         self._btn_compare.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_compare.setToolTip("Compare solutions side-by-side")
@@ -116,9 +115,7 @@ class WorkspaceHeader(QFrame):
         # Recalculate is the inner-loop action the engineer hits dozens
         # of times per session.
         self._btn_report.setProperty("class", "Secondary")
-        self._btn_report.setIcon(
-            ui_icon("file-text", color=get_theme().palette.text, size=16)
-        )
+        self._btn_report.setIcon(ui_icon("file-text", color=get_theme().palette.text, size=16))
         self._btn_report.setIconSize(QSize(16, 16))
         self._btn_report.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_report.setToolTip("Generate datasheet report (HTML)")
@@ -164,7 +161,8 @@ class WorkspaceHeader(QFrame):
         self._btn_recalc.setIcon(ui_icon("refresh", color=p.text_inverse, size=16))
         # Refresh the save-status pill (which uses palette via QSS).
         self.set_save_status(
-            unsaved=self._unsaved_state, last_saved_at=self._last_saved_at,
+            unsaved=self._unsaved_state,
+            last_saved_at=self._last_saved_at,
         )
 
     # ------------------------------------------------------------------
@@ -174,8 +172,7 @@ class WorkspaceHeader(QFrame):
         if self._name_edit.text() != name:
             self._name_edit.setText(name)
 
-    def set_save_status(self, *, unsaved: bool,
-                        last_saved_at: Optional[datetime] = None) -> None:
+    def set_save_status(self, *, unsaved: bool, last_saved_at: Optional[datetime] = None) -> None:
         self._unsaved_state = unsaved
         self._last_saved_at = last_saved_at
         if unsaved:
@@ -205,6 +202,7 @@ class WorkspaceHeader(QFrame):
         caret rather than rename.
         """
         from PySide6.QtWidgets import QLineEdit
+
         QLineEdit.mouseDoubleClickEvent(self._name_edit, event)
         self._name_edit.selectAll()
 

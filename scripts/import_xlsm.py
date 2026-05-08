@@ -8,7 +8,9 @@ Generates:
     data/cores.json       (~1000 parts: Magnetics, Thornton, TDK, Micrometals, Magmattec)
     data/wires.json       (full AWG table)
 """
+
 from __future__ import annotations
+
 import json
 import math
 from pathlib import Path
@@ -29,8 +31,11 @@ def fit_steinmetz(F_kHz, B_T, P_mWcm3) -> tuple[float, float, float]:
     beta typically in [1.5, 4.0] for ferrites/powder; allow up to 6.0 for HF
     materials with steep B dependence.
     """
-    pts = [(f, b, p) for f, b, p in zip(F_kHz, B_T, P_mWcm3)
-           if f and b and p and p > 0 and f > 0 and b > 0]
+    pts = [
+        (f, b, p)
+        for f, b, p in zip(F_kHz, B_T, P_mWcm3)
+        if f and b and p and p > 0 and f > 0 and b > 0
+    ]
     if len(pts) < 3:
         return (0.0, 1.4, 2.5)
     A = np.array([[1.0, math.log(f), math.log(b)] for f, b, _ in pts])
@@ -45,15 +50,21 @@ def fit_steinmetz(F_kHz, B_T, P_mWcm3) -> tuple[float, float, float]:
     return (math.exp(log_k), a_clamped, b_clamped)
 
 
-def fitted_to_anchored(k: float, a: float, b: float,
-                       f_ref_kHz: float = 100.0, B_ref_mT: float = 100.0
-                       ) -> dict:
+def fitted_to_anchored(
+    k: float, a: float, b: float, f_ref_kHz: float = 100.0, B_ref_mT: float = 100.0
+) -> dict:
     """Convert P = k * f[kHz]^a * B[T]^b to anchored form Pv_ref @ (f_ref kHz, B_ref mT)."""
     B_ref_T = B_ref_mT / 1000.0
-    Pv_ref = k * (f_ref_kHz ** a) * (B_ref_T ** b)
-    return {"Pv_ref_mWcm3": float(Pv_ref), "f_ref_kHz": f_ref_kHz,
-            "B_ref_mT": B_ref_mT, "alpha": float(a), "beta": float(b),
-            "f_min_kHz": 1.0, "f_max_kHz": 500.0}
+    Pv_ref = k * (f_ref_kHz**a) * (B_ref_T**b)
+    return {
+        "Pv_ref_mWcm3": float(Pv_ref),
+        "f_ref_kHz": f_ref_kHz,
+        "B_ref_mT": B_ref_mT,
+        "alpha": float(a),
+        "beta": float(b),
+        "f_min_kHz": 1.0,
+        "f_max_kHz": 500.0,
+    }
 
 
 # ---- Demo bulk costs (USD/kg) -------------------------------------------
@@ -135,17 +146,21 @@ def import_materials(wb) -> dict:
         B_T = [float(b) if b is not None else None for b in B]
         P_mWcm3 = [float(p) if p is not None else None for p in P]
 
-        valid_pts = [(f, b, p) for f, b, p in zip(F_kHz, B_T, P_mWcm3)
-                     if f and b and p and p > 0]
+        valid_pts = [(f, b, p) for f, b, p in zip(F_kHz, B_T, P_mWcm3) if f and b and p and p > 0]
         if valid_pts:
             k, a, b = fit_steinmetz(*zip(*valid_pts))
             steinmetz = fitted_to_anchored(k, a, b)
-            datapoints = [{"f_kHz": f, "B_T": bv, "Pv_mWcm3": p}
-                          for f, bv, p in valid_pts]
+            datapoints = [{"f_kHz": f, "B_T": bv, "Pv_mWcm3": p} for f, bv, p in valid_pts]
         else:
-            steinmetz = {"Pv_ref_mWcm3": 250, "f_ref_kHz": 100,
-                         "B_ref_mT": 100, "alpha": 1.4, "beta": 2.5,
-                         "f_min_kHz": 1.0, "f_max_kHz": 500.0}
+            steinmetz = {
+                "Pv_ref_mWcm3": 250,
+                "f_ref_kHz": 100,
+                "B_ref_mT": 100,
+                "alpha": 1.4,
+                "beta": 2.5,
+                "f_min_kHz": 1.0,
+                "f_max_kHz": 500.0,
+            }
             datapoints = []
 
         vendor = normalize_vendor(str(vendor_raw))
@@ -176,7 +191,10 @@ def import_materials(wb) -> dict:
             ),
         }
         materials.append(m)
-    return {"_comment": "Imported from Otimizador_Magneticos.xlsm. Steinmetz fitted from F/B/P datapoints. Rolloff is default per material type — verify against vendor datasheet for high DC bias designs.", "materials": materials}
+    return {
+        "_comment": "Imported from Otimizador_Magneticos.xlsm. Steinmetz fitted from F/B/P datapoints. Rolloff is default per material type — verify against vendor datasheet for high DC bias designs.",
+        "materials": materials,
+    }
 
 
 # Rolloff library calibrated to published 50%-permeability bias points (H_50 in Oe)
@@ -185,22 +203,46 @@ def import_materials(wb) -> dict:
 # At H_50: a + b*H_50^c = 2  (mu = 0.5), so b = 1.99 / H_50^c.
 
 _HF_BY_MU = {  # Magnetics High Flux: mu -> H_50 Oe (datasheet 25C curves)
-    14: 700, 26: 420, 40: 280, 60: 150, 125: 70, 147: 60, 160: 55,
+    14: 700,
+    26: 420,
+    40: 280,
+    60: 150,
+    125: 70,
+    147: 60,
+    160: 55,
 }
 _XF_BY_MU = {  # Magnetics XFlux
-    19: 540, 26: 380, 40: 250, 60: 155, 75: 125, 90: 105,
+    19: 540,
+    26: 380,
+    40: 250,
+    60: 155,
+    75: 125,
+    90: 105,
 }
 _KOOLMU_BY_MU = {  # Magnetics Kool Mu (Sendust)
-    26: 280, 60: 110, 75: 90, 90: 75, 125: 50, 147: 45, 160: 40,
+    26: 280,
+    60: 110,
+    75: 90,
+    90: 75,
+    125: 50,
+    147: 45,
+    160: 40,
 }
 _MPP_BY_MU = {  # Magnetics MPP (Moly Permalloy)
-    14: 600, 26: 360, 60: 100, 125: 50, 147: 45, 160: 40, 200: 32, 300: 22,
+    14: 600,
+    26: 360,
+    60: 100,
+    125: 50,
+    147: 45,
+    160: 40,
+    200: 32,
+    300: 22,
 }
 
 
 def _curve_from_h50(H_50_Oe: float, c: float = 1.13) -> dict:
-    import math as _m
-    b = 1.99 / (H_50_Oe ** c)
+
+    b = 1.99 / (H_50_Oe**c)
     return {"a": 0.01, "b": float(b), "c": c, "H_units": "Oe"}
 
 
@@ -279,7 +321,9 @@ def lookup_rolloff(vendor: str, name: str, mu_r: float | None) -> dict | None:
         return _curve_from_h50(70, c=1.20)
 
 
-def default_rolloff(type_: str, mu_r: float | None, vendor: str = "", name: str = "") -> dict | None:
+def default_rolloff(
+    type_: str, mu_r: float | None, vendor: str = "", name: str = ""
+) -> dict | None:
     """Compatible signature with prior call site, but uses the calibrated lookup."""
     if type_ != "powder":
         return None
@@ -302,7 +346,14 @@ def guess_family(vendor: str, name: str) -> str:
         return "MnZn ferrite"
     if "IP" in name or name.startswith("TH") or name.startswith("ELM"):
         return "Ferrite"
-    if "002" in name or "014" in name or "018" in name or "026" in name or "034" in name or "052" in name:
+    if (
+        "002" in name
+        or "014" in name
+        or "018" in name
+        or "026" in name
+        or "034" in name
+        or "052" in name
+    ):
         return "Powder iron"
     if "MM" in name or name.startswith("-"):
         return "Iron powder mix"
@@ -329,7 +380,7 @@ def import_cores(wb) -> dict:
     seen = set()
     for r_idx in range(2, ws.max_row + 1):
         row = [c.value for c in ws[r_idx]]
-        part_num, vendor_raw, mat, shape, Ae, Aw, AeAw, AL, le, Ve, mu_r, lgap, MLT = row[:13]
+        part_num, vendor_raw, mat, shape, Ae, Aw, _AeAw, AL, le, Ve, _mu_r, lgap, MLT = row[:13]
         if not part_num or not vendor_raw:
             continue
         try:
@@ -366,7 +417,10 @@ def import_cores(wb) -> dict:
             "notes": "" if lgap == 0 else f"Gapped, l_gap = {lgap} mm",
         }
         cores.append(c)
-    return {"_comment": f"Imported {len(cores)} cores from Otimizador_Magneticos.xlsm.", "cores": cores}
+    return {
+        "_comment": f"Imported {len(cores)} cores from Otimizador_Magneticos.xlsm.",
+        "cores": cores,
+    }
 
 
 def import_wires(wb) -> dict:

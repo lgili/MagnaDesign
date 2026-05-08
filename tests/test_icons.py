@@ -1,4 +1,5 @@
 """Lucide icon registry + tinting smoke tests."""
+
 from __future__ import annotations
 
 import os
@@ -11,6 +12,7 @@ import pytest
 @pytest.fixture(scope="module")
 def app():
     from PySide6.QtWidgets import QApplication
+
     inst = QApplication.instance() or QApplication([])
     yield inst
 
@@ -18,21 +20,63 @@ def app():
 # Names guaranteed by the v2 spec — both v1 (back-compat) and new ones.
 EXPECTED_NAMES = [
     # v1 — must keep working
-    "sliders", "database", "compare", "search", "braid", "cube",
-    "file", "zap", "moon", "sun", "play", "download_cloud",
+    "sliders",
+    "database",
+    "compare",
+    "search",
+    "braid",
+    "cube",
+    "file",
+    "zap",
+    "moon",
+    "sun",
+    "play",
+    "download_cloud",
     # v2 additions
-    "layout-dashboard", "git-branch", "cpu", "gauge", "activity",
-    "box", "cog", "bell", "chevron-down", "chevron-right", "download",
-    "pencil", "check-circle", "alert-triangle", "x-circle", "info",
-    "move-3d", "crop", "ruler", "share", "expand", "image",
-    "eye", "eye-off", "filter", "plus", "minus", "more-horizontal",
-    "arrow-up-right", "circle", "layers", "maximize-2", "settings-2",
-    "file-text", "clock", "play-circle", "trending-up", "trending-down",
+    "layout-dashboard",
+    "git-branch",
+    "cpu",
+    "gauge",
+    "activity",
+    "box",
+    "cog",
+    "bell",
+    "chevron-down",
+    "chevron-right",
+    "download",
+    "pencil",
+    "check-circle",
+    "alert-triangle",
+    "x-circle",
+    "info",
+    "move-3d",
+    "crop",
+    "ruler",
+    "share",
+    "expand",
+    "image",
+    "eye",
+    "eye-off",
+    "filter",
+    "plus",
+    "minus",
+    "more-horizontal",
+    "arrow-up-right",
+    "circle",
+    "layers",
+    "maximize-2",
+    "settings-2",
+    "file-text",
+    "clock",
+    "play-circle",
+    "trending-up",
+    "trending-down",
 ]
 
 
 def test_registry_covers_v2_names(app):
     from pfc_inductor.ui.icons import available_icons, has_icon
+
     available = set(available_icons())
     for name in EXPECTED_NAMES:
         norm = name.replace("_", "-")
@@ -42,6 +86,7 @@ def test_registry_covers_v2_names(app):
 
 def test_icon_returns_non_null(app):
     from pfc_inductor.ui.icons import icon
+
     ic = icon("layout-dashboard")
     assert ic is not None
     assert not ic.isNull()
@@ -52,6 +97,7 @@ def test_icon_returns_non_null(app):
 
 def test_icon_unknown_name_raises_keyerror_with_suggestions(app):
     from pfc_inductor.ui.icons import icon
+
     with pytest.raises(KeyError) as excinfo:
         icon("layout-dahsboard")  # typo
     msg = str(excinfo.value)
@@ -61,6 +107,7 @@ def test_icon_unknown_name_raises_keyerror_with_suggestions(app):
 
 def test_icon_accepts_underscore_or_hyphen(app):
     from pfc_inductor.ui.icons import icon
+
     a = icon("check_circle")
     b = icon("check-circle")
     assert not a.isNull()
@@ -92,4 +139,5 @@ def test_icon_tinting_changes_pixel_colour(app):
 
 def test_registry_size_at_least_40(app):
     from pfc_inductor.ui.icons import available_icons
+
     assert len(available_icons()) >= 40

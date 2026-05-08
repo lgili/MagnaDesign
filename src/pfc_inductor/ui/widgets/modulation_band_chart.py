@@ -15,6 +15,7 @@ with a ``BandedDesignResult`` does the card become visible.
 Single-point ``DesignResult`` paths leave it hidden, preserving
 the legacy Analysis tab layout for non-VFD specs.
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -24,29 +25,23 @@ import matplotlib
 matplotlib.use("QtAgg")
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
-
-from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QFrame,
-    QHBoxLayout,
     QLabel,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
 
-from pfc_inductor.models import Spec
 from pfc_inductor.models.banded_result import BandedDesignResult, BandPoint
 from pfc_inductor.ui.theme import get_theme, on_theme_changed
-
 
 # Per-metric (label, units, accessor, scale) — single source of
 # truth for the three subplots. Adding a fourth metric later is
 # one tuple here + one ax in `_build_figure`.
 _METRICS: tuple[tuple[str, str, str, float], ...] = (
-    ("Total losses", "W",   "P_total_W",  1.0),
-    ("Peak B",       "mT",  "B_pk_T",     1000.0),
-    ("ΔT rise",      "°C",  "T_rise_C",   1.0),
+    ("Total losses", "W", "P_total_W", 1.0),
+    ("Peak B", "mT", "B_pk_T", 1000.0),
+    ("ΔT rise", "°C", "T_rise_C", 1.0),
 )
 
 
@@ -56,7 +51,8 @@ class ModulationBandChart(QWidget):
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed,
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Fixed,
         )
 
         outer = QVBoxLayout(self)
@@ -71,7 +67,8 @@ class ModulationBandChart(QWidget):
         self._figure = Figure(figsize=(8.0, 2.4), tight_layout=True)
         self._canvas = FigureCanvasQTAgg(self._figure)
         self._canvas.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed,
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Fixed,
         )
         self._canvas.setMinimumHeight(220)
         outer.addWidget(self._canvas)
@@ -136,8 +133,11 @@ class ModulationBandChart(QWidget):
 
             if not xs:
                 ax.text(
-                    0.5, 0.5, "no data",
-                    ha="center", va="center",
+                    0.5,
+                    0.5,
+                    "no data",
+                    ha="center",
+                    va="center",
                     color=p.text_muted,
                     transform=ax.transAxes,
                 )
@@ -146,9 +146,12 @@ class ModulationBandChart(QWidget):
                 continue
 
             ax.plot(
-                xs, ys,
-                color=line_color, linewidth=1.6,
-                marker="o", markersize=5,
+                xs,
+                ys,
+                color=line_color,
+                linewidth=1.6,
+                marker="o",
+                markersize=5,
                 markerfacecolor=marker_color,
                 markeredgecolor=marker_color,
             )
@@ -162,17 +165,18 @@ class ModulationBandChart(QWidget):
                 worst_v = self._read(worst_bp, accessor)
                 if worst_v is not None:
                     ax.scatter(
-                        [worst_bp.fsw_kHz], [worst_v * scale],
+                        [worst_bp.fsw_kHz],
+                        [worst_v * scale],
                         color=warn_color,
-                        s=70, zorder=5,
-                        edgecolor=p.surface, linewidth=1.2,
+                        s=70,
+                        zorder=5,
+                        edgecolor=p.surface,
+                        linewidth=1.2,
                         label="worst",
                     )
 
-            ax.set_title(f"{label} [{units}]", fontsize=9,
-                         color=p.text)
-            ax.set_xlabel("fsw [kHz]", fontsize=8,
-                          color=p.text_secondary)
+            ax.set_title(f"{label} [{units}]", fontsize=9, color=p.text)
+            ax.set_xlabel("fsw [kHz]", fontsize=8, color=p.text_secondary)
             ax.tick_params(colors=p.text_muted, labelsize=7)
             ax.grid(True, color=p.border, linewidth=0.4, alpha=0.6)
             for spine in ("top", "right"):
@@ -200,6 +204,7 @@ class ModulationBandChart(QWidget):
         if not isinstance(v, (int, float)):
             return None
         import math
+
         if not math.isfinite(v):
             return None
         return float(v)
@@ -209,10 +214,14 @@ class ModulationBandChart(QWidget):
         ax = self._figure.add_subplot(111)
         p = get_theme().palette
         ax.text(
-            0.5, 0.5, message,
-            ha="center", va="center",
+            0.5,
+            0.5,
+            message,
+            ha="center",
+            va="center",
             color=p.text_muted,
-            transform=ax.transAxes, fontsize=10,
+            transform=ax.transAxes,
+            fontsize=10,
         )
         ax.set_xticks([])
         ax.set_yticks([])

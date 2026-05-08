@@ -18,6 +18,7 @@ The selector picks the lowest class whose limit comfortably
 exceeds the engine's ``T_winding_C`` plus a 10 °C engineering
 margin — bumping margin up trades cost vs. headroom.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -53,28 +54,36 @@ class InsulationClass:
 
 INSULATION_CLASSES: dict[str, InsulationClass] = {
     "A": InsulationClass(
-        id="A", name="Class A", T_max_C=105.0,
+        id="A",
+        name="Class A",
+        T_max_C=105.0,
         inter_layer_tape="Kraft paper",
         inter_layer_tape_mm=0.05,
         enamel_grade="Class 105",
         hipot_dwell_s=60.0,
     ),
     "B": InsulationClass(
-        id="B", name="Class B", T_max_C=130.0,
+        id="B",
+        name="Class B",
+        T_max_C=130.0,
         inter_layer_tape="Mylar polyester",
         inter_layer_tape_mm=0.05,
         enamel_grade="Class 130",
         hipot_dwell_s=60.0,
     ),
     "F": InsulationClass(
-        id="F", name="Class F", T_max_C=155.0,
+        id="F",
+        name="Class F",
+        T_max_C=155.0,
         inter_layer_tape="Nomex 410",
         inter_layer_tape_mm=0.07,
         enamel_grade="Class 155",
         hipot_dwell_s=60.0,
     ),
     "H": InsulationClass(
-        id="H", name="Class H", T_max_C=180.0,
+        id="H",
+        name="Class H",
+        T_max_C=180.0,
         inter_layer_tape="Kapton polyimide",
         inter_layer_tape_mm=0.10,
         enamel_grade="Class 180/200",

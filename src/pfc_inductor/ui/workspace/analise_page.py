@@ -50,6 +50,7 @@ here:
 - ``ProximosPassosCard`` → dropped; the 5 actions are reachable via
   the workspace header CTAs and the sidebar overflow menu.
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -100,8 +101,7 @@ class AnalisePage(QWidget):
         # the page itself, Qt grows the page to its preferred height
         # (= grid's minimum sum, ~700 px) and pushes the surrounding
         # Scoreboard off the screen on smaller laptops.
-        self.setSizePolicy(QSizePolicy.Policy.Expanding,
-                           QSizePolicy.Policy.Expanding)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
@@ -112,8 +112,7 @@ class AnalisePage(QWidget):
         # all available vertical space and clip via the inner
         # QScrollArea instead of dictating the page's preferred height.
         self._stack = QStackedWidget(self)
-        self._stack.setSizePolicy(QSizePolicy.Policy.Expanding,
-                                  QSizePolicy.Policy.Expanding)
+        self._stack.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         outer.addWidget(self._stack, 1)
 
         # Empty-state placeholder (page 0).
@@ -124,8 +123,7 @@ class AnalisePage(QWidget):
         scroll = QScrollArea(self)
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setSizePolicy(QSizePolicy.Policy.Expanding,
-                             QSizePolicy.Policy.Expanding)
+        scroll.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self._scroll = scroll
 
         inner = QWidget()
@@ -146,9 +144,7 @@ class AnalisePage(QWidget):
     # ------------------------------------------------------------------
     def _apply_palette_bg(self) -> None:
         bg = get_theme().palette.bg
-        self._scroll.setStyleSheet(
-            f"QScrollArea {{ background: {bg}; border: 0; }}"
-        )
+        self._scroll.setStyleSheet(f"QScrollArea {{ background: {bg}; border: 0; }}")
         self._inner.setStyleSheet(f"background: {bg};")
         if self._grid_built:
             return
@@ -234,10 +230,11 @@ class AnalisePage(QWidget):
         # context-heavy chart on the page (per-fsw envelope across
         # the modulation band) and benefits from the user already
         # having scrolled past the at-a-glance summary.
+        from pfc_inductor.ui.widgets import Card
         from pfc_inductor.ui.widgets.modulation_band_chart import (
             ModulationBandChart,
         )
-        from pfc_inductor.ui.widgets import Card
+
         self._modulation_chart = ModulationBandChart()
         self._modulation_card = Card(
             "Modulation envelope (fsw band)",
@@ -257,6 +254,7 @@ class AnalisePage(QWidget):
         from pfc_inductor.ui.dashboard.cards.acoustic_card import (
             AcousticCard,
         )
+
         self.card_acoustic = AcousticCard()
         grid.addWidget(self.card_acoustic, 7, 0, 1, 12)
         grid.setRowStretch(7, 0)
@@ -280,9 +278,9 @@ class AnalisePage(QWidget):
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
-    def update_from_design(self, result: DesignResult, spec: Spec,
-                           core: Core, wire: Wire,
-                           material: Material) -> None:
+    def update_from_design(
+        self, result: DesignResult, spec: Spec, core: Core, wire: Wire, material: Material
+    ) -> None:
         for card in self._cards:
             card.update_from_design(result, spec, core, wire, material)
         # VFD modulation envelope — surface the per-fsw curves
@@ -321,8 +319,9 @@ class AnalisePage(QWidget):
             return
         try:
             from pfc_inductor.modulation import eval_band
+
             banded = eval_band(spec, core, wire, material)
-        except Exception:  # noqa: BLE001 — surface as silent hide
+        except Exception:
             self._modulation_card.setVisible(False)
             self._modulation_chart.clear()
             return
@@ -382,13 +381,9 @@ class AnalisePage(QWidget):
         # from a stuck/loading view but still sits on the same page bg.
         if hasattr(self, "_empty_state"):
             self._empty_state.setStyleSheet(
-                f"QFrame#AnaliseEmptyState {{ background: {p.bg};"
-                f" border: 0; }}"
+                f"QFrame#AnaliseEmptyState {{ background: {p.bg}; border: 0; }}"
             )
         self._empty_title.setStyleSheet(
-            f"color: {p.text}; font-size: {t.title_lg}px;"
-            f" font-weight: {t.semibold};"
+            f"color: {p.text}; font-size: {t.title_lg}px; font-weight: {t.semibold};"
         )
-        self._empty_body.setStyleSheet(
-            f"color: {p.text_secondary}; font-size: {t.body_md}px;"
-        )
+        self._empty_body.setStyleSheet(f"color: {p.text_secondary}; font-size: {t.body_md}px;")

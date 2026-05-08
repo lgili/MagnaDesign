@@ -1,4 +1,5 @@
 """Project Summary card — 6 metric tiles + aggregate status pill."""
+
 from __future__ import annotations
 
 from typing import Optional
@@ -58,15 +59,19 @@ class _ResumoBody(QWidget):
         self.m_P = MetricCard("Total losses", "—", "W", trend_better="lower")
 
         for r, c, mc in [
-            (0, 0, self.m_L), (0, 1, self.m_I), (0, 2, self.m_dI),
-            (1, 0, self.m_B), (1, 1, self.m_T), (1, 2, self.m_P),
+            (0, 0, self.m_L),
+            (0, 1, self.m_I),
+            (0, 2, self.m_dI),
+            (1, 0, self.m_B),
+            (1, 1, self.m_T),
+            (1, 2, self.m_P),
         ]:
             grid.addWidget(mc, r, c)
         outer.addLayout(grid)
 
-    def update_from_design(self, result: DesignResult, spec: Spec,
-                           core: Core, wire: Wire,
-                           material: Material) -> None:
+    def update_from_design(
+        self, result: DesignResult, spec: Spec, core: Core, wire: Wire, material: Material
+    ) -> None:
         self.m_L.set_value(f"{result.L_actual_uH:.0f}")
         self.m_I.set_value(f"{result.I_line_pk_A:.1f}")
         self.m_dI.set_value(f"{result.I_ripple_pk_pk_A:.2f}")
@@ -96,8 +101,12 @@ class _ResumoBody(QWidget):
 
     def aggregate_status(self) -> MetricStatus:
         statuses = [
-            self.m_L._status, self.m_I._status, self.m_dI._status,
-            self.m_B._status, self.m_T._status, self.m_P._status,
+            self.m_L._status,
+            self.m_I._status,
+            self.m_dI._status,
+            self.m_B._status,
+            self.m_T._status,
+            self.m_P._status,
         ]
         if "err" in statuses:
             return "err"
@@ -114,13 +123,12 @@ class _ResumoBody(QWidget):
 class ResumoCard(Card):
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         body = _ResumoBody()
-        super().__init__("Project Summary", body,
-                         badge="—", badge_variant="neutral", parent=parent)
+        super().__init__("Project Summary", body, badge="—", badge_variant="neutral", parent=parent)
         self._rbody = body
 
-    def update_from_design(self, result: DesignResult, spec: Spec,
-                           core: Core, wire: Wire,
-                           material: Material) -> None:
+    def update_from_design(
+        self, result: DesignResult, spec: Spec, core: Core, wire: Wire, material: Material
+    ) -> None:
         self._rbody.update_from_design(result, spec, core, wire, material)
         agg = self._rbody.aggregate_status()
         if agg == "ok":

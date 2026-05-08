@@ -11,6 +11,7 @@ NOT overlaid on the image (clean line-drawing style is hard to
 generate procedurally); the datasheet lists dimensions in a table
 adjacent to the views.
 """
+
 from __future__ import annotations
 
 import base64
@@ -42,6 +43,7 @@ def _setup_plotter(window_size: tuple[int, int]):
     can't initialize (CI / very stripped headless boxes)."""
     try:
         import pyvista as pv
+
         pv.OFF_SCREEN = True
         plotter = pv.Plotter(off_screen=True, window_size=window_size)
         plotter.set_background("white")
@@ -58,8 +60,7 @@ def _setup_plotter(window_size: tuple[int, int]):
         return None
 
 
-def _add_to_scene(plotter, core: Core, wire: Wire, N_turns: int,
-                  material: Material) -> None:
+def _add_to_scene(plotter, core: Core, wire: Wire, N_turns: int, material: Material) -> None:
     """Add core + winding using the same geometry helpers as the GUI."""
     mb, kind, info = make_core_mesh(core)
     wnd = make_winding_mesh(core, wire, N_turns, info)
@@ -67,34 +68,38 @@ def _add_to_scene(plotter, core: Core, wire: Wire, N_turns: int,
     core_color = _CORE_COLORS.get(material.type, _CORE_COLORS["default"])
     is_closed = kind in ("ee", "etd", "pq")
     if material.type == "silicon-steel":
-        core_kwargs = dict(metallic=0.65, roughness=0.45,
-                           specular=0.6, specular_power=20)
+        core_kwargs = dict(metallic=0.65, roughness=0.45, specular=0.6, specular_power=20)
     elif material.type == "ferrite":
-        core_kwargs = dict(metallic=0.05, roughness=0.40,
-                           specular=0.5, specular_power=18)
+        core_kwargs = dict(metallic=0.05, roughness=0.40, specular=0.5, specular_power=18)
     elif material.type == "amorphous":
-        core_kwargs = dict(metallic=0.7, roughness=0.30,
-                           specular=0.7, specular_power=25)
+        core_kwargs = dict(metallic=0.7, roughness=0.30, specular=0.7, specular_power=25)
     else:
-        core_kwargs = dict(metallic=0.05, roughness=0.65,
-                           specular=0.20, specular_power=10)
+        core_kwargs = dict(metallic=0.05, roughness=0.65, specular=0.20, specular_power=10)
     opacity = 0.45 if is_closed else 1.0
 
     for blk in mb:
         if blk is None:
             continue
         plotter.add_mesh(
-            blk, color=core_color, smooth_shading=True,
-            ambient=0.20, diffuse=0.85,
+            blk,
+            color=core_color,
+            smooth_shading=True,
+            ambient=0.20,
+            diffuse=0.85,
             opacity=opacity,
             **core_kwargs,
         )
     if wnd is not None:
         plotter.add_mesh(
-            wnd, color=_COPPER, smooth_shading=True,
-            ambient=0.22, diffuse=0.55,
-            specular=0.95, specular_power=40,
-            metallic=0.85, roughness=0.18,
+            wnd,
+            color=_COPPER,
+            smooth_shading=True,
+            ambient=0.22,
+            diffuse=0.55,
+            specular=0.95,
+            specular_power=40,
+            metallic=0.85,
+            roughness=0.18,
         )
 
 
@@ -111,9 +116,14 @@ def _set_view(plotter, name: str) -> None:
     _set_view_helper(plotter, name)
 
 
-def _render_one(core: Core, wire: Wire, N_turns: int, material: Material,
-                view: str, window_size: tuple[int, int] = (640, 480)
-                ) -> Optional[str]:
+def _render_one(
+    core: Core,
+    wire: Wire,
+    N_turns: int,
+    material: Material,
+    view: str,
+    window_size: tuple[int, int] = (640, 480),
+) -> Optional[str]:
     plotter = _setup_plotter(window_size)
     if plotter is None:
         return None
@@ -133,8 +143,9 @@ def _render_one(core: Core, wire: Wire, N_turns: int, material: Material,
         return None
 
 
-def render_views(core: Core, wire: Wire, N_turns: int,
-                 material: Material) -> dict[str, Optional[str]]:
+def render_views(
+    core: Core, wire: Wire, N_turns: int, material: Material
+) -> dict[str, Optional[str]]:
     """Return a dict mapping view name → base64 PNG (or ``None`` if
     pyvista can't initialise on this machine).
     """
@@ -160,6 +171,7 @@ def derive_dimensions(core: Core) -> dict[str, str]:
         _ee_proportions,
         _toroid_dims,
     )
+
     kind = infer_shape(core)
     out: dict[str, str] = {}
     if kind == "toroid":

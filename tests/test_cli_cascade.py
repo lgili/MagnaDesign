@@ -5,6 +5,7 @@ sweeps the whole catalogue through Tier 0 + Tier 1) so it lives
 behind the ``slow`` marker. The dispatch / help / wiring tests
 here run in milliseconds and gate every commit.
 """
+
 from __future__ import annotations
 
 import json
@@ -21,16 +22,27 @@ def cli_runner() -> CliRunner:
 
 def test_cascade_subcommand_registered() -> None:
     from pfc_inductor.cli import SUBCOMMANDS
+
     assert "cascade" in SUBCOMMANDS
 
 
 def test_cascade_help_lists_options(cli_runner: CliRunner) -> None:
     from pfc_inductor.cli import cli
+
     result = cli_runner.invoke(cli, ["cascade", "--help"])
     assert result.exit_code == 0
-    for opt in ("--tier2-k", "--tier3-k", "--tier4-k", "--workers",
-                "--store", "--top", "--rank", "--csv", "--pretty",
-                "--json"):
+    for opt in (
+        "--tier2-k",
+        "--tier3-k",
+        "--tier4-k",
+        "--workers",
+        "--store",
+        "--top",
+        "--rank",
+        "--csv",
+        "--pretty",
+        "--json",
+    ):
         assert opt in result.output, f"missing {opt} in help"
 
 
@@ -39,17 +51,21 @@ def test_cascade_help_carries_rank_choices(cli_runner: CliRunner) -> None:
     isn't in this list because it requires a JOIN to cores —
     the help points users at the GUI for that case."""
     from pfc_inductor.cli import cli
+
     result = cli_runner.invoke(cli, ["cascade", "--help"])
     for choice in ("loss", "temp", "cost", "loss_t2"):
         assert choice in result.output
 
 
 def test_cascade_rejects_missing_project_file(
-    cli_runner: CliRunner, tmp_path: Path,
+    cli_runner: CliRunner,
+    tmp_path: Path,
 ) -> None:
     from pfc_inductor.cli import cli
+
     result = cli_runner.invoke(
-        cli, ["cascade", str(tmp_path / "nope.pfc")],
+        cli,
+        ["cascade", str(tmp_path / "nope.pfc")],
     )
     assert result.exit_code != 0
     assert "not found" in result.output.lower()
@@ -57,7 +73,8 @@ def test_cascade_rejects_missing_project_file(
 
 @pytest.mark.slow
 def test_cascade_full_run_writes_top_n(
-    cli_runner: CliRunner, tmp_path: Path,
+    cli_runner: CliRunner,
+    tmp_path: Path,
 ) -> None:
     """End-to-end smoke — gated as ``slow`` because it sweeps the
     full catalogue through Tier 0 + Tier 1 (~30 s). Run with
@@ -67,9 +84,14 @@ def test_cascade_full_run_writes_top_n(
     from pfc_inductor.project import ProjectFile, save_project
 
     spec = Spec(
-        topology="boost_ccm", Pout_W=600,
-        Vin_min_Vrms=85, Vin_max_Vrms=265, Vout_V=400,
-        f_sw_kHz=65, ripple_pct=20, T_amb_C=40,
+        topology="boost_ccm",
+        Pout_W=600,
+        Vin_min_Vrms=85,
+        Vin_max_Vrms=265,
+        Vout_V=400,
+        f_sw_kHz=65,
+        ripple_pct=20,
+        T_amb_C=40,
     )
     pf = ProjectFile.from_session(
         name="cascade-cli-test",
@@ -86,11 +108,16 @@ def test_cascade_full_run_writes_top_n(
     result = cli_runner.invoke(
         cli,
         [
-            "cascade", str(project_path),
-            "--top", "5",
-            "--workers", "2",
-            "--store", str(store_path),
-            "--csv", str(csv_path),
+            "cascade",
+            str(project_path),
+            "--top",
+            "5",
+            "--workers",
+            "2",
+            "--store",
+            str(store_path),
+            "--csv",
+            str(csv_path),
         ],
     )
     assert result.exit_code == 0, result.output

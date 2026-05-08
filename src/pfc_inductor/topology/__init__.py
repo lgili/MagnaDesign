@@ -1,4 +1,5 @@
 """Topology calculators: operating point, currents, flux waveforms."""
+
 from pfc_inductor.topology import (
     boost_ccm,
     buck_ccm,

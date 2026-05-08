@@ -28,6 +28,7 @@ Selector convention for v2 widgets
 - ``QToolButton[class~="Chip"]`` — view chips and segmented controls.
 - ``QLabel.Pill`` — status pill (variant via ``pill`` dynamic property).
 """
+
 from __future__ import annotations
 
 from pfc_inductor.ui.theme import Sidebar, ThemeState, get_theme
@@ -35,6 +36,7 @@ from pfc_inductor.ui.theme import Sidebar, ThemeState, get_theme
 # ---------------------------------------------------------------------------
 # Public composers
 # ---------------------------------------------------------------------------
+
 
 def make_stylesheet(state: ThemeState | None = None) -> str:
     """Compose every fragment into the application-wide QSS string."""
@@ -130,12 +132,12 @@ def pill_qss(variant: str, state: ThemeState | None = None) -> str:
     r = s.radius
     t = s.type
     table = {
-        "success":  (p.success_bg, p.success),
-        "warning":  (p.warning_bg, p.warning),
-        "danger":   (p.danger_bg, p.danger),
-        "info":     (p.info_bg, p.info),
-        "neutral":  (p.bg, p.text_secondary),
-        "violet":   (p.accent_violet_subtle_bg, p.accent_violet_subtle_text),
+        "success": (p.success_bg, p.success),
+        "warning": (p.warning_bg, p.warning),
+        "danger": (p.danger_bg, p.danger),
+        "info": (p.info_bg, p.info),
+        "neutral": (p.bg, p.text_secondary),
+        "violet": (p.accent_violet_subtle_bg, p.accent_violet_subtle_text),
     }
     bg, fg = table[variant]
     return f"""
@@ -155,6 +157,7 @@ QLabel[class~="Pill"][pill="{variant}"] {{
 # ---------------------------------------------------------------------------
 # v1 fragments (preserved verbatim from prior version, factored)
 # ---------------------------------------------------------------------------
+
 
 def base_qss(s: ThemeState) -> str:
     p = s.palette
@@ -679,6 +682,7 @@ QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {{
 # ---------------------------------------------------------------------------
 # v2 fragments
 # ---------------------------------------------------------------------------
+
 
 def cards_qss(s: ThemeState) -> str:
     """Top-level card frame styling. Drop shadows are attached in code via

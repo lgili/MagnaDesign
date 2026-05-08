@@ -12,6 +12,7 @@ Footer: an "Alterar Topologia" secondary button (hidden behind the
 ``topology_change_requested`` signal so the parent page can decide what
 to do — e.g. open a topology picker dialog).
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -30,9 +31,9 @@ from pfc_inductor.ui.theme import get_theme
 from pfc_inductor.ui.widgets import Card, TopologySchematicWidget
 
 _TOPOLOGY_LABELS = {
-    "boost_ccm":     "Boost CCM Active",
+    "boost_ccm": "Boost CCM Active",
     "passive_choke": "Passive PFC Choke",
-    "line_reactor":  "Line Reactor",
+    "line_reactor": "Line Reactor",
 }
 
 
@@ -77,16 +78,17 @@ class _TopologyBody(QWidget):
         """Expose the embedded schematic for tests / wiring."""
         return self._schematic
 
-    def update_from_design(self, result: DesignResult, spec: Spec,
-                           core: Core, wire: Wire,
-                           material: Material) -> None:
+    def update_from_design(
+        self, result: DesignResult, spec: Spec, core: Core, wire: Wire, material: Material
+    ) -> None:
         topo_label = _TOPOLOGY_LABELS.get(spec.topology, spec.topology)
         # Map Spec.topology to schematic key, picking 3ph variant when
         # the spec asks for it.
         sch_key = spec.topology
         if spec.topology == "line_reactor":
-            sch_key = "line_reactor_3ph" if getattr(spec, "n_phases", 1) == 3 \
-                      else "line_reactor_1ph"
+            sch_key = (
+                "line_reactor_3ph" if getattr(spec, "n_phases", 1) == 3 else "line_reactor_1ph"
+            )
         try:
             self._schematic.set_topology(sch_key)
         except ValueError:
@@ -162,9 +164,9 @@ class TopologiaCard(Card):
         body.topology_change_requested.connect(self.topology_change_requested.emit)
         self._tbody = body
 
-    def update_from_design(self, result: DesignResult, spec: Spec,
-                           core: Core, wire: Wire,
-                           material: Material) -> None:
+    def update_from_design(
+        self, result: DesignResult, spec: Spec, core: Core, wire: Wire, material: Material
+    ) -> None:
         self._tbody.update_from_design(result, spec, core, wire, material)
 
     def clear(self) -> None:

@@ -4,6 +4,7 @@ Each card body exposes ``update_from_design(result, spec, core, wire,
 material)`` and ``clear()``. The :class:`DashboardPage
 <pfc_inductor.ui.dashboard.DashboardPage>` orchestrates them.
 """
+
 from pfc_inductor.ui.dashboard.cards.bh_loop_card import BHLoopCard
 from pfc_inductor.ui.dashboard.cards.bobinamento_card import BobinamentoCard
 from pfc_inductor.ui.dashboard.cards.detalhes_tecnicos_card import DetalhesTecnicosCard

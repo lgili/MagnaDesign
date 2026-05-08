@@ -6,6 +6,7 @@ as the canonical specimen because the engine produces a feasible
 nominal answer there, so we can assert quantitative bounds on
 what worst-case looks like.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -43,13 +44,17 @@ def reference_design(catalogues):
     the input to every corner DOE / yield test."""
     mats, cores, wires = catalogues
     spec = Spec(
-        topology="boost_ccm", Pout_W=600,
-        Vin_min_Vrms=85, Vin_max_Vrms=265, Vout_V=400,
-        f_sw_kHz=65, ripple_pct=20, T_amb_C=40,
+        topology="boost_ccm",
+        Pout_W=600,
+        Vin_min_Vrms=85,
+        Vin_max_Vrms=265,
+        Vout_V=400,
+        f_sw_kHz=65,
+        ripple_pct=20,
+        T_amb_C=40,
     )
     mat = next(m for m in mats if m.id == "magnetics-60_highflux")
-    core = next(c for c in cores
-                if c.id == "magnetics-c058777a2-60_highflux")
+    core = next(c for c in cores if c.id == "magnetics-c058777a2-60_highflux")
     wire = next(w for w in wires if w.id == "AWG14")
     return spec, core, wire, mat
 
@@ -72,8 +77,7 @@ def test_default_tolerance_set_is_complete() -> None:
     # auditor can trace back the assumption.
     for tol in DEFAULT_TOLERANCES.tolerances:
         assert tol.source.strip(), (
-            f"Tolerance {tol.name!r} ships without a source "
-            f"citation — auditor-blocking"
+            f"Tolerance {tol.name!r} ships without a source citation — auditor-blocking"
         )
 
 
@@ -91,6 +95,7 @@ def test_load_tolerance_set_unknown_name_lists_options() -> None:
     ``ValueError`` listing the available names — never a silent
     fallback to the default, which would mask real misconfig."""
     from pfc_inductor.worst_case.tolerances import load_tolerance_set
+
     with pytest.raises(ValueError, match=r"Available:"):
         load_tolerance_set("nonexistent-set")
 
@@ -125,7 +130,11 @@ def test_evaluate_corners_full_factorial_for_small_sets(
         ],
     )
     summary = evaluate_corners(
-        spec, core, wire, mat, small,
+        spec,
+        core,
+        wire,
+        mat,
+        small,
         config=WorstCaseConfig(full_factorial_max_n=4),
     )
     # 3^2 = 9 corners.
@@ -139,7 +148,11 @@ def test_evaluate_corners_fractional_for_large_sets(
     sample (2^N edges + centre + per-axis ± extremes)."""
     spec, core, wire, mat = reference_design
     summary = evaluate_corners(
-        spec, core, wire, mat, DEFAULT_TOLERANCES,
+        spec,
+        core,
+        wire,
+        mat,
+        DEFAULT_TOLERANCES,
         # Force fractional even though N=7 (would be 2187 corners
         # at full factorial — way too slow for a unit test).
         config=WorstCaseConfig(full_factorial_max_n=4),
@@ -205,8 +218,7 @@ def test_monte_carlo_with_no_tolerances_passes_every_sample(
     yield is 100 % when nominal is feasible."""
     spec, core, wire, mat = reference_design
     empty = ToleranceSet(name="empty", tolerances=[])
-    report = simulate_yield(spec, core, wire, mat, empty,
-                            n_samples=20, seed=42)
+    report = simulate_yield(spec, core, wire, mat, empty, n_samples=20, seed=42)
     assert report.n_samples == 20
     assert report.pass_rate == 1.0
     assert report.n_engine_error == 0
@@ -217,10 +229,8 @@ def test_monte_carlo_is_reproducible_with_seed(
 ) -> None:
     """Same seed → same report — required for CI regression."""
     spec, core, wire, mat = reference_design
-    r1 = simulate_yield(spec, core, wire, mat,
-                        DEFAULT_TOLERANCES, n_samples=50, seed=123)
-    r2 = simulate_yield(spec, core, wire, mat,
-                        DEFAULT_TOLERANCES, n_samples=50, seed=123)
+    r1 = simulate_yield(spec, core, wire, mat, DEFAULT_TOLERANCES, n_samples=50, seed=123)
+    r2 = simulate_yield(spec, core, wire, mat, DEFAULT_TOLERANCES, n_samples=50, seed=123)
     assert r1.n_pass == r2.n_pass
     assert r1.n_fail == r2.n_fail
     assert r1.fail_modes == r2.fail_modes
@@ -234,9 +244,7 @@ def test_monte_carlo_default_pass_fn_buckets_failures(
     spec, core, wire, mat = reference_design
     # Force a thermal-dominated failure regime.
     hot_spec = spec.model_copy(update={"T_max_C": 60.0})
-    report = simulate_yield(hot_spec, core, wire, mat,
-                            DEFAULT_TOLERANCES,
-                            n_samples=80, seed=7)
+    report = simulate_yield(hot_spec, core, wire, mat, DEFAULT_TOLERANCES, n_samples=80, seed=7)
     # We expect at least one bucketed failure type.
     assert report.fail_modes
     # Fail-mode buckets sort high-to-low so the top entry is the

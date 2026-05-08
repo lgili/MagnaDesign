@@ -4,6 +4,7 @@ Covers `_RunHistoryDialog` (modal listing past runs from the
 SQLite store) and `CascadePage._load_run_id` (the hydration path
 that fills stats + table + spec strip without re-running anything).
 """
+
 from __future__ import annotations
 
 import os
@@ -25,6 +26,7 @@ from pfc_inductor.optimize.cascade import (
 @pytest.fixture(scope="module")
 def app():
     from PySide6.QtWidgets import QApplication
+
     inst = QApplication.instance() or QApplication([])
     yield inst
 
@@ -32,10 +34,18 @@ def app():
 def _spec(Pout: float = 800.0) -> Spec:
     return Spec(
         topology="boost_ccm",
-        Vin_min_Vrms=85.0, Vin_max_Vrms=265.0, Vin_nom_Vrms=220.0,
-        Vout_V=400.0, Pout_W=Pout, eta=0.97,
-        f_sw_kHz=65.0, ripple_pct=30.0,
-        T_amb_C=40.0, T_max_C=100.0, Ku_max=0.40, Bsat_margin=0.20,
+        Vin_min_Vrms=85.0,
+        Vin_max_Vrms=265.0,
+        Vin_nom_Vrms=220.0,
+        Vout_V=400.0,
+        Pout_W=Pout,
+        eta=0.97,
+        f_sw_kHz=65.0,
+        ripple_pct=30.0,
+        T_amb_C=40.0,
+        T_max_C=100.0,
+        Ku_max=0.40,
+        Bsat_margin=0.20,
     )
 
 
@@ -43,14 +53,22 @@ def _seed_run(store: RunStore, *, spec: Spec, n_rows: int = 3) -> str:
     """Insert a synthetic 'done' run with a few feasible candidates."""
     run_id = store.create_run(spec, current_db_versions(), {})
     for i in range(n_rows):
-        store.write_candidate(run_id, CandidateRow(
-            candidate_key=f"core_{i}|mat|wire|_|_",
-            core_id=f"core_{i}", material_id="mat", wire_id="wire",
-            N=42 + i, gap_mm=None,
-            highest_tier=1, feasible_t0=True,
-            loss_t1_W=5.0 + i, temp_t1_C=70.0,
-            cost_t1_USD=4.0,
-        ))
+        store.write_candidate(
+            run_id,
+            CandidateRow(
+                candidate_key=f"core_{i}|mat|wire|_|_",
+                core_id=f"core_{i}",
+                material_id="mat",
+                wire_id="wire",
+                N=42 + i,
+                gap_mm=None,
+                highest_tier=1,
+                feasible_t0=True,
+                loss_t1_W=5.0 + i,
+                temp_t1_C=70.0,
+                cost_t1_USD=4.0,
+            ),
+        )
     store.update_status(run_id, "done")
     return run_id
 

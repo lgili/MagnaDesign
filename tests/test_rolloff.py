@@ -6,8 +6,14 @@ from pfc_inductor.physics.rolloff import H_from_NI, inductance_uH, mu_pct
 
 def make_material(rolloff: RolloffParams | None = None) -> Material:
     return Material(
-        id="t", vendor="t", family="t", name="t", type="powder",
-        mu_initial=60, Bsat_25C_T=1.0, Bsat_100C_T=0.9,
+        id="t",
+        vendor="t",
+        family="t",
+        name="t",
+        type="powder",
+        mu_initial=60,
+        Bsat_25C_T=1.0,
+        Bsat_100C_T=0.9,
         steinmetz=SteinmetzParams(Pv_ref_mWcm3=100, alpha=1.4, beta=2.5),
         rolloff=rolloff,
     )
@@ -31,7 +37,7 @@ def test_rolloff_kool_mu_60_signature():
     """Calibrated to ~50% rolloff at H~110 Oe (Kool Mu 60u published curve)."""
     m = make_material(RolloffParams(a=0.01, b=0.01, c=1.13))
     mu_at_110 = mu_pct(m, 110.0)
-    assert 0.4 < mu_at_110 < 0.6, f"Expected ~50% at 110 Oe, got {mu_at_110*100:.1f}%"
+    assert 0.4 < mu_at_110 < 0.6, f"Expected ~50% at 110 Oe, got {mu_at_110 * 100:.1f}%"
 
 
 def test_H_from_NI_oersted_units():

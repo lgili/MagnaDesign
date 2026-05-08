@@ -75,7 +75,9 @@ geralmente mostram só DC `H_peak` numérico.
 Design system Linear/Notion-style, dashboard de 9 cards, 3D core
 viewer com PyVista (vistas ortográficas + iso), ícones SVG inline
 (Lucide), schematic procedural por topologia. Apps de engenharia
-geralmente são feios — esse não é.
+geralmente são feios — esse não é. Detalhes do layout, tokens
+de design e receitas para adicionar cards / overlays 3D em
+[`docs/UI.md`](UI.md).
 
 ### 7. Vendors brasileiros + UI em português
 
@@ -108,9 +110,12 @@ Honestidade com o usuário:
 - **Você está projetando transformador, não indutor de PFC** → o
   domínio é PFC choke. Outras topologias funcionam mas a UI não foi
   desenhada para elas.
-- **Você precisa de uma API/CLI batch** → ainda somos uma app desktop.
-  As funções core (em `pfc_inductor.physics`, `topology`, `design`)
-  são puras e usáveis programaticamente, mas sem CLI dedicada hoje.
+- **Você precisa de uma API/CLI batch** → temos
+  ``magnadesign design / sweep / cascade / report / mfg-spec /
+  compliance / worst-case / circuit / catalog / datasheet`` como
+  subcomandos headless (ver `docs/getting-started/cli.rst`). As
+  funções core (em `pfc_inductor.physics`, `topology`, `design`)
+  também são puras e usáveis programaticamente.
 
 ## Próximos diferenciais (roadmap)
 

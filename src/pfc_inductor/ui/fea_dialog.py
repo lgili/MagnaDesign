@@ -4,6 +4,7 @@ Prefers the FEMMT (Python+ONELAB) backend; falls back to legacy FEMM/xfemm
 when only that is installed. Gracefully degrades to a disabled run button
 with install instructions when no backend is detected.
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -57,7 +58,11 @@ class _ValidationWorker(QObject):
     def run(self):
         try:
             v = validate_design(
-                self.spec, self.core, self.wire, self.material, self.result,
+                self.spec,
+                self.core,
+                self.wire,
+                self.material,
+                self.result,
             )
             self.finished.emit(v)
         except FEMMNotAvailable as e:
@@ -123,7 +128,7 @@ class FEAValidationDialog(QDialog):
             f"{self._core.vendor} — {self._core.part_number} ({self._core.shape})\n"
             f"N = {self._result.N_turns}   I_pk = {self._result.I_line_pk_A:.2f} A   "
             f"L_analytic = {self._result.L_actual_uH:.0f} µH   "
-            f"B_pk_analytic = {self._result.B_pk_T*1000:.0f} mT"
+            f"B_pk_analytic = {self._result.B_pk_T * 1000:.0f} mT"
         )
 
     def _build_results_box(self) -> QGroupBox:
@@ -179,6 +184,7 @@ class FEAValidationDialog(QDialog):
 
     def _on_initial_state(self):
         from pfc_inductor.fea.probe import is_femmt_onelab_configured
+
         p = get_theme().palette
         shape = infer_shape(self._core)
         chosen = select_backend_for_shape(shape)
@@ -189,31 +195,31 @@ class FEAValidationDialog(QDialog):
             if not is_femmt_onelab_configured():
                 self.lbl_status.setText(
                     f'<span style="color:{p.warning}">●</span> '
-                    f'<b>FEMMT</b> {ver} importable, but <b>ONELAB is not '
-                    f'yet configured</b>.<br>'
-                    f'<i>See <code>docs/fea-install.md</code> for setup '
-                    f'(<code>~/onelab</code> + <code>config.json</code>).</i>'
+                    f"<b>FEMMT</b> {ver} importable, but <b>ONELAB is not "
+                    f"yet configured</b>.<br>"
+                    f"<i>See <code>docs/fea-install.md</code> for setup "
+                    f"(<code>~/onelab</code> + <code>config.json</code>).</i>"
                 )
                 self.btn_run.setEnabled(False)
                 return
             if fidelity == "high":
                 self.lbl_status.setText(
                     f'<span style="color:{p.success}">●</span> '
-                    f'<b>FEMMT</b> {ver} — native geometry for '
-                    f'<b>{shape.upper()}</b> (high fidelity)'
+                    f"<b>FEMMT</b> {ver} — native geometry for "
+                    f"<b>{shape.upper()}</b> (high fidelity)"
                 )
             else:
                 hint = ""
                 if not is_femm_available():
                     hint = (
-                        '<br><i>For high-fidelity toroid, install legacy FEMM '
-                        'and the app uses it automatically '
-                        '(<code>brew install xfemm</code> or Wine).</i>'
+                        "<br><i>For high-fidelity toroid, install legacy FEMM "
+                        "and the app uses it automatically "
+                        "(<code>brew install xfemm</code> or Wine).</i>"
                     )
                 self.lbl_status.setText(
                     f'<span style="color:{p.warning}">●</span> '
-                    f'<b>FEMMT</b> {ver} — toroid via PQ-equivalent '
-                    f'(<i>approximate</i>, typical 1.5–6× divergence){hint}'
+                    f"<b>FEMMT</b> {ver} — toroid via PQ-equivalent "
+                    f"(<i>approximate</i>, typical 1.5–6× divergence){hint}"
                 )
             self.btn_run.setEnabled(True)
             return
@@ -221,14 +227,15 @@ class FEAValidationDialog(QDialog):
         if chosen == "femm":
             ver = femm_version()
             extra = (
-                ' — native axisymmetric (high fidelity)'
-                if fidelity == "high" else ' (approximate fidelity)'
+                " — native axisymmetric (high fidelity)"
+                if fidelity == "high"
+                else " (approximate fidelity)"
             )
             color = p.success if fidelity == "high" else p.warning
             self.lbl_status.setText(
                 f'<span style="color:{color}">●</span> '
-                f'<b>FEMM</b> em <code>{find_femm_binary()}</code>'
-                + (f' ({ver})' if ver else '')
+                f"<b>FEMM</b> em <code>{find_femm_binary()}</code>"
+                + (f" ({ver})" if ver else "")
                 + extra
             )
             self.btn_run.setEnabled(True)
@@ -236,8 +243,8 @@ class FEAValidationDialog(QDialog):
 
         self.lbl_status.setText(
             f'<span style="color:{p.danger}">●</span> No FEA backend available for '
-            f'shape <b>{shape.upper()}</b>.<br>'
-            f'<i>{install_hint()}</i>'
+            f"shape <b>{shape.upper()}</b>.<br>"
+            f"<i>{install_hint()}</i>"
         )
         self.btn_run.setEnabled(False)
 
@@ -254,7 +261,11 @@ class FEAValidationDialog(QDialog):
             self.txt_log.appendPlainText("Building geometry and Lua script (legacy FEMM)...")
 
         self._worker = _ValidationWorker(
-            self._spec, self._core, self._wire, self._material, self._result,
+            self._spec,
+            self._core,
+            self._wire,
+            self._material,
+            self._result,
         )
         self._thread = QThread(self)
         self._worker.moveToThread(self._thread)
@@ -283,12 +294,11 @@ class FEAValidationDialog(QDialog):
             f"({self._color_pct(v.L_pct_error)})"
         )
         self.l_B.setText(
-            f"{v.B_pk_FEA_T*1000:6.0f} mT vs  {v.B_pk_analytic_T*1000:.0f} mT    "
+            f"{v.B_pk_FEA_T * 1000:6.0f} mT vs  {v.B_pk_analytic_T * 1000:.0f} mT    "
             f"({self._color_pct(v.B_pct_error)})"
         )
         self.l_solve.setText(f"{v.solve_time_s:.1f} s  ({v.femm_binary})")
-        color = {"high": pal.success, "medium": pal.warning,
-                 "low": pal.danger}[v.confidence]
+        color = {"high": pal.success, "medium": pal.warning, "low": pal.danger}[v.confidence]
         self.l_confidence.setText(
             f'<span style="color:{color};font-weight:bold">{v.confidence}</span>'
         )

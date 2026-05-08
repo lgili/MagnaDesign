@@ -6,6 +6,7 @@ solver) behind the `ConverterModel` Protocol, and adds the Phase-B
 cycle-averaged inductor differential equation with PWM-resolved
 switch state.
 """
+
 from __future__ import annotations
 
 import math
@@ -30,8 +31,7 @@ class BoostCCMModel:
     def __init__(self, spec: Spec) -> None:
         if spec.topology != "boost_ccm":
             raise ValueError(
-                f"BoostCCMModel requires spec.topology == 'boost_ccm', "
-                f"got {spec.topology!r}",
+                f"BoostCCMModel requires spec.topology == 'boost_ccm', got {spec.topology!r}",
             )
         self.spec = spec
         # Cached scalars used inside the hot ODE path.
@@ -41,7 +41,10 @@ class BoostCCMModel:
         self._f_sw_Hz = float(spec.f_sw_kHz) * 1000.0
 
     def feasibility_envelope(
-        self, core: Core, material: Material, wire: Wire,
+        self,
+        core: Core,
+        material: Material,
+        wire: Wire,
     ) -> FeasibilityEnvelope:
         verdict = core_quick_check(self.spec, core, material, wire)
         if verdict == "ok":
@@ -49,7 +52,10 @@ class BoostCCMModel:
         return FeasibilityEnvelope(feasible=False, reasons=[verdict])
 
     def steady_state(
-        self, core: Core, material: Material, wire: Wire,
+        self,
+        core: Core,
+        material: Material,
+        wire: Wire,
     ) -> DesignResult:
         return design(self.spec, core, wire, material)
 

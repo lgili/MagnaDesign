@@ -24,14 +24,13 @@ layers — typically 0.05 mm Mylar / Nomex polyester. The default
 (``INTER_LAYER_TAPE_MM = 0.05``) matches the IEC 60085 Class B
 default; bumps to 0.07 mm or 0.1 mm for Class F / H constructions.
 """
+
 from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Optional
 
 from pfc_inductor.models import Core, Wire
-
 
 # Default thickness of inter-layer dielectric tape (mm). Matches
 # the IEC 60085 Class B default; the caller can override per
@@ -119,8 +118,7 @@ def plan_winding(
             window_height_mm=window_height_mm,
             inter_layer_tape_mm=inter_layer_tape_mm,
             extra_warnings=(
-                "Bobbin breadth or window height ≤ 0 — core "
-                "geometry incomplete, layout skipped",
+                "Bobbin breadth or window height ≤ 0 — core geometry incomplete, layout skipped",
             ),
         )
 
@@ -131,10 +129,7 @@ def plan_winding(
             layer_breadth_mm=layer_breadth_mm,
             window_height_mm=window_height_mm,
             inter_layer_tape_mm=inter_layer_tape_mm,
-            extra_warnings=(
-                f"Wire {wire.id} has zero outer diameter — "
-                "layout skipped",
-            ),
+            extra_warnings=(f"Wire {wire.id} has zero outer diameter — layout skipped",),
         )
 
     turns_per_layer = max(1, int(layer_breadth_mm // wire_od))
@@ -148,17 +143,18 @@ def plan_winding(
         cumulative_height += wire_od
         if idx > 0:
             cumulative_height += inter_layer_tape_mm
-        layers.append(LayerPlan(
-            index=idx + 1,
-            turns=layer_turns,
-            breadth_mm=round(layer_turns * wire_od, 3),
-            height_mm=round(cumulative_height, 3),
-        ))
+        layers.append(
+            LayerPlan(
+                index=idx + 1,
+                turns=layer_turns,
+                breadth_mm=round(layer_turns * wire_od, 3),
+                height_mm=round(cumulative_height, 3),
+            )
+        )
         remaining -= layer_turns
 
     bobbin_used_pct = (
-        100.0 * cumulative_height / window_height_mm
-        if window_height_mm > 0 else math.inf
+        100.0 * cumulative_height / window_height_mm if window_height_mm > 0 else math.inf
     )
 
     warnings: list[str] = []

@@ -16,6 +16,7 @@ shareable artifact.
 All copy is in English, optimised for an engineer-reader who scans
 specs first and reads narrative only on demand.
 """
+
 from __future__ import annotations
 
 import base64
@@ -43,8 +44,7 @@ from pfc_inductor.report.views_3d import derive_dimensions, render_views
 # ---------------------------------------------------------------------------
 def _b64(fig) -> str:
     buf = BytesIO()
-    fig.savefig(buf, format="png", dpi=110, bbox_inches="tight",
-                facecolor="white")
+    fig.savefig(buf, format="png", dpi=110, bbox_inches="tight", facecolor="white")
     plt.close(fig)
     return base64.b64encode(buf.getvalue()).decode("ascii")
 
@@ -97,8 +97,14 @@ def _loss_plot(result: DesignResult) -> str:
     ax.set_title(f"Loss breakdown — total {L.P_total_W:.2f} W", fontsize=10)
     ax.grid(True, axis="y", alpha=0.35)
     for b, v in zip(bars, values, strict=False):
-        ax.text(b.get_x() + b.get_width()/2, v + 0.02, f"{v:.2f}",
-                ha="center", va="bottom", fontsize=8)
+        ax.text(
+            b.get_x() + b.get_width() / 2,
+            v + 0.02,
+            f"{v:.2f}",
+            ha="center",
+            va="bottom",
+            fontsize=8,
+        )
     return _b64(fig)
 
 
@@ -109,15 +115,23 @@ def _rolloff_plot(material: Material, result: DesignResult) -> Optional[str]:
     mu = np.array([rf.mu_pct(material, h) for h in H]) * 100
     fig, ax = plt.subplots(figsize=(7.0, 3.4), dpi=110)
     ax.semilogx(H, mu, linewidth=1.6, color="#3a78b5")
-    ax.axvline(result.H_dc_peak_Oe, color="#a01818", linestyle="--",
-               alpha=0.6, label=f"H = {result.H_dc_peak_Oe:.0f} Oe")
-    ax.axhline(result.mu_pct_at_peak * 100, color="#a01818",
-               linestyle=":", alpha=0.6,
-               label=f"μ% = {result.mu_pct_at_peak*100:.1f}%")
+    ax.axvline(
+        result.H_dc_peak_Oe,
+        color="#a01818",
+        linestyle="--",
+        alpha=0.6,
+        label=f"H = {result.H_dc_peak_Oe:.0f} Oe",
+    )
+    ax.axhline(
+        result.mu_pct_at_peak * 100,
+        color="#a01818",
+        linestyle=":",
+        alpha=0.6,
+        label=f"μ% = {result.mu_pct_at_peak * 100:.1f}%",
+    )
     ax.set_xlabel("H [Oe]")
     ax.set_ylabel("μ% [% initial]")
-    ax.set_title(f"DC bias roll-off — {escape(material.name)}",
-                 fontsize=10)
+    ax.set_title(f"DC bias roll-off — {escape(material.name)}", fontsize=10)
     ax.set_ylim(0, 105)
     ax.legend(loc="lower left", fontsize=8)
     ax.grid(True, which="both", alpha=0.35)
@@ -137,18 +151,16 @@ def _harmonic_plot(spec: Spec, result: DesignResult) -> Optional[str]:
 
     t = np.array(result.waveform_t_s)
     i = np.array(result.waveform_iL_A)
-    n_axis, pct, thd = lr.harmonic_spectrum(t, i, f_line_Hz=spec.f_line_Hz,
-                                             n_harmonics=39)
+    n_axis, pct, thd = lr.harmonic_spectrum(t, i, f_line_Hz=spec.f_line_Hz, n_harmonics=39)
     I_rms = float(np.sqrt(np.mean(i * i)))
     sum_sq = float(np.sum((pct[1:] / 100.0) ** 2))
     I1 = I_rms / math.sqrt(1.0 + sum_sq) if (1.0 + sum_sq) > 0 else 0.0
-    harmonics_A = {int(h): (pct[idx] / 100.0) * I1
-                    for idx, h in enumerate(n_axis)}
+    harmonics_A = {int(h): (pct[idx] / 100.0) * I1 for idx, h in enumerate(n_axis)}
     Pi = result.Pi_W or 0.0
     compliance = iec.evaluate_compliance(harmonics_A, Pi)
     limits = iec.class_d_limits(Pi) if Pi > 0 else {}
 
-    plot_orders = [1] + iec.ODD_HARMONICS
+    plot_orders = [1, *iec.ODD_HARMONICS]
     plot_amps_mA = [harmonics_A.get(h, 0.0) * 1000 for h in plot_orders]
     colors = []
     for h, amp_mA in zip(plot_orders, plot_amps_mA, strict=False):
@@ -159,48 +171,97 @@ def _harmonic_plot(spec: Spec, result: DesignResult) -> Optional[str]:
             colors.append("#a01818" if (lim > 0 and amp_mA > lim) else "#3a78b5")
 
     fig, ax = plt.subplots(figsize=(8.0, 3.6), dpi=110)
-    ax.bar(plot_orders, plot_amps_mA, width=0.7, color=colors,
-           label="Predicted (RMS)")
+    ax.bar(plot_orders, plot_amps_mA, width=0.7, color=colors, label="Predicted (RMS)")
     if limits:
         lo = sorted(limits.keys())
         lv_mA = [limits[h] * 1000 for h in lo]
-        ax.plot(lo, lv_mA, color="#a06700", linestyle="--", marker="o",
-                markersize=4, linewidth=1.5,
-                label="IEC 61000-3-2 Class D")
+        ax.plot(
+            lo,
+            lv_mA,
+            color="#a06700",
+            linestyle="--",
+            marker="o",
+            markersize=4,
+            linewidth=1.5,
+            label="IEC 61000-3-2 Class D",
+        )
     # IEC 61000-3-12 — industrial-equipment connection at the PCC,
     # for input current 16 A < I ≤ 75 A. Default compatibility level
     # 2 (general industrial environment), Table 4: per-harmonic
     # current limits expressed as % of fundamental.
     iec_3_12_pct = {
-        3: 21.6, 5: 10.7, 7: 7.2, 9: 3.8, 11: 3.1, 13: 2.0,
-        15: 0.7, 17: 1.2, 19: 1.1, 21: 0.6, 23: 0.9, 25: 0.8,
-        27: 0.6, 29: 0.7, 31: 0.7, 33: 0.6, 35: 0.6, 37: 0.5,
+        3: 21.6,
+        5: 10.7,
+        7: 7.2,
+        9: 3.8,
+        11: 3.1,
+        13: 2.0,
+        15: 0.7,
+        17: 1.2,
+        19: 1.1,
+        21: 0.6,
+        23: 0.9,
+        25: 0.8,
+        27: 0.6,
+        29: 0.7,
+        31: 0.7,
+        33: 0.6,
+        35: 0.6,
+        37: 0.5,
         39: 0.5,
     }
     if I1 > 0:
         lo312 = sorted(iec_3_12_pct.keys())
         lv312_mA = [iec_3_12_pct[h] / 100.0 * I1 * 1000.0 for h in lo312]
-        ax.plot(lo312, lv312_mA, color="#3a78b5", linestyle=":",
-                marker="s", markersize=3, linewidth=1.2,
-                label="IEC 61000-3-12 (industrial)")
+        ax.plot(
+            lo312,
+            lv312_mA,
+            color="#3a78b5",
+            linestyle=":",
+            marker="s",
+            markersize=3,
+            linewidth=1.2,
+            label="IEC 61000-3-12 (industrial)",
+        )
     # IEEE 519-2014 Table 10-3 — TDD (Total Demand Distortion) at the
     # PCC. The standard expresses limits as % of I_L (max demand
     # load current at the fundamental). Without a specific Isc/IL
     # ratio we plot the most-common 50≤Isc/IL<100 column (industrial
     # mid-range), which gives 7 % per individual h<11.
     ieee_519_pct = {
-        3: 7.0, 5: 7.0, 7: 7.0, 9: 7.0,
-        11: 3.5, 13: 3.5, 15: 3.5,
-        17: 2.5, 19: 2.5, 21: 2.5,
-        23: 1.0, 25: 1.0, 27: 1.0, 29: 1.0,
-        31: 0.5, 33: 0.5, 35: 0.5, 37: 0.5, 39: 0.5,
+        3: 7.0,
+        5: 7.0,
+        7: 7.0,
+        9: 7.0,
+        11: 3.5,
+        13: 3.5,
+        15: 3.5,
+        17: 2.5,
+        19: 2.5,
+        21: 2.5,
+        23: 1.0,
+        25: 1.0,
+        27: 1.0,
+        29: 1.0,
+        31: 0.5,
+        33: 0.5,
+        35: 0.5,
+        37: 0.5,
+        39: 0.5,
     }
     if I1 > 0:
         lo519 = sorted(ieee_519_pct.keys())
         lv519_mA = [ieee_519_pct[h] / 100.0 * I1 * 1000.0 for h in lo519]
-        ax.plot(lo519, lv519_mA, color="#52525B", linestyle="-.",
-                marker="^", markersize=3, linewidth=1.0,
-                label="IEEE 519-2014 (50≤Isc/IL<100)")
+        ax.plot(
+            lo519,
+            lv519_mA,
+            color="#52525B",
+            linestyle="-.",
+            marker="^",
+            markersize=3,
+            linewidth=1.0,
+            label="IEEE 519-2014 (50≤Isc/IL<100)",
+        )
     verdict = "PASS" if compliance.passes else "FAIL"
     extra = ""
     if Pi > 600:
@@ -210,8 +271,8 @@ def _harmonic_plot(spec: Spec, result: DesignResult) -> Optional[str]:
     ax.set_xlabel("Harmonic order")
     ax.set_ylabel("Current [mA RMS]")
     ax.set_title(
-        f"Harmonic spectrum — Pi = {Pi:.0f} W · {verdict} · "
-        f"THD {thd:.1f}%{extra}", fontsize=10,
+        f"Harmonic spectrum — Pi = {Pi:.0f} W · {verdict} · THD {thd:.1f}%{extra}",
+        fontsize=10,
     )
     ax.set_xticks(plot_orders[::2])
     ax.grid(True, axis="y", alpha=0.35)
@@ -226,24 +287,23 @@ def _harmonic_plot(spec: Spec, result: DesignResult) -> Optional[str]:
 # material; identical inputs produce the same hash) so any change
 # the engineer makes is obvious in the history table.
 # ---------------------------------------------------------------------------
-def _revision_history_rows(revision: str, designer: str,
-                            now: str) -> str:
+def _revision_history_rows(revision: str, designer: str, now: str) -> str:
     head = (
-        '<thead><tr>'
+        "<thead><tr>"
         '<th class="lbl">Rev</th>'
-        '<th>Date</th>'
-        '<th>Author</th>'
-        '<th>Change</th>'
-        '</tr></thead>'
+        "<th>Date</th>"
+        "<th>Author</th>"
+        "<th>Change</th>"
+        "</tr></thead>"
     )
     rows: list[tuple[str, str, str, str]] = [
         (revision, now, designer, "Initial release of this design"),
     ]
     body = "".join(
         f'<tr><td class="lbl">{escape(rv)}</td>'
-        f'<td>{escape(d)}</td>'
-        f'<td>{escape(a)}</td>'
-        f'<td>{escape(ch)}</td></tr>'
+        f"<td>{escape(d)}</td>"
+        f"<td>{escape(a)}</td>"
+        f"<td>{escape(ch)}</td></tr>"
         for (rv, d, a, ch) in rows
     )
     return f'<table class="dim">{head}<tbody>{body}</tbody></table>'
@@ -256,19 +316,17 @@ def _revision_history_rows(revision: str, designer: str,
 # format, exact spec/core/material keys. Anyone wanting to reproduce
 # the design feeds those four ids back into MagnaDesign.
 # ---------------------------------------------------------------------------
-def _project_metadata_rows(spec: Spec, core: Core, material: Material,
-                            wire: Wire, pn: str) -> str:
+def _project_metadata_rows(spec: Spec, core: Core, material: Material, wire: Wire, pn: str) -> str:
     rows = {
-        "Project P/N (this design)":  f"<code>{pn}</code>",
-        "Topology key":               f"<code>{escape(spec.topology)}</code>",
-        "Material id":                f"<code>{escape(material.id)}</code>",
-        "Core id":                    f"<code>{escape(core.id)}</code>",
-        "Wire id":                    f"<code>{escape(wire.id)}</code>",
-        "Source format":              ".pfc (JSON, MagnaDesign)",
-        "Reproduce in MagnaDesign":
-            "Open the .pfc file or recreate the spec with the four "
-            "ids above; the engine is deterministic given the same "
-            "spec + core + material + wire.",
+        "Project P/N (this design)": f"<code>{pn}</code>",
+        "Topology key": f"<code>{escape(spec.topology)}</code>",
+        "Material id": f"<code>{escape(material.id)}</code>",
+        "Core id": f"<code>{escape(core.id)}</code>",
+        "Wire id": f"<code>{escape(wire.id)}</code>",
+        "Source format": ".pfc (JSON, MagnaDesign)",
+        "Reproduce in MagnaDesign": "Open the .pfc file or recreate the spec with the four "
+        "ids above; the engine is deterministic given the same "
+        "spec + core + material + wire.",
     }
     return _kv_table(rows, extra_class="dim")
 
@@ -277,30 +335,55 @@ def _project_metadata_rows(spec: Spec, core: Core, material: Material,
 # B–H operating-point trajectory — same plot the dashboard's BHLoopCard
 # already builds, rendered to PNG so the printed datasheet carries it.
 # ---------------------------------------------------------------------------
-def _bh_trajectory_plot(result: DesignResult, core: Core,
-                         material: Material) -> Optional[str]:
+def _bh_trajectory_plot(result: DesignResult, core: Core, material: Material) -> Optional[str]:
     try:
         from pfc_inductor.visual import compute_bh_trajectory
+
         tr = compute_bh_trajectory(result, core, material)
     except Exception:
         return None
     fig, ax = plt.subplots(figsize=(7.0, 3.6), dpi=110)
-    ax.plot(tr["H_static_Oe"], tr["B_static_T"] * 1000.0,
-            color="#bbb", linewidth=1.2, label="Static B–H curve")
+    ax.plot(
+        tr["H_static_Oe"],
+        tr["B_static_T"] * 1000.0,
+        color="#bbb",
+        linewidth=1.2,
+        label="Static B–H curve",
+    )
     Bsat_mT = float(tr["Bsat_T"]) * 1000.0
-    ax.axhline(Bsat_mT, color="#a01818", linestyle="--", alpha=0.7,
-               linewidth=1.0, label=f"Bsat (100°C) = {Bsat_mT:.0f} mT")
-    ax.plot(tr["H_envelope_Oe"], tr["B_envelope_T"] * 1000.0,
-            color="#3a78b5", linewidth=1.8, alpha=0.9,
-            label="Line-cycle envelope")
+    ax.axhline(
+        Bsat_mT,
+        color="#a01818",
+        linestyle="--",
+        alpha=0.7,
+        linewidth=1.0,
+        label=f"Bsat (100°C) = {Bsat_mT:.0f} mT",
+    )
+    ax.plot(
+        tr["H_envelope_Oe"],
+        tr["B_envelope_T"] * 1000.0,
+        color="#3a78b5",
+        linewidth=1.8,
+        alpha=0.9,
+        label="Line-cycle envelope",
+    )
     if tr["H_ripple_Oe"] is not None and tr["B_ripple_T"] is not None:
-        ax.plot(tr["H_ripple_Oe"], tr["B_ripple_T"] * 1000.0,
-                color="#a06700", linewidth=1.4, alpha=0.9,
-                label="HF ripple at peak")
-    ax.plot([tr["H_pk_Oe"]], [tr["B_pk_T"] * 1000.0],
-             "o", color="#a01818", markersize=6,
-             label=f"Operating peak ({tr['H_pk_Oe']:.0f} Oe / "
-                   f"{tr['B_pk_T']*1000.0:.0f} mT)")
+        ax.plot(
+            tr["H_ripple_Oe"],
+            tr["B_ripple_T"] * 1000.0,
+            color="#a06700",
+            linewidth=1.4,
+            alpha=0.9,
+            label="HF ripple at peak",
+        )
+    ax.plot(
+        [tr["H_pk_Oe"]],
+        [tr["B_pk_T"] * 1000.0],
+        "o",
+        color="#a01818",
+        markersize=6,
+        label=f"Operating peak ({tr['H_pk_Oe']:.0f} Oe / {tr['B_pk_T'] * 1000.0:.0f} mT)",
+    )
     ax.set_xlabel("H [Oe]")
     ax.set_ylabel("B [mT]")
     ax.set_title("B–H trajectory at operating point", fontsize=10)
@@ -322,11 +405,11 @@ def _tolerance_band_pct(material_type: str) -> float:
     Würth, TDK and ATM Magnetics for production-grade parts.
     """
     return {
-        "powder":           15.0,
-        "ferrite":          20.0,
-        "nanocrystalline":  12.0,
-        "amorphous":        12.0,
-        "silicon-steel":    25.0,   # gapped silicon-steel is the worst
+        "powder": 15.0,
+        "ferrite": 20.0,
+        "nanocrystalline": 12.0,
+        "amorphous": 12.0,
+        "silicon-steel": 25.0,  # gapped silicon-steel is the worst
     }.get(material_type, 20.0)
 
 
@@ -345,18 +428,12 @@ def _tolerance_rows(result: DesignResult, material: Material) -> str:
     rdc_lo = rdc_act_mohm * 0.90
     rdc_hi = rdc_act_mohm * 1.10
     rows = {
-        "Inductance L (typ ± tol)":
-            f"{L_act:.1f} µH (± {L_pct:.0f} %), range {L_lo:.1f} – {L_hi:.1f} µH",
-        "DC resistance Rdc (typ ± 10 %)":
-            f"{rdc_act_mohm:.1f} mΩ, range {rdc_lo:.1f} – {rdc_hi:.1f} mΩ",
-        "Turn count N":
-            f"{result.N_turns} (exact, no tolerance)",
-        "Mass":
-            "± 10 % around the BOM estimate",
-        "Mechanical envelope":
-            "± 0.5 mm on linear dimensions, ± 1° on angular",
-        "Dielectric strength":
-            "Pass criterion: no flashover during the hi-pot test",
+        "Inductance L (typ ± tol)": f"{L_act:.1f} µH (± {L_pct:.0f} %), range {L_lo:.1f} – {L_hi:.1f} µH",
+        "DC resistance Rdc (typ ± 10 %)": f"{rdc_act_mohm:.1f} mΩ, range {rdc_lo:.1f} – {rdc_hi:.1f} mΩ",
+        "Turn count N": f"{result.N_turns} (exact, no tolerance)",
+        "Mass": "± 10 % around the BOM estimate",
+        "Mechanical envelope": "± 0.5 mm on linear dimensions, ± 1° on angular",
+        "Dielectric strength": "Pass criterion: no flashover during the hi-pot test",
     }
     return _kv_table(rows, extra_class="dim")
 
@@ -364,43 +441,29 @@ def _tolerance_rows(result: DesignResult, material: Material) -> str:
 # ---------------------------------------------------------------------------
 # Build instructions — quick reference for the bobbin / wind room.
 # ---------------------------------------------------------------------------
-def _build_instructions_rows(core: Core, wire: Wire,
-                              result: DesignResult) -> str:
+def _build_instructions_rows(core: Core, wire: Wire, result: DesignResult) -> str:
     wire_len_m = result.N_turns * core.MLT_mm * 1e-3
     # Estimate layer count: turns_per_layer ≈ Wa_mm² ÷ (d_outer · h_window).
     # Without a dedicated window-height field on Core we fall back to
     # a conservative √Wa as the layer height — close enough for the
     # build-room hand-off, which is approximate by definition.
-    d_outer_mm = (wire.d_iso_mm or wire.d_cu_mm or 0.5)
+    d_outer_mm = wire.d_iso_mm or wire.d_cu_mm or 0.5
     layer_height = math.sqrt(max(core.Wa_mm2, 1.0))
     turns_per_layer = max(1, int(layer_height / max(d_outer_mm, 0.01)))
     n_layers = max(1, math.ceil(result.N_turns / turns_per_layer))
-    air_gap = (
-        f"{core.lgap_mm:.2f} mm" if core.lgap_mm > 0 else "no air gap"
-    )
+    air_gap = f"{core.lgap_mm:.2f} mm" if core.lgap_mm > 0 else "no air gap"
     rows = {
-        "Bobbin / former":
-            f"{core.shape.upper()} compatible — single-section",
-        "Wire":
-            f"{wire.id} ({wire.type}, A_cu = {wire.A_cu_mm2:.3f} mm²)",
-        "Total turns N":
-            f"{result.N_turns} (single layer if window allows)",
-        "Estimated turns per layer":
-            f"{turns_per_layer}",
-        "Estimated layer count":
-            f"{n_layers}",
-        "Wire length (with 5 % margin)":
-            f"{wire_len_m * 1.05:.2f} m (cut length)",
-        "Air gap (centre leg)":
-            air_gap,
-        "Inter-layer insulation":
-            "1 layer of polyester tape (35 µm) between layers",
-        "Outer wrap":
-            "2 layers of polyester tape, overlapped 50 %",
-        "Impregnation":
-            "Vacuum-impregnated with class-F (155 °C) varnish",
-        "Lead termination":
-            "Tinned 30 mm leads, dressed at the bobbin's start/end pads",
+        "Bobbin / former": f"{core.shape.upper()} compatible — single-section",
+        "Wire": f"{wire.id} ({wire.type}, A_cu = {wire.A_cu_mm2:.3f} mm²)",
+        "Total turns N": f"{result.N_turns} (single layer if window allows)",
+        "Estimated turns per layer": f"{turns_per_layer}",
+        "Estimated layer count": f"{n_layers}",
+        "Wire length (with 5 % margin)": f"{wire_len_m * 1.05:.2f} m (cut length)",
+        "Air gap (centre leg)": air_gap,
+        "Inter-layer insulation": "1 layer of polyester tape (35 µm) between layers",
+        "Outer wrap": "2 layers of polyester tape, overlapped 50 %",
+        "Impregnation": "Vacuum-impregnated with class-F (155 °C) varnish",
+        "Lead termination": "Tinned 30 mm leads, dressed at the bobbin's start/end pads",
     }
     return _kv_table(rows, extra_class="dim")
 
@@ -408,8 +471,7 @@ def _build_instructions_rows(core: Core, wire: Wire,
 # ---------------------------------------------------------------------------
 # Test plan / FAT — the parameters QA must check before shipping.
 # ---------------------------------------------------------------------------
-def _test_plan_rows(spec: Spec, result: DesignResult,
-                     material: Material) -> str:
+def _test_plan_rows(spec: Spec, result: DesignResult, material: Material) -> str:
     """Factory acceptance-test table.
 
     Each row: parameter, target spec, instrument, pass/fail band.
@@ -420,80 +482,82 @@ def _test_plan_rows(spec: Spec, result: DesignResult,
     L_act = float(result.L_actual_uH)
     rdc_mohm = float(result.R_dc_ohm) * 1000.0
     rows: list[tuple[str, str, str, str]] = [
-        ("L @ 1 kHz, low signal",
-         f"{L_act:.1f} µH",
-         "LCR meter (4 kHz, 0.5 V)",
-         f"± {L_pct:.0f} %"),
-        ("Rdc @ 25 °C",
-         f"{rdc_mohm:.1f} mΩ",
-         "4-wire micro-Ω meter",
-         "± 10 %"),
-        ("Turn count N",
-         f"{result.N_turns}",
-         "Visual inspection of bobbin",
-         "Exact"),
-        ("Hi-pot (winding-to-core)",
-         "1 min",
-         "5 kV hi-pot tester",
-         "No flashover, leakage ≤ 5 mA"),
-        ("Insulation resistance",
-         "≥ 100 MΩ",
-         "500 V megohmmeter",
-         "≥ 100 MΩ"),
+        (
+            "L @ 1 kHz, low signal",
+            f"{L_act:.1f} µH",
+            "LCR meter (4 kHz, 0.5 V)",
+            f"± {L_pct:.0f} %",
+        ),
+        ("Rdc @ 25 °C", f"{rdc_mohm:.1f} mΩ", "4-wire micro-Ω meter", "± 10 %"),
+        ("Turn count N", f"{result.N_turns}", "Visual inspection of bobbin", "Exact"),
+        ("Hi-pot (winding-to-core)", "1 min", "5 kV hi-pot tester", "No flashover, leakage ≤ 5 mA"),
+        ("Insulation resistance", "≥ 100 MΩ", "500 V megohmmeter", "≥ 100 MΩ"),
     ]
     if spec.topology == "boost_ccm":
-        rows.append((
-            "Saturation current Isat",
-            f"≥ {result.I_pk_max_A:.2f} A",
-            "Curve tracer (DC bias sweep)",
-            "L drops ≤ 30 % at Isat",
-        ))
+        rows.append(
+            (
+                "Saturation current Isat",
+                f"≥ {result.I_pk_max_A:.2f} A",
+                "Curve tracer (DC bias sweep)",
+                "L drops ≤ 30 % at Isat",
+            )
+        )
     elif spec.topology == "line_reactor":
-        rows.append((
-            "Voltage drop @ rated I",
-            f"{(result.voltage_drop_pct or 0):.2f} %",
-            "AC source + true-RMS voltmeter",
-            "± 15 %",
-        ))
+        rows.append(
+            (
+                "Voltage drop @ rated I",
+                f"{(result.voltage_drop_pct or 0):.2f} %",
+                "AC source + true-RMS voltmeter",
+                "± 15 %",
+            )
+        )
     elif spec.topology == "passive_choke":
-        rows.append((
-            "Saturation onset",
-            f"≥ {result.I_pk_max_A:.2f} A",
-            "Curve tracer (DC bias)",
-            "L drops ≤ 30 %",
-        ))
+        rows.append(
+            (
+                "Saturation onset",
+                f"≥ {result.I_pk_max_A:.2f} A",
+                "Curve tracer (DC bias)",
+                "L drops ≤ 30 %",
+            )
+        )
     elif spec.topology == "buck_ccm":
-        rows.append((
-            "Saturation current Isat",
-            f"≥ {result.I_pk_max_A:.2f} A",
-            "Curve tracer (DC bias sweep)",
-            "L drops ≤ 30 % at Isat",
-        ))
-        rows.append((
-            "Inductor ripple Δi_pp",
-            f"{result.I_ripple_pk_pk_A:.2f} A @ Vin_max",
-            "Scope at SW node + current probe",
-            "± 20 % vs design",
-        ))
-    rows.append((
-        "Visual / mechanical",
-        "—",
-        "Calliper, bobbin gauge",
-        "± 0.5 mm",
-    ))
+        rows.append(
+            (
+                "Saturation current Isat",
+                f"≥ {result.I_pk_max_A:.2f} A",
+                "Curve tracer (DC bias sweep)",
+                "L drops ≤ 30 % at Isat",
+            )
+        )
+        rows.append(
+            (
+                "Inductor ripple Δi_pp",
+                f"{result.I_ripple_pk_pk_A:.2f} A @ Vin_max",
+                "Scope at SW node + current probe",
+                "± 20 % vs design",
+            )
+        )
+    rows.append(
+        (
+            "Visual / mechanical",
+            "—",
+            "Calliper, bobbin gauge",
+            "± 0.5 mm",
+        )
+    )
     head = (
-        '<thead><tr>'
+        "<thead><tr>"
         '<th class="lbl">Parameter</th>'
-        '<th>Target</th>'
-        '<th>Instrument</th>'
-        '<th>Pass band</th>'
-        '</tr></thead>'
+        "<th>Target</th>"
+        "<th>Instrument</th>"
+        "<th>Pass band</th>"
+        "</tr></thead>"
     )
     body = "".join(
         f'<tr><td class="lbl">{escape(p)}</td>'
-        f'<td>{escape(t)}</td>'
-        f'<td>{escape(inst)}</td>'
-        f'<td>{escape(b)}</td></tr>'
+        f"<td>{escape(t)}</td>"
+        f"<td>{escape(inst)}</td>"
+        f"<td>{escape(b)}</td></tr>"
         for (p, t, inst, b) in rows
     )
     return f'<table class="dim">{head}<tbody>{body}</tbody></table>'
@@ -521,7 +585,7 @@ def _switching_ripple_plot(spec: Spec, result: DesignResult) -> Optional[str]:
     Tsw = 1.0 / (float(spec.f_sw_kHz) * 1000.0)
     D = 1.0 - Vin_min_pk / Vout
     t_on = D * Tsw
-    delta_i = (Vin_min_pk * t_on) / L_H              # peak-to-peak
+    delta_i = (Vin_min_pk * t_on) / L_H  # peak-to-peak
     iL_dc = float(result.I_line_pk_A)
     iL_min = iL_dc - delta_i / 2.0
     iL_max = iL_dc + delta_i / 2.0
@@ -537,17 +601,18 @@ def _switching_ripple_plot(spec: Spec, result: DesignResult) -> Optional[str]:
     fig, ax = plt.subplots(figsize=(7.0, 3.0), dpi=110)
     ax.plot(t_us, iL, color="#3a78b5", linewidth=1.6)
     ax.fill_between(t_us, iL_min, iL, alpha=0.12, color="#3a78b5")
-    ax.axhline(iL_dc, color="#777", linestyle=":", linewidth=0.8,
-               label=f"I_dc = {iL_dc:.2f} A")
-    ax.axhline(iL_max, color="#a01818", linestyle="--", linewidth=0.8,
-               label=f"I_pk = {iL_max:.2f} A")
-    ax.axhline(iL_min, color="#1c7c3b", linestyle="--", linewidth=0.8,
-               label=f"I_valley = {iL_min:.2f} A")
+    ax.axhline(iL_dc, color="#777", linestyle=":", linewidth=0.8, label=f"I_dc = {iL_dc:.2f} A")
+    ax.axhline(
+        iL_max, color="#a01818", linestyle="--", linewidth=0.8, label=f"I_pk = {iL_max:.2f} A"
+    )
+    ax.axhline(
+        iL_min, color="#1c7c3b", linestyle="--", linewidth=0.8, label=f"I_valley = {iL_min:.2f} A"
+    )
     ax.set_xlabel("t [µs]")
     ax.set_ylabel("iL [A]")
     ax.set_title(
         f"Switching ripple at Vin_min — Δi_pp = {delta_i:.2f} A "
-        f"({100.0*delta_i/max(iL_dc, 1e-6):.0f} %)",
+        f"({100.0 * delta_i / max(iL_dc, 1e-6):.0f} %)",
         fontsize=10,
     )
     ax.grid(True, alpha=0.35)
@@ -561,8 +626,7 @@ def _switching_ripple_plot(spec: Spec, result: DesignResult) -> Optional[str]:
 # boost ``_switching_ripple_plot`` but uses buck-specific math
 # (ramp-up = (Vin − Vout)·D·Tsw / L, ramp-down = Vout·(1 − D)·Tsw / L).
 # ---------------------------------------------------------------------------
-def _buck_output_ripple_plot(spec: Spec,
-                             result: DesignResult) -> Optional[str]:
+def _buck_output_ripple_plot(spec: Spec, result: DesignResult) -> Optional[str]:
     if spec.topology != "buck_ccm" or spec.f_sw_kHz <= 0:
         return None
     L_H = float(result.L_actual_uH) * 1e-6
@@ -596,12 +660,13 @@ def _buck_output_ripple_plot(spec: Spec,
     fig, ax = plt.subplots(figsize=(7.0, 3.0), dpi=110)
     ax.plot(t_us, iL_pts, color="#3a78b5", linewidth=1.6)
     ax.fill_between(t_us, iL_min, iL_pts, alpha=0.12, color="#3a78b5")
-    ax.axhline(Iout, color="#777", linestyle=":", linewidth=0.8,
-               label=f"I_out = {Iout:.2f} A")
-    ax.axhline(iL_max, color="#a01818", linestyle="--", linewidth=0.8,
-               label=f"I_pk = {iL_max:.2f} A")
-    ax.axhline(iL_min, color="#1c7c3b", linestyle="--", linewidth=0.8,
-               label=f"I_valley = {iL_min:.2f} A")
+    ax.axhline(Iout, color="#777", linestyle=":", linewidth=0.8, label=f"I_out = {Iout:.2f} A")
+    ax.axhline(
+        iL_max, color="#a01818", linestyle="--", linewidth=0.8, label=f"I_pk = {iL_max:.2f} A"
+    )
+    ax.axhline(
+        iL_min, color="#1c7c3b", linestyle="--", linewidth=0.8, label=f"I_valley = {iL_min:.2f} A"
+    )
     ax.set_xlabel("t [µs]")
     ax.set_ylabel("iL [A]")
     pct = 100.0 * delta_i / max(Iout, 1e-6)
@@ -623,7 +688,10 @@ def _buck_output_ripple_plot(spec: Spec,
 # inline.
 # ---------------------------------------------------------------------------
 def _efficiency_curve_plot(
-    spec: Spec, core: Core, wire: Wire, material: Material,
+    spec: Spec,
+    core: Core,
+    wire: Wire,
+    material: Material,
     result: DesignResult,
 ) -> Optional[str]:
     if spec.topology not in ("boost_ccm", "passive_choke", "buck_ccm"):
@@ -636,6 +704,7 @@ def _efficiency_curve_plot(
     fractions = (0.10, 0.25, 0.50, 0.75, 1.00, 1.10)
     P_nom = float(spec.Pout_W)
     from pfc_inductor.design import design as _design
+
     pts: list[tuple[float, float]] = []
     for f in fractions:
         try:
@@ -672,6 +741,7 @@ def _commutation_notch_block(spec: Spec, result: DesignResult) -> Optional[str]:
     if spec.topology != "line_reactor":
         return None
     from pfc_inductor.topology import line_reactor as lr
+
     L_mH = float(result.L_actual_uH) / 1000.0
     if L_mH <= 0:
         return None
@@ -684,12 +754,10 @@ def _commutation_notch_block(spec: Spec, result: DesignResult) -> Optional[str]:
     notch_pct = 100.0 * notch_depth_V / V_pk if V_pk > 0 else 0.0
     notch_us = (mu / (2.0 * math.pi)) * (1.0 / max(spec.f_line_Hz, 1.0)) * 1e6
     rows = {
-        "Overlap angle µ":         f"{mu_deg:.2f}°",
-        "Notch duration":          f"{notch_us:.0f} µs",
-        "Notch depth (line-line)": f"{notch_depth_V:.0f} V "
-                                   f"({notch_pct:.1f} % of V_pk)",
-        "Reference":               "Mohan/Undeland eq. (5-65), "
-                                   "6-pulse diode rectifier",
+        "Overlap angle µ": f"{mu_deg:.2f}°",
+        "Notch duration": f"{notch_us:.0f} µs",
+        "Notch depth (line-line)": f"{notch_depth_V:.0f} V ({notch_pct:.1f} % of V_pk)",
+        "Reference": "Mohan/Undeland eq. (5-65), 6-pulse diode rectifier",
     }
     return _kv_table(rows, extra_class="dim")
 
@@ -697,8 +765,7 @@ def _commutation_notch_block(spec: Spec, result: DesignResult) -> Optional[str]:
 # ---------------------------------------------------------------------------
 # Choke before/after PF + Vripple comparison chart
 # ---------------------------------------------------------------------------
-def _choke_comparison_plot(spec: Spec, result: DesignResult,
-                            core: Core) -> Optional[str]:
+def _choke_comparison_plot(spec: Spec, result: DesignResult, core: Core) -> Optional[str]:
     if spec.topology != "passive_choke":
         return None
     ex = _passive_choke_extras(spec, result, core)
@@ -711,24 +778,35 @@ def _choke_comparison_plot(spec: Spec, result: DesignResult,
     v_ripple_no = v_ripple_yes * 2.0
     fig, axes = plt.subplots(1, 2, figsize=(7.5, 2.8), dpi=110)
     ax_pf, ax_v = axes
-    bars_pf = ax_pf.bar(["No choke", "With choke"], [pf_no, pf_yes],
-                          color=["#a01818", "#1c7c3b"], width=0.55)
+    bars_pf = ax_pf.bar(
+        ["No choke", "With choke"], [pf_no, pf_yes], color=["#a01818", "#1c7c3b"], width=0.55
+    )
     ax_pf.set_ylim(0, 1.0)
     ax_pf.set_ylabel("Power factor")
     ax_pf.set_title("PF — before vs after", fontsize=10)
     ax_pf.grid(True, axis="y", alpha=0.35)
     for b, v in zip(bars_pf, [pf_no, pf_yes], strict=False):
-        ax_pf.text(b.get_x() + b.get_width()/2, v + 0.02, f"{v:.2f}",
-                    ha="center", va="bottom", fontsize=9)
-    bars_v = ax_v.bar(["No choke", "With choke"],
-                       [v_ripple_no, v_ripple_yes],
-                       color=["#a01818", "#1c7c3b"], width=0.55)
+        ax_pf.text(
+            b.get_x() + b.get_width() / 2,
+            v + 0.02,
+            f"{v:.2f}",
+            ha="center",
+            va="bottom",
+            fontsize=9,
+        )
+    bars_v = ax_v.bar(
+        ["No choke", "With choke"],
+        [v_ripple_no, v_ripple_yes],
+        color=["#a01818", "#1c7c3b"],
+        width=0.55,
+    )
     ax_v.set_ylabel("V_ripple pp [V]")
     ax_v.set_title("DC-link ripple — before vs after", fontsize=10)
     ax_v.grid(True, axis="y", alpha=0.35)
     for b, v in zip(bars_v, [v_ripple_no, v_ripple_yes], strict=False):
-        ax_v.text(b.get_x() + b.get_width()/2, v + 0.5, f"{v:.0f}",
-                   ha="center", va="bottom", fontsize=9)
+        ax_v.text(
+            b.get_x() + b.get_width() / 2, v + 0.5, f"{v:.0f}", ha="center", va="bottom", fontsize=9
+        )
     fig.tight_layout()
     return _b64(fig)
 
@@ -745,13 +823,13 @@ _CU_DENSITY_KG_M3 = 8960.0  # pure copper at 20 °C — for wire-mass fallback
 # Anyone needing tighter limits should override the ``EnvRatings`` dict
 # at call site (left as a future enhancement; currently global).
 _ENV_RATINGS: dict[str, str] = {
-    "Operating temperature":   "−25 to +105 °C (winding hot-spot)",
-    "Storage temperature":     "−40 to +85 °C",
-    "Humidity":                "5 to 95 % RH, non-condensing",
-    "Altitude (no derate)":    "≤ 2000 m (per IEC 60664-1)",
-    "Vibration":               "IEC 60068-2-6, 10–500 Hz, 5 g",
-    "Shock":                   "IEC 60068-2-27, 30 g, 11 ms half-sine",
-    "Pollution degree":        "2 (clean indoor)",
+    "Operating temperature": "−25 to +105 °C (winding hot-spot)",
+    "Storage temperature": "−40 to +85 °C",
+    "Humidity": "5 to 95 % RH, non-condensing",
+    "Altitude (no derate)": "≤ 2000 m (per IEC 60664-1)",
+    "Vibration": "IEC 60068-2-6, 10–500 Hz, 5 g",
+    "Shock": "IEC 60068-2-27, 30 g, 11 ms half-sine",
+    "Pollution degree": "2 (clean indoor)",
 }
 
 
@@ -760,26 +838,26 @@ _ENV_RATINGS: dict[str, str] = {
 # commonly enclosed in a converter so the chassis carries those duties,
 # but engineers still expect a coil-level rating block for QA.
 _SAFETY_BOOST: dict[str, str] = {
-    "Insulation class":        "B (130 °C) winding-to-core",
-    "Hi-pot test":             "1500 Vrms, 60 s (winding-to-core)",
-    "Dielectric strength":     "≥ 4 kVrms, 1 min",
-    "Overvoltage category":    "II (per IEC 60664-1)",
-    "Pollution degree":        "2",
+    "Insulation class": "B (130 °C) winding-to-core",
+    "Hi-pot test": "1500 Vrms, 60 s (winding-to-core)",
+    "Dielectric strength": "≥ 4 kVrms, 1 min",
+    "Overvoltage category": "II (per IEC 60664-1)",
+    "Pollution degree": "2",
 }
 _SAFETY_LINE_REACTOR: dict[str, str] = {
-    "Insulation class":        "F (155 °C) winding-to-core",
-    "Hi-pot test":             "2500 Vrms, 60 s, leakage ≤ 5 mA",
-    "Dielectric strength":     "≥ 6 kVrms, 1 min, winding-to-core",
-    "Overvoltage category":    "III (per IEC 60664-1, industrial mains)",
-    "Pollution degree":        "2",
-    "Surge withstand":         "IEC 61000-4-5, 4 kV line-to-earth",
+    "Insulation class": "F (155 °C) winding-to-core",
+    "Hi-pot test": "2500 Vrms, 60 s, leakage ≤ 5 mA",
+    "Dielectric strength": "≥ 6 kVrms, 1 min, winding-to-core",
+    "Overvoltage category": "III (per IEC 60664-1, industrial mains)",
+    "Pollution degree": "2",
+    "Surge withstand": "IEC 61000-4-5, 4 kV line-to-earth",
 }
 _SAFETY_PASSIVE_CHOKE: dict[str, str] = {
-    "Insulation class":        "B (130 °C) winding-to-core",
-    "Hi-pot test":             "2000 Vrms, 60 s (winding-to-core)",
-    "Dielectric strength":     "≥ 5 kVrms, 1 min",
-    "Overvoltage category":    "II/III (per integrator's chassis class)",
-    "Pollution degree":        "2",
+    "Insulation class": "B (130 °C) winding-to-core",
+    "Hi-pot test": "2000 Vrms, 60 s (winding-to-core)",
+    "Dielectric strength": "≥ 5 kVrms, 1 min",
+    "Overvoltage category": "II/III (per integrator's chassis class)",
+    "Pollution degree": "2",
 }
 # Buck-CCM bucks operate at low DC voltages (typically 5–60 V on the
 # input rail). Hi-pot / dielectric numbers don't carry the same
@@ -787,21 +865,21 @@ _SAFETY_PASSIVE_CHOKE: dict[str, str] = {
 # host system already covers them. We still surface a B-class
 # rating block so QA has a number to test against.
 _SAFETY_BUCK_CCM: dict[str, str] = {
-    "Insulation class":        "B (130 °C) winding-to-core",
-    "Hi-pot test":             "500 Vrms, 60 s (low-voltage SELV)",
-    "Dielectric strength":     "≥ 1 kVrms, 1 min",
-    "Overvoltage category":    "I (per IEC 60664-1, internal converter)",
-    "Pollution degree":        "2",
-    "EMI screening":           "Recommended on SW node — high dV/dt",
+    "Insulation class": "B (130 °C) winding-to-core",
+    "Hi-pot test": "500 Vrms, 60 s (low-voltage SELV)",
+    "Dielectric strength": "≥ 1 kVrms, 1 min",
+    "Overvoltage category": "I (per IEC 60664-1, internal converter)",
+    "Pollution degree": "2",
+    "EMI screening": "Recommended on SW node — high dV/dt",
 }
 
 
 def _safety_table_for(topology: str) -> dict[str, str]:
     return {
-        "boost_ccm":      _SAFETY_BOOST,
-        "line_reactor":   _SAFETY_LINE_REACTOR,
-        "passive_choke":  _SAFETY_PASSIVE_CHOKE,
-        "buck_ccm":       _SAFETY_BUCK_CCM,
+        "boost_ccm": _SAFETY_BOOST,
+        "line_reactor": _SAFETY_LINE_REACTOR,
+        "passive_choke": _SAFETY_PASSIVE_CHOKE,
+        "buck_ccm": _SAFETY_BUCK_CCM,
     }.get(topology, _SAFETY_BOOST)
 
 
@@ -826,7 +904,9 @@ def _wire_mass_g(wire: Wire, length_m: float) -> float:
 # Passive choke estimates (engine doesn't surface these natively)
 # ---------------------------------------------------------------------------
 def _passive_choke_extras(
-    spec: Spec, result: DesignResult, core: Core,
+    spec: Spec,
+    result: DesignResult,
+    core: Core,
 ) -> dict[str, str]:
     """Compute %Z, achievable PF, and DC-link ripple for a passive
     line choke. The engine doesn't carry topology-specific fields for
@@ -862,12 +942,12 @@ def _passive_choke_extras(
     f_ripple = 2.0 * float(spec.f_line_Hz)  # full-wave
     v_ripple_pp = I_dc / (C_dc_uF * 1e-6 * f_ripple)
     return {
-        "pct_z":           f"{pct_z:.2f}",
-        "pf_no_choke":     f"{pf0:.2f}",
-        "pf_with_choke":   f"{pf_estimate:.2f}",
-        "pf_delta":        f"+{(pf_estimate - pf0)*100:.0f} pp",
-        "v_ripple_dc_pp":  f"{v_ripple_pp:.0f}",
-        "c_dc_assumed":    f"{C_dc_uF:.0f}",
+        "pct_z": f"{pct_z:.2f}",
+        "pf_no_choke": f"{pf0:.2f}",
+        "pf_with_choke": f"{pf_estimate:.2f}",
+        "pf_delta": f"+{(pf_estimate - pf0) * 100:.0f} pp",
+        "v_ripple_dc_pp": f"{v_ripple_pp:.0f}",
+        "c_dc_assumed": f"{C_dc_uF:.0f}",
     }
 
 
@@ -876,8 +956,7 @@ def _passive_choke_extras(
 # ---------------------------------------------------------------------------
 def _row(label: str, value: str, unit: str = "") -> str:
     val = f"{value} {unit}".strip() if unit else value
-    return (f'<tr><td class="lbl">{escape(label)}</td>'
-            f'<td>{val}</td></tr>')
+    return f'<tr><td class="lbl">{escape(label)}</td><td>{val}</td></tr>'
 
 
 def _kv_table(rows: dict[str, str], extra_class: str = "") -> str:
@@ -895,10 +974,10 @@ def _stamp(spec: Spec, core: Core, material: Material) -> str:
 
 def _topology_label(topology: str) -> str:
     return {
-        "boost_ccm":     "Boost-PFC CCM Inductor",
+        "boost_ccm": "Boost-PFC CCM Inductor",
         "passive_choke": "Passive Line Choke",
-        "line_reactor":  "AC Line Reactor (50/60 Hz)",
-        "buck_ccm":      "Synchronous Buck CCM Inductor",
+        "line_reactor": "AC Line Reactor (50/60 Hz)",
+        "buck_ccm": "Synchronous Buck CCM Inductor",
     }.get(topology, "Inductor")
 
 
@@ -906,20 +985,21 @@ def _topology_label(topology: str) -> str:
 # Topology-specific specification rows
 # ---------------------------------------------------------------------------
 def _spec_rows_boost(spec: Spec, result: DesignResult) -> str:
-    return "".join([
-        _row("Topology", "Boost PFC, CCM"),
-        _row("Vin range", f"{spec.Vin_min_Vrms:.0f} – {spec.Vin_max_Vrms:.0f}", "Vrms"),
-        _row("Vout (DC bus)", f"{spec.Vout_V:.0f}", "V"),
-        _row("Pout", f"{spec.Pout_W:.0f}", "W"),
-        _row("Switching freq.", f"{spec.f_sw_kHz:.0f}", "kHz"),
-        _row("Line freq.", f"{spec.f_line_Hz:.0f}", "Hz"),
-        _row("Ripple target (pp)", f"{spec.ripple_pct:.0f}", "%"),
-        _row("Efficiency assumed", f"{spec.eta:.2f}"),
-    ])
+    return "".join(
+        [
+            _row("Topology", "Boost PFC, CCM"),
+            _row("Vin range", f"{spec.Vin_min_Vrms:.0f} – {spec.Vin_max_Vrms:.0f}", "Vrms"),
+            _row("Vout (DC bus)", f"{spec.Vout_V:.0f}", "V"),
+            _row("Pout", f"{spec.Pout_W:.0f}", "W"),
+            _row("Switching freq.", f"{spec.f_sw_kHz:.0f}", "kHz"),
+            _row("Line freq.", f"{spec.f_line_Hz:.0f}", "Hz"),
+            _row("Ripple target (pp)", f"{spec.ripple_pct:.0f}", "%"),
+            _row("Efficiency assumed", f"{spec.eta:.2f}"),
+        ]
+    )
 
 
-def _spec_rows_choke(spec: Spec, result: DesignResult,
-                     core: Optional[Core] = None) -> str:
+def _spec_rows_choke(spec: Spec, result: DesignResult, core: Optional[Core] = None) -> str:
     """Passive choke spec table.
 
     Includes the analytically estimated %Z, achievable PF, and the
@@ -936,17 +1016,16 @@ def _spec_rows_choke(spec: Spec, result: DesignResult,
     ]
     if core is not None:
         ex = _passive_choke_extras(spec, result, core)
-        rows.extend([
-            _row("Estimated % impedance", ex["pct_z"], "%"),
-            _row("PF without choke (baseline)", ex["pf_no_choke"]),
-            _row("PF with this choke (est.)",
-                 f'<b>{ex["pf_with_choke"]}</b>'),
-            _row("PF improvement", ex["pf_delta"]),
-            _row("DC-link ripple (peak-to-peak, est.)",
-                 ex["v_ripple_dc_pp"], "V"),
-            _row("Bulk cap assumed for ripple",
-                 ex["c_dc_assumed"], "µF"),
-        ])
+        rows.extend(
+            [
+                _row("Estimated % impedance", ex["pct_z"], "%"),
+                _row("PF without choke (baseline)", ex["pf_no_choke"]),
+                _row("PF with this choke (est.)", f"<b>{ex['pf_with_choke']}</b>"),
+                _row("PF improvement", ex["pf_delta"]),
+                _row("DC-link ripple (peak-to-peak, est.)", ex["v_ripple_dc_pp"], "V"),
+                _row("Bulk cap assumed for ripple", ex["c_dc_assumed"], "µF"),
+            ]
+        )
     return "".join(rows)
 
 
@@ -959,6 +1038,7 @@ def _spec_rows_buck(spec: Spec, result: DesignResult) -> str:
     requirements outside this module's scope.
     """
     from pfc_inductor.topology import buck_ccm
+
     Vin_min = buck_ccm._vin_min(spec)
     Vin_max = buck_ccm._vin_max(spec)
     Vin_nom = buck_ccm._vin_nom(spec)
@@ -966,41 +1046,43 @@ def _spec_rows_buck(spec: Spec, result: DesignResult) -> str:
     D_min = buck_ccm.duty_cycle(spec, Vin_max)
     D_max = buck_ccm.duty_cycle(spec, Vin_min)
     r = buck_ccm._ripple_ratio(spec)
-    return "".join([
-        _row("Topology", "Synchronous buck (DC-DC), CCM"),
-        _row("Vin range",
-             f"{Vin_min:.2f} – {Vin_max:.2f} (nom {Vin_nom:.2f})", "V_dc"),
-        _row("Vout (regulated)", f"{spec.Vout_V:.2f}", "V_dc"),
-        _row("Iout (full load)", f"{Iout:.2f}", "A_dc"),
-        _row("Pout", f"{spec.Pout_W:.1f}", "W"),
-        _row("Switching freq.", f"{spec.f_sw_kHz:.0f}", "kHz"),
-        _row("Duty cycle range", f"{D_min:.3f} – {D_max:.3f}"),
-        _row("Ripple target Δi_pp / Iout",
-             f"{r * 100:.0f}", "% of Iout"),
-        _row("Efficiency assumed", f"{spec.eta:.2f}"),
-    ])
+    return "".join(
+        [
+            _row("Topology", "Synchronous buck (DC-DC), CCM"),
+            _row("Vin range", f"{Vin_min:.2f} – {Vin_max:.2f} (nom {Vin_nom:.2f})", "V_dc"),
+            _row("Vout (regulated)", f"{spec.Vout_V:.2f}", "V_dc"),
+            _row("Iout (full load)", f"{Iout:.2f}", "A_dc"),
+            _row("Pout", f"{spec.Pout_W:.1f}", "W"),
+            _row("Switching freq.", f"{spec.f_sw_kHz:.0f}", "kHz"),
+            _row("Duty cycle range", f"{D_min:.3f} – {D_max:.3f}"),
+            _row("Ripple target Δi_pp / Iout", f"{r * 100:.0f}", "% of Iout"),
+            _row("Efficiency assumed", f"{spec.eta:.2f}"),
+        ]
+    )
 
 
 def _spec_rows_line_reactor(spec: Spec, result: DesignResult) -> str:
     pct_z = result.pct_impedance_actual or 0.0
     v_drop = result.voltage_drop_pct or 0.0
     thd = result.thd_estimate_pct or 0.0
-    return "".join([
-        _row("Topology", "AC line reactor (diode-rectifier + DC-link)"),
-        _row("Phases", "1-phase" if spec.n_phases == 1 else "3-phase"),
-        _row("V line",
-             f"{spec.Vin_nom_Vrms:.0f}",
-             "V_LL" if spec.n_phases == 3 else "V_LN"),
-        _row("Rated current", f"{spec.I_rated_Arms:.2f}", "Arms"),
-        _row("Line freq.", f"{spec.f_line_Hz:.0f}", "Hz"),
-        _row("Target % impedance", f"{spec.pct_impedance:.1f}", "%"),
-        _row("Achieved % impedance", f"{pct_z:.2f}", "%"),
-        _row("Voltage drop @ rated I", f"{v_drop:.2f}", "%"),
-        _row("THD estimate", f"{thd:.1f}", "%"),
-        _row("Pi (active input power)",
-             f"{result.Pi_W:.0f}" if result.Pi_W else "—",
-             "W" if result.Pi_W else ""),
-    ])
+    return "".join(
+        [
+            _row("Topology", "AC line reactor (diode-rectifier + DC-link)"),
+            _row("Phases", "1-phase" if spec.n_phases == 1 else "3-phase"),
+            _row("V line", f"{spec.Vin_nom_Vrms:.0f}", "V_LL" if spec.n_phases == 3 else "V_LN"),
+            _row("Rated current", f"{spec.I_rated_Arms:.2f}", "Arms"),
+            _row("Line freq.", f"{spec.f_line_Hz:.0f}", "Hz"),
+            _row("Target % impedance", f"{spec.pct_impedance:.1f}", "%"),
+            _row("Achieved % impedance", f"{pct_z:.2f}", "%"),
+            _row("Voltage drop @ rated I", f"{v_drop:.2f}", "%"),
+            _row("THD estimate", f"{thd:.1f}", "%"),
+            _row(
+                "Pi (active input power)",
+                f"{result.Pi_W:.0f}" if result.Pi_W else "—",
+                "W" if result.Pi_W else "",
+            ),
+        ]
+    )
 
 
 def _result_rows(spec: Spec, result: DesignResult) -> str:
@@ -1012,10 +1094,10 @@ def _result_rows(spec: Spec, result: DesignResult) -> str:
         _row("Inductance (required)", f"{L_req:.2f}", L_unit),
         _row("Inductance (actual)", f"<b>{L_act:.2f}</b>", L_unit),
         _row("Number of turns N", f"<b>{result.N_turns}</b>"),
-        _row("μ% at peak DC bias", f"{result.mu_pct_at_peak*100:.1f}", "%"),
+        _row("μ% at peak DC bias", f"{result.mu_pct_at_peak * 100:.1f}", "%"),
         _row("H peak DC", f"{result.H_dc_peak_Oe:.0f}", "Oe"),
-        _row("B peak", f"<b>{result.B_pk_T*1000:.0f}</b>", "mT"),
-        _row("Bsat limit", f"{result.B_sat_limit_T*1000:.0f}", "mT"),
+        _row("B peak", f"<b>{result.B_pk_T * 1000:.0f}</b>", "mT"),
+        _row("Bsat limit", f"{result.B_sat_limit_T * 1000:.0f}", "mT"),
         _row("Saturation margin", f"{result.sat_margin_pct:.0f}", "%"),
         _row("I peak (line env.)", f"{result.I_line_pk_A:.2f}", "A"),
         _row("I RMS (line env.)", f"{result.I_line_rms_A:.2f}", "A"),
@@ -1024,23 +1106,25 @@ def _result_rows(spec: Spec, result: DesignResult) -> str:
         rows.append(_row("Δi pp max", f"{result.I_ripple_pk_pk_A:.2f}", "A"))
         rows.append(_row("I peak total", f"{result.I_pk_max_A:.2f}", "A"))
         rows.append(_row("I RMS total", f"{result.I_rms_total_A:.2f}", "A"))
-    rows.append(_row("Window utilisation Ku", f"{result.Ku_actual*100:.1f}", "%"))
+    rows.append(_row("Window utilisation Ku", f"{result.Ku_actual * 100:.1f}", "%"))
     return "".join(rows)
 
 
 def _loss_rows(result: DesignResult) -> str:
     L = result.losses
-    return "".join([
-        _row("P copper DC", f"{L.P_cu_dc_W:.2f}", "W"),
-        _row("P copper AC (fsw)", f"{L.P_cu_ac_W:.3f}", "W"),
-        _row("P core (line band)", f"{L.P_core_line_W:.3f}", "W"),
-        _row("P core (ripple, iGSE)", f"{L.P_core_ripple_W:.3f}", "W"),
-        _row("P TOTAL", f"<b>{L.P_total_W:.2f}</b>", "W"),
-        _row("Rdc @ T_winding", f"{result.R_dc_ohm*1000:.1f}", "mΩ"),
-        _row("Rac @ fsw", f"{result.R_ac_ohm*1000:.1f}", "mΩ"),
-        _row("ΔT (rise)", f"{result.T_rise_C:.0f}", "K"),
-        _row("T winding", f"<b>{result.T_winding_C:.0f}</b>", "°C"),
-    ])
+    return "".join(
+        [
+            _row("P copper DC", f"{L.P_cu_dc_W:.2f}", "W"),
+            _row("P copper AC (fsw)", f"{L.P_cu_ac_W:.3f}", "W"),
+            _row("P core (line band)", f"{L.P_core_line_W:.3f}", "W"),
+            _row("P core (ripple, iGSE)", f"{L.P_core_ripple_W:.3f}", "W"),
+            _row("P TOTAL", f"<b>{L.P_total_W:.2f}</b>", "W"),
+            _row("Rdc @ T_winding", f"{result.R_dc_ohm * 1000:.1f}", "mΩ"),
+            _row("Rac @ fsw", f"{result.R_ac_ohm * 1000:.1f}", "mΩ"),
+            _row("ΔT (rise)", f"{result.T_rise_C:.0f}", "K"),
+            _row("T winding", f"<b>{result.T_winding_C:.0f}</b>", "°C"),
+        ]
+    )
 
 
 def _validation_status_rows(result: DesignResult) -> str:
@@ -1054,12 +1138,12 @@ def _validation_status_rows(result: DesignResult) -> str:
     section is to set the reader's confidence calibration correctly.
     """
     status: dict[str, str] = {
-        "L_actual":       "Analytical (closed-form, with rolloff)",
-        "B_pk":           "Analytical (V·s / N·Ae)",
-        "R_dc":           "Analytical (ρ_Cu · l / A_cu, T-corrected)",
-        "R_ac @ fsw":     "Analytical (Dowell skin/proximity)",
-        "Core losses":    "Analytical (anchored Steinmetz / iGSE)",
-        "ΔT (rise)":      "Analytical (natural-convection R_th model)",
+        "L_actual": "Analytical (closed-form, with rolloff)",
+        "B_pk": "Analytical (V·s / N·Ae)",
+        "R_dc": "Analytical (ρ_Cu · l / A_cu, T-corrected)",
+        "R_ac @ fsw": "Analytical (Dowell skin/proximity)",
+        "Core losses": "Analytical (anchored Steinmetz / iGSE)",
+        "ΔT (rise)": "Analytical (natural-convection R_th model)",
         "FEA cross-check": "Not run for this revision (Validate tab)",
         "Transient (RK4)": "Not run for this revision",
         "Lab measurement": "Pending — see Test Plan section",
@@ -1067,36 +1151,34 @@ def _validation_status_rows(result: DesignResult) -> str:
     return _kv_table(status, extra_class="dim")
 
 
-def _bom_rows(core: Core, wire: Wire, material: Material,
-              result: DesignResult) -> str:
+def _bom_rows(core: Core, wire: Wire, material: Material, result: DesignResult) -> str:
     wire_len_m = result.N_turns * core.MLT_mm * 1e-3
     # Prefer the catalog mass; fall back to copper-density × A_cu × L
     # so the BOM never reads "—" for a real magnet wire.
     wire_mass = _wire_mass_g(wire, wire_len_m)
     mass_origin = (
-        " (catalog)" if (wire.mass_per_meter_g and wire.mass_per_meter_g > 0)
+        " (catalog)"
+        if (wire.mass_per_meter_g and wire.mass_per_meter_g > 0)
         else " (derived from Cu density)"
     )
     rows = [
         _row("Core", f"{core.vendor} — {core.part_number} ({core.shape})"),
-        _row("  Ae × le × Ve",
-             f"{core.Ae_mm2:.0f} mm² × {core.le_mm:.0f} mm × "
-             f"{core.Ve_mm3/1000:.1f} cm³"),
-        _row("  Wa × MLT",
-             f"{core.Wa_mm2:.0f} mm² × {core.MLT_mm:.0f} mm"),
+        _row(
+            "  Ae × le × Ve",
+            f"{core.Ae_mm2:.0f} mm² × {core.le_mm:.0f} mm × {core.Ve_mm3 / 1000:.1f} cm³",
+        ),
+        _row("  Wa × MLT", f"{core.Wa_mm2:.0f} mm² × {core.MLT_mm:.0f} mm"),
         _row("  AL nominal", f"{core.AL_nH:.0f}", "nH/N²"),
         _row("Material", f"{material.vendor} — {material.name}"),
-        _row("  μ initial / Bsat (25°C)",
-             f"{material.mu_initial:.0f} / "
-             f"{material.Bsat_25C_T*1000:.0f} mT"),
+        _row(
+            "  μ initial / Bsat (25°C)",
+            f"{material.mu_initial:.0f} / {material.Bsat_25C_T * 1000:.0f} mT",
+        ),
         _row("  Density", f"{material.rho_kg_m3:.0f}", "kg/m³"),
         _row("Wire", f"{wire.id} ({wire.type})"),
-        _row("  A_cu / d_cu",
-             f"{wire.A_cu_mm2:.3f} mm² / "
-             f"{wire.d_cu_mm or 0:.2f} mm"),
+        _row("  A_cu / d_cu", f"{wire.A_cu_mm2:.3f} mm² / {wire.d_cu_mm or 0:.2f} mm"),
         _row("  Wire length", f"{wire_len_m:.2f}", "m"),
-        _row("  Wire mass (est.)",
-             f"{wire_mass:.0f}{mass_origin}", "g"),
+        _row("  Wire mass (est.)", f"{wire_mass:.0f}{mass_origin}", "g"),
     ]
     return "".join(rows)
 
@@ -1106,32 +1188,39 @@ def _bom_rows(core: Core, wire: Wire, material: Material,
 # ---------------------------------------------------------------------------
 def _views_grid(views: dict[str, Optional[str]]) -> str:
     """4-cell grid: iso (big) + front + top + side."""
+
     def cell(name: str, label: str) -> str:
         b64 = views.get(name)
         if not b64:
-            return (f'<div class="view-cell missing"><span>{label}</span>'
-                    '<small>(3D viewer unavailable)</small></div>')
-        return (f'<div class="view-cell"><span>{label}</span>'
-                f'<img src="data:image/png;base64,{b64}" alt="{label}"></div>')
+            return (
+                f'<div class="view-cell missing"><span>{label}</span>'
+                "<small>(3D viewer unavailable)</small></div>"
+            )
+        return (
+            f'<div class="view-cell"><span>{label}</span>'
+            f'<img src="data:image/png;base64,{b64}" alt="{label}"></div>'
+        )
+
     return f"""
     <div class="views-grid">
-      {cell('iso', 'Isometric')}
-      {cell('front', 'Front')}
-      {cell('top', 'Top')}
-      {cell('side', 'Side')}
+      {cell("iso", "Isometric")}
+      {cell("front", "Front")}
+      {cell("top", "Top")}
+      {cell("side", "Side")}
     </div>
     """
 
 
 def _dim_table(dims: dict[str, str]) -> str:
-    rows = "".join(f'<tr><td class="lbl">{escape(k)}</td>'
-                   f'<td>{escape(v)}</td></tr>'
-                   for k, v in dims.items())
+    rows = "".join(
+        f'<tr><td class="lbl">{escape(k)}</td><td>{escape(v)}</td></tr>' for k, v in dims.items()
+    )
     return f'<table class="dim">{rows}</table>'
 
 
-def _topology_section(spec: Spec, core: Core, wire: Wire,
-                      material: Material, result: DesignResult) -> str:
+def _topology_section(
+    spec: Spec, core: Core, wire: Wire, material: Material, result: DesignResult
+) -> str:
     """Topology-specific charts laid out so they always print on the
     same A4 page. Each row pairs two narrow charts side-by-side.
     """
@@ -1148,74 +1237,62 @@ def _topology_section(spec: Spec, core: Core, wire: Wire,
         '<div class="chart-cell"><h3>Loss Breakdown</h3>'
         f'<img src="data:image/png;base64,{loss_b64}" /></div>'
     )
-    blocks.append('</div>')
+    blocks.append("</div>")
 
     if spec.topology == "boost_ccm":
         # Switching-period zoom + roll-off + η-curve.
         switch = _switching_ripple_plot(spec, result)
         if switch:
             blocks.append(
-                '<h3>Switching Ripple (Vin_min, peak operating point)</h3>'
+                "<h3>Switching Ripple (Vin_min, peak operating point)</h3>"
                 f'<img src="data:image/png;base64,{switch}" />'
             )
         roll = _rolloff_plot(material, result)
         if roll:
-            blocks.append(
-                '<h3>DC Bias Roll-off</h3>'
-                f'<img src="data:image/png;base64,{roll}" />'
-            )
+            blocks.append(f'<h3>DC Bias Roll-off</h3><img src="data:image/png;base64,{roll}" />')
         eta_curve = _efficiency_curve_plot(spec, core, wire, material, result)
         if eta_curve:
             blocks.append(
-                '<h3>Efficiency vs Load</h3>'
-                f'<img src="data:image/png;base64,{eta_curve}" />'
+                f'<h3>Efficiency vs Load</h3><img src="data:image/png;base64,{eta_curve}" />'
             )
     elif spec.topology == "line_reactor":
         spec_plot = _harmonic_plot(spec, result)
         if spec_plot:
             blocks.append(
-                '<h3>Harmonic Compliance — IEC 61000-3-2 / 61000-3-12 / IEEE 519</h3>'
+                "<h3>Harmonic Compliance — IEC 61000-3-2 / 61000-3-12 / IEEE 519</h3>"
                 f'<img src="data:image/png;base64,{spec_plot}" />'
             )
         notch = _commutation_notch_block(spec, result)
         if notch:
-            blocks.append(
-                '<h3>Commutation Notch (6-pulse rectifier)</h3>'
-                + notch
-            )
+            blocks.append("<h3>Commutation Notch (6-pulse rectifier)</h3>" + notch)
     elif spec.topology == "passive_choke":
         cmp = _choke_comparison_plot(spec, result, core)
         if cmp:
             blocks.append(
-                '<h3>Choke Effect — before vs after (estimated)</h3>'
+                "<h3>Choke Effect — before vs after (estimated)</h3>"
                 f'<img src="data:image/png;base64,{cmp}" />'
             )
         eta_curve = _efficiency_curve_plot(spec, core, wire, material, result)
         if eta_curve:
             blocks.append(
-                '<h3>Efficiency vs Load</h3>'
-                f'<img src="data:image/png;base64,{eta_curve}" />'
+                f'<h3>Efficiency vs Load</h3><img src="data:image/png;base64,{eta_curve}" />'
             )
     elif spec.topology == "buck_ccm":
         # Roll-off chart confirms the chosen N has bias-margin headroom
         # at the worst-case Iout + Δi_pp/2 peak.
         roll = _rolloff_plot(material, result)
         if roll:
-            blocks.append(
-                '<h3>DC Bias Roll-off</h3>'
-                f'<img src="data:image/png;base64,{roll}" />'
-            )
+            blocks.append(f'<h3>DC Bias Roll-off</h3><img src="data:image/png;base64,{roll}" />')
         ripple = _buck_output_ripple_plot(spec, result)
         if ripple:
             blocks.append(
-                '<h3>Worst-Case Output Ripple — Δi_pp at Vin_max</h3>'
+                "<h3>Worst-Case Output Ripple — Δi_pp at Vin_max</h3>"
                 f'<img src="data:image/png;base64,{ripple}" />'
             )
         eta_curve = _efficiency_curve_plot(spec, core, wire, material, result)
         if eta_curve:
             blocks.append(
-                '<h3>Efficiency vs Load</h3>'
-                f'<img src="data:image/png;base64,{eta_curve}" />'
+                f'<h3>Efficiency vs Load</h3><img src="data:image/png;base64,{eta_curve}" />'
             )
     return "\n".join(blocks)
 
@@ -1327,8 +1404,11 @@ def generate_datasheet(
     title = _topology_label(spec.topology)
     now = datetime.now().strftime("%Y-%m-%d")
     feasible = result.is_feasible()
-    badge = ('<span class="badge ok">FEASIBLE</span>' if feasible
-             else f'<span class="badge bad">{len(result.warnings)} WARNING(S)</span>')
+    badge = (
+        '<span class="badge ok">FEASIBLE</span>'
+        if feasible
+        else f'<span class="badge bad">{len(result.warnings)} WARNING(S)</span>'
+    )
 
     # Topology-specific spec table
     if spec.topology == "boost_ccm":
@@ -1347,25 +1427,23 @@ def generate_datasheet(
     mech_html = (
         '<div class="mech-grid">'
         + _views_grid(views)
-        + '<div>'
-        + '<h3>Mechanical dimensions</h3>'
+        + "<div>"
+        + "<h3>Mechanical dimensions</h3>"
         + _dim_table(dims)
-        + '<h3>Construction</h3>'
+        + "<h3>Construction</h3>"
         + '<table class="dim"><tr><td class="lbl">Core shape</td>'
-        + f'<td>{escape(core.shape.upper())}</td></tr>'
+        + f"<td>{escape(core.shape.upper())}</td></tr>"
         + f'<tr><td class="lbl">Air gap</td><td>{core.lgap_mm:.2f} mm</td></tr>'
         + f'<tr><td class="lbl">Wire</td><td>{escape(wire.id)}</td></tr>'
         + f'<tr><td class="lbl">Turns</td><td>{result.N_turns}</td></tr>'
-        + '</table>'
-        + '</div></div>'
+        + "</table>"
+        + "</div></div>"
     )
 
     warnings_html = ""
     if result.warnings:
         items = "".join(f"<li>{escape(w)}</li>" for w in result.warnings)
-        warnings_html = (
-            f'<div class="warnings"><b>Warnings</b><ul>{items}</ul></div>'
-        )
+        warnings_html = f'<div class="warnings"><b>Warnings</b><ul>{items}</ul></div>'
 
     # Page 2 — performance
     perf_section = _topology_section(spec, core, wire, material, result)
@@ -1381,16 +1459,16 @@ def generate_datasheet(
     # actually all closed-form.
     validation_rows = _validation_status_rows(result)
     environment_table = _kv_table(_ENV_RATINGS, extra_class="dim")
-    safety_table = _kv_table(_safety_table_for(spec.topology),
-                              extra_class="dim")
+    safety_table = _kv_table(_safety_table_for(spec.topology), extra_class="dim")
     tolerance_table = _tolerance_rows(result, material)
     build_table = _build_instructions_rows(core, wire, result)
     test_plan_table = _test_plan_rows(spec, result, material)
     bh_plot = _bh_trajectory_plot(result, core, material)
     bh_section = (
-        '<h3>B–H trajectory at operating point</h3>'
-        f'<img src="data:image/png;base64,{bh_plot}" />'
-    ) if bh_plot else ""
+        (f'<h3>B–H trajectory at operating point</h3><img src="data:image/png;base64,{bh_plot}" />')
+        if bh_plot
+        else ""
+    )
     revision_table = _revision_history_rows(revision, designer, now)
     metadata_table = _project_metadata_rows(spec, core, material, wire, pn)
 
@@ -1503,7 +1581,7 @@ def generate_datasheet(
   {validation_rows}
 
   <h2>Engineering Notes</h2>
-  <div class="note">{escape(result.notes or '—')}</div>
+  <div class="note">{escape(result.notes or "—")}</div>
 
   <h2>Revision History</h2>
   {revision_table}

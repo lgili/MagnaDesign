@@ -5,6 +5,7 @@ The corner DOE / Monte-Carlo physics has its own coverage in
 ``test_worst_case_engine``; this file exercises the *integration*
 path so a refactor on either side surfaces here.
 """
+
 from __future__ import annotations
 
 import json
@@ -34,9 +35,14 @@ def _write_reference_project(tmp_path: Path) -> Path:
     from pfc_inductor.project import ProjectFile, save_project
 
     spec = Spec(
-        topology="boost_ccm", Pout_W=600,
-        Vin_min_Vrms=85, Vin_max_Vrms=265, Vout_V=400,
-        f_sw_kHz=65, ripple_pct=20, T_amb_C=40,
+        topology="boost_ccm",
+        Pout_W=600,
+        Vin_min_Vrms=85,
+        Vin_max_Vrms=265,
+        Vout_V=400,
+        f_sw_kHz=65,
+        ripple_pct=20,
+        T_amb_C=40,
     )
     pf = ProjectFile.from_session(
         name="cli-wc-test",
@@ -55,13 +61,21 @@ def test_worst_case_help_lists_options(cli_runner: CliRunner) -> None:
 
     result = cli_runner.invoke(cli, ["worst-case", "--help"])
     assert result.exit_code == 0
-    for opt in ("--tolerances", "--samples", "--seed",
-                "--yield-threshold", "--csv", "--pretty", "--json"):
+    for opt in (
+        "--tolerances",
+        "--samples",
+        "--seed",
+        "--yield-threshold",
+        "--csv",
+        "--pretty",
+        "--json",
+    ):
         assert opt in result.output, f"missing {opt} in help"
 
 
 def test_worst_case_passes_on_feasible_design(
-    cli_runner: CliRunner, tmp_path: Path,
+    cli_runner: CliRunner,
+    tmp_path: Path,
 ) -> None:
     """Reference design + bundled tolerances → verdict PASS, exit 0.
 
@@ -85,7 +99,8 @@ def test_worst_case_passes_on_feasible_design(
 
 
 def test_worst_case_pretty_renders_human_summary(
-    cli_runner: CliRunner, tmp_path: Path,
+    cli_runner: CliRunner,
+    tmp_path: Path,
 ) -> None:
     from pfc_inductor.cli import cli
 
@@ -106,14 +121,19 @@ def test_worst_case_pretty_renders_human_summary(
 
 
 def test_worst_case_seed_makes_yield_reproducible(
-    cli_runner: CliRunner, tmp_path: Path,
+    cli_runner: CliRunner,
+    tmp_path: Path,
 ) -> None:
     from pfc_inductor.cli import cli
 
     project_path = _write_reference_project(tmp_path)
     args = [
-        "worst-case", str(project_path),
-        "--samples", "60", "--seed", "1234",
+        "worst-case",
+        str(project_path),
+        "--samples",
+        "60",
+        "--seed",
+        "1234",
     ]
     a = cli_runner.invoke(cli, args)
     b = cli_runner.invoke(cli, args)
@@ -124,7 +144,8 @@ def test_worst_case_seed_makes_yield_reproducible(
 
 
 def test_worst_case_csv_output_contains_header_and_rows(
-    cli_runner: CliRunner, tmp_path: Path,
+    cli_runner: CliRunner,
+    tmp_path: Path,
 ) -> None:
     from pfc_inductor.cli import cli
 
@@ -132,23 +153,28 @@ def test_worst_case_csv_output_contains_header_and_rows(
     csv_path = tmp_path / "corners.csv"
     result = cli_runner.invoke(
         cli,
-        ["worst-case", str(project_path),
-         "--samples", "30",
-         "--csv", str(csv_path)],
+        ["worst-case", str(project_path), "--samples", "30", "--csv", str(csv_path)],
     )
     assert result.exit_code == 0
     text = csv_path.read_text()
     # Header columns documented in worst_case.py:_write_corner_csv.
-    for col in ("label", "feasible", "T_winding_C",
-                "B_pk_T", "P_total_W", "N_turns",
-                "failure_reason"):
+    for col in (
+        "label",
+        "feasible",
+        "T_winding_C",
+        "B_pk_T",
+        "P_total_W",
+        "N_turns",
+        "failure_reason",
+    ):
         assert col in text.splitlines()[0]
     # 143 corners + 1 header line.
     assert text.count("\n") >= 100
 
 
 def test_worst_case_yield_threshold_drives_exit_code(
-    cli_runner: CliRunner, tmp_path: Path,
+    cli_runner: CliRunner,
+    tmp_path: Path,
 ) -> None:
     """An impossibly-strict ``--yield-threshold`` flips the
     verdict to FAIL even if every corner is feasible. Exit code
@@ -159,9 +185,7 @@ def test_worst_case_yield_threshold_drives_exit_code(
     project_path = _write_reference_project(tmp_path)
     result = cli_runner.invoke(
         cli,
-        ["worst-case", str(project_path),
-         "--samples", "30",
-         "--yield-threshold", "99.999"],
+        ["worst-case", str(project_path), "--samples", "30", "--yield-threshold", "99.999"],
     )
     payload = json.loads(result.stdout)
     if payload["yield"]["pass_rate"] < 99.999:

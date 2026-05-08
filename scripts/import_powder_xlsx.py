@@ -62,6 +62,7 @@ Output is tagged with ``x-pfc-inductor.source = "powder_xlsx"`` and
 the vendor name, so the loader's "Apenas curados" filter excludes
 the imports until the user explicitly opts in.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -79,7 +80,6 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from pfc_inductor.models import Core  # type: ignore[import-not-found] # noqa: E402
 
-
 # ---------------------------------------------------------------------------
 # Column mapping
 # ---------------------------------------------------------------------------
@@ -91,19 +91,19 @@ from pfc_inductor.models import Core  # type: ignore[import-not-found] # noqa: E
 
 COLUMN_ALIASES: dict[str, list[str]] = {
     "part_number": ["part", "partnumber", "id", "catalogue", "catalog"],
-    "material":    ["material", "alloy", "core material"],
-    "shape":       ["shape", "core type", "geometry"],
-    "Ae":          ["effectivearea", "ae", "crosssection", "cross section"],
-    "le":          ["effectivepathlength", "le", "magneticpath", "pathlength"],
-    "Ve":          ["effectivevolume", "ve", "corevolume"],
-    "Wa":          ["windowarea", "wa", "window"],
-    "MLT":         ["meanlengthperturn", "mlt", "averagewindinglength"],
-    "AL":          ["al", "inductancefactor", "alvalue"],
-    "OD":          ["outerdiameter", "od"],
-    "ID":          ["innerdiameter", "id"],  # NB: matches "id" too — ordering caveat below
-    "HT":          ["height", "ht", "thickness"],
-    "vendor":      ["manufacturer", "vendor", "brand"],
-    "cost":        ["price", "cost"],
+    "material": ["material", "alloy", "core material"],
+    "shape": ["shape", "core type", "geometry"],
+    "Ae": ["effectivearea", "ae", "crosssection", "cross section"],
+    "le": ["effectivepathlength", "le", "magneticpath", "pathlength"],
+    "Ve": ["effectivevolume", "ve", "corevolume"],
+    "Wa": ["windowarea", "wa", "window"],
+    "MLT": ["meanlengthperturn", "mlt", "averagewindinglength"],
+    "AL": ["al", "inductancefactor", "alvalue"],
+    "OD": ["outerdiameter", "od"],
+    "ID": ["innerdiameter", "id"],  # NB: matches "id" too — ordering caveat below
+    "HT": ["height", "ht", "thickness"],
+    "vendor": ["manufacturer", "vendor", "brand"],
+    "cost": ["price", "cost"],
 }
 
 
@@ -151,10 +151,12 @@ def _detect_columns(headers: list[str]) -> dict[str, int]:
 # Unit detection
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class UnitHints:
     """Per-field unit guess. ``mm`` for lengths, ``mm2`` for areas,
     ``mm3`` for volumes — converted from cm/cm²/cm³ when needed."""
+
     Ae: str = "mm2"
     le: str = "mm"
     Ve: str = "mm3"
@@ -197,6 +199,7 @@ def _detect_units(headers: list[str], cols: dict[str, int]) -> UnitHints:
 # Conversion helpers
 # ---------------------------------------------------------------------------
 
+
 def _to_mm(value: Any, unit: str) -> Optional[float]:
     if not isinstance(value, (int, float)):
         return None
@@ -234,9 +237,31 @@ def _infer_shape(part_number: str, fallback: str = "T") -> str:
     fallback (most powder cores are toroides).
     """
     pn = part_number.strip().upper()
-    for prefix in ("ETD", "EFD", "EER", "EEL", "EE", "EL", "EI", "ER",
-                   "EQ", "EP", "PQ", "RM", "PM", "PH", "PT", "EC",
-                   "UI", "UR", "UT", "U", "P", "T", "E"):
+    for prefix in (
+        "ETD",
+        "EFD",
+        "EER",
+        "EEL",
+        "EE",
+        "EL",
+        "EI",
+        "ER",
+        "EQ",
+        "EP",
+        "PQ",
+        "RM",
+        "PM",
+        "PH",
+        "PT",
+        "EC",
+        "UI",
+        "UR",
+        "UT",
+        "U",
+        "P",
+        "T",
+        "E",
+    ):
         if pn.startswith(prefix + " ") or pn.startswith(prefix + "-"):
             return prefix
     return fallback
@@ -245,6 +270,7 @@ def _infer_shape(part_number: str, fallback: str = "T") -> str:
 # ---------------------------------------------------------------------------
 # Parser
 # ---------------------------------------------------------------------------
+
 
 def _row_value(row: tuple, idx: Optional[int]) -> Any:
     if idx is None or idx >= len(row):
@@ -282,10 +308,7 @@ def parse_xlsx(
             "'part', 'partnumber', or 'catalog'."
         )
     if "Ae" not in cols or "le" not in cols:
-        raise ValueError(
-            "missing Ae or le columns. Headers seen: "
-            f"{[h for h in headers if h]}"
-        )
+        raise ValueError(f"missing Ae or le columns. Headers seen: {[h for h in headers if h]}")
     units = _detect_units(headers, cols)
 
     out: list[Core] = []
@@ -338,10 +361,10 @@ def parse_xlsx(
         HT = _to_mm(_row_value(row, cols.get("HT")), units.HT)
 
         vendor_raw = _row_value(row, cols.get("vendor"))
-        vendor = (str(vendor_raw).strip() if vendor_raw else vendor_default)
+        vendor = str(vendor_raw).strip() if vendor_raw else vendor_default
 
         shape_raw = _row_value(row, cols.get("shape"))
-        shape = (str(shape_raw).strip() if shape_raw else _infer_shape(pn_str))
+        shape = str(shape_raw).strip() if shape_raw else _infer_shape(pn_str)
 
         try:
             cost = float(_row_value(row, cols.get("cost"))) if cols.get("cost") else None
@@ -349,8 +372,7 @@ def parse_xlsx(
             cost = None
 
         material_id = (
-            f"{_slug(vendor)}-{_slug(material_str)}" if material_str
-            else f"{_slug(vendor)}-unknown"
+            f"{_slug(vendor)}-{_slug(material_str)}" if material_str else f"{_slug(vendor)}-unknown"
         )
         cid = f"{source_tag}-{_slug(vendor)}-{_slug(pn_str)}"
         if cid in seen_ids:
@@ -399,6 +421,7 @@ def parse_xlsx(
 # I/O
 # ---------------------------------------------------------------------------
 
+
 def _tag_source(entry: dict, vendor: str, source_path: Path) -> dict:
     entry["x-pfc-inductor"] = {
         "id": entry["id"],
@@ -409,8 +432,7 @@ def _tag_source(entry: dict, vendor: str, source_path: Path) -> dict:
     return entry
 
 
-def _write_catalog(out_dir: Path, cores: list[Core], vendor: str,
-                   source_path: Path) -> None:
+def _write_catalog(out_dir: Path, cores: list[Core], vendor: str, source_path: Path) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     payload = {
         "_comment": (
@@ -419,10 +441,7 @@ def _write_catalog(out_dir: Path, cores: list[Core], vendor: str,
             f"scripts/import_powder_xlsx.py. Effective parameters are "
             f"manufacturer-published values (exact, not shape-decoded)."
         ),
-        "cores": [
-            _tag_source(c.model_dump(mode="json"), vendor, source_path)
-            for c in cores
-        ],
+        "cores": [_tag_source(c.model_dump(mode="json"), vendor, source_path) for c in cores],
     }
     (out_dir / "cores.json").write_text(
         json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
@@ -432,15 +451,19 @@ def _write_catalog(out_dir: Path, cores: list[Core], vendor: str,
 
 def main(argv: Optional[Iterable[str]] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("source", type=Path,
-                        help="Path to the vendor XLSX catalog file.")
-    parser.add_argument("--sheet", type=str, default=None,
-                        help="Sheet name (default: first/active).")
-    parser.add_argument("--vendor", type=str, default="Magnetics",
-                        help="Vendor name when the XLSX has no vendor "
-                             "column (default: Magnetics).")
-    parser.add_argument("--out", type=Path, default=None,
-                        help="Output directory (default: data/<vendor>/).")
+    parser.add_argument("source", type=Path, help="Path to the vendor XLSX catalog file.")
+    parser.add_argument(
+        "--sheet", type=str, default=None, help="Sheet name (default: first/active)."
+    )
+    parser.add_argument(
+        "--vendor",
+        type=str,
+        default="Magnetics",
+        help="Vendor name when the XLSX has no vendor column (default: Magnetics).",
+    )
+    parser.add_argument(
+        "--out", type=Path, default=None, help="Output directory (default: data/<vendor>/)."
+    )
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(list(argv) if argv is not None else None)
 
@@ -452,8 +475,7 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     out_dir: Path = args.out or REPO_ROOT / "data" / _slug(args.vendor)
 
     print(f"Parsing {src.relative_to(Path.cwd()) if src.is_relative_to(Path.cwd()) else src}...")
-    cores, stats = parse_xlsx(src, sheet=args.sheet,
-                              vendor_default=args.vendor)
+    cores, stats = parse_xlsx(src, sheet=args.sheet, vendor_default=args.vendor)
     print(f"  rows seen:        {stats['rows']}")
     print(f"  skipped (empty):  {stats['skipped_empty']}")
     print(f"  skipped (bad):    {stats['skipped_bad']}")

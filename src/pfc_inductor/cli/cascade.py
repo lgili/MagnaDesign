@@ -26,6 +26,7 @@ Exit codes
 - ``1`` — generic error (engine / IO).
 - ``4`` — usage error (missing project, bad selection ids).
 """
+
 from __future__ import annotations
 
 import json
@@ -45,9 +46,9 @@ from pfc_inductor.topology.material_filter import materials_for_topology
 # ``--rank`` choice gives the user the same defence.
 _RANK_COLUMNS = ("loss", "temp", "cost", "loss_t2")
 _RANK_TO_COLUMN = {
-    "loss":    "loss_t1_W",
-    "temp":    "temp_t1_C",
-    "cost":    "cost_t1_USD",
+    "loss": "loss_t1_W",
+    "temp": "temp_t1_C",
+    "cost": "cost_t1_USD",
     "loss_t2": "loss_t2_W",
 }
 
@@ -62,50 +63,66 @@ def register(group: click.Group) -> None:
     type=click.Path(exists=False, dir_okay=False, path_type=Path),
 )
 @click.option(
-    "--tier2-k", "tier2_k", default=0, show_default=True,
+    "--tier2-k",
+    "tier2_k",
+    default=0,
+    show_default=True,
     type=click.IntRange(min=0, max=2000),
-    help="Top-K Tier-1 survivors to refine via Tier 2 (transient "
-         "ODE). 0 disables.",
+    help="Top-K Tier-1 survivors to refine via Tier 2 (transient ODE). 0 disables.",
 )
 @click.option(
-    "--tier3-k", "tier3_k", default=0, show_default=True,
+    "--tier3-k",
+    "tier3_k",
+    default=0,
+    show_default=True,
     type=click.IntRange(min=0, max=500),
     help="Top-K to validate via Tier 3 (FEMMT magnetostatic). "
-         "Requires the [fea] extra installed; 0 disables.",
+    "Requires the [fea] extra installed; 0 disables.",
 )
 @click.option(
-    "--tier4-k", "tier4_k", default=0, show_default=True,
+    "--tier4-k",
+    "tier4_k",
+    default=0,
+    show_default=True,
     type=click.IntRange(min=0, max=50),
     help="Top-K to sweep via Tier 4 (cycle-averaged FEA). 0 disables.",
 )
 @click.option(
-    "--workers", default=0, show_default=False,
+    "--workers",
+    default=0,
+    show_default=False,
     type=click.IntRange(min=0),
     help="Parallel Tier-1 workers. 0 == auto-detect (min(4, cpu_count)).",
 )
 @click.option(
-    "--store", "store_path",
+    "--store",
+    "store_path",
     type=click.Path(dir_okay=False, path_type=Path),
     default=None,
     help="SQLite store path. Defaults to the per-user data dir "
-         "(``~/Library/Application Support/MagnaDesign/cascade.db`` on "
-         "macOS) so the GUI and CLI share history.",
+    "(``~/Library/Application Support/MagnaDesign/cascade.db`` on "
+    "macOS) so the GUI and CLI share history.",
 )
 @click.option(
-    "--top", default=25, show_default=True,
+    "--top",
+    default=25,
+    show_default=True,
     type=click.IntRange(min=1, max=1000),
     help="Number of candidates to print after the run.",
 )
 @click.option(
-    "--rank", "rank_key",
+    "--rank",
+    "rank_key",
     type=click.Choice(_RANK_COLUMNS, case_sensitive=False),
-    default="loss", show_default=True,
+    default="loss",
+    show_default=True,
     help="Server-side ORDER BY for the printed top-N. Volume / "
-         "score variants need client-side reranking — use the "
-         "GUI cascade page for those.",
+    "score variants need client-side reranking — use the "
+    "GUI cascade page for those.",
 )
 @click.option(
-    "--csv", "csv_path",
+    "--csv",
+    "csv_path",
     type=click.Path(dir_okay=False, path_type=Path),
     default=None,
     help="Write the top-N as CSV (one row per candidate).",
@@ -115,17 +132,16 @@ def register(group: click.Group) -> None:
     default=False,
     show_default=True,
     help="When set AND the project's spec carries an "
-         "``fsw_modulation`` band, re-rank the printed top-N by "
-         "worst-case loss across the band. Substitutes "
-         "loss_t1_W / temp_t1_C with the band-worst value. "
-         "Adds ~5× the engine time per candidate (band points + 1 "
-         "lookup), affordable for top-N=25 typical.",
+    "``fsw_modulation`` band, re-rank the printed top-N by "
+    "worst-case loss across the band. Substitutes "
+    "loss_t1_W / temp_t1_C with the band-worst value. "
+    "Adds ~5× the engine time per candidate (band points + 1 "
+    "lookup), affordable for top-N=25 typical.",
 )
 @click.option(
     "--pretty/--json",
     default=False,
-    help="Render summary as a key-value table (--pretty) or as "
-         "JSON (default).",
+    help="Render summary as a key-value table (--pretty) or as JSON (default).",
 )
 @click.pass_context
 @wrap_design_error
@@ -174,6 +190,7 @@ def _cascade_cmd(
     # Lazy imports — keep the CLI startup Qt-free. The cascade
     # module pulls platformdirs + sqlite, both fine for headless.
     from platformdirs import user_data_dir
+
     from pfc_inductor.optimize.cascade import (
         CascadeConfig,
         CascadeOrchestrator,
@@ -182,9 +199,12 @@ def _cascade_cmd(
     )
 
     if store_path is None:
-        store_path = Path(
-            user_data_dir("PFCInductorDesigner", "indutor"),
-        ) / "cascade.db"
+        store_path = (
+            Path(
+                user_data_dir("PFCInductorDesigner", "indutor"),
+            )
+            / "cascade.db"
+        )
     store_path = store_path.expanduser().resolve()
     store_path.parent.mkdir(parents=True, exist_ok=True)
     store = RunStore(store_path)
@@ -195,7 +215,8 @@ def _cascade_cmd(
     # line-reactor spec). The GUI applies this upstream; mirror
     # the call here.
     eligible_materials = materials_for_topology(
-        loaded.materials, loaded.spec.topology,
+        loaded.materials,
+        loaded.spec.topology,
     )
 
     config = CascadeConfig(
@@ -205,6 +226,7 @@ def _cascade_cmd(
     )
 
     import os as _os
+
     parallelism = workers or min(4, _os.cpu_count() or 1)
 
     orch = CascadeOrchestrator(store=store, parallelism=parallelism)
@@ -238,21 +260,24 @@ def _cascade_cmd(
     t_start = time.perf_counter()
     try:
         orch.run(
-            run_id, loaded.spec,
-            eligible_materials, loaded.cores, loaded.wires,
+            run_id,
+            loaded.spec,
+            eligible_materials,
+            loaded.cores,
+            loaded.wires,
             config,
             progress_cb=_on_progress,
         )
-    except Exception as exc:  # noqa: BLE001 — surface anything
-        click.echo(f"cascade failed: {type(exc).__name__}: {exc}",
-                   err=True)
+    except Exception as exc:
+        click.echo(f"cascade failed: {type(exc).__name__}: {exc}", err=True)
         ctx.exit(int(ExitCode.GENERIC_ERROR))
         return int(ExitCode.GENERIC_ERROR)
     elapsed = time.perf_counter() - t_start
 
     record = store.get_run(run_id)
     rows = store.top_candidates(
-        run_id, n=top,
+        run_id,
+        n=top,
         order_by=_RANK_TO_COLUMN[rank_key],
     )
 
@@ -264,6 +289,7 @@ def _cascade_cmd(
         from pfc_inductor.optimize.cascade.band_aware import (
             band_aware_rerank,
         )
+
         click.echo(
             f"band-aware re-rank: re-evaluating top-{len(rows)} "
             f"across {loaded.spec.fsw_modulation.n_eval_points} "
@@ -271,25 +297,26 @@ def _cascade_cmd(
             err=True,
         )
         rows = band_aware_rerank(
-            rows, loaded.spec,
+            rows,
+            loaded.spec,
             cores_by_id={c.id: c for c in loaded.cores},
             wires_by_id={w.id: w for w in loaded.wires},
             materials_by_id={m.id: m for m in eligible_materials},
         )
 
     payload = {
-        "run_id":     run_id,
+        "run_id": run_id,
         "store_path": str(store_path),
-        "elapsed_s":  round(elapsed, 2),
-        "status":     getattr(record, "status", "unknown"),
+        "elapsed_s": round(elapsed, 2),
+        "status": getattr(record, "status", "unknown"),
         "config": {
-            "tier2_k":    tier2_k,
-            "tier3_k":    tier3_k,
-            "tier4_k":    tier4_k,
-            "workers":    parallelism,
+            "tier2_k": tier2_k,
+            "tier3_k": tier3_k,
+            "tier4_k": tier4_k,
+            "workers": parallelism,
         },
         "top": [_row_to_dict(r) for r in rows],
-        "n_top":      len(rows),
+        "n_top": len(rows),
     }
 
     if csv_path is not None:
@@ -311,25 +338,34 @@ def _cascade_cmd(
 def _row_to_dict(row) -> dict:
     return {
         "candidate_key": row.candidate_key,
-        "core_id":       row.core_id,
-        "material_id":   row.material_id,
-        "wire_id":       row.wire_id,
-        "N":             row.N,
-        "gap_mm":        row.gap_mm,
-        "highest_tier":  row.highest_tier,
-        "loss_t1_W":     row.loss_t1_W,
-        "temp_t1_C":     row.temp_t1_C,
-        "cost_t1_USD":   row.cost_t1_USD,
-        "loss_t2_W":     row.loss_t2_W,
+        "core_id": row.core_id,
+        "material_id": row.material_id,
+        "wire_id": row.wire_id,
+        "N": row.N,
+        "gap_mm": row.gap_mm,
+        "highest_tier": row.highest_tier,
+        "loss_t1_W": row.loss_t1_W,
+        "temp_t1_C": row.temp_t1_C,
+        "cost_t1_USD": row.cost_t1_USD,
+        "loss_t2_W": row.loss_t2_W,
     }
 
 
 def _write_csv(path: Path, rows) -> None:
     import csv
+
     fieldnames = [
-        "candidate_key", "core_id", "material_id", "wire_id",
-        "N", "gap_mm", "highest_tier",
-        "loss_t1_W", "temp_t1_C", "cost_t1_USD", "loss_t2_W",
+        "candidate_key",
+        "core_id",
+        "material_id",
+        "wire_id",
+        "N",
+        "gap_mm",
+        "highest_tier",
+        "loss_t1_W",
+        "temp_t1_C",
+        "cost_t1_USD",
+        "loss_t2_W",
     ]
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="") as fp:
@@ -346,7 +382,9 @@ def _emit_pretty(payload: dict) -> None:
     click.echo(f"workers     {payload['config']['workers']}")
     click.echo(f"top-N       {payload['n_top']} candidates")
     click.echo("")
-    click.echo("rank  core                       material              wire   N    loss W   temp °C")
+    click.echo(
+        "rank  core                       material              wire   N    loss W   temp °C"
+    )
     click.echo("-" * 92)
     for i, r in enumerate(payload["top"], start=1):
         loss = r["loss_t1_W"]

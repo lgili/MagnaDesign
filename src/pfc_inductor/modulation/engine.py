@@ -21,12 +21,13 @@ ms at the operating point on a modern laptop). The cascade
 optimizer + UI worst-case tab call this in worker threads, so the
 GUI stays responsive even on a 20-point band.
 """
+
 from __future__ import annotations
 
 from typing import Optional
 
 from pfc_inductor.errors import DesignError
-from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
+from pfc_inductor.models import Core, Material, Spec, Wire
 from pfc_inductor.models.banded_result import (
     BandedDesignResult,
     BandPoint,
@@ -66,29 +67,40 @@ def eval_band(
         point_spec = spec.model_copy(update={"f_sw_kHz": float(fsw_kHz)})
         try:
             result = run_design(
-                point_spec, core, wire, material,
+                point_spec,
+                core,
+                wire,
+                material,
                 Vin_design_Vrms=Vin_design_Vrms,
             )
-            results.append(BandPoint(
-                fsw_kHz=float(fsw_kHz), result=result,
-            ))
+            results.append(
+                BandPoint(
+                    fsw_kHz=float(fsw_kHz),
+                    result=result,
+                )
+            )
         except DesignError as exc:
-            results.append(BandPoint(
-                fsw_kHz=float(fsw_kHz),
-                result=None,
-                failure_reason=str(exc),
-            ))
+            results.append(
+                BandPoint(
+                    fsw_kHz=float(fsw_kHz),
+                    result=None,
+                    failure_reason=str(exc),
+                )
+            )
         except (ValueError, TypeError, ArithmeticError) as exc:
             # Engine raised something unexpected — record it but
             # don't propagate, the band stays a complete record.
-            results.append(BandPoint(
-                fsw_kHz=float(fsw_kHz),
-                result=None,
-                failure_reason=f"{type(exc).__name__}: {exc}",
-            ))
+            results.append(
+                BandPoint(
+                    fsw_kHz=float(fsw_kHz),
+                    result=None,
+                    failure_reason=f"{type(exc).__name__}: {exc}",
+                )
+            )
 
     return aggregate_band(
-        spec, results,
+        spec,
+        results,
         edge_weighted=band.is_edge_weighted(),
     )
 
@@ -116,10 +128,16 @@ def design_or_band(
 
     if spec.fsw_modulation is None:
         return run_design(
-            spec, core, wire, material,
+            spec,
+            core,
+            wire,
+            material,
             Vin_design_Vrms=Vin_design_Vrms,
         )
     return eval_band(
-        spec, core, wire, material,
+        spec,
+        core,
+        wire,
+        material,
         Vin_design_Vrms=Vin_design_Vrms,
     )

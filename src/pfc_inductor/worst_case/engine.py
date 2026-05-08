@@ -34,6 +34,7 @@ hypercube plus the centre, plus the per-axis ±extreme) — that's
 the corner set most engineers care about. Monte-Carlo in
 ``monte_carlo.simulate_yield`` handles the dense interior.
 """
+
 from __future__ import annotations
 
 import itertools
@@ -67,7 +68,10 @@ class WorstCaseConfig:
     Above it, fall back to the per-axis fractional sample."""
 
     metrics_to_track: tuple[str, ...] = (
-        "T_winding_C", "B_pk_T", "P_total_W", "T_rise_C",
+        "T_winding_C",
+        "B_pk_T",
+        "P_total_W",
+        "T_rise_C",
     )
     """DesignResult fields to aggregate per corner. Each appears
     in :class:`WorstCaseSummary` with its worst-case corner."""
@@ -141,31 +145,39 @@ def _apply_tolerance(
         # ``Vin_min_Vrms`` (the engine's worst-case input) so the
         # corner test exercises both rails.
         delta = sign * pct
-        new_spec = spec.model_copy(update={
-            "Vin_min_Vrms": max(spec.Vin_min_Vrms + delta, 1.0),
-            "Vin_nom_Vrms": max(spec.Vin_nom_Vrms + delta, 1.0),
-        })
+        new_spec = spec.model_copy(
+            update={
+                "Vin_min_Vrms": max(spec.Vin_min_Vrms + delta, 1.0),
+                "Vin_nom_Vrms": max(spec.Vin_nom_Vrms + delta, 1.0),
+            }
+        )
         return new_spec, core, wire, material
 
     if kind == "T_amb_C":
         # Absolute °C — pct field is interpreted as °C swing,
         # not percent. Documented in tolerances.py.
         delta = sign * pct
-        new_spec = spec.model_copy(update={
-            "T_amb_C": spec.T_amb_C + delta,
-        })
+        new_spec = spec.model_copy(
+            update={
+                "T_amb_C": spec.T_amb_C + delta,
+            }
+        )
         return new_spec, core, wire, material
 
     if kind == "Pout_pct":
-        new_spec = spec.model_copy(update={
-            "Pout_W": max(spec.Pout_W * factor_pct, 1.0),
-        })
+        new_spec = spec.model_copy(
+            update={
+                "Pout_W": max(spec.Pout_W * factor_pct, 1.0),
+            }
+        )
         return new_spec, core, wire, material
 
     if kind == "AL_pct":
-        new_core = core.model_copy(update={
-            "AL_nH": max(core.AL_nH * factor_pct, 1e-3),
-        })
+        new_core = core.model_copy(
+            update={
+                "AL_nH": max(core.AL_nH * factor_pct, 1e-3),
+            }
+        )
         return spec, new_core, wire, material
 
     if kind == "Bsat_pct":
@@ -178,18 +190,22 @@ def _apply_tolerance(
         return spec, core, wire, new_mat
 
     if kind == "mu_r_pct":
-        new_mat = material.model_copy(update={
-            "mu_initial": max(material.mu_initial * factor_pct, 1.0),
-        })
+        new_mat = material.model_copy(
+            update={
+                "mu_initial": max(material.mu_initial * factor_pct, 1.0),
+            }
+        )
         return spec, core, wire, new_mat
 
     if kind == "wire_dia_pct":
         d = getattr(wire, "d_cu_mm", None)
         if d is None:
             return spec, core, wire, material
-        new_wire = wire.model_copy(update={
-            "d_cu_mm": max(d * factor_pct, 1e-4),
-        })
+        new_wire = wire.model_copy(
+            update={
+                "d_cu_mm": max(d * factor_pct, 1e-4),
+            }
+        )
         return spec, core, new_wire, material
 
     # Unknown kind — silently no-op rather than crashing the DOE.
@@ -237,12 +253,15 @@ def evaluate_corners(
     if not tols:
         # No tolerances — degenerate to a single nominal evaluation.
         nominal = _evaluate_one(
-            (), tols, spec, core, wire, material, label="nominal",
+            (),
+            tols,
+            spec,
+            core,
+            wire,
+            material,
+            label="nominal",
         )
-        worst = (
-            {m: nominal for m in cfg.metrics_to_track}
-            if nominal.result else {}
-        )
+        worst = {m: nominal for m in cfg.metrics_to_track} if nominal.result else {}
         return WorstCaseSummary(
             n_corners_evaluated=1,
             n_corners_failed=0 if nominal.result else 1,
@@ -326,22 +345,37 @@ def _evaluate_one(
         result = run_design(s, c, w, m)
     except DesignError as exc:
         return CornerResult(
-            label=label, deltas=deltas,
-            spec=s, core=c, wire=w, material=m,
-            result=None, failure_reason=str(exc),
+            label=label,
+            deltas=deltas,
+            spec=s,
+            core=c,
+            wire=w,
+            material=m,
+            result=None,
+            failure_reason=str(exc),
         )
     except (ValueError, TypeError, ArithmeticError) as exc:
         # Unexpected non-DesignError — record but don't propagate.
         # A corner that crashes is still useful information.
         return CornerResult(
-            label=label, deltas=deltas,
-            spec=s, core=c, wire=w, material=m,
-            result=None, failure_reason=f"{type(exc).__name__}: {exc}",
+            label=label,
+            deltas=deltas,
+            spec=s,
+            core=c,
+            wire=w,
+            material=m,
+            result=None,
+            failure_reason=f"{type(exc).__name__}: {exc}",
         )
     return CornerResult(
-        label=label, deltas=deltas,
-        spec=s, core=c, wire=w, material=m,
-        result=result, failure_reason=None,
+        label=label,
+        deltas=deltas,
+        spec=s,
+        core=c,
+        wire=w,
+        material=m,
+        result=result,
+        failure_reason=None,
     )
 
 
@@ -420,9 +454,7 @@ def sensitivity_table(
             for cr in summary.corners:
                 if cr.result is None:
                     continue
-                non_zero = [
-                    (n, s) for n, s in cr.deltas.items() if s != 0
-                ]
+                non_zero = [(n, s) for n, s in cr.deltas.items() if s != 0]
                 if len(non_zero) != 1:
                     continue
                 axis_name, axis_sign = non_zero[0]
@@ -439,14 +471,8 @@ def sensitivity_table(
                 continue
             # Impact = max(|plus - nominal|, |minus - nominal|).
             # For a missing branch we use the available one only.
-            impact_plus = (
-                abs(plus_value - nominal_value)
-                if plus_value is not None else 0.0
-            )
-            impact_minus = (
-                abs(minus_value - nominal_value)
-                if minus_value is not None else 0.0
-            )
+            impact_plus = abs(plus_value - nominal_value) if plus_value is not None else 0.0
+            impact_minus = abs(minus_value - nominal_value) if minus_value is not None else 0.0
             impact = max(impact_plus, impact_minus)
             if impact > 0:
                 per_tolerance_impact.append((tol_name, impact))
@@ -460,6 +486,7 @@ def _read_metric(result: DesignResult, metric: str) -> Optional[float]:
     unknown metrics or non-finite values so the worst-case picker
     skips them cleanly."""
     import math
+
     if "." in metric:
         # Nested attr like "losses.P_total_W" — walk the chain.
         obj: object = result

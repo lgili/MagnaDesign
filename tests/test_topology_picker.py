@@ -1,4 +1,5 @@
 """Topology picker dialog regressions."""
+
 from __future__ import annotations
 
 import os
@@ -11,18 +12,21 @@ import pytest
 @pytest.fixture(scope="module")
 def app():
     from PySide6.QtWidgets import QApplication
+
     inst = QApplication.instance() or QApplication([])
     yield inst
 
 
 def test_picker_default_selection_matches_current(app):
     from pfc_inductor.ui.dialogs import TopologyPickerDialog
+
     dlg = TopologyPickerDialog(current="passive_choke")
     assert dlg.selected_key() == "passive_choke"
 
 
 def test_picker_resolves_line_reactor_to_correct_variant(app):
     from pfc_inductor.ui.dialogs import TopologyPickerDialog
+
     # Default: 1ph
     dlg = TopologyPickerDialog(current="line_reactor", n_phases=1)
     assert dlg.selected_schematic_key() == "line_reactor_1ph"
@@ -33,6 +37,7 @@ def test_picker_resolves_line_reactor_to_correct_variant(app):
 
 def test_picker_clicking_an_option_changes_selection(app):
     from pfc_inductor.ui.dialogs import TopologyPickerDialog
+
     dlg = TopologyPickerDialog(current="boost_ccm")
     assert dlg.selected_key() == "boost_ccm"
     dlg._on_option_clicked("passive_choke")
@@ -41,6 +46,7 @@ def test_picker_clicking_an_option_changes_selection(app):
 
 def test_picker_selected_n_phases_for_line_reactor(app):
     from pfc_inductor.ui.dialogs import TopologyPickerDialog
+
     dlg = TopologyPickerDialog(current="boost_ccm")
     dlg._on_option_clicked("line_reactor_3ph")
     assert dlg.selected_key() == "line_reactor"
@@ -58,16 +64,20 @@ def test_picker_has_five_options(app):
     Buck-CCM was added in the ``add-buck-ccm-topology`` change.
     """
     from pfc_inductor.ui.dialogs import TopologyPickerDialog
+
     dlg = TopologyPickerDialog()
     assert set(dlg._options.keys()) == {
-        "boost_ccm", "passive_choke",
-        "line_reactor_1ph", "line_reactor_3ph",
+        "boost_ccm",
+        "passive_choke",
+        "line_reactor_1ph",
+        "line_reactor_3ph",
         "buck_ccm",
     }
 
 
 def test_picker_accept_returns_accepted_code(app):
     from pfc_inductor.ui.dialogs import TopologyPickerDialog
+
     dlg = TopologyPickerDialog()
     dlg.accept()
     assert dlg.result() == TopologyPickerDialog.DialogCode.Accepted
@@ -77,6 +87,7 @@ def test_picker_accept_returns_accepted_code(app):
 # Integration: clicking "Alterar Topologia" wires through to the spec panel
 # ---------------------------------------------------------------------------
 
+
 def test_main_window_topology_picker_applies_to_spec_panel(app, monkeypatch):
     """Simulate the user clicking "Alterar Topologia" → picker selects
     passive_choke → spec panel's topology combo should reflect that."""
@@ -84,6 +95,7 @@ def test_main_window_topology_picker_applies_to_spec_panel(app, monkeypatch):
     from pfc_inductor.ui.main_window import MainWindow
 
     w = MainWindow()
+
     # Force-apply: stub TopologyPickerDialog.exec to return Accepted
     # and pre-set the chosen key.
     def fake_exec(self_dlg):

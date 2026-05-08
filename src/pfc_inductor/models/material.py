@@ -11,6 +11,7 @@ class SteinmetzParams(BaseModel):
     Anchoring at a (f_ref, B_ref, Pv_ref) datapoint avoids unit ambiguity
     and lets the user calibrate against any published datasheet point.
     """
+
     Pv_ref_mWcm3: float
     f_ref_kHz: float = 100.0
     B_ref_mT: float = 100.0
@@ -26,6 +27,7 @@ class RolloffParams(BaseModel):
     Calibrate (a, b, c) so that at H=0, mu=1.0 (i.e. a small) and at H_50
     the value is 0.5. Matches Magnetics-style published curves.
     """
+
     a: float
     b: float
     c: float
@@ -57,7 +59,7 @@ class Material(BaseModel):
     cost_per_kg: Optional[float] = Field(
         default=None,
         description="Bulk material price (USD/kg). If absent, core cost is "
-                    "still computable from Core.cost_per_piece.",
+        "still computable from Core.cost_per_piece.",
     )
     cost_currency: str = Field(default="USD")
     notes: str = ""

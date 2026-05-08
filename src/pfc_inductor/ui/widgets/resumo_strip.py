@@ -9,6 +9,7 @@ Aggregate status is shown as a Pill on the right edge — same colour
 language as the v2 ``ResumoCard`` badge ("Approved" / "Check" /
 "Failed"), driven by the worst per-tile status.
 """
+
 from __future__ import annotations
 
 import math
@@ -54,9 +55,7 @@ def _status_for_temp(T_C: float) -> MetricStatus:
     return "err"
 
 
-def _finite_or_dash(
-    value: float, fmt: str = "{:.0f}", clamp_max: float = 1e6
-) -> str:
+def _finite_or_dash(value: float, fmt: str = "{:.0f}", clamp_max: float = 1e6) -> str:
     """Format ``value`` defensively, falling back to ``"—"``.
 
     The engine occasionally emits ``inf``, ``nan`` or absurd magnitudes
@@ -104,8 +103,7 @@ class ResumoStrip(QFrame):
         super().__init__(parent)
         self.setObjectName("ResumoStrip")
         self.setFixedHeight(self.HEIGHT)
-        self.setSizePolicy(QSizePolicy.Policy.Expanding,
-                           QSizePolicy.Policy.Fixed)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.setStyleSheet(self._self_qss())
 
         h = QHBoxLayout(self)
@@ -116,12 +114,15 @@ class ResumoStrip(QFrame):
         self.m_I = MetricCard("DC current", "—", "A", compact=True)
         self.m_dI = MetricCard("Ripple", "—", "App", compact=True)
         self.m_B = MetricCard("B peak", "—", "mT", compact=True)
-        self.m_T = MetricCard("ΔT", "—", "°C", compact=True,
-                              trend_better="lower")
-        self.m_P = MetricCard("Losses", "—", "W", compact=True,
-                              trend_better="lower")
+        self.m_T = MetricCard("ΔT", "—", "°C", compact=True, trend_better="lower")
+        self.m_P = MetricCard("Losses", "—", "W", compact=True, trend_better="lower")
         self._tiles = (
-            self.m_L, self.m_I, self.m_dI, self.m_B, self.m_T, self.m_P,
+            self.m_L,
+            self.m_I,
+            self.m_dI,
+            self.m_B,
+            self.m_T,
+            self.m_P,
         )
         for mc in self._tiles:
             # Width-only minimum so the strip can compress horizontally
@@ -200,10 +201,8 @@ class ResumoStrip(QFrame):
 
     def eventFilter(self, obj, event):
         from PySide6.QtCore import QEvent
-        if (
-            obj is self.badge
-            and event.type() == QEvent.Type.MouseButtonRelease
-        ):
+
+        if obj is self.badge and event.type() == QEvent.Type.MouseButtonRelease:
             if self._pending:
                 self.spec_drawer_requested.emit()
                 return True
@@ -230,9 +229,9 @@ class ResumoStrip(QFrame):
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
-    def update_from_design(self, result: DesignResult, spec: Spec,
-                           core: Core, wire: Wire,
-                           material: Material) -> None:
+    def update_from_design(
+        self, result: DesignResult, spec: Spec, core: Core, wire: Wire, material: Material
+    ) -> None:
         # First successful update clears the "fill spec" empty-state.
         if self._pending:
             self._pending = False
@@ -249,8 +248,7 @@ class ResumoStrip(QFrame):
         self.m_dI.set_value(_finite_or_dash(result.I_ripple_pk_pk_A, "{:.2f}"))
         self.m_B.set_value(_finite_or_dash(result.B_pk_T * 1000.0, "{:.0f}"))
         self.m_T.set_value(_finite_or_dash(result.T_rise_C, "{:.0f}"))
-        self.m_P.set_value(_finite_or_dash(result.losses.P_total_W, "{:.2f}",
-                                           clamp_max=1e5))
+        self.m_P.set_value(_finite_or_dash(result.losses.P_total_W, "{:.2f}", clamp_max=1e5))
 
         # Statuses — same logic as ResumoCard for parity.
         self.m_B.set_status(_status_for_b(result.B_pk_T, result.B_sat_limit_T))
@@ -280,9 +278,7 @@ class ResumoStrip(QFrame):
         # Badge is now interactive when there's a failure to inspect.
         if agg in ("err", "warn"):
             self.badge.setCursor(Qt.CursorShape.PointingHandCursor)
-            self.badge.setToolTip(
-                "Click to see which metric failed this analysis."
-            )
+            self.badge.setToolTip("Click to see which metric failed this analysis.")
         else:
             self.badge.setCursor(Qt.CursorShape.ArrowCursor)
             self.badge.setToolTip("")
@@ -382,7 +378,7 @@ class ResumoStrip(QFrame):
             # — leaving a sticky violet halo behind the "FAILED"
             # text in dark mode. A border-only flash reads as "fresh"
             # without contaminating any child.
-            f"QFrame#ResumoStrip[flash=\"true\"] {{"
+            f'QFrame#ResumoStrip[flash="true"] {{'
             f"  background: {p.surface};"
             f"  border: 2px solid {p.accent_violet};"
             f"  border-radius: {r.card}px;"

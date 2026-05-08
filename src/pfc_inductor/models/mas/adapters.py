@@ -4,6 +4,7 @@ Custom fields and calibrations that don't have direct MAS equivalents are
 preserved under the `x-pfc-inductor` namespace, so a round-trip
 (internal → MAS → internal) is faithful.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -40,23 +41,23 @@ def material_to_mas(m: Material) -> MasMaterial:
     form on the way out.
     """
     sat = [
-        MasSaturation(temperature_C=25.0,
-                      magnetic_flux_density_T=m.Bsat_25C_T),
-        MasSaturation(temperature_C=100.0,
-                      magnetic_flux_density_T=m.Bsat_100C_T),
+        MasSaturation(temperature_C=25.0, magnetic_flux_density_T=m.Bsat_25C_T),
+        MasSaturation(temperature_C=100.0, magnetic_flux_density_T=m.Bsat_100C_T),
     ]
     losses: list[MasCoreLoss] = []
     if m.steinmetz is not None:
-        losses.append(MasCoreLoss(
-            method="steinmetz",
-            coefficients=MasSteinmetzCoeffs(
-                k=m.steinmetz.Pv_ref_mWcm3,
-                alpha=m.steinmetz.alpha,
-                beta=m.steinmetz.beta,
-            ),
-            reference_frequency_Hz=m.steinmetz.f_ref_kHz * 1000.0,
-            reference_flux_density_T=m.steinmetz.B_ref_mT / 1000.0,
-        ))
+        losses.append(
+            MasCoreLoss(
+                method="steinmetz",
+                coefficients=MasSteinmetzCoeffs(
+                    k=m.steinmetz.Pv_ref_mWcm3,
+                    alpha=m.steinmetz.alpha,
+                    beta=m.steinmetz.beta,
+                ),
+                reference_frequency_Hz=m.steinmetz.f_ref_kHz * 1000.0,
+                reference_flux_density_T=m.steinmetz.B_ref_mT / 1000.0,
+            )
+        )
 
     ext: dict[str, Any] = {"id": m.id}
     if m.rolloff is not None:
@@ -71,9 +72,7 @@ def material_to_mas(m: Material) -> MasMaterial:
     if m.cost_currency:
         ext["cost_currency"] = m.cost_currency
     if m.loss_datapoints:
-        ext["loss_datapoints"] = [
-            dp.model_dump(mode="json") for dp in m.loss_datapoints
-        ]
+        ext["loss_datapoints"] = [dp.model_dump(mode="json") for dp in m.loss_datapoints]
 
     return MasMaterial(
         name=m.name,
@@ -92,13 +91,11 @@ def material_to_mas(m: Material) -> MasMaterial:
 def material_from_mas(doc: MasMaterial) -> Material:
     """Convert MAS-shaped object → internal Material."""
     bsat_25 = next(
-        (s.magnetic_flux_density_T for s in doc.saturation
-         if abs(s.temperature_C - 25) < 1),
+        (s.magnetic_flux_density_T for s in doc.saturation if abs(s.temperature_C - 25) < 1),
         0.4,
     )
     bsat_100 = next(
-        (s.magnetic_flux_density_T for s in doc.saturation
-         if abs(s.temperature_C - 100) < 1),
+        (s.magnetic_flux_density_T for s in doc.saturation if abs(s.temperature_C - 100) < 1),
         bsat_25 * 0.85,
     )
 
@@ -120,7 +117,9 @@ def material_from_mas(doc: MasMaterial) -> Material:
         )
     else:
         steinmetz = SteinmetzParams(
-            Pv_ref_mWcm3=200.0, alpha=1.4, beta=2.5,
+            Pv_ref_mWcm3=200.0,
+            alpha=1.4,
+            beta=2.5,
         )
 
     rolloff_data = ext.get("rolloff") if isinstance(ext, dict) else None

@@ -28,6 +28,7 @@ Public API
 - :func:`applicable_standards` — predicate used by the UI to
   light up which checks the current spec triggers.
 """
+
 from __future__ import annotations
 
 from pfc_inductor.compliance.dispatcher import (

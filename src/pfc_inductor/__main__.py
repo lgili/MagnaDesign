@@ -14,11 +14,13 @@ Dispatches between two surfaces:
 The dispatch happens *before* any Qt import so that headless
 servers without a display still run the CLI cleanly.
 """
+
 from __future__ import annotations
 
 import os
 import sys
 from pathlib import Path
+
 
 # These imports are intentionally late so the CLI dispatch in
 # :func:`main` can decide between GUI and headless paths *before*
@@ -41,23 +43,36 @@ def _import_qt_runtime() -> None:
     from PySide6.QtCore import QSettings as _QSettings
     from PySide6.QtGui import (
         QColor as _QColor,
+    )
+    from PySide6.QtGui import (
         QFontDatabase as _QFontDatabase,
+    )
+    from PySide6.QtGui import (
         QIcon as _QIcon,
+    )
+    from PySide6.QtGui import (
         QPalette as _QPalette,
     )
     from PySide6.QtWidgets import QApplication as _QApplication
 
     from pfc_inductor.settings import (
         SETTINGS_APP as _SETTINGS_APP,
+    )
+    from pfc_inductor.settings import (
         SETTINGS_ORG as _SETTINGS_ORG,
     )
     from pfc_inductor.ui.main_window import MainWindow as _MainWindow
     from pfc_inductor.ui.style import make_stylesheet as _make_stylesheet
     from pfc_inductor.ui.theme import (
         get_theme as _get_theme,
+    )
+    from pfc_inductor.ui.theme import (
         on_theme_changed as _on_theme_changed,
+    )
+    from pfc_inductor.ui.theme import (
         set_theme as _set_theme,
     )
+
     QSettings = _QSettings
     QColor = _QColor
     QFontDatabase = _QFontDatabase
@@ -82,7 +97,7 @@ def _load_initial_theme() -> str:
     return str(val) if val in ("light", "dark") else "light"
 
 
-def _resolve_icon() -> "QIcon":
+def _resolve_icon() -> QIcon:
     """Locate the launcher icon across deployment shapes.
 
     Order matches ``data_loader._bundled_data_root``:
@@ -105,8 +120,8 @@ def _resolve_icon() -> "QIcon":
             candidates.append(Path(meipass) / "img")
         candidates.append(Path(sys.executable).resolve().parent / "img")
     pkg_root = Path(__file__).resolve().parent
-    candidates.append(pkg_root.parent.parent / "img")          # source checkout
-    candidates.append(pkg_root / "img")                         # wheel layout
+    candidates.append(pkg_root.parent.parent / "img")  # source checkout
+    candidates.append(pkg_root / "img")  # wheel layout
 
     img_dir = next((p for p in candidates if p.is_dir()), None)
     if img_dir is None:
@@ -170,24 +185,27 @@ def _patch_brand_typography_to_installed_fonts() -> None:
         pieces.append('"Inter Variable"')
     if has_inter:
         pieces.append('"Inter"')
-    pieces.extend([
-        "-apple-system",
-        '"SF Pro Display"',
-        '"Segoe UI Variable"',
-        '"Segoe UI"',
-        '"Helvetica Neue"',
-        "Arial",
-        "sans-serif",
-    ])
+    pieces.extend(
+        [
+            "-apple-system",
+            '"SF Pro Display"',
+            '"Segoe UI Variable"',
+            '"Segoe UI"',
+            '"Helvetica Neue"',
+            "Arial",
+            "sans-serif",
+        ]
+    )
     new_stack = ", ".join(pieces)
 
     new_type = dataclasses.replace(
-        _theme._state.type, ui_family_brand=new_stack,
+        _theme._state.type,
+        ui_family_brand=new_stack,
     )
     _theme._state = dataclasses.replace(_theme._state, type=new_type)
 
 
-def _apply_app_palette(app: "QApplication") -> None:
+def _apply_app_palette(app: QApplication) -> None:
     """Mirror the active token Palette into the ``QApplication``'s
     :class:`QPalette` so widgets that bypass the global stylesheet
     (native dialogs, message boxes, system tooltips, the few inputs
@@ -201,29 +219,30 @@ def _apply_app_palette(app: "QApplication") -> None:
     """
     p = get_theme().palette
     qp = QPalette()
-    qp.setColor(QPalette.ColorRole.Window,         QColor(p.bg))
-    qp.setColor(QPalette.ColorRole.WindowText,     QColor(p.text))
-    qp.setColor(QPalette.ColorRole.Base,           QColor(p.surface))
-    qp.setColor(QPalette.ColorRole.AlternateBase,  QColor(p.surface_elevated))
-    qp.setColor(QPalette.ColorRole.Text,           QColor(p.text))
+    qp.setColor(QPalette.ColorRole.Window, QColor(p.bg))
+    qp.setColor(QPalette.ColorRole.WindowText, QColor(p.text))
+    qp.setColor(QPalette.ColorRole.Base, QColor(p.surface))
+    qp.setColor(QPalette.ColorRole.AlternateBase, QColor(p.surface_elevated))
+    qp.setColor(QPalette.ColorRole.Text, QColor(p.text))
     qp.setColor(QPalette.ColorRole.PlaceholderText, QColor(p.text_muted))
-    qp.setColor(QPalette.ColorRole.Button,         QColor(p.surface_elevated))
-    qp.setColor(QPalette.ColorRole.ButtonText,     QColor(p.text))
-    qp.setColor(QPalette.ColorRole.Highlight,      QColor(p.accent))
+    qp.setColor(QPalette.ColorRole.Button, QColor(p.surface_elevated))
+    qp.setColor(QPalette.ColorRole.ButtonText, QColor(p.text))
+    qp.setColor(QPalette.ColorRole.Highlight, QColor(p.accent))
     qp.setColor(QPalette.ColorRole.HighlightedText, QColor(p.text_inverse))
-    qp.setColor(QPalette.ColorRole.ToolTipBase,    QColor(p.surface_elevated))
-    qp.setColor(QPalette.ColorRole.ToolTipText,    QColor(p.text))
-    qp.setColor(QPalette.ColorRole.Link,           QColor(p.accent))
-    qp.setColor(QPalette.ColorRole.LinkVisited,    QColor(p.accent_violet))
-    qp.setColor(QPalette.ColorRole.BrightText,     QColor(p.danger))
+    qp.setColor(QPalette.ColorRole.ToolTipBase, QColor(p.surface_elevated))
+    qp.setColor(QPalette.ColorRole.ToolTipText, QColor(p.text))
+    qp.setColor(QPalette.ColorRole.Link, QColor(p.accent))
+    qp.setColor(QPalette.ColorRole.LinkVisited, QColor(p.accent_violet))
+    qp.setColor(QPalette.ColorRole.BrightText, QColor(p.danger))
     # Disabled-state colours — many native widgets use these instead
     # of the regular roles, so muting them prevents the "ghosted but
     # still bright white" look on disabled inputs.
-    for role in (QPalette.ColorRole.Text,
-                 QPalette.ColorRole.WindowText,
-                 QPalette.ColorRole.ButtonText):
-        qp.setColor(QPalette.ColorGroup.Disabled, role,
-                    QColor(p.text_muted))
+    for role in (
+        QPalette.ColorRole.Text,
+        QPalette.ColorRole.WindowText,
+        QPalette.ColorRole.ButtonText,
+    ):
+        qp.setColor(QPalette.ColorGroup.Disabled, role, QColor(p.text_muted))
     app.setPalette(qp)
 
 
@@ -281,8 +300,9 @@ def _run_gui(argv: list[str]) -> int:
     # is still captured.
     try:
         from pfc_inductor.telemetry import init_crash_reporter
+
         init_crash_reporter()
-    except Exception:  # noqa: BLE001 — telemetry must never crash boot
+    except Exception:
         pass
 
     # ---- Cross-platform style normalisation ---------------------------
@@ -323,10 +343,12 @@ def _run_gui(argv: list[str]) -> int:
     # whole app flips together — without this hook a light → dark
     # toggle leaves the QPalette stale and unstyled widgets keep
     # showing light backgrounds.
-    on_theme_changed(lambda: (
-        _apply_app_palette(app),
-        app.setStyleSheet(make_stylesheet(get_theme())),
-    ))
+    on_theme_changed(
+        lambda: (
+            _apply_app_palette(app),
+            app.setStyleSheet(make_stylesheet(get_theme())),
+        )
+    )
 
     win = MainWindow()
     win.show()
@@ -337,8 +359,10 @@ def _run_gui(argv: list[str]) -> int:
     # has a non-zero rect to fill. Headless / offscreen platforms
     # are skipped because there's no human to orient.
     from PySide6.QtGui import QGuiApplication
+
     if QGuiApplication.platformName() not in ("offscreen", "minimal"):
         from pfc_inductor.ui.widgets.onboarding_tour import OnboardingTour
+
         OnboardingTour.maybe_show(win)
 
     return app.exec()

@@ -17,6 +17,7 @@ its own :attr:`calculate_requested` signal so the host
 (:class:`ProjetoPage <pfc_inductor.ui.workspace.projeto_page.ProjetoPage>`)
 can route it without knowing about the inner panel.
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -33,7 +34,6 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from pfc_inductor.models import Core, Material, Wire
 from pfc_inductor.settings import SETTINGS_APP, SETTINGS_ORG
 from pfc_inductor.ui.icons import icon as ui_icon
 from pfc_inductor.ui.spec_panel import SpecPanel
@@ -101,17 +101,19 @@ class SpecDrawer(QFrame):
         tr = QHBoxLayout(self._topo_row)
         tr.setContentsMargins(14, 8, 14, 8)
         tr.setSpacing(8)
-        self._btn_change_topo = QPushButton(self._topology_button_label(
-            "boost_ccm", 1,
-        ))
+        self._btn_change_topo = QPushButton(
+            self._topology_button_label(
+                "boost_ccm",
+                1,
+            )
+        )
         self._btn_change_topo.setProperty("class", "Secondary")
         self._btn_change_topo.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_change_topo.setIcon(
             ui_icon("git-branch", color=get_theme().palette.text, size=14)
         )
         self._btn_change_topo.setToolTip(
-            "Current topology — click to change (opens the picker "
-            "with schematic preview).",
+            "Current topology — click to change (opens the picker with schematic preview).",
         )
         self._btn_change_topo.clicked.connect(self.topology_change_requested.emit)
         tr.addWidget(self._btn_change_topo, 1)
@@ -250,9 +252,7 @@ class SpecDrawer(QFrame):
         self._toggle_btn.setStyleSheet(self._chevron_qss())
         # Re-tint icons.
         p = get_theme().palette
-        self._btn_change_topo.setIcon(
-            ui_icon("git-branch", color=p.text, size=14)
-        )
+        self._btn_change_topo.setIcon(ui_icon("git-branch", color=p.text, size=14))
         self._refresh_chevron_icon()
 
     @staticmethod

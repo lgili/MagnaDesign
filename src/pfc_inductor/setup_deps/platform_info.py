@@ -4,6 +4,7 @@ Returns a small enum-like dataclass describing the target so the rest of
 the setup pipeline doesn't sprinkle ``platform.system()`` checks
 everywhere.
 """
+
 from __future__ import annotations
 
 import platform as _pyplatform

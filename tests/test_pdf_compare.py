@@ -15,6 +15,7 @@ Each test asserts:
   / Identity-H, so on-page text becomes glyph indices, not ASCII —
   raw byte search of arbitrary copy is not reliable).
 """
+
 from __future__ import annotations
 
 import tempfile
@@ -37,7 +38,11 @@ from pfc_inductor.report import generate_compare_pdf
 def _make_slot(spec, core, material, wire) -> CompareSlot:
     r = design(spec, core, wire, material)
     return CompareSlot(
-        spec=spec, core=core, material=material, wire=wire, result=r,
+        spec=spec,
+        core=core,
+        material=material,
+        wire=wire,
+        result=r,
     )
 
 
@@ -56,14 +61,21 @@ def _build_two_slots() -> list[CompareSlot]:
     the colouring assertion is unambiguous."""
     mats, cores, wires = load_materials(), load_cores(), load_wires()
     spec = Spec(
-        Vin_min_Vrms=85.0, Vin_max_Vrms=265.0, Vin_nom_Vrms=220.0,
-        Vout_V=400.0, Pout_W=800.0, eta=0.97,
-        f_sw_kHz=65.0, ripple_pct=30.0,
+        Vin_min_Vrms=85.0,
+        Vin_max_Vrms=265.0,
+        Vin_nom_Vrms=220.0,
+        Vout_V=400.0,
+        Pout_W=800.0,
+        eta=0.97,
+        f_sw_kHz=65.0,
+        ripple_pct=30.0,
     )
     mat = find_material(mats, "magnetics-60_highflux")
-    core = next(c for c in cores
-                if c.default_material_id == "magnetics-60_highflux"
-                and 40000 < c.Ve_mm3 < 100000)
+    core = next(
+        c
+        for c in cores
+        if c.default_material_id == "magnetics-60_highflux" and 40000 < c.Ve_mm3 < 100000
+    )
     w_thick = next(w for w in wires if w.id == "AWG14")
     w_thin = next(w for w in wires if w.id == "AWG16")
     return [
@@ -93,9 +105,7 @@ def test_compare_pdf_metadata_carries_document_title():
     with tempfile.TemporaryDirectory() as td:
         out = generate_compare_pdf(slots, Path(td) / "compare.pdf")
         raw = out.read_bytes()
-        assert b"Design comparison" in raw, (
-            "Document title missing from /Info dict"
-        )
+        assert b"Design comparison" in raw, "Document title missing from /Info dict"
         assert b"MagnaDesign" in raw, "Creator missing from /Info dict"
 
 

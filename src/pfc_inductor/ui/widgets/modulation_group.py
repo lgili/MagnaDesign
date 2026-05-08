@@ -35,6 +35,7 @@ Public API
 - Signal :attr:`changed` — fires on any sub-field edit so the
   parent SpecPanel's debounced recalc / dirty-tracking runs.
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -43,32 +44,38 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
+    QDoubleSpinBox,
     QFormLayout,
     QFrame,
     QGroupBox,
-    QHBoxLayout,
     QLabel,
     QSpinBox,
-    QDoubleSpinBox,
     QVBoxLayout,
     QWidget,
 )
 
 from pfc_inductor.models import FswModulation, ModulationProfile
 
-
 # (key, label, hint) — keys map 1:1 to ``FswModulation.profile``.
 PROFILE_CHOICES: tuple[tuple[ModulationProfile, str, str], ...] = (
-    ("uniform", "Uniform sweep",
-     "Sample evenly between fsw_min and fsw_max. Use when the "
-     "modulator is a plain triangular sweep across the band."),
-    ("triangular_dither", "Triangular dither (edge-weighted)",
-     "Same fsw points as uniform, but the worst-case search "
-     "restricts to the band edges — the dither spends most of its "
-     "time near fsw_min / fsw_max."),
-    ("rpm_band", "RPM band (compressor VFD)",
-     "Derive the fsw band from the compressor RPM range × pole "
-     "pairs. Use the RPM block below."),
+    (
+        "uniform",
+        "Uniform sweep",
+        "Sample evenly between fsw_min and fsw_max. Use when the "
+        "modulator is a plain triangular sweep across the band.",
+    ),
+    (
+        "triangular_dither",
+        "Triangular dither (edge-weighted)",
+        "Same fsw points as uniform, but the worst-case search "
+        "restricts to the band edges — the dither spends most of its "
+        "time near fsw_min / fsw_max.",
+    ),
+    (
+        "rpm_band",
+        "RPM band (compressor VFD)",
+        "Derive the fsw band from the compressor RPM range × pole pairs. Use the RPM block below.",
+    ),
 )
 
 
@@ -113,7 +120,9 @@ class ModulationGroup(QGroupBox):
             self._cmb_profile.addItem(label, key)
             idx = self._cmb_profile.count() - 1
             self._cmb_profile.setItemData(
-                idx, tooltip, Qt.ItemDataRole.ToolTipRole,
+                idx,
+                tooltip,
+                Qt.ItemDataRole.ToolTipRole,
             )
         self._cmb_profile.currentIndexChanged.connect(
             self._on_profile_changed,
@@ -196,8 +205,12 @@ class ModulationGroup(QGroupBox):
         # parent's debounced recalc fires the same way the rest
         # of the SpecPanel's spinboxes already do.
         for spin in (
-            self._sp_fsw_min, self._sp_fsw_max, self._sp_n_eval,
-            self._sp_pole_pairs, self._sp_rpm_min, self._sp_rpm_max,
+            self._sp_fsw_min,
+            self._sp_fsw_max,
+            self._sp_n_eval,
+            self._sp_pole_pairs,
+            self._sp_rpm_min,
+            self._sp_rpm_max,
         ):
             spin.valueChanged.connect(self._on_field_changed)
 
@@ -229,11 +242,13 @@ class ModulationGroup(QGroupBox):
             "n_eval_points": int(self._sp_n_eval.value()),
         }
         if profile == "rpm_band":
-            kwargs.update({
-                "rpm_min": float(self._sp_rpm_min.value()),
-                "rpm_max": float(self._sp_rpm_max.value()),
-                "pole_pairs": int(self._sp_pole_pairs.value()),
-            })
+            kwargs.update(
+                {
+                    "rpm_min": float(self._sp_rpm_min.value()),
+                    "rpm_max": float(self._sp_rpm_max.value()),
+                    "pole_pairs": int(self._sp_pole_pairs.value()),
+                }
+            )
         return FswModulation(**kwargs)
 
     def from_modulation(self, mod: Optional[FswModulation]) -> None:
@@ -298,6 +313,7 @@ class ModulationGroup(QGroupBox):
         """Push the derived fsw band into the spinboxes so the
         user sees what range the engine will actually sweep."""
         from pfc_inductor.models import rpm_to_fsw
+
         rpm_min = float(self._sp_rpm_min.value())
         rpm_max = float(self._sp_rpm_max.value())
         pp = int(self._sp_pole_pairs.value())
@@ -336,8 +352,7 @@ class ModulationGroup(QGroupBox):
                 f"{mod.pole_pairs} poles"
             )
         self._derived_label.setText(
-            f"≈ {len(points)} fsw points  ·  "
-            f"{points[0]:.1f} → {points[-1]:.1f} kHz{suffix}",
+            f"≈ {len(points)} fsw points  ·  {points[0]:.1f} → {points[-1]:.1f} kHz{suffix}",
         )
 
     def _current_profile(self) -> ModulationProfile:

@@ -20,6 +20,7 @@ The Tier-2 protocol hooks (`state_derivatives`, `initial_state`)
 on each topology adapter are reserved for Step 2's plant equation;
 Step 1 does not call them.
 """
+
 from __future__ import annotations
 
 import math
@@ -163,7 +164,10 @@ def _simulate_line_reactor_imposed(
     n_samples = max(cfg.samples_per_line_cycle_minimum, 200)
     L_actual_mH = inductor.L_uH(0.0) / 1000.0
     t, i_L = lr.line_current_waveform(
-        spec, L_actual_mH, n_cycles=1, n_points=n_samples,
+        spec,
+        L_actual_mH,
+        n_cycles=1,
+        n_points=n_samples,
     )
     return _waveform_from_trace(t, i_L, inductor, f_line_Hz, cfg)
 
@@ -182,7 +186,10 @@ def _waveform_from_trace(
     i_pk_cycle = float(np.max(np.abs(i_L))) if i_L.size > 0 else 0.0
     B_pk_cycle = float(np.max(np.abs(B_T))) if B_T.size > 0 else 0.0
     return Waveform(
-        t_s=t, i_L_A=i_L, B_T=B_T, f_line_Hz=f_line_Hz,
+        t_s=t,
+        i_L_A=i_L,
+        B_T=B_T,
+        f_line_Hz=f_line_Hz,
         cycle_stats=CycleStats(
             i_pk_per_cycle_A=np.array([i_pk_cycle]),
             B_pk_per_cycle_T=np.array([B_pk_cycle]),
@@ -286,7 +293,8 @@ def simulate_transient(
     # Step / cycle bookkeeping — lock to integer step count per cycle
     # so cycle boundaries don't drift over the trace.
     steps_per_cycle = max(cfg.steps_per_switching_period, 8) * max(
-        int(round(f_sw_Hz / max(f_line_Hz, 1e-9))), 1,
+        round(f_sw_Hz / max(f_line_Hz, 1e-9)),
+        1,
     )
     dt = T_line / steps_per_cycle
     n_steps = steps_per_cycle * n_line_cycles
@@ -313,9 +321,9 @@ def simulate_transient(
         v_in = V_in_pk * abs(math.sin(omega_line * t))
         carrier = (t * f_sw_Hz) % 1.0
         if carrier < duty_latched:
-            v_L = v_in              # switch closed: V_out shorted out
+            v_L = v_in  # switch closed: V_out shorted out
         else:
-            v_L = v_in - V_out      # switch open: V_out across L
+            v_L = v_in - V_out  # switch open: V_out across L
         L = inductor.L_H(i_L)
         if L <= 1e-15:
             return 0.0
@@ -378,7 +386,7 @@ def simulate_transient(
             cycle_B_pk = 0.0
             samples_in_cycle = 0
             if len(i_pk_per_cycle) >= cfg.steady_state_window:
-                window = np.asarray(i_pk_per_cycle[-cfg.steady_state_window:])
+                window = np.asarray(i_pk_per_cycle[-cfg.steady_state_window :])
                 spread = (window.max() - window.min()) / max(window.max(), 1e-12)
                 if spread <= cfg.rel_tol:
                     converged = True

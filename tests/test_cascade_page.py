@@ -4,6 +4,7 @@ The page wires the orchestrator into a Qt thread. Here we exercise:
 construction, set_inputs / run / cancel lifecycle, the polling-driven
 top-N table refresh, and the open-in-design-view signal.
 """
+
 from __future__ import annotations
 
 import os
@@ -19,6 +20,7 @@ import pytest
 @pytest.fixture(scope="module")
 def app():
     from PySide6.QtWidgets import QApplication
+
     inst = QApplication.instance() or QApplication([])
     yield inst
 
@@ -30,6 +32,7 @@ def db():
         load_materials,
         load_wires,
     )
+
     target_id = "magnetics-60_highflux"
     materials = [m for m in load_materials() if m.id == target_id]
     cores = [c for c in load_cores() if c.default_material_id == target_id]
@@ -39,12 +42,21 @@ def db():
 
 def _spec():
     from pfc_inductor.models import Spec
+
     return Spec(
         topology="boost_ccm",
-        Vin_min_Vrms=85.0, Vin_max_Vrms=265.0, Vin_nom_Vrms=220.0,
-        Vout_V=400.0, Pout_W=800.0, eta=0.97,
-        f_sw_kHz=65.0, ripple_pct=30.0,
-        T_amb_C=40.0, T_max_C=100.0, Ku_max=0.40, Bsat_margin=0.20,
+        Vin_min_Vrms=85.0,
+        Vin_max_Vrms=265.0,
+        Vin_nom_Vrms=220.0,
+        Vout_V=400.0,
+        Pout_W=800.0,
+        eta=0.97,
+        f_sw_kHz=65.0,
+        ripple_pct=30.0,
+        T_amb_C=40.0,
+        T_max_C=100.0,
+        Ku_max=0.40,
+        Bsat_margin=0.20,
     )
 
 
@@ -65,8 +77,10 @@ def _wait_until(predicate, *, app, timeout: float = 30.0, step: float = 0.05) ->
 
 # ─── Construction ──────────────────────────────────────────────────
 
+
 def test_cascade_page_constructs_with_default_store(app, tmp_path: Path):
     from pfc_inductor.ui.workspace import CascadePage
+
     page = CascadePage(store_path=tmp_path / "cascade.db")
     assert page._btn_run.isEnabled()
     assert not page._btn_cancel.isEnabled()
@@ -75,6 +89,7 @@ def test_cascade_page_constructs_with_default_store(app, tmp_path: Path):
 
 def test_cascade_page_run_disabled_until_inputs_set(app, tmp_path: Path):
     from pfc_inductor.ui.workspace import CascadePage
+
     page = CascadePage(store_path=tmp_path / "cascade.db")
     # Calling run() with no spec is a no-op — button stays enabled,
     # nothing breaks, no thread starts.
@@ -83,6 +98,7 @@ def test_cascade_page_run_disabled_until_inputs_set(app, tmp_path: Path):
 
 
 # ─── End-to-end run via the page ───────────────────────────────────
+
 
 def test_cascade_page_runs_to_completion_and_populates_table(app, tmp_path: Path, db):
     """Click Run; wait for finish; the top-N table must have rows."""
@@ -116,6 +132,7 @@ def test_cascade_page_runs_to_completion_and_populates_table(app, tmp_path: Path
 
 # ─── Cancellation ──────────────────────────────────────────────────
 
+
 def test_cascade_page_cancel_button_aborts_run(app, tmp_path: Path, db):
     """Trigger a run, click Cancel, run finishes promptly with cancelled state."""
     from pfc_inductor.optimize.cascade import CascadeConfig
@@ -143,6 +160,7 @@ def test_cascade_page_cancel_button_aborts_run(app, tmp_path: Path, db):
 
 
 # ─── Open-in-design-view signal ────────────────────────────────────
+
 
 def test_cascade_page_double_click_emits_open_signal(app, tmp_path: Path, db):
     from PySide6.QtWidgets import QTableWidgetItem

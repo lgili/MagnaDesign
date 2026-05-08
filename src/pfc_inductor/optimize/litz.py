@@ -20,6 +20,7 @@ The recommend() function defaults to N_l=1 for toroids, 5 otherwise.
 Reference: C. Sullivan, "Optimal Choice for Number of Strands in a
 Litz-Wire Transformer Winding", IEEE Trans. PE, vol. 14, no. 2, 1999.
 """
+
 from __future__ import annotations
 
 import math
@@ -32,8 +33,15 @@ from pfc_inductor.physics.dowell import Rac_over_Rdc_litz, skin_depth_m
 
 # Standard AWG strand diameters (mm) used in Litz construction.
 _AWG_STRAND_TABLE_MM: dict[int, float] = {
-    28: 0.321, 30: 0.255, 32: 0.202, 34: 0.160, 36: 0.127,
-    38: 0.101, 40: 0.080, 42: 0.064, 44: 0.050,
+    28: 0.321,
+    30: 0.255,
+    32: 0.202,
+    34: 0.160,
+    36: 0.127,
+    38: 0.101,
+    40: 0.080,
+    42: 0.064,
+    44: 0.050,
 }
 
 
@@ -62,7 +70,7 @@ def strand_count_for_current(
     d_strand_mm: float,
 ) -> int:
     """Strand count to satisfy I/J_target."""
-    A_strand_mm2 = math.pi * d_strand_mm ** 2 / 4.0
+    A_strand_mm2 = math.pi * d_strand_mm**2 / 4.0
     A_required_mm2 = I_rms_A / max(target_J_A_mm2, 1e-6)
     return max(1, math.ceil(A_required_mm2 / A_strand_mm2))
 
@@ -73,7 +81,7 @@ def bundle_diameter_mm(
     packing: float = 0.7,
 ) -> float:
     """Outer bundle diameter [mm] including a packing service factor."""
-    A_strand = math.pi * d_strand_mm ** 2 / 4.0
+    A_strand = math.pi * d_strand_mm**2 / 4.0
     A_total = n_strands * A_strand / max(packing, 0.05)
     return 2.0 * math.sqrt(A_total / math.pi)
 
@@ -87,7 +95,7 @@ def make_litz_wire(
     wire_id: Optional[str] = None,
 ) -> Wire:
     """Build a `Wire` model from a Litz construction with derived properties."""
-    A_cu_mm2 = n_strands * math.pi * d_strand_mm ** 2 / 4.0
+    A_cu_mm2 = n_strands * math.pi * d_strand_mm**2 / 4.0
     d_bundle = bundle_diameter_mm(n_strands, d_strand_mm, packing)
     if wire_id is None:
         wire_id = f"Litz-{n_strands}x{d_strand_mm:.3f}mm"
@@ -153,8 +161,13 @@ def _layers_for(core: Core) -> int:
 
 
 def _evaluate(
-    spec: Spec, core: Core, material: Material, wire: Wire,
-    fsw_Hz: float, layers: int, max_bundle_mm: Optional[float] = None,
+    spec: Spec,
+    core: Core,
+    material: Material,
+    wire: Wire,
+    fsw_Hz: float,
+    layers: int,
+    max_bundle_mm: Optional[float] = None,
 ) -> LitzCandidate:
     """Run the design engine and assemble a LitzCandidate."""
     from pfc_inductor.design import design
@@ -169,13 +182,14 @@ def _evaluate(
         A_cu_mm2=wire.A_cu_mm2,
         AC_DC_ratio=Rac_over_Rdc_litz(
             (wire.d_strand_mm or 0.0) * 1e-3,
-            wire.n_strands or 1, fsw_Hz, layers, T_C=25.0,
+            wire.n_strands or 1,
+            fsw_Hz,
+            layers,
+            T_C=25.0,
         ),
     )
     if max_bundle_mm is not None and cand.d_bundle_mm > max_bundle_mm:
-        cand.reason = (
-            f"Bundle {cand.d_bundle_mm:.2f} mm > limite {max_bundle_mm:.2f} mm"
-        )
+        cand.reason = f"Bundle {cand.d_bundle_mm:.2f} mm > limite {max_bundle_mm:.2f} mm"
         return cand
     try:
         r = design(spec, core, wire, material)
@@ -217,9 +231,13 @@ def recommend(
     # topology — boost low-line, line-reactor I_rated, buck Iout.
     I_rms = rated_current_A(spec)
     rec = LitzRecommendation(
-        spec=spec, core=core, material=material,
-        layers_assumed=layers, target_J_A_mm2=target_J_A_mm2,
-        target_AC_DC=target_AC_DC, fsw_Hz=fsw_Hz,
+        spec=spec,
+        core=core,
+        material=material,
+        layers_assumed=layers,
+        target_J_A_mm2=target_J_A_mm2,
+        target_AC_DC=target_AC_DC,
+        fsw_Hz=fsw_Hz,
     )
 
     for awg in awg_search:
@@ -240,6 +258,7 @@ def recommend(
         def _loss(c: LitzCandidate) -> float:
             assert c.result is not None
             return c.result.losses.P_total_W
+
         feasible.sort(key=_loss)
         rec.best = feasible[0]
 
@@ -251,9 +270,11 @@ def recommend(
         if c.feasible and c.result is not None:
             rw_cands.append(c)
     if rw_cands:
+
         def _loss_rw(c: LitzCandidate) -> float:
             assert c.result is not None
             return c.result.losses.P_total_W
+
         rw_cands.sort(key=_loss_rw)
         rec.round_wire_baseline = rw_cands[0]
     return rec

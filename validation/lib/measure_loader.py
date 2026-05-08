@@ -24,6 +24,7 @@ sensible defaults, unknown metrics are kept as ``other``
 entries so a notebook can still inspect them, and parse errors
 on a single row don't crash the whole load.
 """
+
 from __future__ import annotations
 
 import csv
@@ -104,9 +105,9 @@ def load_measurements(path: Path) -> MeasurementSet:
                 # the notebook author can fix the CSV. Keep going
                 # — partial data is still useful.
                 import sys
+
                 sys.stderr.write(
-                    f"[validation] skipping {p.name}:{row_index} — "
-                    f"{type(exc).__name__}: {exc}\n",
+                    f"[validation] skipping {p.name}:{row_index} — {type(exc).__name__}: {exc}\n",
                 )
                 continue
             out.append(m)
@@ -143,8 +144,16 @@ def _to_float(text: str, *, default: Optional[float]) -> Optional[float]:
     if not s:
         return default
     # Normalise simple SI suffixes that show up in bench notes.
-    suffix_map = {"k": 1e3, "M": 1e6, "G": 1e9,
-                  "m": 1e-3, "u": 1e-6, "µ": 1e-6, "n": 1e-9, "p": 1e-12}
+    suffix_map = {
+        "k": 1e3,
+        "M": 1e6,
+        "G": 1e9,
+        "m": 1e-3,
+        "u": 1e-6,
+        "µ": 1e-6,
+        "n": 1e-9,
+        "p": 1e-12,
+    }
     if s and s[-1] in suffix_map:
         head, suffix = s[:-1], s[-1]
         try:
@@ -185,7 +194,4 @@ def load_thresholds(path: Path) -> dict[str, float]:
     if not isinstance(data, dict):
         return {}
     # Coerce all values to float; ignore non-numeric keys cleanly.
-    return {
-        str(k): float(v) for k, v in data.items()
-        if isinstance(v, (int, float))
-    }
+    return {str(k): float(v) for k, v in data.items() if isinstance(v, (int, float))}

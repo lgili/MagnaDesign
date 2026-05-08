@@ -43,6 +43,7 @@ agent. Splitting these new sections into a sibling module
 avoids merge churn and keeps each surface independently
 testable.
 """
+
 from __future__ import annotations
 
 import io
@@ -52,13 +53,14 @@ from typing import Any, Optional
 import matplotlib
 
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt  # noqa: E402
-
+import matplotlib.pyplot as plt
 from reportlab.lib import colors
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.platypus import (
     Image as RLImage,
+)
+from reportlab.platypus import (
     PageBreak,
     Paragraph,
     Spacer,
@@ -68,7 +70,6 @@ from reportlab.platypus import (
 
 from pfc_inductor.models.banded_result import BandedDesignResult
 from pfc_inductor.worst_case import WorstCaseSummary, YieldReport
-
 
 # ---------------------------------------------------------------------------
 # Shared visual constants — kept ASCII so this module stays
@@ -85,7 +86,11 @@ _ACCENT = "#A78BFA"
 
 
 def _fallback_style(
-    name: str, *, size: float = 9, leading: float = 13, bold: bool = False,
+    name: str,
+    *,
+    size: float = 9,
+    leading: float = 13,
+    bold: bool = False,
 ) -> ParagraphStyle:
     """Build a safe ParagraphStyle when the host's style dict
     doesn't have the requested key. Lets the factories work
@@ -99,8 +104,9 @@ def _fallback_style(
     )
 
 
-def _style(styles: Optional[dict[str, ParagraphStyle]], key: str,
-           **fallback: Any) -> ParagraphStyle:
+def _style(
+    styles: Optional[dict[str, ParagraphStyle]], key: str, **fallback: Any
+) -> ParagraphStyle:
     if styles and key in styles:
         return styles[key]
     return _fallback_style(key, **fallback)
@@ -135,23 +141,25 @@ def modulation_envelope_flowables(
     flow: list = []
     flow.append(PageBreak())
 
-    flow.append(Paragraph(
-        "Modulation envelope (fsw band)",
-        _style(styles, "h2", size=16, leading=20, bold=True),
-    ))
+    flow.append(
+        Paragraph(
+            "Modulation envelope (fsw band)",
+            _style(styles, "h2", size=16, leading=20, bold=True),
+        )
+    )
 
     spec = banded.spec
-    profile_text = (
-        spec.fsw_modulation.profile if spec.fsw_modulation else "—"
-    )
+    profile_text = spec.fsw_modulation.profile if spec.fsw_modulation else "—"
     band_lo = successful[0].fsw_kHz
     band_hi = successful[-1].fsw_kHz
-    flow.append(Paragraph(
-        f"Band: <b>{band_lo:.1f} → {band_hi:.1f} kHz</b>  ·  "
-        f"{len(banded.band)} points  ·  "
-        f"profile = <b>{profile_text}</b>",
-        _style(styles, "body", size=9, leading=13),
-    ))
+    flow.append(
+        Paragraph(
+            f"Band: <b>{band_lo:.1f} → {band_hi:.1f} kHz</b>  ·  "
+            f"{len(banded.band)} points  ·  "
+            f"profile = <b>{profile_text}</b>",
+            _style(styles, "body", size=9, leading=13),
+        )
+    )
     flow.append(Spacer(1, 4 * mm))
 
     flow.append(_render_band_chart(banded))
@@ -161,9 +169,9 @@ def modulation_envelope_flowables(
     rows = [["Metric", "Worst value", "Worst fsw", "Margin"]]
     for metric, label, fmt in (
         ("T_winding_C", "T winding", "{:.1f} °C"),
-        ("B_pk_T",      "B peak",    "{:.0f} mT"),
-        ("P_total_W",   "Losses",    "{:.2f} W"),
-        ("T_rise_C",    "ΔT rise",   "{:.1f} °C"),
+        ("B_pk_T", "B peak", "{:.0f} mT"),
+        ("P_total_W", "Losses", "{:.2f} W"),
+        ("T_rise_C", "ΔT rise", "{:.1f} °C"),
     ):
         bp = banded.worst(metric)
         if bp is None or bp.result is None:
@@ -175,43 +183,54 @@ def modulation_envelope_flowables(
             value_text = fmt.format(value * 1000)
         else:
             value_text = fmt.format(value)
-        rows.append([
-            label, value_text, f"{bp.fsw_kHz:.1f} kHz", "—",
-        ])
+        rows.append(
+            [
+                label,
+                value_text,
+                f"{bp.fsw_kHz:.1f} kHz",
+                "—",
+            ]
+        )
 
     if len(rows) > 1:
         table = Table(rows, colWidths=[40 * mm, 35 * mm, 30 * mm, 25 * mm])
-        table.setStyle(TableStyle([
-            ("FONTNAME",   (0, 0), (-1, -1), "Helvetica"),
-            ("FONTSIZE",   (0, 0), (-1, -1), 9),
-            ("FONTNAME",   (0, 0), (-1, 0),  "Helvetica-Bold"),
-            ("BACKGROUND", (0, 0), (-1, 0),  colors.HexColor(_BAND_BG)),
-            ("BOX",        (0, 0), (-1, -1), 0.5, colors.HexColor(_BORDER)),
-            ("INNERGRID",  (0, 0), (-1, -1), 0.25, colors.HexColor(_BORDER)),
-            ("ALIGN",      (1, 1), (-1, -1), "RIGHT"),
-            ("VALIGN",     (0, 0), (-1, -1), "MIDDLE"),
-            ("LEFTPADDING",  (0, 0), (-1, -1), 6),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-        ]))
+        table.setStyle(
+            TableStyle(
+                [
+                    ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 9),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(_BAND_BG)),
+                    ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor(_BORDER)),
+                    ("INNERGRID", (0, 0), (-1, -1), 0.25, colors.HexColor(_BORDER)),
+                    ("ALIGN", (1, 1), (-1, -1), "RIGHT"),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                ]
+            )
+        )
         flow.append(table)
 
     if banded.flagged_points:
         flow.append(Spacer(1, 3 * mm))
-        flow.append(Paragraph(
-            f"<b>{len(banded.flagged_points)} band point(s) failed</b> — "
-            f"the engine raised at one or more fsw values. The "
-            f"worst-case table above ignores those points.",
-            _style(styles, "note", size=8, leading=11),
-        ))
+        flow.append(
+            Paragraph(
+                f"<b>{len(banded.flagged_points)} band point(s) failed</b> — "
+                f"the engine raised at one or more fsw values. The "
+                f"worst-case table above ignores those points.",
+                _style(styles, "note", size=8, leading=11),
+            )
+        )
     return flow
 
 
 def _render_band_chart(banded: BandedDesignResult) -> RLImage:
     fig, axes = plt.subplots(1, 3, figsize=(7.5, 2.4), dpi=150)
     metrics = (
-        ("P_total_W",  "Total losses [W]",      1.0),
-        ("B_pk_T",     "B peak [mT]",           1000.0),
-        ("T_rise_C",   "ΔT rise [°C]",          1.0),
+        ("P_total_W", "Total losses [W]", 1.0),
+        ("B_pk_T", "B peak [mT]", 1000.0),
+        ("T_rise_C", "ΔT rise [°C]", 1.0),
     )
     for ax, (key, title, scale) in zip(axes, metrics, strict=True):
         xs: list[float] = []
@@ -225,15 +244,20 @@ def _render_band_chart(banded: BandedDesignResult) -> RLImage:
             xs.append(bp.fsw_kHz)
             ys.append(v * scale)
         if xs:
-            ax.plot(xs, ys, "-o", color=_ACCENT, linewidth=1.4,
-                    markersize=4)
+            ax.plot(xs, ys, "-o", color=_ACCENT, linewidth=1.4, markersize=4)
             worst = banded.worst(key)
             if worst is not None and worst.result is not None:
                 wv = _read_metric(worst.result, key)
                 if wv is not None:
-                    ax.scatter([worst.fsw_kHz], [wv * scale],
-                               color=_FAIL, s=50, zorder=5,
-                               edgecolor="white", linewidth=0.6)
+                    ax.scatter(
+                        [worst.fsw_kHz],
+                        [wv * scale],
+                        color=_FAIL,
+                        s=50,
+                        zorder=5,
+                        edgecolor="white",
+                        linewidth=0.6,
+                    )
         ax.set_title(title, fontsize=9)
         ax.set_xlabel("fsw [kHz]", fontsize=8)
         ax.tick_params(axis="both", labelsize=7)
@@ -273,24 +297,28 @@ def worst_case_envelope_flowables(
     flow: list = []
     flow.append(PageBreak())
 
-    flow.append(Paragraph(
-        "Production worst-case envelope",
-        _style(styles, "h2", size=16, leading=20, bold=True),
-    ))
-    flow.append(Paragraph(
-        f"<b>{summary.n_corners_evaluated} corners</b> evaluated · "
-        f"{summary.n_corners_failed} engine failure(s).",
-        _style(styles, "body", size=9, leading=13),
-    ))
+    flow.append(
+        Paragraph(
+            "Production worst-case envelope",
+            _style(styles, "h2", size=16, leading=20, bold=True),
+        )
+    )
+    flow.append(
+        Paragraph(
+            f"<b>{summary.n_corners_evaluated} corners</b> evaluated · "
+            f"{summary.n_corners_failed} engine failure(s).",
+            _style(styles, "body", size=9, leading=13),
+        )
+    )
     flow.append(Spacer(1, 4 * mm))
 
     # Per-metric worst case.
     metric_rows = [["Metric", "Worst value", "Driving corner"]]
     for metric, label, fmt in (
         ("T_winding_C", "T winding (worst)", "{:.1f} °C"),
-        ("B_pk_T",      "B peak (worst)",    "{:.0f} mT"),
-        ("P_total_W",   "Total losses",      "{:.2f} W"),
-        ("T_rise_C",    "ΔT rise (worst)",   "{:.1f} °C"),
+        ("B_pk_T", "B peak (worst)", "{:.0f} mT"),
+        ("P_total_W", "Total losses", "{:.2f} W"),
+        ("T_rise_C", "ΔT rise (worst)", "{:.1f} °C"),
     ):
         cr = summary.worst_per_metric.get(metric)
         if cr is None or cr.result is None:
@@ -306,61 +334,73 @@ def worst_case_envelope_flowables(
 
     if len(metric_rows) > 1:
         table = Table(metric_rows, colWidths=[55 * mm, 40 * mm, 75 * mm])
-        table.setStyle(TableStyle([
-            ("FONTNAME",   (0, 0), (-1, -1), "Helvetica"),
-            ("FONTSIZE",   (0, 0), (-1, -1), 9),
-            ("FONTNAME",   (0, 0), (-1, 0),  "Helvetica-Bold"),
-            ("BACKGROUND", (0, 0), (-1, 0),  colors.HexColor(_BAND_BG)),
-            ("BOX",        (0, 0), (-1, -1), 0.5, colors.HexColor(_BORDER)),
-            ("INNERGRID",  (0, 0), (-1, -1), 0.25, colors.HexColor(_BORDER)),
-            ("ALIGN",      (1, 1), (1, -1), "RIGHT"),
-            ("VALIGN",     (0, 0), (-1, -1), "MIDDLE"),
-            ("LEFTPADDING",  (0, 0), (-1, -1), 6),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-            ("TOPPADDING",   (0, 0), (-1, -1), 4),
-            ("BOTTOMPADDING",(0, 0), (-1, -1), 4),
-        ]))
+        table.setStyle(
+            TableStyle(
+                [
+                    ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 9),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(_BAND_BG)),
+                    ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor(_BORDER)),
+                    ("INNERGRID", (0, 0), (-1, -1), 0.25, colors.HexColor(_BORDER)),
+                    ("ALIGN", (1, 1), (1, -1), "RIGHT"),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                    ("TOPPADDING", (0, 0), (-1, -1), 4),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ]
+            )
+        )
         flow.append(table)
 
     if yield_report is not None:
         flow.append(Spacer(1, 6 * mm))
-        flow.append(Paragraph(
-            "Yield estimate (Monte-Carlo)",
-            _style(styles, "h3", size=12, leading=16, bold=True),
-        ))
+        flow.append(
+            Paragraph(
+                "Yield estimate (Monte-Carlo)",
+                _style(styles, "h3", size=12, leading=16, bold=True),
+            )
+        )
         rate = yield_report.pass_rate * 100.0
         color = _PASS if rate >= 95 else _WARN if rate >= 90 else _FAIL
-        flow.append(Paragraph(
-            f"<font color='{color}' size='14'><b>{rate:.2f} %</b></font>"
-            f" pass-rate over <b>{yield_report.n_samples:,}</b> samples "
-            f"(seed-reproducible). "
-            f"{yield_report.n_engine_error} engine errors.",
-            _style(styles, "body", size=10, leading=14),
-        ))
+        flow.append(
+            Paragraph(
+                f"<font color='{color}' size='14'><b>{rate:.2f} %</b></font>"
+                f" pass-rate over <b>{yield_report.n_samples:,}</b> samples "
+                f"(seed-reproducible). "
+                f"{yield_report.n_engine_error} engine errors.",
+                _style(styles, "body", size=10, leading=14),
+            )
+        )
 
         if yield_report.fail_modes:
             flow.append(Spacer(1, 2 * mm))
             modes = ", ".join(
                 f"{mode} ({count})"
-                for mode, count in
-                sorted(yield_report.fail_modes.items(),
-                       key=lambda kv: -kv[1])[:5]
+                for mode, count in sorted(yield_report.fail_modes.items(), key=lambda kv: -kv[1])[
+                    :5
+                ]
             )
-            flow.append(Paragraph(
-                f"<b>Top fail modes:</b> {modes}",
-                _style(styles, "note", size=9, leading=13),
-            ))
+            flow.append(
+                Paragraph(
+                    f"<b>Top fail modes:</b> {modes}",
+                    _style(styles, "note", size=9, leading=13),
+                )
+            )
 
     flow.append(Spacer(1, 4 * mm))
-    flow.append(Paragraph(
-        "Production-tolerance corners drawn from the bundled "
-        "IPC + IEC + vendor default set — see "
-        "<i>validation/thresholds.yaml</i> for the per-metric "
-        "tolerance bands. Auditor-friendly: cite this page in "
-        "the design dossier when responding to ISO 9001 / "
-        "IATF 16949 / IEC 60335 review questions.",
-        _style(styles, "note", size=8, leading=11),
-    ))
+    flow.append(
+        Paragraph(
+            "Production-tolerance corners drawn from the bundled "
+            "IPC + IEC + vendor default set — see "
+            "<i>validation/thresholds.yaml</i> for the per-metric "
+            "tolerance bands. Auditor-friendly: cite this page in "
+            "the design dossier when responding to ISO 9001 / "
+            "IATF 16949 / IEC 60335 review questions.",
+            _style(styles, "note", size=8, leading=11),
+        )
+    )
     return flow
 
 

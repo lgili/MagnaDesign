@@ -4,6 +4,7 @@ The cascade orchestrator and the UI topology picker both go through
 this registry rather than hard-coding the three Phase-A topologies.
 Adding a new topology means adding one entry here.
 """
+
 from __future__ import annotations
 
 from typing import Callable

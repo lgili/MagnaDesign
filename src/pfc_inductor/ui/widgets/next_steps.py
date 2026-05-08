@@ -2,6 +2,7 @@
 
 Each item: status icon (left) + title + (optional) "→" CTA on the right.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -32,9 +33,9 @@ class ActionItem:
 
 
 _STATUS_ICON: dict[ActionStatus, str] = {
-    "done":    "check-circle",
+    "done": "check-circle",
     "pending": "clock",
-    "todo":    "arrow-up-right",
+    "todo": "arrow-up-right",
 }
 
 
@@ -49,22 +50,19 @@ class _ActionRow(QFrame):
 
         # Status icon
         icon_color = {
-            "done":    p.success,
+            "done": p.success,
             "pending": p.warning,
-            "todo":    p.accent,
+            "todo": p.accent,
         }[item.status]
         icon_lbl = QLabel()
         icon_lbl.setPixmap(
-            ui_icon(_STATUS_ICON[item.status], color=icon_color, size=18)
-            .pixmap(18, 18)
+            ui_icon(_STATUS_ICON[item.status], color=icon_color, size=18).pixmap(18, 18)
         )
         icon_lbl.setFixedWidth(20)
 
         # Title
         title = QLabel(item.title)
-        title.setStyleSheet(
-            f"color: {p.text}; font-size: {get_theme().type.body_md}px;"
-        )
+        title.setStyleSheet(f"color: {p.text}; font-size: {get_theme().type.body_md}px;")
         if item.status == "done":
             title.setStyleSheet(
                 f"color: {p.text_muted}; font-size: "
@@ -102,8 +100,7 @@ class NextStepsCard(QWidget):
         self._layout.setContentsMargins(0, 0, 0, 0)
         self._layout.setSpacing(2)
         self._layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        self.setSizePolicy(QSizePolicy.Policy.Expanding,
-                           QSizePolicy.Policy.Preferred)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self._items: list[ActionItem] = []
         self.set_items(items or [])
         on_theme_changed(self._refresh_qss)

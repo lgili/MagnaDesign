@@ -16,6 +16,7 @@ calculation; it only swaps which body is on screen.
 This page replaces the ``Design`` tab portion of the v3 dashboard that
 hosted the same NucleoCard inside the bento grid.
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -102,8 +103,7 @@ class NucleoSelectionPage(QWidget):
         p = get_theme().palette
         t = get_theme().type
         self._caption.setStyleSheet(
-            f"color: {p.text}; font-size: {t.title_md}px;"
-            f" font-weight: {t.semibold};"
+            f"color: {p.text}; font-size: {t.title_md}px; font-weight: {t.semibold};"
         )
         toolbar.addWidget(self._caption, 1)
 
@@ -128,8 +128,7 @@ class NucleoSelectionPage(QWidget):
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        scroll.setSizePolicy(QSizePolicy.Policy.Expanding,
-                             QSizePolicy.Policy.Expanding)
+        scroll.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         outer.addWidget(scroll, 1)
 
         # ---- Nudge banner: appears below the stack for ~4s after the
@@ -249,9 +248,7 @@ class NucleoSelectionPage(QWidget):
         h.setContentsMargins(14, 10, 14, 10)
         h.setSpacing(10)
 
-        body = QLabel(
-            "Selection applied. Take a look at the new design's waveforms."
-        )
+        body = QLabel("Selection applied. Take a look at the new design's waveforms.")
         body.setObjectName("NudgeBannerBody")
         h.addWidget(body, 1)
 
@@ -268,9 +265,9 @@ class NucleoSelectionPage(QWidget):
     # ------------------------------------------------------------------
     # Public API — called by ProjectPage / MainWindow on each recalc
     # ------------------------------------------------------------------
-    def update_from_design(self, result: DesignResult, spec: Spec,
-                           core: Core, wire: Wire,
-                           material: Material) -> None:
+    def update_from_design(
+        self, result: DesignResult, spec: Spec, core: Core, wire: Wire, material: Material
+    ) -> None:
         # NucleoCard tracks "current ids" so the Apply button only
         # enables when the user actually picks something different.
         self.card_nucleo.update_from_design(result, spec, core, wire, material)
@@ -293,10 +290,19 @@ class NucleoSelectionPage(QWidget):
         self._cores = list(cores)
         self._wires = list(wires)
         self.card_nucleo.populate(
-            spec, materials, cores, wires, material, core, wire,
+            spec,
+            materials,
+            cores,
+            wires,
+            material,
+            core,
+            wire,
         )
         self.optimizer.set_inputs(
-            spec, materials, cores, wires,
+            spec,
+            materials,
+            cores,
+            wires,
             current_material_id=material.id,
         )
 
@@ -312,7 +318,10 @@ class NucleoSelectionPage(QWidget):
         QSettings(SETTINGS_ORG, SETTINGS_APP).setValue(_QS_MODE_KEY, key)
 
     def _on_optimizer_applied(
-        self, mat_id: str, core_id: str, wire_id: str,
+        self,
+        mat_id: str,
+        core_id: str,
+        wire_id: str,
     ) -> None:
         """Bubble the optimizer's selection upward AND surface a nudge
         toward the Analysis tab so the user sees the new waveforms.
@@ -333,7 +342,8 @@ class NucleoSelectionPage(QWidget):
         if self._hint_banner is None:
             return
         QSettings(SETTINGS_ORG, SETTINGS_APP).setValue(
-            _QS_HINT_DISMISSED_KEY, True,
+            _QS_HINT_DISMISSED_KEY,
+            True,
         )
         self._hint_banner.hide()
         self._hint_banner.deleteLater()
@@ -355,13 +365,11 @@ class NucleoSelectionPage(QWidget):
         p = get_theme().palette
         t = get_theme().type
         self._caption.setStyleSheet(
-            f"color: {p.text}; font-size: {t.title_md}px;"
-            f" font-weight: {t.semibold};"
+            f"color: {p.text}; font-size: {t.title_md}px; font-weight: {t.semibold};"
         )
 
     @staticmethod
-    def _refresh_hint_qss(banner: QFrame, body: QLabel,
-                          dismiss: QToolButton) -> None:
+    def _refresh_hint_qss(banner: QFrame, body: QLabel, dismiss: QToolButton) -> None:
         p = get_theme().palette
         t = get_theme().type
         r = get_theme().radius
@@ -372,10 +380,7 @@ class NucleoSelectionPage(QWidget):
             f"  border-radius: {r.md}px;"
             f"}}"
         )
-        body.setStyleSheet(
-            f"color: {p.text}; font-size: {t.body}px;"
-            f" background: transparent;"
-        )
+        body.setStyleSheet(f"color: {p.text}; font-size: {t.body}px; background: transparent;")
         dismiss.setStyleSheet(
             f"QToolButton {{"
             f"  background: transparent; border: 0;"

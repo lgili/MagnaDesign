@@ -20,6 +20,7 @@ gave us before.
 All dimensions in millimetres. Centre at origin, bobbin axis along +Z
 (both half-cores split symmetrically at z=0). Toroid axis is +Z.
 """
+
 from __future__ import annotations
 
 import math
@@ -116,8 +117,7 @@ def _bobbin_dims(core: Core) -> tuple[float, float, float]:
 # ---------------------------------------------------------------------------
 # Toroid (rectangular cross-section)
 # ---------------------------------------------------------------------------
-def _toroid_mesh(OD_mm: float, ID_mm: float, HT_mm: float,
-                 resolution: int = 96) -> pv.PolyData:
+def _toroid_mesh(OD_mm: float, ID_mm: float, HT_mm: float, resolution: int = 96) -> pv.PolyData:
     """Annulus extruded along Z. Built directly as a quad mesh (4 rings × n)."""
     R_o = OD_mm / 2.0
     R_i = ID_mm / 2.0
@@ -140,19 +140,24 @@ def _toroid_mesh(OD_mm: float, ID_mm: float, HT_mm: float,
     faces = []
     for i in range(n):
         j = (i + 1) % n
-        faces += quad(i, j, n + j, n + i)              # outer wall
+        faces += quad(i, j, n + j, n + i)  # outer wall
         faces += quad(n + i, n + j, 2 * n + j, 2 * n + i)  # top annulus
         faces += quad(2 * n + i, 2 * n + j, 3 * n + j, 3 * n + i)  # inner wall
-        faces += quad(3 * n + i, 3 * n + j, j, i)      # bottom annulus
+        faces += quad(3 * n + i, 3 * n + j, j, i)  # bottom annulus
 
     mesh = pv.PolyData(points, np.asarray(faces, dtype=np.int64))
     mesh.compute_normals(inplace=True, auto_orient_normals=True)
     return mesh
 
 
-def _toroidal_winding(OD_mm: float, ID_mm: float, HT_mm: float,
-                       N_turns: int, wire_d_mm: float = 1.0,
-                       points_per_turn: int = 28) -> pv.PolyData:
+def _toroidal_winding(
+    OD_mm: float,
+    ID_mm: float,
+    HT_mm: float,
+    N_turns: int,
+    wire_d_mm: float = 1.0,
+    points_per_turn: int = 28,
+) -> pv.PolyData:
     """N-turn winding wrapping through the toroid hole.
 
     Each turn passes once through the centre hole and over the outer
@@ -197,9 +202,15 @@ def _ee_proportions(W: float) -> tuple[float, float, float]:
     return outer_w, center_w, window_w
 
 
-def _ee_half(z_back: float, z_open: float, W: float, D: float,
-             outer_w: float, center_w: float, back_t: float,
-             ) -> list[pv.PolyData]:
+def _ee_half(
+    z_back: float,
+    z_open: float,
+    W: float,
+    D: float,
+    outer_w: float,
+    center_w: float,
+    back_t: float,
+) -> list[pv.PolyData]:
     """One half of an E core. Back plate (yoke) at z_back,
     centre + 2 outer legs span back-plate inner face → z_open.
     """
@@ -211,27 +222,39 @@ def _ee_half(z_back: float, z_open: float, W: float, D: float,
     back_z_hi = max(z_back, back_inner)
 
     blocks = []
-    blocks.append(pv.Box(bounds=(-W / 2, W / 2, -D / 2, D / 2,
-                                 back_z_lo, back_z_hi)))
+    blocks.append(pv.Box(bounds=(-W / 2, W / 2, -D / 2, D / 2, back_z_lo, back_z_hi)))
     # 2 outer legs
     for cx in (-W / 2 + outer_w / 2, W / 2 - outer_w / 2):
-        blocks.append(pv.Box(bounds=(
-            cx - outer_w / 2, cx + outer_w / 2,
-            -D / 2, D / 2,
-            leg_z_lo, leg_z_hi,
-        )))
+        blocks.append(
+            pv.Box(
+                bounds=(
+                    cx - outer_w / 2,
+                    cx + outer_w / 2,
+                    -D / 2,
+                    D / 2,
+                    leg_z_lo,
+                    leg_z_hi,
+                )
+            )
+        )
     # centre leg (wider)
-    blocks.append(pv.Box(bounds=(
-        -center_w / 2, center_w / 2,
-        -D / 2, D / 2,
-        leg_z_lo, leg_z_hi,
-    )))
+    blocks.append(
+        pv.Box(
+            bounds=(
+                -center_w / 2,
+                center_w / 2,
+                -D / 2,
+                D / 2,
+                leg_z_lo,
+                leg_z_hi,
+            )
+        )
+    )
     return blocks
 
 
-def _ee_mesh(W: float, H: float, D: float, gap_mm: float = 0.0
-             ) -> pv.MultiBlock:
-    outer_w, center_w, window_w = _ee_proportions(W)
+def _ee_mesh(W: float, H: float, D: float, gap_mm: float = 0.0) -> pv.MultiBlock:
+    outer_w, center_w, _window_w = _ee_proportions(W)
     back_t = H * 0.18
     half_h = (H - gap_mm) / 2.0
     if half_h <= back_t:
@@ -241,11 +264,9 @@ def _ee_mesh(W: float, H: float, D: float, gap_mm: float = 0.0
     z_bot_back = -(gap_mm / 2 + half_h)
 
     mb = pv.MultiBlock()
-    for i, b in enumerate(_ee_half(z_top_back, gap_mm / 2, W, D,
-                                    outer_w, center_w, back_t)):
+    for i, b in enumerate(_ee_half(z_top_back, gap_mm / 2, W, D, outer_w, center_w, back_t)):
         mb.append(b, name=f"top_{i}")
-    for i, b in enumerate(_ee_half(z_bot_back, -gap_mm / 2, W, D,
-                                    outer_w, center_w, back_t)):
+    for i, b in enumerate(_ee_half(z_bot_back, -gap_mm / 2, W, D, outer_w, center_w, back_t)):
         mb.append(b, name=f"bot_{i}")
     return mb
 
@@ -253,9 +274,9 @@ def _ee_mesh(W: float, H: float, D: float, gap_mm: float = 0.0
 # ---------------------------------------------------------------------------
 # ETD - back plate + 2 outer legs + round centre column per half
 # ---------------------------------------------------------------------------
-def _etd_half(z_back: float, z_open: float, W: float, D: float,
-              outer_w: float, back_t: float, col_r: float
-              ) -> list[pv.PolyData]:
+def _etd_half(
+    z_back: float, z_open: float, W: float, D: float, outer_w: float, back_t: float, col_r: float
+) -> list[pv.PolyData]:
     direction = 1 if z_open > z_back else -1
     back_inner = z_back + direction * back_t
     leg_z_lo = min(back_inner, z_open)
@@ -267,22 +288,32 @@ def _etd_half(z_back: float, z_open: float, W: float, D: float,
         pv.Box(bounds=(-W / 2, W / 2, -D / 2, D / 2, back_z_lo, back_z_hi)),
     ]
     for cx in (-W / 2 + outer_w / 2, W / 2 - outer_w / 2):
-        blocks.append(pv.Box(bounds=(
-            cx - outer_w / 2, cx + outer_w / 2,
-            -D / 2, D / 2,
-            leg_z_lo, leg_z_hi,
-        )))
-    blocks.append(pv.Cylinder(
-        center=(0, 0, (leg_z_lo + leg_z_hi) / 2),
-        direction=(0, 0, 1),
-        radius=col_r, height=(leg_z_hi - leg_z_lo) * 0.999,
-        capping=True, resolution=64,
-    ))
+        blocks.append(
+            pv.Box(
+                bounds=(
+                    cx - outer_w / 2,
+                    cx + outer_w / 2,
+                    -D / 2,
+                    D / 2,
+                    leg_z_lo,
+                    leg_z_hi,
+                )
+            )
+        )
+    blocks.append(
+        pv.Cylinder(
+            center=(0, 0, (leg_z_lo + leg_z_hi) / 2),
+            direction=(0, 0, 1),
+            radius=col_r,
+            height=(leg_z_hi - leg_z_lo) * 0.999,
+            capping=True,
+            resolution=64,
+        )
+    )
     return blocks
 
 
-def _etd_mesh(W: float, H: float, D: float, gap_mm: float = 0.0
-              ) -> pv.MultiBlock:
+def _etd_mesh(W: float, H: float, D: float, gap_mm: float = 0.0) -> pv.MultiBlock:
     outer_w = W * 0.13
     col_r = W * 0.16
     back_t = H * 0.16
@@ -293,11 +324,9 @@ def _etd_mesh(W: float, H: float, D: float, gap_mm: float = 0.0
     z_top_back = gap_mm / 2 + half_h
     z_bot_back = -(gap_mm / 2 + half_h)
     mb = pv.MultiBlock()
-    for i, b in enumerate(_etd_half(z_top_back, gap_mm / 2, W, D,
-                                     outer_w, back_t, col_r)):
+    for i, b in enumerate(_etd_half(z_top_back, gap_mm / 2, W, D, outer_w, back_t, col_r)):
         mb.append(b, name=f"top_{i}")
-    for i, b in enumerate(_etd_half(z_bot_back, -gap_mm / 2, W, D,
-                                     outer_w, back_t, col_r)):
+    for i, b in enumerate(_etd_half(z_bot_back, -gap_mm / 2, W, D, outer_w, back_t, col_r)):
         mb.append(b, name=f"bot_{i}")
     return mb
 
@@ -306,8 +335,9 @@ def _etd_mesh(W: float, H: float, D: float, gap_mm: float = 0.0
 # PQ - square shell + round centre column. Only side walls (front and
 # back open for winding entry).
 # ---------------------------------------------------------------------------
-def _pq_half(z_back: float, z_open: float, W: float, D: float,
-             wall_t: float, back_t: float, col_r: float) -> list[pv.PolyData]:
+def _pq_half(
+    z_back: float, z_open: float, W: float, D: float, wall_t: float, back_t: float, col_r: float
+) -> list[pv.PolyData]:
     direction = 1 if z_open > z_back else -1
     back_inner = z_back + direction * back_t
     leg_z_lo = min(back_inner, z_open)
@@ -319,22 +349,32 @@ def _pq_half(z_back: float, z_open: float, W: float, D: float,
         pv.Box(bounds=(-W / 2, W / 2, -D / 2, D / 2, back_z_lo, back_z_hi)),
     ]
     for cx in (-W / 2 + wall_t / 2, W / 2 - wall_t / 2):
-        blocks.append(pv.Box(bounds=(
-            cx - wall_t / 2, cx + wall_t / 2,
-            -D / 2, D / 2,
-            leg_z_lo, leg_z_hi,
-        )))
-    blocks.append(pv.Cylinder(
-        center=(0, 0, (leg_z_lo + leg_z_hi) / 2),
-        direction=(0, 0, 1),
-        radius=col_r, height=(leg_z_hi - leg_z_lo) * 0.999,
-        capping=True, resolution=64,
-    ))
+        blocks.append(
+            pv.Box(
+                bounds=(
+                    cx - wall_t / 2,
+                    cx + wall_t / 2,
+                    -D / 2,
+                    D / 2,
+                    leg_z_lo,
+                    leg_z_hi,
+                )
+            )
+        )
+    blocks.append(
+        pv.Cylinder(
+            center=(0, 0, (leg_z_lo + leg_z_hi) / 2),
+            direction=(0, 0, 1),
+            radius=col_r,
+            height=(leg_z_hi - leg_z_lo) * 0.999,
+            capping=True,
+            resolution=64,
+        )
+    )
     return blocks
 
 
-def _pq_mesh(W: float, H: float, D: float, gap_mm: float = 0.0
-             ) -> pv.MultiBlock:
+def _pq_mesh(W: float, H: float, D: float, gap_mm: float = 0.0) -> pv.MultiBlock:
     col_r = W * 0.22
     wall_t = W * 0.13
     back_t = H * 0.18
@@ -345,11 +385,9 @@ def _pq_mesh(W: float, H: float, D: float, gap_mm: float = 0.0
     z_top_back = gap_mm / 2 + half_h
     z_bot_back = -(gap_mm / 2 + half_h)
     mb = pv.MultiBlock()
-    for i, b in enumerate(_pq_half(z_top_back, gap_mm / 2, W, D,
-                                    wall_t, back_t, col_r)):
+    for i, b in enumerate(_pq_half(z_top_back, gap_mm / 2, W, D, wall_t, back_t, col_r)):
         mb.append(b, name=f"top_{i}")
-    for i, b in enumerate(_pq_half(z_bot_back, -gap_mm / 2, W, D,
-                                    wall_t, back_t, col_r)):
+    for i, b in enumerate(_pq_half(z_bot_back, -gap_mm / 2, W, D, wall_t, back_t, col_r)):
         mb.append(b, name=f"bot_{i}")
     return mb
 
@@ -369,15 +407,15 @@ def _pq_mesh(W: float, H: float, D: float, gap_mm: float = 0.0
 # thickness defaults to ``0.6 · wire_d`` — typical PA66 bobbin walls
 # in this size range are 0.4–0.8 mm.
 # ---------------------------------------------------------------------------
-def _bobbin_shell(col_r: float, winding_h: float, wire_d_mm: float,
-                  layers: int, radial_max: float
-                  ) -> pv.MultiBlock:
+def _bobbin_shell(
+    col_r: float, winding_h: float, wire_d_mm: float, layers: int, radial_max: float
+) -> pv.MultiBlock:
     """Plastic bobbin (round) for ETD/PQ: central former tube + 2
     flanges. The winding will sit on the outer surface of the former.
     """
     flange_t = wire_d_mm * 0.5
-    wall_t = max(wire_d_mm * 0.6, 0.4)              # min 0.4 mm wall
-    inner_r = col_r + 0.05                           # tiny clearance to leg
+    wall_t = max(wire_d_mm * 0.6, 0.4)  # min 0.4 mm wall
+    inner_r = col_r + 0.05  # tiny clearance to leg
     outer_r = inner_r + wall_t
     flange_r = min(
         outer_r + wire_d_mm * (layers + 0.6),
@@ -392,33 +430,51 @@ def _bobbin_shell(col_r: float, winding_h: float, wire_d_mm: float,
     # of just the outer surface — pyvista's ``Cylinder`` is a closed
     # mesh, but for visual purposes a single thin-wall cylinder reads
     # as a former when the inner surface is hidden under the winding.
-    mb.append(pv.Cylinder(
-        center=(0, 0, 0),
-        direction=(0, 0, 1),
-        radius=outer_r,
-        height=winding_h,
-        capping=False,                              # open ends for the flanges
-        resolution=64,
-    ), name="bobbin_former")
-    mb.append(pv.Cylinder(
-        center=(0, 0, winding_h / 2 + flange_t / 2),
-        direction=(0, 0, 1),
-        radius=flange_r, height=flange_t,
-        capping=True, resolution=64,
-    ), name="bobbin_flange_top")
-    mb.append(pv.Cylinder(
-        center=(0, 0, -winding_h / 2 - flange_t / 2),
-        direction=(0, 0, 1),
-        radius=flange_r, height=flange_t,
-        capping=True, resolution=64,
-    ), name="bobbin_flange_bot")
+    mb.append(
+        pv.Cylinder(
+            center=(0, 0, 0),
+            direction=(0, 0, 1),
+            radius=outer_r,
+            height=winding_h,
+            capping=False,  # open ends for the flanges
+            resolution=64,
+        ),
+        name="bobbin_former",
+    )
+    mb.append(
+        pv.Cylinder(
+            center=(0, 0, winding_h / 2 + flange_t / 2),
+            direction=(0, 0, 1),
+            radius=flange_r,
+            height=flange_t,
+            capping=True,
+            resolution=64,
+        ),
+        name="bobbin_flange_top",
+    )
+    mb.append(
+        pv.Cylinder(
+            center=(0, 0, -winding_h / 2 - flange_t / 2),
+            direction=(0, 0, 1),
+            radius=flange_r,
+            height=flange_t,
+            capping=True,
+            resolution=64,
+        ),
+        name="bobbin_flange_bot",
+    )
     return mb
 
 
-def _bobbin_shell_rect(leg_w: float, leg_d: float, winding_h: float,
-                       wire_d_mm: float, layers: int,
-                       radial_max_w: float, radial_max_d: float
-                       ) -> pv.MultiBlock:
+def _bobbin_shell_rect(
+    leg_w: float,
+    leg_d: float,
+    winding_h: float,
+    wire_d_mm: float,
+    layers: int,
+    radial_max_w: float,
+    radial_max_d: float,
+) -> pv.MultiBlock:
     """Plastic bobbin (rectangular) for EE: rectangular former tube
     around the centre leg + 2 flanges.
 
@@ -426,12 +482,11 @@ def _bobbin_shell_rect(leg_w: float, leg_d: float, winding_h: float,
     winding then wraps around the former's outer face.
     """
     flange_t = wire_d_mm * 0.5
-    wall_t = max(wire_d_mm * 0.6, 0.4)              # 0.4 mm minimum
+    wall_t = max(wire_d_mm * 0.6, 0.4)  # 0.4 mm minimum
     margin = wire_d_mm * 0.6
 
     # Outer-flange footprint — limited by the inner face of the outer legs.
-    a = min(leg_w + 2 * (layers * wire_d_mm + margin),
-            2 * radial_max_w - 0.4)
+    a = min(leg_w + 2 * (layers * wire_d_mm + margin), 2 * radial_max_w - 0.4)
     a = max(a, leg_w + wire_d_mm * 2)
     # Depth (D axis) — clamped to the leg depth: in a real EE the
     # winding only thickens in the W direction.
@@ -449,44 +504,77 @@ def _bobbin_shell_rect(leg_w: float, leg_d: float, winding_h: float,
     # Each wall is a slab that runs the full winding height.
     z_lo, z_hi = -winding_h / 2, winding_h / 2
     # Left + Right walls (W axis)
-    mb.append(pv.Box(bounds=(
-        -fa_outer / 2, -fa_inner / 2,
-        -fb_outer / 2,  fb_outer / 2,
-        z_lo, z_hi,
-    )), name="bobbin_former_w_neg")
-    mb.append(pv.Box(bounds=(
-        fa_inner / 2, fa_outer / 2,
-        -fb_outer / 2, fb_outer / 2,
-        z_lo, z_hi,
-    )), name="bobbin_former_w_pos")
+    mb.append(
+        pv.Box(
+            bounds=(
+                -fa_outer / 2,
+                -fa_inner / 2,
+                -fb_outer / 2,
+                fb_outer / 2,
+                z_lo,
+                z_hi,
+            )
+        ),
+        name="bobbin_former_w_neg",
+    )
+    mb.append(
+        pv.Box(
+            bounds=(
+                fa_inner / 2,
+                fa_outer / 2,
+                -fb_outer / 2,
+                fb_outer / 2,
+                z_lo,
+                z_hi,
+            )
+        ),
+        name="bobbin_former_w_pos",
+    )
     # Front + Back walls (D axis), only the gap between the W walls
-    mb.append(pv.Box(bounds=(
-        -fa_inner / 2, fa_inner / 2,
-        -fb_outer / 2, -fb_inner / 2,
-        z_lo, z_hi,
-    )), name="bobbin_former_d_neg")
-    mb.append(pv.Box(bounds=(
-        -fa_inner / 2, fa_inner / 2,
-        fb_inner / 2, fb_outer / 2,
-        z_lo, z_hi,
-    )), name="bobbin_former_d_pos")
+    mb.append(
+        pv.Box(
+            bounds=(
+                -fa_inner / 2,
+                fa_inner / 2,
+                -fb_outer / 2,
+                -fb_inner / 2,
+                z_lo,
+                z_hi,
+            )
+        ),
+        name="bobbin_former_d_neg",
+    )
+    mb.append(
+        pv.Box(
+            bounds=(
+                -fa_inner / 2,
+                fa_inner / 2,
+                fb_inner / 2,
+                fb_outer / 2,
+                z_lo,
+                z_hi,
+            )
+        ),
+        name="bobbin_former_d_pos",
+    )
     # Flanges (top + bottom)
     z_top = winding_h / 2 + flange_t / 2
     z_bot = -winding_h / 2 - flange_t / 2
-    mb.append(pv.Box(bounds=(-a/2, a/2, -b/2, b/2,
-                             z_top - flange_t/2, z_top + flange_t/2)),
-              name="bobbin_flange_top")
-    mb.append(pv.Box(bounds=(-a/2, a/2, -b/2, b/2,
-                             z_bot - flange_t/2, z_bot + flange_t/2)),
-              name="bobbin_flange_bot")
+    mb.append(
+        pv.Box(bounds=(-a / 2, a / 2, -b / 2, b / 2, z_top - flange_t / 2, z_top + flange_t / 2)),
+        name="bobbin_flange_top",
+    )
+    mb.append(
+        pv.Box(bounds=(-a / 2, a / 2, -b / 2, b / 2, z_bot - flange_t / 2, z_bot + flange_t / 2)),
+        name="bobbin_flange_bot",
+    )
     return mb
 
 
 # ---------------------------------------------------------------------------
 # Multi-layer bobbin winding constrained to the window
 # ---------------------------------------------------------------------------
-def _rect_path_xy(a: float, b: float, r_corner: float, n_pts: int = 96
-                  ) -> np.ndarray:
+def _rect_path_xy(a: float, b: float, r_corner: float, n_pts: int = 96) -> np.ndarray:
     """Trace a rounded rectangle of sides ``a × b`` (full lengths) with
     corner radius ``r_corner``. Returns ``n_pts`` (x, y) points sampled
     proportionally along the perimeter, starting at the right-mid edge
@@ -500,20 +588,20 @@ def _rect_path_xy(a: float, b: float, r_corner: float, n_pts: int = 96
         a2 = a / 2.0 - r_corner
         b2 = b / 2.0 - r_corner
     seg_len = [
-        2 * b2,                  # right edge (going up)
+        2 * b2,  # right edge (going up)
         math.pi * r_corner / 2,  # top-right corner
-        2 * a2,                  # top edge (going left)
+        2 * a2,  # top edge (going left)
         math.pi * r_corner / 2,  # top-left
-        2 * b2,                  # left edge (going down)
+        2 * b2,  # left edge (going down)
         math.pi * r_corner / 2,  # bot-left
-        2 * a2,                  # bottom edge (going right)
+        2 * a2,  # bottom edge (going right)
         math.pi * r_corner / 2,  # bot-right
     ]
     total = sum(seg_len)
     s = np.linspace(0.0, total, n_pts, endpoint=False)
     xs = np.empty(n_pts)
     ys = np.empty(n_pts)
-    edges_cum = np.cumsum([0] + seg_len)
+    edges_cum = np.cumsum([0, *seg_len])
     for i, sk in enumerate(s):
         if sk < edges_cum[1]:
             t = sk / seg_len[0]
@@ -521,7 +609,7 @@ def _rect_path_xy(a: float, b: float, r_corner: float, n_pts: int = 96
             ys[i] = -b2 + 2 * b2 * t
         elif sk < edges_cum[2]:
             t = (sk - edges_cum[1]) / seg_len[1]
-            ang = -math.pi / 2 + math.pi / 2 * t      # 270°→360° local
+            ang = -math.pi / 2 + math.pi / 2 * t  # 270°→360° local
             xs[i] = a2 + r_corner * math.cos(ang)
             ys[i] = b2 + r_corner * math.sin(ang)
         elif sk < edges_cum[3]:
@@ -530,7 +618,7 @@ def _rect_path_xy(a: float, b: float, r_corner: float, n_pts: int = 96
             ys[i] = b / 2.0
         elif sk < edges_cum[4]:
             t = (sk - edges_cum[3]) / seg_len[3]
-            ang = 0.0 + math.pi / 2 * t                # 0°→90°
+            ang = 0.0 + math.pi / 2 * t  # 0°→90°
             xs[i] = -a2 + r_corner * math.cos(math.pi / 2 + ang)
             ys[i] = b2 + r_corner * math.sin(math.pi / 2 + ang)
         elif sk < edges_cum[5]:
@@ -539,7 +627,7 @@ def _rect_path_xy(a: float, b: float, r_corner: float, n_pts: int = 96
             ys[i] = b2 - 2 * b2 * t
         elif sk < edges_cum[6]:
             t = (sk - edges_cum[5]) / seg_len[5]
-            ang = math.pi + math.pi / 2 * t            # 180°→270°
+            ang = math.pi + math.pi / 2 * t  # 180°→270°
             xs[i] = -a2 + r_corner * math.cos(ang)
             ys[i] = -b2 + r_corner * math.sin(ang)
         elif sk < edges_cum[7]:
@@ -548,16 +636,20 @@ def _rect_path_xy(a: float, b: float, r_corner: float, n_pts: int = 96
             ys[i] = -b / 2.0
         else:
             t = (sk - edges_cum[7]) / seg_len[7]
-            ang = -math.pi / 2 + math.pi / 2 * t       # but on bot-right
+            ang = -math.pi / 2 + math.pi / 2 * t  # but on bot-right
             xs[i] = a2 + r_corner * math.cos(-math.pi / 2 - math.pi / 2 + ang)
             ys[i] = -b2 + r_corner * math.sin(-math.pi / 2 - math.pi / 2 + ang)
     return np.column_stack([xs, ys])
 
 
 def _bobbin_winding_rect(
-    H_window: float, leg_w: float, leg_d: float,
-    radial_max_w: float, radial_max_d: float,
-    N_turns: int, wire_d_mm: float = 1.0,
+    H_window: float,
+    leg_w: float,
+    leg_d: float,
+    radial_max_w: float,
+    radial_max_d: float,
+    N_turns: int,
+    wire_d_mm: float = 1.0,
     bobbin_wall_t: float = 0.0,
 ) -> tuple[pv.PolyData, int, int]:
     """Multi-layer rectangular helical winding around an EE centre leg.
@@ -625,8 +717,11 @@ def _bobbin_winding_rect(
 
 
 def _bobbin_winding(
-    H_window: float, col_r: float, max_radial_mm: float,
-    N_turns: int, wire_d_mm: float = 1.0,
+    H_window: float,
+    col_r: float,
+    max_radial_mm: float,
+    N_turns: int,
+    wire_d_mm: float = 1.0,
     bobbin_wall_t: float = 0.0,
 ) -> tuple[pv.PolyData, int, int]:
     """Multi-layer helical winding that fills the bobbin window.
@@ -659,7 +754,7 @@ def _bobbin_winding(
     actual_turns = min(N_turns, n_layers * turns_per_layer)
 
     # Generate the spline
-    points_per_turn = 48                            # was 32 — smoother helix
+    points_per_turn = 48  # was 32 — smoother helix
     n_pts = actual_turns * points_per_turn
     t_layer = np.linspace(0.0, 1.0, points_per_turn, endpoint=False)
     pts = np.empty((n_pts, 3))
@@ -739,11 +834,19 @@ def make_core_mesh(core: Core) -> tuple[pv.MultiBlock, ShapeKind, dict]:
         # (which is what the engine's ``Ku_actual`` is built from).
         radial_thick = max(core.Wa_mm2 / max(winding_h, 1e-3), 1.0)
         radial_max = col_r + radial_thick
-        return _etd_mesh(W, H, D, gap_mm=core.lgap_mm), "etd", {
-            "W": W, "H": H, "D": D, "col_r": col_r,
-            "winding_h": winding_h, "back_t": back_t,
-            "radial_max": radial_max,
-        }
+        return (
+            _etd_mesh(W, H, D, gap_mm=core.lgap_mm),
+            "etd",
+            {
+                "W": W,
+                "H": H,
+                "D": D,
+                "col_r": col_r,
+                "winding_h": winding_h,
+                "back_t": back_t,
+                "radial_max": radial_max,
+            },
+        )
 
     if kind == "pq":
         W, H, D = _bobbin_dims(core)
@@ -752,11 +855,19 @@ def make_core_mesh(core: Core) -> tuple[pv.MultiBlock, ShapeKind, dict]:
         winding_h = max(H - 2 * back_t - core.lgap_mm, H * 0.4)
         radial_thick = max(core.Wa_mm2 / max(winding_h, 1e-3), 1.0)
         radial_max = col_r + radial_thick
-        return _pq_mesh(W, H, D, gap_mm=core.lgap_mm), "pq", {
-            "W": W, "H": H, "D": D, "col_r": col_r,
-            "winding_h": winding_h, "back_t": back_t,
-            "radial_max": radial_max,
-        }
+        return (
+            _pq_mesh(W, H, D, gap_mm=core.lgap_mm),
+            "pq",
+            {
+                "W": W,
+                "H": H,
+                "D": D,
+                "col_r": col_r,
+                "winding_h": winding_h,
+                "back_t": back_t,
+                "radial_max": radial_max,
+            },
+        )
 
     if kind == "ee":
         W, H, D = _bobbin_dims(core)
@@ -771,18 +882,25 @@ def make_core_mesh(core: Core) -> tuple[pv.MultiBlock, ShapeKind, dict]:
         window_w_real = max(core.Wa_mm2 / (2.0 * max(winding_h, 1e-3)), 1.0)
         radial_max_w = center_w / 2.0 + window_w_real
         radial_max_d = D / 2 + 0.5
-        return _ee_mesh(W, H, D, gap_mm=core.lgap_mm), "ee", {
-            "W": W, "H": H, "D": D,
-            "leg_w": center_w, "leg_d": D,
-            "winding_h": winding_h, "back_t": back_t,
-            "radial_max_w": radial_max_w,
-            "radial_max_d": radial_max_d,
-        }
+        return (
+            _ee_mesh(W, H, D, gap_mm=core.lgap_mm),
+            "ee",
+            {
+                "W": W,
+                "H": H,
+                "D": D,
+                "leg_w": center_w,
+                "leg_d": D,
+                "winding_h": winding_h,
+                "back_t": back_t,
+                "radial_max_w": radial_max_w,
+                "radial_max_d": radial_max_d,
+            },
+        )
 
     # Generic: simple cube from Ve
     side = max(core.Ve_mm3, 1.0) ** (1 / 3)
-    box = pv.Box(bounds=(-side / 2, side / 2, -side / 2, side / 2,
-                         -side / 2, side / 2))
+    box = pv.Box(bounds=(-side / 2, side / 2, -side / 2, side / 2, -side / 2, side / 2))
     mb = pv.MultiBlock()
     mb.append(box, name="core")
     return mb, "generic", {"side": side}
@@ -828,8 +946,14 @@ def make_winding_mesh(
         radial_max_w = info.get("radial_max_w", leg_w)
         radial_max_d = info.get("radial_max_d", leg_d)
         tube, _layers, _actual = _bobbin_winding_rect(
-            winding_h, leg_w, leg_d, radial_max_w, radial_max_d,
-            N_turns, wire_d, bobbin_wall_t=wall_t,
+            winding_h,
+            leg_w,
+            leg_d,
+            radial_max_w,
+            radial_max_d,
+            N_turns,
+            wire_d,
+            bobbin_wall_t=wall_t,
         )
         return tube
 
@@ -838,8 +962,12 @@ def make_winding_mesh(
         col_r = info.get("col_r", 5.0)
         radial_max = info.get("radial_max", col_r * 2.0)
         tube, _layers, _actual = _bobbin_winding(
-            winding_h, col_r, radial_max,
-            N_turns, wire_d, bobbin_wall_t=wall_t,
+            winding_h,
+            col_r,
+            radial_max,
+            N_turns,
+            wire_d,
+            bobbin_wall_t=wall_t,
         )
         return tube
     return None
@@ -878,7 +1006,7 @@ def make_winding_leads(
     wire_d = max(wire.outer_diameter_mm(), 0.3)
     wall_t = _bobbin_wall_for(wire_d)
     winding_h = info.get("winding_h", 10.0)
-    lead_len = max(winding_h * 0.45, 6.0)            # 6 mm minimum stub
+    lead_len = max(winding_h * 0.45, 6.0)  # 6 mm minimum stub
 
     mb = pv.MultiBlock()
     if kind in ("etd", "pq"):
@@ -886,41 +1014,61 @@ def make_winding_leads(
         # Start lead: at the inner layer, exits straight up out of
         # the top flange.
         r_start = col_r + wall_t + wire_d * 0.5
-        mb.append(pv.Cylinder(
-            center=(r_start, 0.0, winding_h / 2 + lead_len / 2),
-            direction=(0, 0, 1),
-            radius=wire_d * 0.45, height=lead_len,
-            capping=True, resolution=22,
-        ), name="lead_start")
+        mb.append(
+            pv.Cylinder(
+                center=(r_start, 0.0, winding_h / 2 + lead_len / 2),
+                direction=(0, 0, 1),
+                radius=wire_d * 0.45,
+                height=lead_len,
+                capping=True,
+                resolution=22,
+            ),
+            name="lead_start",
+        )
         # End lead: on the outer-most layer (radial), exits sideways
         # along +x (typical "tap" direction in real bobbins).
         r_end = r_start + wire_d * 0.5
-        mb.append(pv.Cylinder(
-            center=(r_end + lead_len / 2, 0.0, winding_h / 2 - wire_d * 0.5),
-            direction=(1, 0, 0),
-            radius=wire_d * 0.45, height=lead_len,
-            capping=True, resolution=22,
-        ), name="lead_end")
+        mb.append(
+            pv.Cylinder(
+                center=(r_end + lead_len / 2, 0.0, winding_h / 2 - wire_d * 0.5),
+                direction=(1, 0, 0),
+                radius=wire_d * 0.45,
+                height=lead_len,
+                capping=True,
+                resolution=22,
+            ),
+            name="lead_end",
+        )
         return mb
 
     if kind == "ee":
         leg_w = info.get("leg_w", 8.0)
         # Start lead: on the right side of the leg, exits up.
         x_start = leg_w / 2 + wall_t + wire_d * 0.5
-        mb.append(pv.Cylinder(
-            center=(x_start, 0.0, winding_h / 2 + lead_len / 2),
-            direction=(0, 0, 1),
-            radius=wire_d * 0.45, height=lead_len,
-            capping=True, resolution=22,
-        ), name="lead_start")
+        mb.append(
+            pv.Cylinder(
+                center=(x_start, 0.0, winding_h / 2 + lead_len / 2),
+                direction=(0, 0, 1),
+                radius=wire_d * 0.45,
+                height=lead_len,
+                capping=True,
+                resolution=22,
+            ),
+            name="lead_start",
+        )
         # End lead: on the left side, exits up.
         x_end = -x_start
-        mb.append(pv.Cylinder(
-            center=(x_end, 0.0, winding_h / 2 + lead_len / 2),
-            direction=(0, 0, 1),
-            radius=wire_d * 0.45, height=lead_len,
-            capping=True, resolution=22,
-        ), name="lead_end")
+        mb.append(
+            pv.Cylinder(
+                center=(x_end, 0.0, winding_h / 2 + lead_len / 2),
+                direction=(0, 0, 1),
+                radius=wire_d * 0.45,
+                height=lead_len,
+                capping=True,
+                resolution=22,
+            ),
+            name="lead_end",
+        )
         return mb
     return None
 
@@ -966,17 +1114,22 @@ def winding_fit_info(
     if kind == "ee":
         _, layers, actual = _bobbin_winding_rect(
             info.get("winding_h", 10.0),
-            info.get("leg_w", 8.0), info.get("leg_d", 8.0),
+            info.get("leg_w", 8.0),
+            info.get("leg_d", 8.0),
             info.get("radial_max_w", 12.0),
             info.get("radial_max_d", 12.0),
-            requested, wire_d, bobbin_wall_t=wall_t,
+            requested,
+            wire_d,
+            bobbin_wall_t=wall_t,
         )
     elif kind in ("etd", "pq"):
         _, layers, actual = _bobbin_winding(
             info.get("winding_h", 10.0),
             info.get("col_r", 5.0),
             info.get("radial_max", 10.0),
-            requested, wire_d, bobbin_wall_t=wall_t,
+            requested,
+            wire_d,
+            bobbin_wall_t=wall_t,
         )
     else:
         return out
@@ -1022,8 +1175,7 @@ def make_bobbin_mesh(
         rmax_d = info.get("radial_max_d", leg_d)
         radial_room = min(rmax_w - leg_w / 2, rmax_d - leg_d / 2) - wire_d * 0.6
         n_layers = min(n_layers, max(1, int(max(radial_room, wire_d) // wire_d)))
-        return _bobbin_shell_rect(leg_w, leg_d, winding_h, wire_d,
-                                   n_layers, rmax_w, rmax_d)
+        return _bobbin_shell_rect(leg_w, leg_d, winding_h, wire_d, n_layers, rmax_w, rmax_d)
     # ETD / PQ — round bobbin
     col_r = info.get("col_r", 5.0)
     radial_max = info.get("radial_max", col_r * 2.0)

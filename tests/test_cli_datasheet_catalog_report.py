@@ -11,6 +11,7 @@ Tests focus on shape (file produced, exit code, content
 markers) rather than byte-level layout — datasheet format
 details belong to the report module's own test suites.
 """
+
 from __future__ import annotations
 
 import json
@@ -31,9 +32,14 @@ def _write_boost_project(tmp_path: Path) -> Path:
     from pfc_inductor.project import ProjectFile, save_project
 
     spec = Spec(
-        topology="boost_ccm", Pout_W=600,
-        Vin_min_Vrms=85, Vin_max_Vrms=265, Vout_V=400,
-        f_sw_kHz=65, ripple_pct=20, T_amb_C=40,
+        topology="boost_ccm",
+        Pout_W=600,
+        Vin_min_Vrms=85,
+        Vin_max_Vrms=265,
+        Vout_V=400,
+        f_sw_kHz=65,
+        ripple_pct=20,
+        T_amb_C=40,
     )
     pf = ProjectFile.from_session(
         name="cli-extras-boost",
@@ -61,11 +67,13 @@ def test_datasheet_help_lists_options(cli_runner: CliRunner) -> None:
 
 def test_datasheet_subcommand_registered() -> None:
     from pfc_inductor.cli import SUBCOMMANDS
+
     assert "datasheet" in SUBCOMMANDS
 
 
 def test_datasheet_writes_pdf(
-    cli_runner: CliRunner, tmp_path: Path,
+    cli_runner: CliRunner,
+    tmp_path: Path,
 ) -> None:
     """`.pdf` extension → ReportLab native PDF written to disk."""
     from pfc_inductor.cli import cli
@@ -73,7 +81,8 @@ def test_datasheet_writes_pdf(
     project_path = _write_boost_project(tmp_path)
     out = tmp_path / "out.pdf"
     result = cli_runner.invoke(
-        cli, ["datasheet", str(project_path), "--out", str(out)],
+        cli,
+        ["datasheet", str(project_path), "--out", str(out)],
     )
     assert result.exit_code == 0, result.output
     assert out.is_file()
@@ -82,7 +91,8 @@ def test_datasheet_writes_pdf(
 
 
 def test_datasheet_writes_html(
-    cli_runner: CliRunner, tmp_path: Path,
+    cli_runner: CliRunner,
+    tmp_path: Path,
 ) -> None:
     """Non-`.pdf` extension → HTML datasheet."""
     from pfc_inductor.cli import cli
@@ -90,7 +100,8 @@ def test_datasheet_writes_html(
     project_path = _write_boost_project(tmp_path)
     out = tmp_path / "out.html"
     result = cli_runner.invoke(
-        cli, ["datasheet", str(project_path), "--out", str(out)],
+        cli,
+        ["datasheet", str(project_path), "--out", str(out)],
     )
     assert result.exit_code == 0, result.output
     assert out.is_file()
@@ -100,20 +111,22 @@ def test_datasheet_writes_html(
 
 
 def test_datasheet_missing_project_is_usage_error(
-    cli_runner: CliRunner, tmp_path: Path,
+    cli_runner: CliRunner,
+    tmp_path: Path,
 ) -> None:
     from pfc_inductor.cli import cli
 
     out = tmp_path / "out.pdf"
     result = cli_runner.invoke(
         cli,
-        ["datasheet", str(tmp_path / "nope.pfc"),
-         "--out", str(out)],
+        ["datasheet", str(tmp_path / "nope.pfc"), "--out", str(out)],
     )
     assert result.exit_code != 0
-    assert "not found" in result.output.lower() or \
-           "usage" in result.output.lower() or \
-           "error" in result.output.lower()
+    assert (
+        "not found" in result.output.lower()
+        or "usage" in result.output.lower()
+        or "error" in result.output.lower()
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -130,6 +143,7 @@ def test_catalog_help_lists_options(cli_runner: CliRunner) -> None:
 
 def test_catalog_subcommand_registered() -> None:
     from pfc_inductor.cli import SUBCOMMANDS
+
     assert "catalog" in SUBCOMMANDS
 
 
@@ -173,7 +187,8 @@ def test_catalog_filter_narrows_result(cli_runner: CliRunner) -> None:
     full = cli_runner.invoke(cli, ["catalog", "cores"])
     full_payload = json.loads(full.stdout)
     filtered = cli_runner.invoke(
-        cli, ["catalog", "cores", "--filter", "vendor=Magnetics"],
+        cli,
+        ["catalog", "cores", "--filter", "vendor=Magnetics"],
     )
     filtered_payload = json.loads(filtered.stdout)
 
@@ -185,13 +200,15 @@ def test_catalog_filter_narrows_result(cli_runner: CliRunner) -> None:
 
 
 def test_catalog_csv_writes_file(
-    cli_runner: CliRunner, tmp_path: Path,
+    cli_runner: CliRunner,
+    tmp_path: Path,
 ) -> None:
     from pfc_inductor.cli import cli
 
     out = tmp_path / "mats.csv"
     result = cli_runner.invoke(
-        cli, ["catalog", "materials", "--csv", str(out)],
+        cli,
+        ["catalog", "materials", "--csv", str(out)],
     )
     assert result.exit_code == 0
     assert out.is_file()
@@ -208,7 +225,8 @@ def test_catalog_limit_truncates(cli_runner: CliRunner) -> None:
     from pfc_inductor.cli import cli
 
     result = cli_runner.invoke(
-        cli, ["catalog", "wires", "--limit", "3"],
+        cli,
+        ["catalog", "wires", "--limit", "3"],
     )
     assert result.exit_code == 0
     payload = json.loads(result.stdout)
@@ -232,18 +250,19 @@ def test_report_help_lists_options(cli_runner: CliRunner) -> None:
 
     result = cli_runner.invoke(cli, ["report", "--help"])
     assert result.exit_code == 0
-    for opt in ("--out", "--region", "--edition",
-                "--designer", "--revision"):
+    for opt in ("--out", "--region", "--edition", "--designer", "--revision"):
         assert opt in result.output, f"missing {opt} in help"
 
 
 def test_report_subcommand_registered() -> None:
     from pfc_inductor.cli import SUBCOMMANDS
+
     assert "report" in SUBCOMMANDS
 
 
 def test_report_writes_minimal_bundle(
-    cli_runner: CliRunner, tmp_path: Path,
+    cli_runner: CliRunner,
+    tmp_path: Path,
 ) -> None:
     """No region → datasheet + KPI + manifest only."""
     from pfc_inductor.cli import cli
@@ -251,7 +270,8 @@ def test_report_writes_minimal_bundle(
     project_path = _write_boost_project(tmp_path)
     out_dir = tmp_path / "bundle"
     result = cli_runner.invoke(
-        cli, ["report", str(project_path), "--out", str(out_dir)],
+        cli,
+        ["report", str(project_path), "--out", str(out_dir)],
     )
     assert result.exit_code == 0, result.output
     assert (out_dir / "datasheet.pdf").is_file()
@@ -262,7 +282,8 @@ def test_report_writes_minimal_bundle(
 
 
 def test_report_kpi_json_carries_design_keys(
-    cli_runner: CliRunner, tmp_path: Path,
+    cli_runner: CliRunner,
+    tmp_path: Path,
 ) -> None:
     """The KPI dump should mirror the ``design`` subcommand's
     payload — same shape, so a downstream script can read either
@@ -272,17 +293,26 @@ def test_report_kpi_json_carries_design_keys(
     project_path = _write_boost_project(tmp_path)
     out_dir = tmp_path / "bundle"
     cli_runner.invoke(
-        cli, ["report", str(project_path), "--out", str(out_dir)],
+        cli,
+        ["report", str(project_path), "--out", str(out_dir)],
     )
     payload = json.loads((out_dir / "kpi.json").read_text())
-    for key in ("project", "topology", "selection",
-                "L_target_uH", "L_actual_uH", "B_pk_mT",
-                "T_winding_C", "P_total_W"):
+    for key in (
+        "project",
+        "topology",
+        "selection",
+        "L_target_uH",
+        "L_actual_uH",
+        "B_pk_mT",
+        "T_winding_C",
+        "P_total_W",
+    ):
         assert key in payload, f"missing KPI key {key!r}"
 
 
 def test_report_manifest_carries_sha256(
-    cli_runner: CliRunner, tmp_path: Path,
+    cli_runner: CliRunner,
+    tmp_path: Path,
 ) -> None:
     """Every artefact must appear in the manifest with a
     SHA-256 — required for auditor-friendly bundle verification."""
@@ -291,7 +321,8 @@ def test_report_manifest_carries_sha256(
     project_path = _write_boost_project(tmp_path)
     out_dir = tmp_path / "bundle"
     cli_runner.invoke(
-        cli, ["report", str(project_path), "--out", str(out_dir)],
+        cli,
+        ["report", str(project_path), "--out", str(out_dir)],
     )
     manifest = json.loads((out_dir / "manifest.json").read_text())
     assert "magnadesign_version" in manifest
@@ -306,7 +337,8 @@ def test_report_manifest_carries_sha256(
 
 
 def test_report_with_region_writes_compliance_pdf(
-    cli_runner: CliRunner, tmp_path: Path,
+    cli_runner: CliRunner,
+    tmp_path: Path,
 ) -> None:
     """`--region EU` adds a compliance PDF and routes the exit
     code through the bundle's overall verdict."""
@@ -316,8 +348,7 @@ def test_report_with_region_writes_compliance_pdf(
     out_dir = tmp_path / "bundle"
     result = cli_runner.invoke(
         cli,
-        ["report", str(project_path),
-         "--out", str(out_dir), "--region", "EU"],
+        ["report", str(project_path), "--out", str(out_dir), "--region", "EU"],
     )
     assert (out_dir / "compliance_EU.pdf").is_file()
     # Boost-PFC carries IEC 61000-3-2 + EN 55032; verdict could
@@ -327,13 +358,13 @@ def test_report_with_region_writes_compliance_pdf(
 
 
 def test_report_missing_project_is_usage_error(
-    cli_runner: CliRunner, tmp_path: Path,
+    cli_runner: CliRunner,
+    tmp_path: Path,
 ) -> None:
     from pfc_inductor.cli import cli
 
     result = cli_runner.invoke(
         cli,
-        ["report", str(tmp_path / "ghost.pfc"),
-         "--out", str(tmp_path / "bundle")],
+        ["report", str(tmp_path / "ghost.pfc"), "--out", str(tmp_path / "bundle")],
     )
     assert result.exit_code != 0

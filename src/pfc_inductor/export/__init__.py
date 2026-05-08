@@ -26,6 +26,7 @@ Public API
 Each emitter returns a ``str`` so the caller (CLI / UI / direct
 script) decides where to write it.
 """
+
 from __future__ import annotations
 
 from pfc_inductor.export.curves import (

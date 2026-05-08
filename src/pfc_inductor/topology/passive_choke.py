@@ -9,6 +9,7 @@ shapes input current passively. Common topologies:
 The inductor sees mostly line-frequency current. Core saturation set by peak
 line current. No HF ripple (no switching).
 """
+
 from __future__ import annotations
 
 import math
@@ -32,7 +33,7 @@ def required_inductance_uH(spec: Spec, Vin_Vrms: float, target_thd: float = 0.30
     For target_thd=0.3 (30% THD), k ~ 0.3-0.4 (Erickson Ch.18).
     """
     omega_line = 2 * math.pi * spec.f_line_Hz
-    Z_base = (Vin_Vrms ** 2) / max(spec.Pout_W / spec.eta, 1.0)
+    Z_base = (Vin_Vrms**2) / max(spec.Pout_W / spec.eta, 1.0)
     k = 0.35 * (0.30 / max(target_thd, 0.05))
     L_H = k * Z_base / omega_line
     return L_H * 1e6
@@ -52,8 +53,8 @@ def flux_swing_T(N: int, Ipk_A: float, Ae_mm2: float, AL_nH: float, mu_pct: floa
 # Line-side THD — design-quality metric for the Análise card
 # ---------------------------------------------------------------------------
 
-def voltage_drop_pct(L_mH: float, Vin_Vrms: float, Pout_W: float,
-                     f_line_Hz: float) -> float:
+
+def voltage_drop_pct(L_mH: float, Vin_Vrms: float, Pout_W: float, f_line_Hz: float) -> float:
     """``%Z = ωL · I_in / V_in · 100`` — fraction of line voltage
     dropped across the choke at rated load."""
     if Vin_Vrms <= 0 or Pout_W <= 0:
@@ -80,6 +81,9 @@ def estimate_thd_pct(spec: Spec, L_actual_uH: float) -> float:
 
     L_mH = max(L_actual_uH, 0.0) / 1000.0
     pct_Z = voltage_drop_pct(
-        L_mH, spec.Vin_min_Vrms, spec.Pout_W, spec.f_line_Hz,
+        L_mH,
+        spec.Vin_min_Vrms,
+        spec.Pout_W,
+        spec.f_line_Hz,
     )
     return line_reactor.estimate_thd_pct(pct_Z, n_phases=1)

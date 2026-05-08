@@ -5,6 +5,7 @@ selection, threshold reporting) and engineering anchors that
 match published vendor data within the model's documented
 ±3 dB(A) calibration target.
 """
+
 from __future__ import annotations
 
 import math
@@ -29,7 +30,10 @@ from pfc_inductor.acoustic.model import (
 def reference_inputs():
     """600 W boost-PFC on the bundled reference toroid."""
     from pfc_inductor.data_loader import (
-        ensure_user_data, load_cores, load_materials, load_wires,
+        ensure_user_data,
+        load_cores,
+        load_materials,
+        load_wires,
     )
     from pfc_inductor.design import design as run_design
     from pfc_inductor.models import Spec
@@ -39,13 +43,17 @@ def reference_inputs():
     cores = load_cores()
     wires = load_wires()
     spec = Spec(
-        topology="boost_ccm", Pout_W=600,
-        Vin_min_Vrms=85, Vin_max_Vrms=265, Vout_V=400,
-        f_sw_kHz=65, ripple_pct=20, T_amb_C=40,
+        topology="boost_ccm",
+        Pout_W=600,
+        Vin_min_Vrms=85,
+        Vin_max_Vrms=265,
+        Vout_V=400,
+        f_sw_kHz=65,
+        ripple_pct=20,
+        T_amb_C=40,
     )
     mat = next(m for m in mats if m.id == "magnetics-60_highflux")
-    core = next(c for c in cores
-                if c.id == "magnetics-c058777a2-60_highflux")
+    core = next(c for c in cores if c.id == "magnetics-c058777a2-60_highflux")
     wire = next(w for w in wires if w.id == "AWG14")
     result = run_design(spec, core, wire, mat)
     return spec, core, wire, mat, result
@@ -79,7 +87,6 @@ def test_a_weighting_attenuates_ultrasonic() -> None:
 # ---------------------------------------------------------------------------
 def test_lambda_s_returns_high_value_for_nizn() -> None:
     """NiZn ferrites famously hum — λ_s should be high."""
-    from pfc_inductor.models import Material
 
     # Build a minimal material with type='nizn' to exercise the
     # name-based fallback path. Real catalogue entries don't
@@ -100,9 +107,15 @@ def test_lambda_s_explicit_field_wins(reference_inputs) -> None:
     _, _, _, mat, _ = reference_inputs
 
     # Stash an explicit value on the material via Pydantic.
-    explicit = mat.model_copy(update={
-        "magnetostrictive_lambda_s_ppm": 42.0,
-    }) if hasattr(mat.__class__, "model_copy") else None
+    explicit = (
+        mat.model_copy(
+            update={
+                "magnetostrictive_lambda_s_ppm": 42.0,
+            }
+        )
+        if hasattr(mat.__class__, "model_copy")
+        else None
+    )
     if explicit is None:
         pytest.skip("Material model doesn't support extra fields yet")
     val = magnetostrictive_lambda_s_ppm(explicit)
@@ -112,6 +125,7 @@ def test_lambda_s_explicit_field_wins(reference_inputs) -> None:
 def test_lambda_s_kool_mu_is_quietest() -> None:
     """Kool Mµ is the quietest powder family — the helper should
     return a small λ_s."""
+
     class _M:
         type = "powder"
         name = "Kool Mu"
@@ -166,8 +180,10 @@ def test_estimate_noise_returns_full_schema(reference_inputs) -> None:
     assert isinstance(est.dB_a_at_1m, float)
     assert math.isfinite(est.dB_a_at_1m)
     assert est.dominant_mechanism in (
-        "magnetostriction", "winding_lorentz",
-        "bobbin_resonance", "none",
+        "magnetostriction",
+        "winding_lorentz",
+        "bobbin_resonance",
+        "none",
     )
     assert isinstance(est.contributors_dba, dict)
 
@@ -200,12 +216,9 @@ def test_estimate_noise_threshold_drives_headroom(
     """Headroom = threshold - SPL. Doubling the threshold should
     increase the headroom by exactly the same amount."""
     spec, core, wire, mat, result = reference_inputs
-    base = estimate_noise(spec, core, wire, mat, result,
-                          quiet_threshold_dba=30.0)
-    relaxed = estimate_noise(spec, core, wire, mat, result,
-                             quiet_threshold_dba=45.0)
-    assert relaxed.headroom_to_threshold_dB - base.headroom_to_threshold_dB \
-        == pytest.approx(15.0)
+    base = estimate_noise(spec, core, wire, mat, result, quiet_threshold_dba=30.0)
+    relaxed = estimate_noise(spec, core, wire, mat, result, quiet_threshold_dba=45.0)
+    assert relaxed.headroom_to_threshold_dB - base.headroom_to_threshold_dB == pytest.approx(15.0)
 
 
 def test_estimate_noise_default_threshold_is_quiet_appliance(
@@ -232,7 +245,11 @@ def test_estimate_noise_zero_b_returns_no_mechanism(
         n_layers = 1
 
     est = estimate_noise(
-        spec, core, wire, mat, _ZeroResult(),  # type: ignore[arg-type]
+        spec,
+        core,
+        wire,
+        mat,
+        _ZeroResult(),  # type: ignore[arg-type]
     )
     assert est.dominant_mechanism == "none"
     assert est.dB_a_at_1m == 0.0

@@ -9,9 +9,9 @@ GitHub Pages on every push to ``main``.
 Do not edit auto-generated content. The Theory chapters under
 ``theory/`` are hand-written and survive every rebuild.
 """
+
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
 
@@ -45,13 +45,13 @@ except Exception:
 extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
-    "sphinx.ext.napoleon",          # Google-style docstrings
+    "sphinx.ext.napoleon",  # Google-style docstrings
     "sphinx.ext.viewcode",
     "sphinx.ext.intersphinx",
     "sphinx.ext.mathjax",
-    "myst_parser",                  # Markdown support
-    "sphinx_copybutton",            # copy-on-hover for code blocks
-    "sphinxcontrib.mermaid",        # Mermaid block diagrams
+    "myst_parser",  # Markdown support
+    "sphinx_copybutton",  # copy-on-hover for code blocks
+    "sphinxcontrib.mermaid",  # Mermaid block diagrams
 ]
 
 # autodoc / autosummary
@@ -70,10 +70,10 @@ napoleon_include_private_with_doc = False
 # MyST parser — let Markdown sources mix freely with reST.
 source_suffix = {
     ".rst": "restructuredtext",
-    ".md":  "markdown",
+    ".md": "markdown",
 }
 myst_enable_extensions = [
-    "colon_fence",       # ::: admonitions
+    "colon_fence",  # ::: admonitions
     "deflist",
     "linkify",
     "smartquotes",
@@ -83,9 +83,9 @@ myst_enable_extensions = [
 
 # Cross-link external projects.
 intersphinx_mapping = {
-    "python":     ("https://docs.python.org/3", None),
-    "numpy":      ("https://numpy.org/doc/stable", None),
-    "scipy":      ("https://docs.scipy.org/doc/scipy", None),
+    "python": ("https://docs.python.org/3", None),
+    "numpy": ("https://numpy.org/doc/stable", None),
+    "scipy": ("https://docs.scipy.org/doc/scipy", None),
     "matplotlib": ("https://matplotlib.org/stable", None),
 }
 
@@ -118,11 +118,11 @@ html_theme_options = {
 mathjax3_config = {
     "tex": {
         "macros": {
-            "RR":   "{\\mathbb{R}}",
-            "uH":   "{\\mu \\mathrm{H}}",
+            "RR": "{\\mathbb{R}}",
+            "uH": "{\\mu \\mathrm{H}}",
             "Bsat": "{B_{\\mathrm{sat}}}",
             "Brem": "{B_{\\mathrm{r}}}",
-            "Hc":   "{H_{\\mathrm{c}}}",
+            "Hc": "{H_{\\mathrm{c}}}",
         },
     },
 }
@@ -132,7 +132,5 @@ mathjax3_config = {
 # Strip ``$`` and ``>>>`` prefixes so users can copy-paste shell /
 # REPL examples directly. Otherwise the prompt characters end up
 # in their terminal.
-copybutton_prompt_text = (
-    r">>> |\.\.\. |\$ |In \[\d*\]: |    \.\.\.\.: "
-)
+copybutton_prompt_text = r">>> |\.\.\. |\$ |In \[\d*\]: |    \.\.\.\.: "
 copybutton_prompt_is_regexp = True

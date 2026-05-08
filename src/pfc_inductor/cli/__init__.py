@@ -26,11 +26,10 @@ See :mod:`pfc_inductor.cli.exit_codes` — Unix-conventional so CI
 pipelines can branch on result class (compliance fail vs. generic
 error vs. usage error).
 """
+
 from __future__ import annotations
 
 import click
-
-from pfc_inductor.cli.exit_codes import EXIT_CODES, ExitCode
 
 # Subcommand modules expose a ``register(group)`` function so the
 # top-level group's command list is discovered, not hard-coded —
@@ -45,23 +44,24 @@ from pfc_inductor.cli import mfg_spec as _mfg_spec_cmd
 from pfc_inductor.cli import report as _report_cmd
 from pfc_inductor.cli import sweep as _sweep_cmd
 from pfc_inductor.cli import worst_case as _worst_case_cmd
+from pfc_inductor.cli.exit_codes import EXIT_CODES, ExitCode
 
 __all__ = [
+    "EXIT_CODES",
+    "ExitCode",
     "cli",
     "main",
-    "ExitCode",
-    "EXIT_CODES",
 ]
 
 
-def _print_version(ctx: click.Context, _param: click.Parameter,
-                   value: bool) -> None:
+def _print_version(ctx: click.Context, _param: click.Parameter, value: bool) -> None:
     if not value or ctx.resilient_parsing:
         return
     # Resolve from package metadata so the CLI tracks
     # ``pyproject.toml`` without a hardcoded duplicate.
     try:
         from importlib.metadata import version
+
         click.echo(f"magnadesign {version('magnadesign')}")
     except Exception:
         click.echo("magnadesign (version unavailable)")
@@ -69,8 +69,7 @@ def _print_version(ctx: click.Context, _param: click.Parameter,
 
 
 @click.group(
-    help="MagnaDesign headless CLI — drive the design engine "
-         "from scripts and CI pipelines.",
+    help="MagnaDesign headless CLI — drive the design engine from scripts and CI pipelines.",
     context_settings={"help_option_names": ["-h", "--help"]},
 )
 @click.option(

@@ -15,6 +15,7 @@ API: ``Toast.show(parent, message, action_label=None, action=None)``.
 The optional action button renders inline ("Abrir"); clicking it
 fires the callback and dismisses the toast immediately.
 """
+
 from __future__ import annotations
 
 from typing import Callable, Optional
@@ -122,10 +123,11 @@ class Toast(QFrame):
         action_label: Optional[str] = None,
         action: Optional[Callable[[], None]] = None,
         duration_ms: int = ANIMATION.toast_ms,
-    ) -> "Toast":
+    ) -> Toast:
         """Convenience constructor + reveal in one call."""
         t = cls(
-            parent, message,
+            parent,
+            message,
             action_label=action_label,
             action=action,
             duration_ms=duration_ms,
@@ -160,7 +162,7 @@ class Toast(QFrame):
         )
 
     # Re-anchor on parent resize.
-    def parentResized(self) -> None:                      # noqa: N802
+    def parentResized(self) -> None:
         self._reposition()
 
     # ------------------------------------------------------------------
@@ -178,20 +180,13 @@ class Toast(QFrame):
     @staticmethod
     def _check_qss() -> str:
         p = get_theme().palette
-        return (
-            f"color: {p.success};"
-            f"font-size: 16px;"
-            f"font-weight: 700;"
-        )
+        return f"color: {p.success};font-size: 16px;font-weight: 700;"
 
     @staticmethod
     def _msg_qss() -> str:
         p = get_theme().palette
         t = get_theme().type
-        return (
-            f"color: {p.text};"
-            f"font-size: {t.body_md}px;"
-        )
+        return f"color: {p.text};font-size: {t.body_md}px;"
 
     @staticmethod
     def _btn_qss() -> str:

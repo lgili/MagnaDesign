@@ -8,6 +8,7 @@ Public API:
     limits_A = iec.class_d_limits(Pi_W=400)
     pf_check = iec.evaluate_compliance(harmonics_A, Pi_W=400)
 """
+
 from pfc_inductor.standards import iec61000_3_2
 
 __all__ = ["iec61000_3_2"]

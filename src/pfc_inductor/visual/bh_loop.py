@@ -7,6 +7,7 @@ Generates two curves on the B–H plane:
 - An optional small-loop overlay representing the high-frequency ripple,
   located at the line phase where ripple peaks.
 """
+
 from __future__ import annotations
 
 import numpy as np

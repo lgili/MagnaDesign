@@ -4,9 +4,8 @@ Locks in the small-signal / state-space synthesis used by the
 ``FormasOndaCard`` so a refactor doesn't silently turn the boost
 CCM trace back into a smooth sinusoid (the bug we just fixed).
 """
-from __future__ import annotations
 
-import math
+from __future__ import annotations
 
 import numpy as np
 import pytest
@@ -24,10 +23,10 @@ from pfc_inductor.simulate.realistic_waveforms import (
     synthesize_il_waveform,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures — a real (mat, core, wire) triple so we can run ``design()``.
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(scope="module")
 def db():
@@ -35,9 +34,7 @@ def db():
     cores = load_cores()
     wires = load_wires()
     mat = find_material(materials, "magnetics-60_highflux")
-    core = next(
-        c for c in cores if c.id == "magnetics-0058181a2-60_highflux"
-    )
+    core = next(c for c in cores if c.id == "magnetics-0058181a2-60_highflux")
     wire = next(w for w in wires if w.id == "AWG14")
     return {"mat": mat, "core": core, "wire": wire}
 
@@ -49,6 +46,7 @@ def _result(db, spec: Spec):
 # ---------------------------------------------------------------------------
 # Top-level dispatch
 # ---------------------------------------------------------------------------
+
 
 def test_synthesizes_for_each_topology(db):
     """Every supported topology produces a non-None waveform on a
@@ -71,7 +69,6 @@ def test_synthesizes_for_each_topology(db):
 def test_returns_none_when_inductance_zero(db):
     """A half-baked spec → None so the caller can fall through to the
     engine's own sampled arrays without painting a flat line."""
-    from pfc_inductor.models import DesignResult
 
     # Hand-crafted result with no L — we don't run design() because
     # it would refuse this configuration.
@@ -96,6 +93,7 @@ def test_returns_none_for_unknown_topology(db):
 # ---------------------------------------------------------------------------
 # Boost CCM — the textbook signature: sinusoidal envelope + PWM ripple
 # ---------------------------------------------------------------------------
+
 
 def test_boost_ccm_has_high_frequency_component(db):
     """Boost CCM iL must carry a switching-frequency ripple component
@@ -136,9 +134,9 @@ def test_boost_ccm_envelope_follows_rectified_sine(db):
     # Envelope is the moving-average over a switching period; we
     # approximate by averaging a small window around each anchor.
     win = 60  # ~60 samples ~ a few sw periods at default fsw / fline
-    avg_zero = float(np.mean(np.abs(wf.iL_A[max(0, n_zero - win):n_zero + win])))
-    avg_peak = float(np.mean(np.abs(wf.iL_A[n_peak - win:n_peak + win])))
-    avg_mid = float(np.mean(np.abs(wf.iL_A[n_mid - win:n_mid + win])))
+    avg_zero = float(np.mean(np.abs(wf.iL_A[max(0, n_zero - win) : n_zero + win])))
+    avg_peak = float(np.mean(np.abs(wf.iL_A[n_peak - win : n_peak + win])))
+    avg_mid = float(np.mean(np.abs(wf.iL_A[n_mid - win : n_mid + win])))
 
     # Peak averages must dominate zero-crossing averages (the whole
     # point of PFC current shaping). 3× headroom guards against
@@ -151,6 +149,7 @@ def test_boost_ccm_envelope_follows_rectified_sine(db):
 # ---------------------------------------------------------------------------
 # Passive choke — DC level with 2·f_line slow ripple (no PWM)
 # ---------------------------------------------------------------------------
+
 
 def test_passive_choke_no_high_frequency_content(db):
     """The passive PFC choke's iL has line-frequency ripple but no
@@ -175,6 +174,7 @@ def test_passive_choke_no_high_frequency_content(db):
 # ---------------------------------------------------------------------------
 # Line reactor — diode-bridge pulse signature
 # ---------------------------------------------------------------------------
+
 
 def test_line_reactor_1ph_pulse_signature(db):
     """1φ line reactor iL should be near-zero away from line peaks
@@ -208,9 +208,9 @@ def test_line_reactor_3ph_three_phase_offset(db):
     t_quarter = 0.25 * period
     idx = int(np.argmin(np.abs(wf.t_s - t_quarter)))
     win = 30
-    a = wf.iL_A[max(0, idx - win):idx + win]
-    b = wf.iL_extra[0][max(0, idx - win):idx + win]
-    c = wf.iL_extra[1][max(0, idx - win):idx + win]
+    a = wf.iL_A[max(0, idx - win) : idx + win]
+    b = wf.iL_extra[0][max(0, idx - win) : idx + win]
+    c = wf.iL_extra[1][max(0, idx - win) : idx + win]
     # At T/4 (positive peak of phase A):
     # - A's window-mean is positive
     # - B and C are not simultaneously at their positive peak
@@ -222,6 +222,7 @@ def test_line_reactor_3ph_three_phase_offset(db):
 # ---------------------------------------------------------------------------
 # Performance — synthesis must be cheap (refresh on every recalc)
 # ---------------------------------------------------------------------------
+
 
 def test_synthesis_is_fast(db):
     """Each topology synthesises in well under 50 ms — the budget the
@@ -243,11 +244,12 @@ def test_synthesis_is_fast(db):
 # topology's natural rectifier order.
 # ---------------------------------------------------------------------------
 
+
 def test_every_topology_has_thd_and_spectrum(db):
     """Each ``RealisticWaveform`` carries:
-      - ``thd_pct`` > 0 (non-trivial distortion present)
-      - ``harmonic_h`` of length 20 starting at 1
-      - ``harmonic_pct[0] == 100`` (fundamental normalisation)
+    - ``thd_pct`` > 0 (non-trivial distortion present)
+    - ``harmonic_h`` of length 20 starting at 1
+    - ``harmonic_pct[0] == 100`` (fundamental normalisation)
     """
     cases = [
         ("boost_ccm", 1),

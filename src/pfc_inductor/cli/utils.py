@@ -3,6 +3,7 @@
 Centralised so each subcommand stays a 30-line click definition
 plus a short call into the engine.
 """
+
 from __future__ import annotations
 
 import json
@@ -162,11 +163,13 @@ def wrap_design_error(func):
     user benefit of catching it here is that the CLI reports the
     engine's hint message verbatim instead of dumping a traceback.
     """
+
     def _wrapped(*args, **kwargs):
         try:
             return func(*args, **kwargs)
         except DesignError as exc:
             raise click.UsageError(exc.user_message()) from exc
+
     _wrapped.__name__ = func.__name__
     _wrapped.__doc__ = func.__doc__
     return _wrapped

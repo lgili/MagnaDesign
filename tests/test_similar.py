@@ -1,4 +1,5 @@
 """Similar-parts finder tests."""
+
 import pytest
 
 from pfc_inductor.data_loader import find_material, load_cores, load_materials
@@ -40,9 +41,9 @@ def test_finds_alternatives_for_high_flux_target(db):
     """A known toroid with a HighFlux 60u sibling in XFlux 60u should match."""
     mats, cores = db
     target_core = next(
-        c for c in cores
-        if c.default_material_id == "magnetics-60_highflux"
-        and 40000 < c.Ve_mm3 < 100000
+        c
+        for c in cores
+        if c.default_material_id == "magnetics-60_highflux" and 40000 < c.Ve_mm3 < 100000
     )
     target_mat = find_material(mats, "magnetics-60_highflux")
     matches = find_equivalents(target_core, target_mat, cores, mats)
@@ -56,30 +57,39 @@ def test_excludes_self(db):
         target_mat = find_material(mats, target_core.default_material_id)
     except KeyError:
         pytest.skip("first core's default material not in db")
-    matches = find_equivalents(target_core, target_mat, cores, mats,
-                               SimilarityCriteria(Ae_pct=50, Wa_pct=50, AL_pct=50,
-                                                  mu_r_pct=50, Bsat_pct=50))
+    matches = find_equivalents(
+        target_core,
+        target_mat,
+        cores,
+        mats,
+        SimilarityCriteria(Ae_pct=50, Wa_pct=50, AL_pct=50, mu_r_pct=50, Bsat_pct=50),
+    )
     assert all(m.core.id != target_core.id for m in matches)
 
 
 def test_tighter_tolerance_reduces_count(db):
     mats, cores = db
     target_core = next(
-        c for c in cores
-        if c.default_material_id == "magnetics-60_highflux"
-        and 40000 < c.Ve_mm3 < 100000
+        c
+        for c in cores
+        if c.default_material_id == "magnetics-60_highflux" and 40000 < c.Ve_mm3 < 100000
     )
     target_mat = find_material(mats, "magnetics-60_highflux")
     loose = find_equivalents(
-        target_core, target_mat, cores, mats,
+        target_core,
+        target_mat,
+        cores,
+        mats,
         SimilarityCriteria(Ae_pct=30, Wa_pct=40, AL_pct=40, mu_r_pct=30, Bsat_pct=30),
     )
     tight = find_equivalents(
-        target_core, target_mat, cores, mats,
+        target_core,
+        target_mat,
+        cores,
+        mats,
         SimilarityCriteria(Ae_pct=3, Wa_pct=3, AL_pct=3, mu_r_pct=3, Bsat_pct=3),
     )
-    assert len(tight) <= len(loose), \
-        "Tightening tolerance must not increase the match count"
+    assert len(tight) <= len(loose), "Tightening tolerance must not increase the match count"
 
 
 def test_distance_is_zero_when_self_included(db):
@@ -91,7 +101,10 @@ def test_distance_is_zero_when_self_included(db):
     except KeyError:
         pytest.skip("target's default material not loadable")
     matches = find_equivalents(
-        target_core, target_mat, cores, mats,
+        target_core,
+        target_mat,
+        cores,
+        mats,
         SimilarityCriteria(exclude_self=False),
     )
     self_match = next((m for m in matches if m.core.id == target_core.id), None)
@@ -105,6 +118,7 @@ def test_cross_material_flag(db):
     mats, cores = db
     # Find a part_number with multiple variants.
     from collections import defaultdict
+
     by_pn = defaultdict(list)
     for c in cores:
         by_pn[(c.vendor, c.part_number)].append(c)
@@ -119,9 +133,16 @@ def test_cross_material_flag(db):
     except KeyError:
         pytest.skip("target material not loadable")
     matches = find_equivalents(
-        target_core, target_mat, cores, mats,
+        target_core,
+        target_mat,
+        cores,
+        mats,
         SimilarityCriteria(
-            Ae_pct=30, Wa_pct=30, AL_pct=80, mu_r_pct=80, Bsat_pct=50,
+            Ae_pct=30,
+            Wa_pct=30,
+            AL_pct=80,
+            mu_r_pct=80,
+            Bsat_pct=50,
             same_shape=False,
         ),
     )

@@ -11,6 +11,7 @@ visible (the ones whose outward normal has positive dot product with
 the camera direction). The polygon geometry stays fixed; only the
 face *labels* and *colours* swap so the cube keeps reading correctly.
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -43,13 +44,13 @@ class OrientationCube(QWidget):
     """Compact orientation cube — 60×60 px self-painted."""
 
     SIZE = 60
-    face_clicked = Signal(str)        # +x / -x / +y / -y / +z / -z
-    view_requested = Signal(str)      # canonical view name (front/top/side)
+    face_clicked = Signal(str)  # +x / -x / +y / -y / +z / -z
+    view_requested = Signal(str)  # canonical view name (front/top/side)
 
     # Polygon slot → which face is currently rendered there.
     # Default: iso view sees +Z (top), +X (right), +Y (front-left).
     _DEFAULT_SLOT_TO_FACE = {
-        "top":   "+z",
+        "top": "+z",
         "right": "+x",
         "front": "+y",
     }
@@ -164,30 +165,36 @@ class OrientationCube(QWidget):
         # Three visible face polygons: +Z (top), +Y (front), +X (right)
         # In screen coords: +X right, -Y up.
         # Top face (+Z): rhombus on top.
-        top = QPolygonF([
-            QPointF(cx,         cy - 1.10 * d),
-            QPointF(cx + 1.05 * d, cy - 0.55 * d),
-            QPointF(cx,         cy),
-            QPointF(cx - 1.05 * d, cy - 0.55 * d),
-        ])
+        top = QPolygonF(
+            [
+                QPointF(cx, cy - 1.10 * d),
+                QPointF(cx + 1.05 * d, cy - 0.55 * d),
+                QPointF(cx, cy),
+                QPointF(cx - 1.05 * d, cy - 0.55 * d),
+            ]
+        )
         # Right face (+X): tilted rectangle on right.
-        right = QPolygonF([
-            QPointF(cx + 1.05 * d, cy - 0.55 * d),
-            QPointF(cx + 1.05 * d, cy + 0.65 * d),
-            QPointF(cx,         cy + 1.20 * d),
-            QPointF(cx,         cy),
-        ])
+        right = QPolygonF(
+            [
+                QPointF(cx + 1.05 * d, cy - 0.55 * d),
+                QPointF(cx + 1.05 * d, cy + 0.65 * d),
+                QPointF(cx, cy + 1.20 * d),
+                QPointF(cx, cy),
+            ]
+        )
         # Front face (+Y): tilted rectangle on left.
-        front = QPolygonF([
-            QPointF(cx - 1.05 * d, cy - 0.55 * d),
-            QPointF(cx,         cy),
-            QPointF(cx,         cy + 1.20 * d),
-            QPointF(cx - 1.05 * d, cy + 0.65 * d),
-        ])
+        front = QPolygonF(
+            [
+                QPointF(cx - 1.05 * d, cy - 0.55 * d),
+                QPointF(cx, cy),
+                QPointF(cx, cy + 1.20 * d),
+                QPointF(cx - 1.05 * d, cy + 0.65 * d),
+            ]
+        )
         # Slot polygons (stable geometry); the *face* drawn into each
         # slot rotates with the camera via :meth:`update_from_camera`.
         self._slot_polygons = {
-            "top":   top,
+            "top": top,
             "right": right,
             "front": front,
         }

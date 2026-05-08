@@ -9,6 +9,7 @@ and the persistence layer.
 Phase A defines the Tier 0–1 shapes only. Tier 2/3/4 result types
 land with their respective phases under the same naming pattern.
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -119,7 +120,7 @@ class Tier4Result(BaseModel):
     L_min_FEA_uH: float
     L_max_FEA_uH: float
     L_avg_FEA_uH: float
-    B_pk_FEA_T: float                 # max |B| across all sampled points
+    B_pk_FEA_T: float  # max |B| across all sampled points
     saturation_t4: bool
 
     # Per-sample arrays (parallel; same length).
@@ -182,8 +183,8 @@ class Tier2Result(BaseModel):
     i_pk_A: float
     i_rms_A: float
     B_pk_T: float
-    L_min_uH: float        # smallest L over the cycle (at peak bias)
-    L_avg_uH: float        # cycle-averaged L
+    L_min_uH: float  # smallest L over the cycle (at peak bias)
+    L_avg_uH: float  # cycle-averaged L
 
     # Saturation flag — true if any sample of the simulated cycle
     # exceeded the configured Bsat margin.

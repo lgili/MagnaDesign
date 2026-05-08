@@ -10,6 +10,7 @@ Public entry points:
 
 Importing this module never triggers a download or any network access.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -94,8 +95,7 @@ def setup_fea(
     try:
         plat = detect_platform()
         report.platform = plat
-        report.add("Detectar plataforma", True,
-                   f"{plat.os}-{plat.arch} ({plat.onelab_tag})")
+        report.add("Detectar plataforma", True, f"{plat.os}-{plat.arch} ({plat.onelab_tag})")
     except UnsupportedPlatform as e:
         report.add("Detectar plataforma", False, str(e))
         return report
@@ -103,7 +103,9 @@ def setup_fea(
     # 2. Download + extract
     try:
         downloaded = download_onelab(
-            onelab_dir, plat=plat, on_progress=on_progress,
+            onelab_dir,
+            plat=plat,
+            on_progress=on_progress,
         )
         if downloaded:
             report.add("Baixar ONELAB", True, f"instalado em {onelab_dir}")
@@ -121,14 +123,18 @@ def setup_fea(
         except Exception as e:
             report.add("Assinar binários (macOS)", False, str(e))
     else:
-        report.add("Assinar binários (macOS)", True,
-                   "não aplicável" if not plat.is_macos else "pulado por solicitação")
+        report.add(
+            "Assinar binários (macOS)",
+            True,
+            "não aplicável" if not plat.is_macos else "pulado por solicitação",
+        )
 
     # 4. Write FEMMT config
     try:
         written = write_femmt_config(onelab_dir)
         report.add(
-            "Escrever config da FEMMT", True,
+            "Escrever config da FEMMT",
+            True,
             ", ".join(str(p) for p in written) or "nenhum arquivo escrito",
         )
     except Exception as e:
@@ -147,11 +153,13 @@ def setup_fea(
     # 6. Verify
     v = verify_fea_setup()
     if v.fea_ready:
-        report.add("Verificar instalação", True,
-                   f"FEMMT {v.femmt_version or '?'} + ONELAB {v.onelab_dir}")
+        report.add(
+            "Verificar instalação", True, f"FEMMT {v.femmt_version or '?'} + ONELAB {v.onelab_dir}"
+        )
     else:
         report.add(
-            "Verificar instalação", False,
+            "Verificar instalação",
+            False,
             "; ".join(v.notes) or "verificação retornou falha sem detalhes",
         )
 

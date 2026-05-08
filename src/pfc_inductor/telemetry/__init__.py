@@ -34,20 +34,21 @@ extra). Every public API in this package is a no-op when:
 The "no-op" path returns ``False`` from :func:`init_crash_reporter`
 so the caller can decide whether to log a startup line.
 """
+
 from __future__ import annotations
 
+from pfc_inductor.telemetry.analytics import (
+    track_event,
+)
 from pfc_inductor.telemetry.consent import (
     consent_state,
-    set_consent,
     has_consent,
     is_telemetry_disabled,
+    set_consent,
 )
 from pfc_inductor.telemetry.crashes import (
     init_crash_reporter,
     scrub_event,
-)
-from pfc_inductor.telemetry.analytics import (
-    track_event,
 )
 
 __all__ = [

@@ -3,6 +3,7 @@
 Synthetic NDJSON sources keep these fast and hermetic — they don't touch
 the vendored real catalog under ``vendor/openmagnetics-catalog/``.
 """
+
 from __future__ import annotations
 
 import json
@@ -14,7 +15,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
-import import_mas_catalog as imc  # type: ignore[import-not-found]  # noqa: E402
+import import_mas_catalog as imc  # type: ignore[import-not-found]
 
 
 # ---------------------------------------------------------------------------
@@ -35,66 +36,72 @@ def synthetic_source(tmp_path: Path) -> Path:
         "OpenMagnetics MAS catalog\nCommit: deadbeef0000\n",
         encoding="utf-8",
     )
-    _write_ndjson(src / "core_materials.ndjson", [
-        {
-            "name": "TestFerrite-A",
-            "manufacturerInfo": {"name": "TestVendor"},
-            "family": "MnZn",
-            "material": "ferrite",
-            "permeability": {"initial": 2400.0},
-            "saturation": [
-                {"temperature": 25, "magneticFluxDensity": 0.49},
-                {"temperature": 100, "magneticFluxDensity": 0.39},
-            ],
-            "density": 4800.0,
-            "volumetricLosses": [
-                {
-                    "method": "steinmetz",
-                    "coefficients": {"k": 1.5, "alpha": 1.45, "beta": 2.6},
-                    "referenceFrequency": 100000.0,
-                    "referenceMagneticFluxDensity": 0.1,
-                },
-            ],
-        },
-        {
-            "name": "PowderCore-X",
-            "manufacturerInfo": {"name": "TestPowderCo"},
-            "family": "MPP",
-            "material": "powder",
-            "permeability": {
-                "complex": {"real": [{"frequency": 10_000.0, "value": 60.0}]},
+    _write_ndjson(
+        src / "core_materials.ndjson",
+        [
+            {
+                "name": "TestFerrite-A",
+                "manufacturerInfo": {"name": "TestVendor"},
+                "family": "MnZn",
+                "material": "ferrite",
+                "permeability": {"initial": 2400.0},
+                "saturation": [
+                    {"temperature": 25, "magneticFluxDensity": 0.49},
+                    {"temperature": 100, "magneticFluxDensity": 0.39},
+                ],
+                "density": 4800.0,
+                "volumetricLosses": [
+                    {
+                        "method": "steinmetz",
+                        "coefficients": {"k": 1.5, "alpha": 1.45, "beta": 2.6},
+                        "referenceFrequency": 100000.0,
+                        "referenceMagneticFluxDensity": 0.1,
+                    },
+                ],
             },
-            "saturation": [
-                {"temperature": 25, "magneticFluxDensity": 1.0},
-            ],
-        },
-        {
-            # missing permeability — must be skipped (falls back to None).
-            "name": "BadMaterial",
-            "manufacturerInfo": {"name": "BadCo"},
-            "saturation": [],
-        },
-    ])
-    _write_ndjson(src / "wires.ndjson", [
-        {
-            "name": "Round 1.5 - Grade 1",
-            "type": "round",
-            "material": "copper",
-            "manufacturerInfo": {"name": "TestWireCo"},
-            "conductingDiameter": {"nominal": 0.0015},
-            "outerDiameter": {"minimum": 0.00154, "maximum": 0.00159},
-        },
-        {
-            "name": "Litz 100x0.05",
-            "type": "litz",
-            "outerDiameter": {"minimum": 0.001, "maximum": 0.0011},
-        },
-        {
-            "name": "Rect 2x0.8",
-            "type": "rectangular",
-            "conductingWidth": {"nominal": 0.002},
-        },
-    ])
+            {
+                "name": "PowderCore-X",
+                "manufacturerInfo": {"name": "TestPowderCo"},
+                "family": "MPP",
+                "material": "powder",
+                "permeability": {
+                    "complex": {"real": [{"frequency": 10_000.0, "value": 60.0}]},
+                },
+                "saturation": [
+                    {"temperature": 25, "magneticFluxDensity": 1.0},
+                ],
+            },
+            {
+                # missing permeability — must be skipped (falls back to None).
+                "name": "BadMaterial",
+                "manufacturerInfo": {"name": "BadCo"},
+                "saturation": [],
+            },
+        ],
+    )
+    _write_ndjson(
+        src / "wires.ndjson",
+        [
+            {
+                "name": "Round 1.5 - Grade 1",
+                "type": "round",
+                "material": "copper",
+                "manufacturerInfo": {"name": "TestWireCo"},
+                "conductingDiameter": {"nominal": 0.0015},
+                "outerDiameter": {"minimum": 0.00154, "maximum": 0.00159},
+            },
+            {
+                "name": "Litz 100x0.05",
+                "type": "litz",
+                "outerDiameter": {"minimum": 0.001, "maximum": 0.0011},
+            },
+            {
+                "name": "Rect 2x0.8",
+                "type": "rectangular",
+                "conductingWidth": {"nominal": 0.002},
+            },
+        ],
+    )
     return src
 
 
@@ -136,11 +143,15 @@ def test_curated_id_collision_is_skipped(synthetic_source, tmp_path, monkeypatch
     curated_dir = tmp_path / "data" / "mas"
     curated_dir.mkdir(parents=True)
     # The slug of "TestVendor" + "TestFerrite-A" is "testvendor-testferrite-a".
-    curated_dir.joinpath("materials.json").write_text(json.dumps({
-        "materials": [
-            {"x-pfc-inductor": {"id": "testvendor-testferrite-a"}},
-        ],
-    }))
+    curated_dir.joinpath("materials.json").write_text(
+        json.dumps(
+            {
+                "materials": [
+                    {"x-pfc-inductor": {"id": "testvendor-testferrite-a"}},
+                ],
+            }
+        )
+    )
     monkeypatch.setattr(imc, "OUT_DIR", out_dir)
     monkeypatch.setattr(imc, "REPO_ROOT", tmp_path)
     code = imc.run_import(synthetic_source, dry_run=False)
@@ -156,11 +167,15 @@ def test_user_overlay_id_collision_is_skipped(synthetic_source, tmp_path, monkey
     out_dir = tmp_path / "out" / "data" / "mas" / "catalog"
     user_dir = tmp_path / "user-data"
     user_dir.mkdir()
-    user_dir.joinpath("materials.json").write_text(json.dumps({
-        "materials": [
-            {"x-pfc-inductor": {"id": "testpowderco-powdercore-x"}},
-        ],
-    }))
+    user_dir.joinpath("materials.json").write_text(
+        json.dumps(
+            {
+                "materials": [
+                    {"x-pfc-inductor": {"id": "testpowderco-powdercore-x"}},
+                ],
+            }
+        )
+    )
     monkeypatch.setattr(imc, "OUT_DIR", out_dir)
     monkeypatch.setattr(imc, "REPO_ROOT", tmp_path)
     monkeypatch.setattr(imc, "_user_data_dir", lambda: user_dir)

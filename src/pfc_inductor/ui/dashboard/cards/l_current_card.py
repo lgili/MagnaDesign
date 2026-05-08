@@ -17,6 +17,7 @@ The card adds a tiny summary strip below the chart so the rolloff
 percentage reads at a glance without decoding the legend:
 "L₀ 410 µH · L_op 383 µH · Rolloff 7 %".
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -74,21 +75,22 @@ class _LCurrentBody(QWidget):
         on_theme_changed(self._refresh_qss)
 
     # ------------------------------------------------------------------
-    def update_from_design(self, result: DesignResult, spec: Spec,
-                            core: Core, wire: Wire,
-                            material: Material) -> None:
+    def update_from_design(
+        self, result: DesignResult, spec: Spec, core: Core, wire: Wire, material: Material
+    ) -> None:
         self._chart.update_from_design(
-            result, spec, core, wire, material,
+            result,
+            spec,
+            core,
+            wire,
+            material,
         )
         # Compute L₀ + rolloff for the summary strip — the chart
         # widget computes the same numbers internally; here we
         # re-derive the two scalars so the strip is independent
         # (and stays synced when the chart silently bails because
         # the material lacks rolloff data).
-        if (
-            material.rolloff is not None
-            and result.N_turns > 0
-        ):
+        if material.rolloff is not None and result.N_turns > 0:
             mu0 = rf.mu_pct(material, 0.01)
             L0 = rf.inductance_uH(int(result.N_turns), core.AL_nH, mu0)
             L_op = float(result.L_actual_uH)
@@ -150,8 +152,7 @@ class LCurrentCard(Card):
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         body = _LCurrentBody()
-        super().__init__("Inductance vs current (saturation)", body,
-                          parent=parent)
+        super().__init__("Inductance vs current (saturation)", body, parent=parent)
         self._wbody = body
 
     def update_from_design(self, *args, **kwargs) -> None:

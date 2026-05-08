@@ -14,6 +14,7 @@ Examples
     magnadesign mfg-spec project.pfc --out spec.xlsx
     magnadesign mfg-spec project.pfc --out spec.pdf --designer "Jane Doe" --revision B.1
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -41,8 +42,8 @@ def register(group: click.Group) -> None:
     required=True,
     type=click.Path(dir_okay=False, path_type=Path),
     help="Destination file. Extension drives format: "
-         "`.pdf` → ReportLab vendor-quotable PDF, "
-         "`.xlsx` → openpyxl ERP-friendly workbook.",
+    "`.pdf` → ReportLab vendor-quotable PDF, "
+    "`.xlsx` → openpyxl ERP-friendly workbook.",
 )
 @click.option(
     "--designer",
@@ -59,7 +60,7 @@ def register(group: click.Group) -> None:
     "project_name_override",
     default=None,
     help="Override the project name used on the cover page. "
-         "Defaults to the `.pfc` file's `name` attribute.",
+    "Defaults to the `.pfc` file's `name` attribute.",
 )
 @wrap_design_error
 def _mfg_spec_cmd(
@@ -109,6 +110,7 @@ def _mfg_spec_cmd(
 
     # Build the payload — pure function, no IO.
     from pfc_inductor.manufacturing import build_mfg_spec
+
     spec_pack = build_mfg_spec(
         spec=loaded.spec,
         core=loaded.selected_core,
@@ -124,20 +126,20 @@ def _mfg_spec_cmd(
     fmt = _detect_format(output_path)
     if fmt == "pdf":
         from pfc_inductor.manufacturing.pdf_writer import write_mfg_spec_pdf
+
         written = write_mfg_spec_pdf(spec_pack, output_path)
     elif fmt == "xlsx":
         from pfc_inductor.manufacturing.excel_writer import (
             write_mfg_spec_xlsx,
         )
+
         written = write_mfg_spec_xlsx(spec_pack, output_path)
     else:
         raise click.UsageError(
-            f"Unsupported output extension {output_path.suffix!r}. "
-            f"Use `.pdf` or `.xlsx`.",
+            f"Unsupported output extension {output_path.suffix!r}. Use `.pdf` or `.xlsx`.",
         )
 
-    click.echo(f"Wrote {fmt.upper()} manufacturing spec → {written}",
-               err=True)
+    click.echo(f"Wrote {fmt.upper()} manufacturing spec → {written}", err=True)
     if spec_pack.notes:
         for note in spec_pack.notes:
             click.echo(f"  ! {note}", err=True)

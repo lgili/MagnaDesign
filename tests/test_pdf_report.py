@@ -19,6 +19,7 @@ We don't reach into the PDF object model (no pypdf dep); the four
 bytes + font-name search via raw bytes is deliberately minimal so
 the test stays fast and dependency-light.
 """
+
 from __future__ import annotations
 
 import tempfile
@@ -54,21 +55,34 @@ def test_pdf_datasheet_boost_ccm():
     switching ripple, roll-off, and η-vs-load curves."""
     mats, cores, wires = load_materials(), load_cores(), load_wires()
     spec = Spec(
-        Vin_min_Vrms=85.0, Vin_max_Vrms=265.0, Vin_nom_Vrms=220.0,
-        Vout_V=400.0, Pout_W=800.0, eta=0.97,
-        f_sw_kHz=65.0, ripple_pct=30.0,
+        Vin_min_Vrms=85.0,
+        Vin_max_Vrms=265.0,
+        Vin_nom_Vrms=220.0,
+        Vout_V=400.0,
+        Pout_W=800.0,
+        eta=0.97,
+        f_sw_kHz=65.0,
+        ripple_pct=30.0,
     )
     mat = find_material(mats, "magnetics-60_highflux")
-    core = next(c for c in cores
-                if c.default_material_id == "magnetics-60_highflux"
-                and 40000 < c.Ve_mm3 < 100000)
+    core = next(
+        c
+        for c in cores
+        if c.default_material_id == "magnetics-60_highflux" and 40000 < c.Ve_mm3 < 100000
+    )
     wire = next(w for w in wires if w.id == "AWG14")
     r = design(spec, core, wire, mat)
 
     with tempfile.TemporaryDirectory() as td:
         out = generate_pdf_datasheet(
-            spec, core, mat, wire, r, Path(td) / "datasheet.pdf",
-            designer="Test Engineer", revision="A.0",
+            spec,
+            core,
+            mat,
+            wire,
+            r,
+            Path(td) / "datasheet.pdf",
+            designer="Test Engineer",
+            revision="A.0",
         )
         raw = _assert_valid_pdf(out)
         # Inter font should be embedded — absence means the
@@ -83,8 +97,13 @@ def test_pdf_datasheet_line_reactor():
     mats, cores, wires = load_materials(), load_cores(), load_wires()
     spec = Spec(
         topology="line_reactor",
-        Vin_nom_Vrms=380.0, Pout_W=10000.0, I_rated_Arms=20.0,
-        f_line_Hz=60.0, n_phases=3, pct_impedance=3.0, eta=0.95,
+        Vin_nom_Vrms=380.0,
+        Pout_W=10000.0,
+        I_rated_Arms=20.0,
+        f_line_Hz=60.0,
+        n_phases=3,
+        pct_impedance=3.0,
+        eta=0.95,
     )
     # Pick any silicon-steel + EI core combo — the engine is
     # deterministic given inputs, so we don't need a feasible-design
@@ -96,7 +115,12 @@ def test_pdf_datasheet_line_reactor():
 
     with tempfile.TemporaryDirectory() as td:
         out = generate_pdf_datasheet(
-            spec, core, mat, wire, r, Path(td) / "lr.pdf",
+            spec,
+            core,
+            mat,
+            wire,
+            r,
+            Path(td) / "lr.pdf",
         )
         _assert_valid_pdf(out)
 
@@ -107,8 +131,10 @@ def test_pdf_datasheet_passive_choke():
     mats, cores, wires = load_materials(), load_cores(), load_wires()
     spec = Spec(
         topology="passive_choke",
-        Vin_nom_Vrms=220.0, Pout_W=2000.0,
-        f_line_Hz=60.0, eta=0.92,
+        Vin_nom_Vrms=220.0,
+        Pout_W=2000.0,
+        f_line_Hz=60.0,
+        eta=0.92,
     )
     mat = next(m for m in mats if m.type == "silicon-steel")
     core = next(c for c in cores if c.shape == "EI")
@@ -117,16 +143,24 @@ def test_pdf_datasheet_passive_choke():
 
     with tempfile.TemporaryDirectory() as td:
         out = generate_pdf_datasheet(
-            spec, core, mat, wire, r, Path(td) / "pc.pdf",
+            spec,
+            core,
+            mat,
+            wire,
+            r,
+            Path(td) / "pc.pdf",
         )
         _assert_valid_pdf(out)
 
 
-@pytest.mark.parametrize("designer,revision", [
-    ("J. Doe", "A.0"),
-    ("Eng. Silva", "B.2"),
-    ("—", "X"),
-])
+@pytest.mark.parametrize(
+    "designer,revision",
+    [
+        ("J. Doe", "A.0"),
+        ("Eng. Silva", "B.2"),
+        ("—", "X"),
+    ],
+)
 def test_pdf_datasheet_designer_and_revision_propagate(designer, revision):
     """Designer + revision metadata flow through to the document
     header. Verifying via raw byte search rather than parsing the PDF
@@ -134,21 +168,34 @@ def test_pdf_datasheet_designer_and_revision_propagate(designer, revision):
     body either as text streams or font-shaped run."""
     mats, cores, wires = load_materials(), load_cores(), load_wires()
     spec = Spec(
-        Vin_min_Vrms=85.0, Vin_max_Vrms=265.0, Vin_nom_Vrms=220.0,
-        Vout_V=400.0, Pout_W=600.0, eta=0.95,
-        f_sw_kHz=80.0, ripple_pct=30.0,
+        Vin_min_Vrms=85.0,
+        Vin_max_Vrms=265.0,
+        Vin_nom_Vrms=220.0,
+        Vout_V=400.0,
+        Pout_W=600.0,
+        eta=0.95,
+        f_sw_kHz=80.0,
+        ripple_pct=30.0,
     )
     mat = find_material(mats, "magnetics-60_highflux")
-    core = next(c for c in cores
-                if c.default_material_id == "magnetics-60_highflux"
-                and 40000 < c.Ve_mm3 < 100000)
+    core = next(
+        c
+        for c in cores
+        if c.default_material_id == "magnetics-60_highflux" and 40000 < c.Ve_mm3 < 100000
+    )
     wire = next(w for w in wires if w.id == "AWG14")
     r = design(spec, core, wire, mat)
 
     with tempfile.TemporaryDirectory() as td:
         out = generate_pdf_datasheet(
-            spec, core, mat, wire, r, Path(td) / "meta.pdf",
-            designer=designer, revision=revision,
+            spec,
+            core,
+            mat,
+            wire,
+            r,
+            Path(td) / "meta.pdf",
+            designer=designer,
+            revision=revision,
         )
         _assert_valid_pdf(out)
         # Designer and revision are written into the doc metadata
@@ -163,6 +210,4 @@ def test_pdf_datasheet_designer_and_revision_propagate(designer, revision):
         # Special chars may be escaped, so search for an ASCII subset.
         ascii_designer = designer.encode("ascii", errors="ignore")
         if ascii_designer:
-            assert ascii_designer in raw, (
-                f"Designer {designer!r} not in PDF /Info dict"
-            )
+            assert ascii_designer in raw, f"Designer {designer!r} not in PDF /Info dict"

@@ -30,6 +30,7 @@ The palette mirrors actions registered elsewhere — register them once
 where they live and pass the bound method into the palette. There's no
 duplication of behaviour, only of *discovery*.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -63,6 +64,7 @@ class Command:
     - ``handler``: zero-arg callable fired when the user picks the row.
     - ``hint``: optional 1-line description shown muted below the label.
     """
+
     key: str
     label: str
     shortcut: str = ""
@@ -122,8 +124,7 @@ class CommandPalette(QDialog):
         # ---- result list --------------------------------------------------
         self._list = QListWidget(body)
         self._list.setStyleSheet(self._list_qss())
-        self._list.setSizePolicy(QSizePolicy.Policy.Expanding,
-                                 QSizePolicy.Policy.Expanding)
+        self._list.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self._list.itemActivated.connect(self._fire_current)
         v.addWidget(self._list, 1)
 
@@ -146,7 +147,7 @@ class CommandPalette(QDialog):
         for c in commands:
             self.register(c)
 
-    def show(self) -> None:                                    # type: ignore[override]
+    def show(self) -> None:  # type: ignore[override]
         """Reveal centred above the parent + clear the search field."""
         self._search.clear()
         self._render(self._commands)
@@ -245,6 +246,7 @@ class CommandPalette(QDialog):
                 # error handling (QMessageBox etc.) already covers
                 # user-visible failures.
                 import traceback
+
                 traceback.print_exc()
 
     def _reposition(self) -> None:
@@ -253,7 +255,7 @@ class CommandPalette(QDialog):
             return
         pg = parent.geometry()
         x = pg.center().x() - self.DEFAULT_WIDTH // 2
-        y = pg.top() + 96      # 96 px below the parent's top edge
+        y = pg.top() + 96  # 96 px below the parent's top edge
         self.move(x, y)
 
     # ------------------------------------------------------------------
@@ -309,10 +311,7 @@ class CommandPalette(QDialog):
     def _hint_qss() -> str:
         p = get_theme().palette
         t = get_theme().type
-        return (
-            f"color: {p.text_muted};"
-            f"font-size: {t.caption}px;"
-        )
+        return f"color: {p.text_muted};font-size: {t.caption}px;"
 
 
 def _is_subsequence(needle: str, haystack: str) -> bool:

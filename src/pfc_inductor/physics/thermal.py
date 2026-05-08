@@ -8,6 +8,7 @@ A Magnetics-style empirical formula for toroid temperature rise is:
     delta_T [C] = (P_total [mW] / A_surface [cm^2]) ** 0.833
 We use the lumped-h form for transparency.
 """
+
 from __future__ import annotations
 
 import math
@@ -25,7 +26,7 @@ def surface_area_m2(core: Core) -> float:
         # Toroid wound surface ~ outer cylinder + inner cylinder + 2 disks
         A_outer = math.pi * OD * HT
         A_inner = math.pi * ID * HT
-        A_disks = 2.0 * (math.pi / 4.0) * (OD ** 2 - ID ** 2)
+        A_disks = 2.0 * (math.pi / 4.0) * (OD**2 - ID**2)
         return A_outer + A_inner + A_disks
     Ve_m3 = core.Ve_mm3 * 1e-9
     side = Ve_m3 ** (1.0 / 3.0) * 1.5

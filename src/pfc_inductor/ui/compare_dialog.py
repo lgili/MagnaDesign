@@ -10,6 +10,7 @@ cursor x-position and emits ``reorder_requested``. The dialog re-orders
 ``self._slots`` and rebuilds the columns. The leftmost slot is always
 the REF — dragging a column to position 0 promotes it.
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -60,8 +61,13 @@ class _ColumnWidget(QFrame):
     remove_requested = Signal(object)  # emits self
     apply_requested = Signal(object)
 
-    def __init__(self, slot: CompareSlot, leftmost: Optional[CompareSlot] = None,
-                 is_leftmost: bool = False, parent=None):
+    def __init__(
+        self,
+        slot: CompareSlot,
+        leftmost: Optional[CompareSlot] = None,
+        is_leftmost: bool = False,
+        parent=None,
+    ):
         super().__init__(parent)
         self.slot = slot
         self._is_leftmost = is_leftmost
@@ -110,9 +116,7 @@ class _ColumnWidget(QFrame):
             row = QHBoxLayout()
             row.setSpacing(2)
             lbl = QLabel(f"{metric.label}:")
-            lbl.setStyleSheet(
-                f"color:{get_theme().palette.text_secondary}; font-size:11px;"
-            )
+            lbl.setStyleSheet(f"color:{get_theme().palette.text_secondary}; font-size:11px;")
             lbl.setFixedWidth(120)
             row.addWidget(lbl)
 
@@ -149,8 +153,9 @@ class _ColumnWidget(QFrame):
         except Exception:
             kind = "neutral"
         p = get_theme().palette
-        bg = {"better": p.compare_better_bg, "worse": p.compare_worse_bg,
-              "neutral": _BG_NEUTRAL}[kind]
+        bg = {"better": p.compare_better_bg, "worse": p.compare_worse_bg, "neutral": _BG_NEUTRAL}[
+            kind
+        ]
         return f"padding:2px 4px; background:{bg}; border-radius:3px;"
 
     # ------------------------------------------------------------------
@@ -410,9 +415,7 @@ class CompareDialog(QDialog):
 
     def _build_status(self) -> QLabel:
         self._status = QLabel("Add a design to get started.")
-        self._status.setStyleSheet(
-            f"color:{get_theme().palette.text_secondary}; padding:4px;"
-        )
+        self._status.setStyleSheet(f"color:{get_theme().palette.text_secondary}; padding:4px;")
         return self._status
 
     # ------------------------------------------------------------------
@@ -421,7 +424,8 @@ class CompareDialog(QDialog):
     def add_slot(self, slot: CompareSlot) -> bool:
         if len(self._slots) >= MAX_SLOTS:
             QMessageBox.information(
-                self, "Limit reached",
+                self,
+                "Limit reached",
                 f"The comparator supports at most {MAX_SLOTS} designs side by side.",
             )
             return False
@@ -435,8 +439,7 @@ class CompareDialog(QDialog):
     def _on_add_current(self):
         parent = self.parent()
         if parent is None or not hasattr(parent, "current_compare_slot"):
-            QMessageBox.warning(self, "No active design",
-                                "Could not capture the current design.")
+            QMessageBox.warning(self, "No active design", "Could not capture the current design.")
             return
         try:
             slot = parent.current_compare_slot()
@@ -506,6 +509,7 @@ class CompareDialog(QDialog):
     def export_html_to(self, path: str) -> str:
         """Write the current slots as a comparative HTML datasheet."""
         from pfc_inductor.report.html_compare import generate_compare_html
+
         return str(generate_compare_html(self._slots, path))
 
     def export_pdf_to(self, path: str) -> str:
@@ -514,6 +518,7 @@ class CompareDialog(QDialog):
         page breaks). Customer-grade artefact alongside the HTML
         preview."""
         from pfc_inductor.report.pdf_compare import generate_compare_pdf
+
         return str(generate_compare_pdf(self._slots, path))
 
     def export_csv_to(self, path: str) -> str:
@@ -525,12 +530,15 @@ class CompareDialog(QDialog):
         if not self._slots:
             return
         path, _ = QFileDialog.getSaveFileName(
-            self, "Save comparison", "comparison.html",
+            self,
+            "Save comparison",
+            "comparison.html",
             "HTML (*.html)",
         )
         if not path:
             return
         from pfc_inductor.report.html_compare import generate_compare_html
+
         try:
             out = generate_compare_html(self._slots, path)
         except Exception as e:
@@ -548,7 +556,9 @@ class CompareDialog(QDialog):
         if not self._slots:
             return
         path, _ = QFileDialog.getSaveFileName(
-            self, "Save comparison (PDF)", "comparison.pdf",
+            self,
+            "Save comparison (PDF)",
+            "comparison.pdf",
             "PDF (*.pdf)",
         )
         if not path:
@@ -564,7 +574,9 @@ class CompareDialog(QDialog):
         if not self._slots:
             return
         path, _ = QFileDialog.getSaveFileName(
-            self, "Save CSV", "comparison.csv",
+            self,
+            "Save CSV",
+            "comparison.csv",
             "CSV (*.csv)",
         )
         if not path:
@@ -578,6 +590,7 @@ class CompareDialog(QDialog):
 
     def _write_csv(self, path: str):
         import csv
+
         with open(path, "w", newline="", encoding="utf-8") as f:
             w = csv.writer(f)
             header = ["Metric", "Unit"] + [s.label for s in self._slots]
@@ -648,29 +661,24 @@ class CompareDialog(QDialog):
         ``_on_add_current`` slot fires either way.
         """
         from PySide6.QtWidgets import QFrame
+
         p = get_theme().palette
         wrap = QFrame()
         wrap.setStyleSheet(
-            f"QFrame {{ background: {p.bg};"
-            f" border: 2px dashed {p.border}; border-radius: 12px; }}"
+            f"QFrame {{ background: {p.bg}; border: 2px dashed {p.border}; border-radius: 12px; }}"
         )
         wrap.setMinimumHeight(280)
         v = QVBoxLayout(wrap)
         v.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title = QLabel("Empty comparison")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title.setStyleSheet(
-            f"color: {p.text}; font-size: 16px; font-weight: 600;"
-            " border: 0;"
-        )
+        title.setStyleSheet(f"color: {p.text}; font-size: 16px; font-weight: 600; border: 0;")
         sub = QLabel(
             "Snapshot the current project to get started.\n"
             f"You can stack up to {MAX_SLOTS} designs side by side."
         )
         sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        sub.setStyleSheet(
-            f"color: {p.text_secondary}; font-size: 12px; border: 0;"
-        )
+        sub.setStyleSheet(f"color: {p.text_secondary}; font-size: 12px; border: 0;")
         cta = QPushButton("➕  Adicionar design atual")
         cta.setCursor(Qt.CursorShape.PointingHandCursor)
         cta.setStyleSheet(

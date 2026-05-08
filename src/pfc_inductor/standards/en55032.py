@@ -38,12 +38,12 @@ Public API
 - :func:`limit_dbuv` — per-frequency QP / AV limit lookup.
 - :data:`FREQ_BAND_HZ` — the (start, end) tuple in Hz.
 """
+
 from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Iterable, Literal, Optional
-
+from typing import Literal, Optional
 
 Class = Literal["A", "B"]
 Detector = Literal["QP", "AV"]
@@ -63,13 +63,13 @@ FREQ_BAND_HZ: tuple[float, float] = (150_000.0, 30_000_000.0)
 # accurate to ±0.5 dB within the band edges).
 _LIMIT_TABLE: dict[Class, tuple[tuple[float, float, float, float], ...]] = {
     "A": (
-        (150_000.0,    500_000.0, 79.0, 66.0),  # 150 kHz – 500 kHz
-        (500_000.0,  5_000_000.0, 73.0, 60.0),  # 500 kHz – 5 MHz
+        (150_000.0, 500_000.0, 79.0, 66.0),  # 150 kHz – 500 kHz
+        (500_000.0, 5_000_000.0, 73.0, 60.0),  # 500 kHz – 5 MHz
         (5_000_000.0, 30_000_000.0, 73.0, 60.0),  # 5 MHz – 30 MHz
     ),
     "B": (
-        (150_000.0,    500_000.0, 66.0, 56.0),  # 150 kHz – 500 kHz
-        (500_000.0,  5_000_000.0, 60.0, 50.0),  # 500 kHz – 5 MHz, log-decay region
+        (150_000.0, 500_000.0, 66.0, 56.0),  # 150 kHz – 500 kHz
+        (500_000.0, 5_000_000.0, 60.0, 50.0),  # 500 kHz – 5 MHz, log-decay region
         (5_000_000.0, 30_000_000.0, 60.0, 50.0),
     ),
 }
@@ -102,10 +102,7 @@ def limit_dbuv(
             # (66 dBµV @ 150 kHz → 56 dBµV @ 500 kHz). Interpolate
             # linearly in log10(f) for accuracy ±0.5 dB.
             if class_ == "B" and 150_000.0 <= frequency_Hz <= 500_000.0:
-                t = (
-                    math.log10(frequency_Hz / 150_000.0)
-                    / math.log10(500_000.0 / 150_000.0)
-                )
+                t = math.log10(frequency_Hz / 150_000.0) / math.log10(500_000.0 / 150_000.0)
                 base_qp = 66.0 - t * (66.0 - 56.0)
                 base_av = 56.0 - t * (56.0 - 46.0)
             return base_qp if detector == "QP" else base_av
@@ -240,8 +237,11 @@ def evaluate_emi(
     """
     if spec_fsw_kHz <= 0 or I_ripple_pk_pk_A <= 0:
         return EmiReport(
-            class_=class_, detector=detector,
-            fsw_Hz=0.0, points=[], passes=True,
+            class_=class_,
+            detector=detector,
+            fsw_Hz=0.0,
+            points=[],
+            passes=True,
             worst_margin_dB=float("inf"),
         )
 
@@ -293,13 +293,16 @@ def evaluate_emi(
         margin = lim - dbuv
         ok = dbuv <= lim
 
-        points.append(HarmonicEnvelopePoint(
-            n=n, frequency_Hz=f_n,
-            measured_dbuv=float(dbuv),
-            limit_dbuv=float(lim),
-            margin_dB=float(margin),
-            passes=bool(ok),
-        ))
+        points.append(
+            HarmonicEnvelopePoint(
+                n=n,
+                frequency_Hz=f_n,
+                measured_dbuv=float(dbuv),
+                limit_dbuv=float(lim),
+                margin_dB=float(margin),
+                passes=bool(ok),
+            )
+        )
         if not ok:
             passes = False
         if margin < worst_margin:
@@ -311,9 +314,7 @@ def evaluate_emi(
         detector=detector,
         fsw_Hz=fsw_Hz,
         points=points,
-        worst_margin_dB=(
-            worst_margin if worst_margin != float("inf") else 0.0
-        ),
+        worst_margin_dB=(worst_margin if worst_margin != float("inf") else 0.0),
         worst_n=worst_n,
         passes=passes,
     )

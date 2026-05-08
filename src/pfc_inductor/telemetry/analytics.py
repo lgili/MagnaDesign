@@ -29,6 +29,7 @@ Privacy guardrails (enforced here, not at the backend)
   first use and persisted in the consent JSON next to the
   flags. Never PII.
 """
+
 from __future__ import annotations
 
 import json
@@ -49,8 +50,7 @@ from pfc_inductor.telemetry.crashes import scrub_event
 Backend = Callable[[str, dict[str, Any], str], None]
 
 
-def _noop_backend(_name: str, _properties: dict[str, Any],
-                  _distinct_id: str) -> None:
+def _noop_backend(_name: str, _properties: dict[str, Any], _distinct_id: str) -> None:
     """Default backend — drops every event. Replace at startup
     with a real implementation if you want events to leave the
     host."""
@@ -93,7 +93,7 @@ def track_event(
     try:
         _BACKEND(name, payload, distinct_id)
         return True
-    except Exception:  # noqa: BLE001 — backend bugs must never crash hot paths
+    except Exception:
         return False
 
 

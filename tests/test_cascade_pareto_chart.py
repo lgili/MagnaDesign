@@ -1,4 +1,5 @@
 """Pareto chart on `CascadePage` — `_ParetoChart` + tab widget integration."""
+
 from __future__ import annotations
 
 import os
@@ -16,23 +17,40 @@ from pfc_inductor.optimize.cascade import CandidateRow
 @pytest.fixture(scope="module")
 def app():
     from PySide6.QtWidgets import QApplication
+
     inst = QApplication.instance() or QApplication([])
     yield inst
 
 
 def _row(key: str, *, loss: float, core_id: str) -> CandidateRow:
     return CandidateRow(
-        candidate_key=key, core_id=core_id, material_id="mat", wire_id="wire",
-        N=42, gap_mm=None, highest_tier=1, feasible_t0=True,
-        loss_t1_W=loss, temp_t1_C=70.0, cost_t1_USD=4.0,
+        candidate_key=key,
+        core_id=core_id,
+        material_id="mat",
+        wire_id="wire",
+        N=42,
+        gap_mm=None,
+        highest_tier=1,
+        feasible_t0=True,
+        loss_t1_W=loss,
+        temp_t1_C=70.0,
+        cost_t1_USD=4.0,
     )
 
 
 def _core(core_id: str, *, Ve_mm3: float) -> Core:
     return Core(
-        id=core_id, vendor="x", shape="Toroid", part_number="T-X",
-        default_material_id="mat", Ae_mm2=100.0, le_mm=80.0,
-        Ve_mm3=Ve_mm3, Wa_mm2=200.0, MLT_mm=80.0, AL_nH=200.0,
+        id=core_id,
+        vendor="x",
+        shape="Toroid",
+        part_number="T-X",
+        default_material_id="mat",
+        Ae_mm2=100.0,
+        le_mm=80.0,
+        Ve_mm3=Ve_mm3,
+        Wa_mm2=200.0,
+        MLT_mm=80.0,
+        AL_nH=200.0,
     )
 
 
@@ -83,10 +101,17 @@ def test_pareto_chart_populates_skipping_rows_without_loss(app):
         _row("k2|m|w", loss=4.0, core_id="cB"),
         # Tier-0-only row: no loss yet — must be skipped.
         CandidateRow(
-            candidate_key="k3|m|w", core_id="cA", material_id="mat",
-            wire_id="wire", N=None, gap_mm=None,
-            highest_tier=0, feasible_t0=False,
-            loss_t1_W=None, temp_t1_C=None, cost_t1_USD=None,
+            candidate_key="k3|m|w",
+            core_id="cA",
+            material_id="mat",
+            wire_id="wire",
+            N=None,
+            gap_mm=None,
+            highest_tier=0,
+            feasible_t0=False,
+            loss_t1_W=None,
+            temp_t1_C=None,
+            cost_t1_USD=None,
         ),
     ]
     cores_by_id = {
@@ -134,6 +159,7 @@ def test_pareto_chart_emits_selection_changed_on_pick(app):
 
     class _PickEvent:
         ind = [1]
+
     chart._on_pick(_PickEvent())
     assert received == ["k2|m|w"]
 

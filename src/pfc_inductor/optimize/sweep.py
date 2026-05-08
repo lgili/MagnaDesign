@@ -8,6 +8,7 @@ Two modes:
 Returns SweepResult objects sorted by user-chosen score (default: P_total).
 Computes Pareto front across (volume, total loss) for visualization.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -51,7 +52,10 @@ class SweepResult:
     def cost(self) -> Optional[CostBreakdown]:
         if self._cost_cache is None:
             self._cost_cache = estimate_cost(
-                self.core, self.wire, self.material, self.result.N_turns,
+                self.core,
+                self.wire,
+                self.material,
+                self.result.N_turns,
             )
         return self._cost_cache
 
@@ -115,7 +119,8 @@ def sweep(
 
     for material in mats:
         candidate_cores = [
-            c for c in cores_list
+            c
+            for c in cores_list
             if not only_compatible_cores or c.default_material_id == material.id
         ]
         for core in candidate_cores:
@@ -153,9 +158,11 @@ def pareto_front(results: list[SweepResult]) -> list[SweepResult]:
         for j, rj in enumerate(feas):
             if i == j:
                 continue
-            if (rj.volume_cm3 <= ri.volume_cm3
-                    and rj.P_total_W <= ri.P_total_W
-                    and (rj.volume_cm3 < ri.volume_cm3 or rj.P_total_W < ri.P_total_W)):
+            if (
+                rj.volume_cm3 <= ri.volume_cm3
+                and rj.P_total_W <= ri.P_total_W
+                and (rj.volume_cm3 < ri.volume_cm3 or rj.P_total_W < ri.P_total_W)
+            ):
                 dominated = True
                 break
         if not dominated:
@@ -189,16 +196,14 @@ def rank(
         def _cost_key(r: SweepResult) -> tuple[bool, float]:
             c = r.total_cost
             return (c is None, c if c is not None else float("inf"))
+
         key = _cost_key
     elif by == "score":
         if not results:
             return []
         max_loss = max(r.P_total_W for r in results) or 1.0
         max_vol = max(r.volume_cm3 for r in results) or 1.0
-        key = lambda r: (
-            (r.P_total_W / max_loss) * 0.6
-            + (r.volume_cm3 / max_vol) * 0.4
-        )
+        key = lambda r: (r.P_total_W / max_loss) * 0.6 + (r.volume_cm3 / max_vol) * 0.4
     elif by == "score_with_cost":
         if not results:
             return []
@@ -206,6 +211,7 @@ def rank(
         max_vol = max(r.volume_cm3 for r in results) or 1.0
         costs = [r.total_cost for r in results if r.total_cost is not None]
         max_cost = max(costs) if costs else 1.0
+
         def _composite(r: SweepResult) -> float:
             c = r.total_cost if r.total_cost is not None else max_cost
             return (
@@ -213,6 +219,7 @@ def rank(
                 + 0.3 * (r.volume_cm3 / max_vol)
                 + 0.3 * (c / max_cost)
             )
+
         key = _composite
     else:
         raise ValueError(f"Unknown ranking criterion: {by}")

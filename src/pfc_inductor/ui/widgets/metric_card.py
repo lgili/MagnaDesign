@@ -4,6 +4,7 @@ Used in dense KPI groups (Resumo do Projeto, Formas de Onda metrics row,
 Entreferro). Numeric value uses the project monospace numeric face so
 digits do not jitter when the value updates.
 """
+
 from __future__ import annotations
 
 from typing import Literal, Optional
@@ -42,8 +43,7 @@ class MetricCard(QFrame):
         super().__init__(parent)
         self.setObjectName("MetricCard")
         self.setFrameShape(QFrame.Shape.NoFrame)
-        self.setSizePolicy(QSizePolicy.Policy.Expanding,
-                           QSizePolicy.Policy.Preferred)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self._compact = compact
         self.setStyleSheet(self._self_qss(status))
 
@@ -71,10 +71,16 @@ class MetricCard(QFrame):
         self._val.setObjectName("MetricValue")
         font: QFont = self._val.font()
         font.setStyleHint(QFont.StyleHint.Monospace)
-        font.setFamilies([
-            "JetBrains Mono", "SF Mono", "Menlo", "Cascadia Code",
-            "Consolas", "monospace",
-        ])
+        font.setFamilies(
+            [
+                "JetBrains Mono",
+                "SF Mono",
+                "Menlo",
+                "Cascadia Code",
+                "Consolas",
+                "monospace",
+            ]
+        )
         # Compact uses the title_md ramp (14 px) instead of title_lg+2 (18)
         # so values stay readable but the strip is half the height.
         if compact:

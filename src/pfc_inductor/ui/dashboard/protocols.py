@@ -17,6 +17,7 @@ Why a Protocol and not an ABC:
 Adoption is incremental: existing cards already match the shape, so
 typing ``_cards`` as ``list[DesignDisplay]`` is a drop-in change.
 """
+
 from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
@@ -35,8 +36,6 @@ class DesignDisplay(Protocol):
         core: Core,
         wire: Wire,
         material: Material,
-    ) -> None:
-        ...
+    ) -> None: ...
 
-    def clear(self) -> None:
-        ...
+    def clear(self) -> None: ...

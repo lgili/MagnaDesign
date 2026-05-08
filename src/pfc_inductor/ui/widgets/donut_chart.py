@@ -3,6 +3,7 @@
 Wraps ``FigureCanvasQTAgg`` (no toolbar). Used by the Perdas card and
 anywhere a 3- or 4-segment composition needs to be shown densely.
 """
+
 from __future__ import annotations
 
 from typing import Optional, Sequence
@@ -16,6 +17,7 @@ from pfc_inductor.ui.theme import get_theme, on_theme_changed
 def _figure_imports():
     from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as Canvas
     from matplotlib.figure import Figure
+
     return Canvas, Figure
 
 
@@ -37,8 +39,7 @@ class DonutChart(QWidget):
         super().__init__(parent)
         Canvas, Figure = _figure_imports()
         p = get_theme().palette
-        self._fig = Figure(figsize=(2.4, 2.4), dpi=100,
-                           facecolor=p.surface, tight_layout=True)
+        self._fig = Figure(figsize=(2.4, 2.4), dpi=100, facecolor=p.surface, tight_layout=True)
         self._ax = self._fig.add_subplot(1, 1, 1)
         self._canvas = Canvas(self._fig)
 
@@ -96,9 +97,11 @@ class DonutChart(QWidget):
         # ``(wedges, texts, autotexts)`` when one is given. We always omit
         # autopct, so unpack just the first two.
         pie_out = self._ax.pie(
-            values, colors=colors, startangle=90,
+            values,
+            colors=colors,
+            startangle=90,
             wedgeprops={
-                "width": 0.30,         # donut hole
+                "width": 0.30,  # donut hole
                 "edgecolor": p.surface,
                 "linewidth": 1.5,
             },
@@ -107,20 +110,33 @@ class DonutChart(QWidget):
         # Centre label.
         total = sum(values)
         self._ax.text(
-            0, 0.06, self._centre_total_format.format(total),
-            ha="center", va="center",
-            fontsize=14, fontweight="bold", color=p.text,
+            0,
+            0.06,
+            self._centre_total_format.format(total),
+            ha="center",
+            va="center",
+            fontsize=14,
+            fontweight="bold",
+            color=p.text,
         )
         self._ax.text(
-            0, -0.18, self._centre_caption,
-            ha="center", va="center",
-            fontsize=9, color=p.text_muted,
+            0,
+            -0.18,
+            self._centre_caption,
+            ha="center",
+            va="center",
+            fontsize=9,
+            color=p.text_muted,
         )
         # Compact legend below the donut.
         self._ax.legend(
-            wedges, [f"{lbl}  {v:.1f}" for lbl, v in zip(labels, values, strict=False)],
-            loc="lower center", bbox_to_anchor=(0.5, -0.18),
-            frameon=False, fontsize=8, ncols=min(3, len(labels)),
+            wedges,
+            [f"{lbl}  {v:.1f}" for lbl, v in zip(labels, values, strict=False)],
+            loc="lower center",
+            bbox_to_anchor=(0.5, -0.18),
+            frameon=False,
+            fontsize=8,
+            ncols=min(3, len(labels)),
             labelcolor=p.text_secondary,
         )
         self._ax.axis("equal")

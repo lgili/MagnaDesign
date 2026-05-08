@@ -6,6 +6,7 @@ Drift between Tier 1 and Tier 2 due to a duplicated rolloff
 implementation is the most likely failure mode of Phase B; these
 tests close that door.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -31,13 +32,15 @@ def db():
 def _ref_inductor(db, *, N: int = 45) -> NonlinearInductor:
     material = find_material(db["materials"], "magnetics-60_highflux")
     core = next(
-        c for c in db["cores"]
+        c
+        for c in db["cores"]
         if c.default_material_id == material.id and 40_000 < c.Ve_mm3 < 100_000
     )
     return NonlinearInductor(core=core, material=material, N=N)
 
 
 # ─── L at zero current matches nominal AL inductance ────────────
+
 
 def test_L_at_zero_current_matches_N_squared_AL(db):
     ind = _ref_inductor(db, N=45)
@@ -47,6 +50,7 @@ def test_L_at_zero_current_matches_N_squared_AL(db):
 
 
 # ─── L decreases (or stays constant) with bias ─────────────────
+
 
 def test_L_is_monotonically_non_increasing_with_bias(db):
     ind = _ref_inductor(db, N=45)
@@ -59,6 +63,7 @@ def test_L_is_monotonically_non_increasing_with_bias(db):
 
 # ─── L_H scalar and L_H_array agree ─────────────────────────────
 
+
 def test_scalar_and_vector_L_agree(db):
     ind = _ref_inductor(db, N=45)
     currents = np.array([0.0, 1.0, 5.0, 10.0, 14.0, 20.0])
@@ -68,6 +73,7 @@ def test_scalar_and_vector_L_agree(db):
 
 
 # ─── B = L · i / (N · Ae) sanity ───────────────────────────────
+
 
 def test_B_matches_L_times_I_over_N_Ae(db):
     ind = _ref_inductor(db, N=45)
@@ -79,6 +85,7 @@ def test_B_matches_L_times_I_over_N_Ae(db):
 
 
 # ─── Phase-1 / Phase-2 alignment: same μ at the same H ─────────
+
 
 def test_mu_pct_matches_physics_rolloff(db):
     """The Tier-2 wrapper must call into `physics.rolloff` directly
@@ -93,6 +100,7 @@ def test_mu_pct_matches_physics_rolloff(db):
 
 # ─── Rolloff actually fires for a strong-rolloff material ──────
 
+
 def test_strong_rolloff_material_drops_L_at_high_bias(db):
     """High Flux 125µ has aggressive rolloff above ~50 Oe — confirm
     the curve fires when the bias is pushed."""
@@ -103,20 +111,18 @@ def test_strong_rolloff_material_drops_L_at_high_bias(db):
     # the 60-µ variant, so deep rolloff is guaranteed by H ≈ 100 Oe.
     high_125 = find_material(materials, "magnetics-125_highflux")
     core = next(
-        c for c in cores
-        if c.default_material_id == high_125.id and 40_000 < c.Ve_mm3 < 100_000
+        c for c in cores if c.default_material_id == high_125.id and 40_000 < c.Ve_mm3 < 100_000
     )
     ind = NonlinearInductor(core=core, material=high_125, N=80)
 
-    L_low = ind.L_H(0.5)         # near zero bias
-    L_high = ind.L_H(20.0)       # well into the rolloff knee
+    L_low = ind.L_H(0.5)  # near zero bias
+    L_high = ind.L_H(20.0)  # well into the rolloff knee
     drop = (L_low - L_high) / L_low
-    assert drop > 0.10, (
-        f"expected meaningful rolloff at high bias, got drop={drop:.1%}"
-    )
+    assert drop > 0.10, f"expected meaningful rolloff at high bias, got drop={drop:.1%}"
 
 
 # ─── Saturation envelope helpers ───────────────────────────────
+
 
 def test_is_saturated_uses_temperature_corrected_Bsat(db):
     ind = _ref_inductor(db, N=45)
@@ -139,10 +145,12 @@ def test_Bsat_T_clamps_outside_anchor_range(db):
 
 # ─── from_design_point construction sugar ──────────────────────
 
+
 def test_from_design_point_uses_winding_temperature(db):
     material = find_material(db["materials"], "magnetics-60_highflux")
     core = next(
-        c for c in db["cores"]
+        c
+        for c in db["cores"]
         if c.default_material_id == material.id and 40_000 < c.Ve_mm3 < 100_000
     )
     ind = NonlinearInductor.from_design_point(core, material, N=45, T_C=80.0)

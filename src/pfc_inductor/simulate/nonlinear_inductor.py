@@ -18,6 +18,7 @@ folds in copper resistivity changes; for now it is recorded but
 does not modify the rolloff lookup (the rolloff fit was made at
 fixed material temperature).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -123,7 +124,10 @@ class NonlinearInductor:
         return Bsat_25 + (Bsat_100 - Bsat_25) * (T - 25.0) / 75.0
 
     def saturation_margin_pct(
-        self, B_pk: float, *, margin: float = 0.20,
+        self,
+        B_pk: float,
+        *,
+        margin: float = 0.20,
     ) -> float:
         """How close (as %) `B_pk` is to the configured saturation limit.
 
@@ -139,7 +143,10 @@ class NonlinearInductor:
         return 100.0 * (limit - abs(B_pk)) / limit
 
     def is_saturated(
-        self, B_pk: float, *, margin: float = 0.20,
+        self,
+        B_pk: float,
+        *,
+        margin: float = 0.20,
     ) -> bool:
         """True iff `|B_pk|` exceeds `Bsat·(1 − margin)` for a *given* `B_pk`.
 
@@ -152,7 +159,10 @@ class NonlinearInductor:
         return abs(B_pk) > self.Bsat_T() * (1.0 - margin)
 
     def is_saturated_at_current(
-        self, i_A: float, *, margin: float = 0.20,
+        self,
+        i_A: float,
+        *,
+        margin: float = 0.20,
     ) -> bool:
         """True iff the **anhysteretic** B at `i_A` exceeds the margin.
 
@@ -169,9 +179,11 @@ class NonlinearInductor:
 
     @classmethod
     def from_design_point(
-        cls, core: Core, material: Material, N: int,
+        cls,
+        core: Core,
+        material: Material,
+        N: int,
         T_C: Optional[float] = None,
     ) -> NonlinearInductor:
         """Construct from the same fields the engine returns in `DesignResult`."""
-        return cls(core=core, material=material, N=N,
-                   T_C=T_C if T_C is not None else 25.0)
+        return cls(core=core, material=material, N=N, T_C=T_C if T_C is not None else 25.0)

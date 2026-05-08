@@ -7,6 +7,7 @@ The MAS catalog importer + Similar parts finder remain as modal
 dialogs because they are short-lived ask-and-go flows (a one-shot
 import dialog over hours of editing makes sense).
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -58,11 +59,14 @@ class CatalogoPage(QWidget):
         outer.setSpacing(0)
 
         from pfc_inductor.ui.shell.page_header import WorkspacePageHeader
-        outer.addWidget(WorkspacePageHeader(
-            "Catalog",
-            "Materials, cores and wires — Brazilian vendors + ~4,760 "
-            "entries from the open OpenMagnetics MAS catalog.",
-        ))
+
+        outer.addWidget(
+            WorkspacePageHeader(
+                "Catalog",
+                "Materials, cores and wires — Brazilian vendors + ~4,760 "
+                "entries from the open OpenMagnetics MAS catalog.",
+            )
+        )
 
         body = QFrame()
         body_v = QVBoxLayout(body)
@@ -92,15 +96,13 @@ class CatalogoPage(QWidget):
 
         btn_mas = QPushButton("Update from MAS")
         btn_mas.setProperty("class", "Secondary")
-        btn_mas.setIcon(ui_icon("download-cloud",
-                                color=get_theme().palette.text, size=14))
+        btn_mas.setIcon(ui_icon("download-cloud", color=get_theme().palette.text, size=14))
         btn_mas.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_mas.clicked.connect(self.mas_import_requested.emit)
 
         btn_similar = QPushButton("Find similar")
         btn_similar.setProperty("class", "Secondary")
-        btn_similar.setIcon(ui_icon("search",
-                                     color=get_theme().palette.text, size=14))
+        btn_similar.setIcon(ui_icon("search", color=get_theme().palette.text, size=14))
         btn_similar.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_similar.clicked.connect(self.similar_requested.emit)
 

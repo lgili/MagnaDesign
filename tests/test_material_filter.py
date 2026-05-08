@@ -1,4 +1,5 @@
 """Per-topology material-type policy tests."""
+
 from __future__ import annotations
 
 import pytest
@@ -27,7 +28,9 @@ def _mat(type_: MaterialType, *, mid: str | None = None) -> Material:
         Bsat_25C_T=1.0,
         Bsat_100C_T=0.9,
         steinmetz=SteinmetzParams(
-            Pv_ref_mWcm3=100.0, alpha=1.5, beta=2.5,
+            Pv_ref_mWcm3=100.0,
+            alpha=1.5,
+            beta=2.5,
         ),
     )
 
@@ -59,9 +62,8 @@ def test_passive_choke_targets_line_frequency_families():
 
 def test_line_reactor_uses_same_set_as_passive_choke():
     """Both are 50/60 Hz topologies and share the same material policy."""
-    assert (
-        material_types_for_topology("line_reactor")
-        == material_types_for_topology("passive_choke")
+    assert material_types_for_topology("line_reactor") == material_types_for_topology(
+        "passive_choke"
     )
 
 
@@ -121,11 +123,14 @@ def test_filter_returns_empty_when_catalogue_has_no_matches():
 # ─── integration smoke against the real catalogue ───────────────
 
 
-@pytest.mark.parametrize("topology, expected_types", [
-    ("boost_ccm", {"powder", "ferrite", "nanocrystalline", "amorphous"}),
-    ("passive_choke", {"silicon-steel", "amorphous", "nanocrystalline"}),
-    ("line_reactor", {"silicon-steel", "amorphous", "nanocrystalline"}),
-])
+@pytest.mark.parametrize(
+    "topology, expected_types",
+    [
+        ("boost_ccm", {"powder", "ferrite", "nanocrystalline", "amorphous"}),
+        ("passive_choke", {"silicon-steel", "amorphous", "nanocrystalline"}),
+        ("line_reactor", {"silicon-steel", "amorphous", "nanocrystalline"}),
+    ],
+)
 def test_filter_against_loaded_catalogue(topology, expected_types):
     """End-to-end: load real catalog, ensure filter produces a
     sensible non-empty subset whose members all match the policy."""

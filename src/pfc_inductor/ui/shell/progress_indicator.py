@@ -11,6 +11,7 @@ States: ``pending`` (outline), ``current`` (violet fill),
 — clicks do nothing, the cursor stays default. Navigation lives on
 the workspace tabs.
 """
+
 from __future__ import annotations
 
 from typing import Iterable, Literal, Optional
@@ -31,9 +32,9 @@ StepKey = Literal["spec", "design", "validar", "exportar"]
 
 
 _STEPS: tuple[tuple[StepKey, str], ...] = (
-    ("spec",     "Spec"),
-    ("design",   "Design"),
-    ("validar",  "Validar"),
+    ("spec", "Spec"),
+    ("design", "Design"),
+    ("validar", "Validar"),
     ("exportar", "Exportar"),
 )
 
@@ -44,8 +45,7 @@ class ProgressIndicator(QFrame):
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.setObjectName("ProgressIndicator")
-        self.setSizePolicy(QSizePolicy.Policy.Expanding,
-                           QSizePolicy.Policy.Fixed)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         # Compact: ~36 px tall (was ~56 with the inner segment paddings).
         # The strip is informational only, so we don't need the extra
         # breathing room.
@@ -135,8 +135,7 @@ class _ProgressSegment(QFrame):
     vertical cost.
     """
 
-    def __init__(self, key: StepKey, label: str,
-                 parent: Optional[QWidget] = None) -> None:
+    def __init__(self, key: StepKey, label: str, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.setObjectName("ProgressSegment")
         self._key = key
@@ -182,8 +181,7 @@ class _ProgressSegment(QFrame):
             label_weight = "500"
             self._dot.setText("○")
         self._dot.setStyleSheet(
-            f"color: {dot_color}; font-size: 14px;"
-            f" background: transparent; border: 0;"
+            f"color: {dot_color}; font-size: 14px; background: transparent; border: 0;"
         )
         t = get_theme().type
         self._label.setStyleSheet(

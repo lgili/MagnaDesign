@@ -21,6 +21,7 @@ ONELAB with shared temp directories — concurrent runs collide.
 Per-candidate wall is 5–30 s on a typical workstation, so a
 `tier3_top_k` of 10–50 is the practical sweet spot.
 """
+
 from __future__ import annotations
 
 import time
@@ -87,14 +88,17 @@ def evaluate_candidate(
 
     t0 = time.perf_counter()
     fea: FEAValidation = validate_design(
-        model.spec, core, wire, material, design_result,
+        model.spec,
+        core,
+        wire,
+        material,
+        design_result,
         timeout_s=timeout_s,
     )
     wall = time.perf_counter() - t0
 
     disagrees = bool(
-        abs(fea.L_pct_error) > disagree_pct
-        or abs(fea.B_pct_error) > disagree_pct,
+        abs(fea.L_pct_error) > disagree_pct or abs(fea.B_pct_error) > disagree_pct,
     )
 
     return Tier3Result(
@@ -134,8 +138,13 @@ def evaluate_candidate_safe(
     try:
         return (
             evaluate_candidate(
-                model, candidate, core, material, wire,
-                tier1=tier1, timeout_s=timeout_s,
+                model,
+                candidate,
+                core,
+                material,
+                wire,
+                tier1=tier1,
+                timeout_s=timeout_s,
                 disagree_pct=disagree_pct,
             ),
             None,

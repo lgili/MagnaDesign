@@ -11,6 +11,7 @@ Two surfaces:
   ``OptimizerEmbed`` plus a ``Close`` button. Kept for back-compat
   with the legacy overflow-menu launch path.
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -67,7 +68,10 @@ class _SweepWorker(QObject):
             # for back-compat callers but we leave it unset; the
             # engine iterates the full list we hand in.
             results = sweep(
-                self.spec, self.cores, self.wires, self.materials,
+                self.spec,
+                self.cores,
+                self.wires,
+                self.materials,
                 only_compatible_cores=self.only_compat,
                 progress_cb=lambda d, t: self.progress.emit(d, t),
             )
@@ -147,7 +151,9 @@ class OptimizerEmbed(QWidget):
         self._wires = list(wires)
         # Hand the topology-filtered catalogue to the filter bar.
         self.filters_bar.set_catalogs(
-            self._materials, self._cores, self._wires,
+            self._materials,
+            self._cores,
+            self._wires,
         )
         # Pre-select the project's current material so the default
         # sweep is narrow (~1 material × its compatible cores × all
@@ -178,7 +184,9 @@ class OptimizerEmbed(QWidget):
         # ---- Multi-select filters + objective (shared widget) -----
         self.filters_bar = OptimizerFiltersBar()
         self.filters_bar.set_catalogs(
-            self._materials, self._cores, self._wires,
+            self._materials,
+            self._cores,
+            self._wires,
         )
         # Re-rank the visible table on objective change without a
         # full re-sweep — the underlying ``self._results`` cache is
@@ -251,10 +259,20 @@ class OptimizerEmbed(QWidget):
         self.lbl_count = QLabel("No sweep yet.")
         v.addWidget(self.lbl_count)
         self.table = QTableWidget(0, 10)
-        self.table.setHorizontalHeaderLabels([
-            "Core", "Wire", "Material", "Vol [cm³]",
-            "L [µH]", "N", "P [W]", "T [°C]", "Cost", "Status",
-        ])
+        self.table.setHorizontalHeaderLabels(
+            [
+                "Core",
+                "Wire",
+                "Material",
+                "Vol [cm³]",
+                "L [µH]",
+                "N",
+                "P [W]",
+                "T [°C]",
+                "Cost",
+                "Status",
+            ]
+        )
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
@@ -296,17 +314,25 @@ class OptimizerEmbed(QWidget):
         for spine in ("top", "right", "bottom", "left"):
             self.ax.spines[spine].set_visible(False)
         self.ax.text(
-            0.5, 0.55,
+            0.5,
+            0.55,
             "Multi-objective Pareto sweep",
-            ha="center", va="center", fontsize=11, fontweight="bold",
-            transform=self.ax.transAxes, color="#52525B",
+            ha="center",
+            va="center",
+            fontsize=11,
+            fontweight="bold",
+            transform=self.ax.transAxes,
+            color="#52525B",
         )
         self.ax.text(
-            0.5, 0.42,
-            "Configure material and ordering above,\n"
-            "then click \"Run sweep\".",
-            ha="center", va="center", fontsize=9,
-            transform=self.ax.transAxes, color="#71717A",
+            0.5,
+            0.42,
+            'Configure material and ordering above,\nthen click "Run sweep".',
+            ha="center",
+            va="center",
+            fontsize=9,
+            transform=self.ax.transAxes,
+            color="#71717A",
         )
         self.canvas.draw_idle()
 
@@ -352,8 +378,7 @@ class OptimizerEmbed(QWidget):
         if self.chk_compat.isChecked():
             mat_ids = {m.id for m in mats}
             compat_cores = sum(
-                1 for c in cores
-                if getattr(c, "default_material_id", None) in mat_ids
+                1 for c in cores if getattr(c, "default_material_id", None) in mat_ids
             )
             return compat_cores * n_wires
         return len(mats) * len(cores) * n_wires
@@ -382,8 +407,10 @@ class OptimizerEmbed(QWidget):
         n_estimate = self._estimate_combinations()
         if n_estimate >= self._SWEEP_CONFIRM_THRESHOLD:
             from PySide6.QtWidgets import QMessageBox
+
             reply = QMessageBox.question(
-                self, "Large sweep",
+                self,
+                "Large sweep",
                 f"This will evaluate roughly <b>{n_estimate:,}</b> "
                 f"combinations.\n\n"
                 f"That can take several minutes and noticeable RAM. "
@@ -411,6 +438,7 @@ class OptimizerEmbed(QWidget):
         # two filters compose predictably (curated *and* hand-picked).
         if self.chk_curated_only.isChecked():
             from pfc_inductor.data_loader import load_curated_ids
+
             cur_mats = load_curated_ids("materials")
             cur_wires = load_curated_ids("wires")
             filtered_mats = [m for m in mats if m.id in cur_mats]
@@ -422,7 +450,11 @@ class OptimizerEmbed(QWidget):
             wires = filtered_wires or wires
 
         self._worker = _SweepWorker(
-            self._spec, cores, wires, mats, only_compat,
+            self._spec,
+            cores,
+            wires,
+            mats,
+            only_compat,
         )
         self._thread = QThread(self)
         self._worker.moveToThread(self._thread)
@@ -464,10 +496,7 @@ class OptimizerEmbed(QWidget):
         for i, r in enumerate(rows):
             r0 = r.result
             in_pareto = id(r) in pareto_set
-            cost_cell = (
-                f"{r.cost.currency} {r.cost.total_cost:.2f}"
-                if r.cost is not None else "—"
-            )
+            cost_cell = f"{r.cost.currency} {r.cost.total_cost:.2f}" if r.cost is not None else "—"
             cells = [
                 r.core.part_number,
                 r.wire.id,
@@ -517,17 +546,16 @@ class OptimizerEmbed(QWidget):
         infeas = [(r.volume_cm3, min(r.P_total_W, 100.0)) for r in all_results if not r.feasible]
         if infeas:
             xi, yi = zip(*infeas, strict=False)
-            self.ax.scatter(xi, yi, c=p.plot_pareto_infeasible,
-                            s=8, alpha=0.4, label="infeasible")
+            self.ax.scatter(xi, yi, c=p.plot_pareto_infeasible, s=8, alpha=0.4, label="infeasible")
         if feas:
             xf, yf = zip(*feas, strict=False)
-            self.ax.scatter(xf, yf, c=p.plot_pareto_feasible,
-                            s=10, alpha=0.7, label="feasible")
+            self.ax.scatter(xf, yf, c=p.plot_pareto_feasible, s=10, alpha=0.7, label="feasible")
         if self._pareto:
             xp = [r.volume_cm3 for r in self._pareto]
             yp = [r.P_total_W for r in self._pareto]
-            self.ax.plot(xp, yp, "-o", c=p.plot_pareto_frontier,
-                         label="Pareto", linewidth=2, markersize=8)
+            self.ax.plot(
+                xp, yp, "-o", c=p.plot_pareto_frontier, label="Pareto", linewidth=2, markersize=8
+            )
         self.ax.set_xlabel("Volume [cm³]")
         self.ax.set_ylabel("P_total [W]")
         self.ax.set_xscale("log")
@@ -574,8 +602,12 @@ class OptimizerDialog(QDialog):
         layout = QVBoxLayout(self)
 
         self._embed = OptimizerEmbed(
-            spec, materials, cores, wires,
-            current_material_id, parent=self,
+            spec,
+            materials,
+            cores,
+            wires,
+            current_material_id,
+            parent=self,
         )
         # Forward the inner signal AND auto-accept so callers that wait
         # for ``dlg.exec() == Accepted`` keep working unchanged.
@@ -589,7 +621,6 @@ class OptimizerDialog(QDialog):
         bottom.addWidget(btn_close)
         layout.addLayout(bottom)
 
-    def _on_inner_applied(self, material_id: str, core_id: str,
-                          wire_id: str) -> None:
+    def _on_inner_applied(self, material_id: str, core_id: str, wire_id: str) -> None:
         self.selection_applied.emit(material_id, core_id, wire_id)
         self.accept()

@@ -14,23 +14,26 @@ Estrutura de propostas e tarefas para evoluir o aplicativo. Convenção
 
 ### Mudanças ativas (May 2026)
 
-12 changes pendentes. Os 7 itens P0/P1 do roadmap industrial
-(validation, worst-case, mfg-spec, compliance, vfd-modulation,
-acoustic, theory-docs) já fecharam — ver seção "Mudanças
-arquivadas" abaixo.
+7 changes pendentes. Onze itens fecharam neste pass:
+validation-reference-set software scaffolding, worst-case,
+mfg-spec, compliance, vfd-modulation, acoustic, theory-docs,
+buck-CCM, redesign-ui-flow-v3, ui-refactor-followups,
+cli-headless-runner, circuit-export, crash-reporting. Ver
+seção "Mudanças arquivadas" abaixo.
 
 | Change ID                          | Prio | Tamanho | Estado |
 |------------------------------------|------|---------|--------|
 | `add-validation-reference-set`     | P0   | L       | Software scaffolding shipped (`76d0aa8`). Bloqueado em **bench data física** — 3 protótipos com impedância + B-coil + térmico. Notebooks publicam predicted-vs-measured no GitHub Pages quando os números chegarem. |
-| `add-manufacturing-spec-export`    | P0   | M       | Não iniciado. PDF estilo IPC-A-610 + Excel layer-by-layer winding, gap shim, hi-pot, FAT plan. Fecha o loop design → fornecedor. |
-| `add-cli-headless-runner`          | P1   | M       | Phases 1-4 + 5/7 parciais shipped (`db3294e`, `7d1fef3`, `89056ac`, `a9f62af`). **Falta**: `magnadesign datasheet / mfg-spec / report` subcomandos + Phase 6 (`catalog`/`validate`) + docs. |
 | `add-cascade-optimizer`            | XL   | XL      | Phase A (Tier-0 + Tier-1 + RunStore + parallel + UI) shipped. Phases B/C/D (Tier-2 ODE / Tier-3 FEA / Tier-4 transient FEA) gated em benchmark com uplift demonstrado. |
 | `add-code-signed-installers`       | P0¹  | M       | Phase 1 CI scaffolding shipped (`4e7d919`). **Bloqueado em certificados** — macOS notarization + Windows Authenticode requerem credenciais não-engenharia. |
-| `add-crash-reporting`              | P1   | S       | Não iniciado. Sentry opt-in + analytics opt-in com scrubbing de PII e consent dialog. |
-| `add-circuit-export`               | M    | M       | Não iniciado. LTspice / PSIM / Modelica subcircuits do indutor projetado (deferred desde v2). |
-| `ui-refactor-followups`            | —    | M       | Score table shipped; **falta**: animações 3D + visual-regression test + `docs/UI.md`. |
 
 ¹ Operacional — sem isso não há adoção corporativa.
+
+Os 7 pendentes restantes são as 4 propostas de novas
+topologias (`add-flyback-topology`, `add-lcl-grid-tie-filter`,
+`add-interleaved-boost-pfc`, `add-psfb-output-choke`) que
+ainda não saíram do estado de proposta, mais os 3 itens
+acima.
 
 ### Mudanças propostas — 5 novas topologias
 
@@ -62,7 +65,7 @@ interleaved → PSFB → LCL (full multi-inductor + standards).
 Após os 4, o app cobre ~80% do mercado de power-magnetics
 design.
 
-### Mudanças arquivadas (24 em `archive/`)
+### Mudanças arquivadas (32 em `archive/`)
 
 **v2 (físico + UX)**
 - `add-bh-loop-visual` — trajetória B-H no operating point
@@ -120,6 +123,42 @@ design.
   citação + LaTeX para Steinmetz/iGSE, Dowell, rolloff, thermal,
   feasibility, compliance + 4 capítulos de topologia + API
   reference; deploy automático para GitHub Pages
+
+**v6 (CLI + manufacturing + simulator export — May 2026)**
+- `add-cli-headless-runner` — 10 subcomandos `magnadesign`
+  (design / sweep / cascade / worst-case / compliance /
+  datasheet / mfg-spec / report / circuit / catalog) com
+  output JSON-default + ``--pretty`` + exit codes
+  Unix-conventional. Phase 6 ``validate`` deferido (depende
+  do reference set).
+- `add-manufacturing-spec-export` — módulo
+  `manufacturing/` com winding-layout solver, IEC 60085
+  insulation-class lookup, IEC 61558 hi-pot calculator,
+  6-row acceptance test plan; writers PDF (4-page vendor-
+  quotable, ReportLab) + XLSX (Specs / BOM / Tests, openpyxl).
+  CLI ``mfg-spec`` registrado.
+- `add-circuit-export` — módulo `export/` com L(I) table
+  builder + 3 emitters: LTspice ``.subckt`` (B-source flux
+  integrator + table() PWL), PSIM Saturable-Inductor fragment
+  (paste-into-element), Modelica package
+  (CombiTable1Ds-based ``model PFCInductor``). CLI
+  ``circuit`` registrado.
+- `add-crash-reporting` — módulo `telemetry/` com Sentry-SDK
+  glue (opt-in, defensive imports), consent state machine
+  (QSettings + JSON fallback), per-event scrubber (paths /
+  emails / blobs / project-file breadcrumbs), kill-switch env
+  var, ``track_event(name, properties)`` analytics helper com
+  pluggable backend.
+- `redesign-ui-flow-v3` — shipped organicamente: Spec drawer
+  + 4 áreas reais na sidebar + ProjetoPage com 6 tabs
+  (Núcleo / Análise / Validar / Worst-case / Compliance /
+  Exportar).
+- `ui-refactor-followups` — score table, theme_changed
+  signal, animações 300/250 ms para ``set_view`` + ``request_
+  explode``, camera_changed → OrientationCube live sync,
+  schematic DPR + theme tests, ``docs/UI.md`` cross-linked
+  do README + POSITIONING. Visual-regression baseline e
+  README screenshot refresh deferidos.
 
 ## Convenção de status
 

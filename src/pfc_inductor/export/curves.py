@@ -15,10 +15,8 @@ the format. Three exporters consume the table:
 - Modelica: as a ``Modelica.Blocks.Tables.CombiTable1D`` table
   parameter.
 """
-from __future__ import annotations
 
-import math
-from typing import Iterable
+from __future__ import annotations
 
 from pfc_inductor.models import Core, Material
 from pfc_inductor.physics.rolloff import (
@@ -87,8 +85,11 @@ def flux_vs_current(
     piecewise linear (it isn't, but the residual is < 1 %).
     """
     L_table = L_vs_I_table(
-        material=material, core=core, n_turns=n_turns,
-        I_max=I_max, n_points=n_points,
+        material=material,
+        core=core,
+        n_turns=n_turns,
+        I_max=I_max,
+        n_points=n_points,
     )
     flux: list[tuple[float, float]] = [(0.0, 0.0)]
     cumulative = 0.0

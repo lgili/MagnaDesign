@@ -5,6 +5,7 @@ Otimizador) backed by a QStackedWidget; the inline OptimizerEmbed
 must receive ``set_inputs`` calls and forward
 ``selection_applied`` upward.
 """
+
 from __future__ import annotations
 
 import os
@@ -17,6 +18,7 @@ import pytest
 @pytest.fixture(scope="module")
 def app():
     from PySide6.QtWidgets import QApplication
+
     inst = QApplication.instance() or QApplication([])
     yield inst
 
@@ -49,10 +51,12 @@ def design_bundle():
 # Construction + mode toggle
 # ---------------------------------------------------------------------------
 
+
 def test_nucleo_page_constructs_with_default_tabela_mode(app, design_bundle):
     from pfc_inductor.ui.workspace.nucleo_selection_page import (
         NucleoSelectionPage,
     )
+
     *_, materials, cores, wires = design_bundle
     p = NucleoSelectionPage(materials, cores, wires)
     # Default mode is "tabela" → stack index 0.
@@ -65,6 +69,7 @@ def test_nucleo_page_toggle_switches_stack(app, design_bundle):
     from pfc_inductor.ui.workspace.nucleo_selection_page import (
         NucleoSelectionPage,
     )
+
     *_, materials, cores, wires = design_bundle
     p = NucleoSelectionPage(materials, cores, wires)
     p.toggle.set_mode("otimizador")
@@ -77,10 +82,12 @@ def test_nucleo_page_toggle_switches_stack(app, design_bundle):
 # populate() refreshes both NucleoCard and OptimizerEmbed
 # ---------------------------------------------------------------------------
 
+
 def test_nucleo_page_populate_propagates_to_optimizer(app, design_bundle):
     from pfc_inductor.ui.workspace.nucleo_selection_page import (
         NucleoSelectionPage,
     )
+
     result, spec, core, wire, material, materials, cores, wires = design_bundle
     p = NucleoSelectionPage(materials, cores, wires)
     p.update_from_design(result, spec, core, wire, material)
@@ -99,19 +106,19 @@ def test_nucleo_page_populate_propagates_to_optimizer(app, design_bundle):
 # selection_applied bubbles up from both bodies
 # ---------------------------------------------------------------------------
 
+
 def test_nucleo_page_forwards_optimizer_selection(app, design_bundle):
     from pfc_inductor.ui.workspace.nucleo_selection_page import (
         NucleoSelectionPage,
     )
+
     result, spec, core, wire, material, materials, cores, wires = design_bundle
     p = NucleoSelectionPage(materials, cores, wires)
     p.update_from_design(result, spec, core, wire, material)
     p.populate(spec, materials, cores, wires, material, core, wire)
 
     received = []
-    p.selection_applied.connect(
-        lambda mid, cid, wid: received.append((mid, cid, wid))
-    )
+    p.selection_applied.connect(lambda mid, cid, wid: received.append((mid, cid, wid)))
     # Synthesise an inline-optimizer apply — emit the inner signal
     # directly (running an actual sweep in offscreen mode is too slow
     # and brittle for a unit test).
@@ -123,13 +130,12 @@ def test_nucleo_page_forwards_card_selection(app, design_bundle):
     from pfc_inductor.ui.workspace.nucleo_selection_page import (
         NucleoSelectionPage,
     )
+
     result, spec, core, wire, material, materials, cores, wires = design_bundle
     p = NucleoSelectionPage(materials, cores, wires)
     p.update_from_design(result, spec, core, wire, material)
 
     received = []
-    p.selection_applied.connect(
-        lambda mid, cid, wid: received.append((mid, cid, wid))
-    )
+    p.selection_applied.connect(lambda mid, cid, wid: received.append((mid, cid, wid)))
     p.card_nucleo.selection_applied.emit("MX", "CY", "WZ")
     assert received == [("MX", "CY", "WZ")]

@@ -5,6 +5,7 @@ which is way too slow for the regular suite. Every test here patches
 `pfc_inductor.fea.runner.validate_design` with a synthetic
 `FEAValidation` so wall stays under a second.
 """
+
 from __future__ import annotations
 
 from unittest.mock import patch
@@ -50,17 +51,26 @@ def db():
 def _spec() -> Spec:
     return Spec(
         topology="boost_ccm",
-        Vin_min_Vrms=85.0, Vin_max_Vrms=265.0, Vin_nom_Vrms=220.0,
-        Vout_V=400.0, Pout_W=800.0, eta=0.97,
-        f_sw_kHz=65.0, ripple_pct=30.0,
-        T_amb_C=40.0, T_max_C=100.0, Ku_max=0.40, Bsat_margin=0.20,
+        Vin_min_Vrms=85.0,
+        Vin_max_Vrms=265.0,
+        Vin_nom_Vrms=220.0,
+        Vout_V=400.0,
+        Pout_W=800.0,
+        eta=0.97,
+        f_sw_kHz=65.0,
+        ripple_pct=30.0,
+        T_amb_C=40.0,
+        T_max_C=100.0,
+        Ku_max=0.40,
+        Bsat_margin=0.20,
     )
 
 
 def _ref(db):
     material = find_material(db["materials"], "magnetics-60_highflux")
     core = next(
-        c for c in db["cores"]
+        c
+        for c in db["cores"]
         if c.default_material_id == material.id and 40_000 < c.Ve_mm3 < 100_000
     )
     wire = next(w for w in db["wires"] if w.id == "AWG14")
@@ -78,12 +88,21 @@ def _fake_fea_factory(L_FEA_uH: float = 380.0, B_pk_FEA_T: float = 0.330):
         # We can't see the current here without unpacking args, so
         # just return a constant — Tier 4 tests check the aggregate.
         return FEAValidation(
-            L_FEA_uH=L_FEA_uH, L_analytic_uH=382.7, L_pct_error=0.0,
-            B_pk_FEA_T=B_pk_FEA_T, B_pk_analytic_T=0.324, B_pct_error=0.0,
-            flux_linkage_FEA_Wb=0.005, test_current_A=14.0,
-            solve_time_s=0.01, femm_binary="femmt", fem_path="/tmp/fake.fem",
-            log_excerpt="", notes="synthetic",
+            L_FEA_uH=L_FEA_uH,
+            L_analytic_uH=382.7,
+            L_pct_error=0.0,
+            B_pk_FEA_T=B_pk_FEA_T,
+            B_pk_analytic_T=0.324,
+            B_pct_error=0.0,
+            flux_linkage_FEA_Wb=0.005,
+            test_current_A=14.0,
+            solve_time_s=0.01,
+            femm_binary="femmt",
+            fem_path="/tmp/fake.fem",
+            log_excerpt="",
+            notes="synthetic",
         )
+
     return _make
 
 
@@ -128,11 +147,19 @@ def test_tier4_aggregates_min_max_avg_correctly(db):
         L = 400.0 - 5.0 * I
         B = 0.30 + 0.005 * I
         return FEAValidation(
-            L_FEA_uH=L, L_analytic_uH=L, L_pct_error=0.0,
-            B_pk_FEA_T=B, B_pk_analytic_T=B, B_pct_error=0.0,
-            flux_linkage_FEA_Wb=0.005, test_current_A=I,
-            solve_time_s=0.01, femm_binary="femmt", fem_path="/tmp/x",
+            L_FEA_uH=L,
+            L_analytic_uH=L,
+            L_pct_error=0.0,
+            B_pk_FEA_T=B,
+            B_pk_analytic_T=B,
+            B_pct_error=0.0,
+            flux_linkage_FEA_Wb=0.005,
+            test_current_A=I,
+            solve_time_s=0.01,
+            femm_binary="femmt",
+            fem_path="/tmp/x",
         )
+
     with patch("pfc_inductor.fea.runner.validate_design", side_effect=_by_current):
         r = evaluate_candidate(model, cand, core, material, wire)
 
@@ -175,7 +202,12 @@ def test_tier4_relative_to_tier3_populated_when_tier3_provided(db):
         t3 = eval_tier3(model, cand, core, material, wire)
         assert t3 is not None
         t4 = evaluate_candidate(
-            model, cand, core, material, wire, tier3=t3,
+            model,
+            cand,
+            core,
+            material,
+            wire,
+            tier3=t3,
         )
     assert t4 is not None
     assert t4.L_avg_relative_to_tier3_pct is not None
@@ -229,14 +261,19 @@ def test_orchestrator_runs_tier4_when_top_k_set(tmp_path, db):
             seen_t4.append(p)
 
     fake = _fake_fea_factory(L_FEA_uH=400.0, B_pk_FEA_T=0.4)
-    with patch(
-        "pfc_inductor.optimize.cascade.orchestrator.supports_tier3",
-        return_value=True,
-    ), patch(
-        "pfc_inductor.optimize.cascade.orchestrator.supports_tier4",
-        return_value=True,
-    ), patch(
-        "pfc_inductor.fea.runner.validate_design", side_effect=fake,
+    with (
+        patch(
+            "pfc_inductor.optimize.cascade.orchestrator.supports_tier3",
+            return_value=True,
+        ),
+        patch(
+            "pfc_inductor.optimize.cascade.orchestrator.supports_tier4",
+            return_value=True,
+        ),
+        patch(
+            "pfc_inductor.fea.runner.validate_design",
+            side_effect=fake,
+        ),
     ):
         orch.run(run_id, spec, db["materials"], db["cores"], db["wires"], cfg, progress_cb=cb)
 
@@ -311,12 +348,15 @@ def test_run_config_card_includes_tier4_spinbox():
     """The redesigned config card must expose Tier 4 alongside
     Tier 2 / Tier 3 / Workers."""
     import os
+
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     from PySide6.QtWidgets import QApplication
-    app = QApplication.instance() or QApplication([])  # noqa: F841
+
+    app = QApplication.instance() or QApplication([])
 
     from pfc_inductor.ui.workspace.cascade_page import _RunConfigCard
+
     cfg = _RunConfigCard()
-    assert cfg.tier4_spin.value() == 0           # default: off
+    assert cfg.tier4_spin.value() == 0  # default: off
     cfg.tier4_spin.setValue(5)
     assert cfg.to_cascade_config().tier4_top_k == 5

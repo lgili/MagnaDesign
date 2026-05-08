@@ -1,4 +1,5 @@
 """Tier 2 evaluator regression + validation against Tier 1 / ground truth."""
+
 from __future__ import annotations
 
 import pytest
@@ -34,17 +35,26 @@ def db():
 def _spec() -> Spec:
     return Spec(
         topology="boost_ccm",
-        Vin_min_Vrms=85.0, Vin_max_Vrms=265.0, Vin_nom_Vrms=220.0,
-        Vout_V=400.0, Pout_W=800.0, eta=0.97,
-        f_sw_kHz=65.0, ripple_pct=30.0,
-        T_amb_C=40.0, T_max_C=100.0, Ku_max=0.40, Bsat_margin=0.20,
+        Vin_min_Vrms=85.0,
+        Vin_max_Vrms=265.0,
+        Vin_nom_Vrms=220.0,
+        Vout_V=400.0,
+        Pout_W=800.0,
+        eta=0.97,
+        f_sw_kHz=65.0,
+        ripple_pct=30.0,
+        T_amb_C=40.0,
+        T_max_C=100.0,
+        Ku_max=0.40,
+        Bsat_margin=0.20,
     )
 
 
 def _ref(db):
     material = find_material(db["materials"], "magnetics-60_highflux")
     core = next(
-        c for c in db["cores"]
+        c
+        for c in db["cores"]
         if c.default_material_id == material.id and 40_000 < c.Ve_mm3 < 100_000
     )
     wire = next(w for w in db["wires"] if w.id == "AWG14")
@@ -53,6 +63,7 @@ def _ref(db):
 
 
 # ─── Tier-2 protocol detection ─────────────────────────────────
+
 
 def test_boost_ccm_model_advertises_tier2_capability():
     spec = _spec()
@@ -71,15 +82,21 @@ def test_passive_choke_model_advertises_tier2_capability():
 
 def test_line_reactor_model_advertises_tier2_capability():
     """Phase B Step 3: line_reactor gains Tier 2 support."""
-    spec = Spec(topology="line_reactor", Vin_nom_Vrms=400.0,
-                f_line_Hz=60.0, n_phases=3,
-                L_req_mH=1.0, I_rated_Arms=30.0)
+    spec = Spec(
+        topology="line_reactor",
+        Vin_nom_Vrms=400.0,
+        f_line_Hz=60.0,
+        n_phases=3,
+        L_req_mH=1.0,
+        I_rated_Arms=30.0,
+    )
     model = LineReactorModel(spec)
     assert isinstance(model, Tier2ConverterModel) is True
     assert supports_tier2(model) is True
 
 
 # ─── Reference design — Tier 2 vs Tier 1 ────────────────────────
+
 
 def test_tier2_reproduces_analytical_L_at_modest_rolloff(db):
     """High Flux 60 at 14 A peak / 45 turns has only mild rolloff,
@@ -137,15 +154,24 @@ def test_tier2_reuses_tier1_design_when_provided(db):
 
 # ─── Saturation flag ───────────────────────────────────────────
 
+
 def test_tier2_saturation_flag_trips_when_B_exceeds_margin(db):
     """A 3 kW spec on a small core forces deep saturation. Tier 2
     must flag it even when the engine resolves a Tier-1 design."""
     spec = Spec(
         topology="boost_ccm",
-        Vin_min_Vrms=85.0, Vin_max_Vrms=265.0, Vin_nom_Vrms=220.0,
-        Vout_V=400.0, Pout_W=3000.0, eta=0.97,
-        f_sw_kHz=65.0, ripple_pct=30.0,
-        T_amb_C=40.0, T_max_C=100.0, Ku_max=0.40, Bsat_margin=0.20,
+        Vin_min_Vrms=85.0,
+        Vin_max_Vrms=265.0,
+        Vin_nom_Vrms=220.0,
+        Vout_V=400.0,
+        Pout_W=3000.0,
+        eta=0.97,
+        f_sw_kHz=65.0,
+        ripple_pct=30.0,
+        T_amb_C=40.0,
+        T_max_C=100.0,
+        Ku_max=0.40,
+        Bsat_margin=0.20,
     )
     model = BoostCCMModel(spec)
     material = find_material(db["materials"], "magnetics-60_highflux")
@@ -166,6 +192,7 @@ def test_tier2_saturation_flag_trips_when_B_exceeds_margin(db):
 
 
 # ─── Tier 2 on passive topologies (Phase B Step 3) ─────────────
+
 
 def test_tier2_passive_choke_returns_result(db):
     """Passive topologies now run Tier 2 via the imposed-trajectory
@@ -191,11 +218,11 @@ def test_tier2_passive_choke_has_bidirectional_current(db):
         NonlinearInductor,
         simulate_to_steady_state,
     )
+
     inductor = NonlinearInductor(core=core, material=material, N=inductor_N)
     wf = simulate_to_steady_state(model, inductor)
     assert (wf.i_L_A < 0).any(), (
-        "passive choke current must dip below zero "
-        f"(min = {wf.i_L_A.min():.3f} A)"
+        f"passive choke current must dip below zero (min = {wf.i_L_A.min():.3f} A)"
     )
     assert (wf.i_L_A > 0).any()
 
@@ -205,8 +232,11 @@ def test_tier2_line_reactor_returns_result(db):
     Tier 2 must surface the same signal as a `Waveform`."""
     spec = Spec(
         topology="line_reactor",
-        Vin_nom_Vrms=400.0, f_line_Hz=60.0, n_phases=3,
-        L_req_mH=1.0, I_rated_Arms=30.0,
+        Vin_nom_Vrms=400.0,
+        f_line_Hz=60.0,
+        n_phases=3,
+        L_req_mH=1.0,
+        I_rated_Arms=30.0,
     )
     model = LineReactorModel(spec)
     cand, core, material, wire = _ref(db)
@@ -215,12 +245,11 @@ def test_tier2_line_reactor_returns_result(db):
     # Peak current should be near sqrt(2) · I_rated_Arms = 42.4 A; the
     # diode-bridge waveform clips a bit, so accept anywhere in the
     # 30–55 A band.
-    assert 30.0 <= r.i_pk_A <= 55.0, (
-        f"unexpected line-reactor peak current: {r.i_pk_A:.2f} A"
-    )
+    assert 30.0 <= r.i_pk_A <= 55.0, f"unexpected line-reactor peak current: {r.i_pk_A:.2f} A"
 
 
 # ─── Safe wrapper swallows exceptions ──────────────────────────
+
 
 def test_tier2_safe_returns_error_on_engine_failure(db):
     spec = _spec()

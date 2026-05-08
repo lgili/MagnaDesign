@@ -1,4 +1,5 @@
 """Right-side result panel: KPI groups + warnings + status pill."""
+
 from __future__ import annotations
 
 from typing import Optional
@@ -99,14 +100,14 @@ class ResultPanel(QWidget):
         form.setVerticalSpacing(3)
         form.setContentsMargins(4, 2, 4, 2)
         self.l_required = self._kpi_row(form, "L required")
-        self.l_actual   = self._kpi_row(form, "L actual (rolloff)", strong=True)
-        self.l_n        = self._kpi_row(form, "Turns N")
-        self.l_mu       = self._kpi_row(form, "μ% at DC peak")
+        self.l_actual = self._kpi_row(form, "L actual (rolloff)", strong=True)
+        self.l_n = self._kpi_row(form, "Turns N")
+        self.l_mu = self._kpi_row(form, "μ% at DC peak")
         # Line reactor extras (filled only when topology = line_reactor;
         # rows are hidden otherwise via row visibility toggle).
-        self.l_pctZ     = self._kpi_row(form, "% Z actual")
-        self.l_vdrop    = self._kpi_row(form, "Voltage drop")
-        self.l_thd      = self._kpi_row(form, "Estimated THD")
+        self.l_pctZ = self._kpi_row(form, "% Z actual")
+        self.l_vdrop = self._kpi_row(form, "Voltage drop")
+        self.l_thd = self._kpi_row(form, "Estimated THD")
         self._lr_form = form
         self._lr_rows = (self.l_pctZ, self.l_vdrop, self.l_thd)
         for w in self._lr_rows:
@@ -122,10 +123,10 @@ class ResultPanel(QWidget):
         form.setHorizontalSpacing(10)
         form.setVerticalSpacing(3)
         form.setContentsMargins(4, 2, 4, 2)
-        self.l_ipk_line   = self._kpi_row(form, "Line peak I")
-        self.l_irms_line  = self._kpi_row(form, "Line RMS I")
+        self.l_ipk_line = self._kpi_row(form, "Line peak I")
+        self.l_irms_line = self._kpi_row(form, "Line RMS I")
         self.l_ripple_max = self._kpi_row(form, "Max ripple pp")
-        self.l_ipk_total  = self._kpi_row(form, "Total peak I")
+        self.l_ipk_total = self._kpi_row(form, "Total peak I")
         self.l_irms_total = self._kpi_row(form, "Total RMS I")
         return box
 
@@ -135,10 +136,10 @@ class ResultPanel(QWidget):
         form.setHorizontalSpacing(10)
         form.setVerticalSpacing(3)
         form.setContentsMargins(4, 2, 4, 2)
-        self.l_h          = self._kpi_row(form, "Peak DC H")
-        self.l_b          = self._kpi_row(form, "Peak B", strong=True)
-        self.l_bsat       = self._kpi_row(form, "B limit (Bsat·(1−margin))")
-        self.l_satmargin  = self._kpi_row(form, "Saturation margin")
+        self.l_h = self._kpi_row(form, "Peak DC H")
+        self.l_b = self._kpi_row(form, "Peak B", strong=True)
+        self.l_bsat = self._kpi_row(form, "B limit (Bsat·(1−margin))")
+        self.l_satmargin = self._kpi_row(form, "Saturation margin")
         return box
 
     def _build_loss_box(self) -> QGroupBox:
@@ -147,11 +148,11 @@ class ResultPanel(QWidget):
         form.setHorizontalSpacing(10)
         form.setVerticalSpacing(3)
         form.setContentsMargins(4, 2, 4, 2)
-        self.l_p_cu_dc      = self._kpi_row(form, "Cu DC")
-        self.l_p_cu_ac      = self._kpi_row(form, "Cu AC (fsw)")
-        self.l_p_core_line  = self._kpi_row(form, "Core (line)")
-        self.l_p_core_ripple= self._kpi_row(form, "Core (ripple)")
-        self.l_p_total      = self._kpi_row(form, "Total", strong=True)
+        self.l_p_cu_dc = self._kpi_row(form, "Cu DC")
+        self.l_p_cu_ac = self._kpi_row(form, "Cu AC (fsw)")
+        self.l_p_core_line = self._kpi_row(form, "Core (line)")
+        self.l_p_core_ripple = self._kpi_row(form, "Core (ripple)")
+        self.l_p_total = self._kpi_row(form, "Total", strong=True)
         return box
 
     def _build_thermal_box(self) -> QGroupBox:
@@ -162,8 +163,8 @@ class ResultPanel(QWidget):
         form.setContentsMargins(4, 2, 4, 2)
         self.l_trise = self._kpi_row(form, "ΔT")
         self.l_twind = self._kpi_row(form, "T enrolamento", strong=True)
-        self.l_rdc   = self._kpi_row(form, "Rdc (na T final)")
-        self.l_rac   = self._kpi_row(form, "Rac em fsw")
+        self.l_rdc = self._kpi_row(form, "Rdc (na T final)")
+        self.l_rac = self._kpi_row(form, "Rac em fsw")
         return box
 
     def _build_window_box(self) -> QGroupBox:
@@ -181,10 +182,10 @@ class ResultPanel(QWidget):
         form.setHorizontalSpacing(10)
         form.setVerticalSpacing(3)
         form.setContentsMargins(4, 2, 4, 2)
-        self.l_cost_core  = self._kpi_row(form, "Core")
-        self.l_cost_wire  = self._kpi_row(form, "Copper (wire)")
+        self.l_cost_core = self._kpi_row(form, "Core")
+        self.l_cost_wire = self._kpi_row(form, "Copper (wire)")
         self.l_cost_total = self._kpi_row(form, "Total", strong=True)
-        self.l_cost_meta  = self._kpi_row(form, "Wire length · mass")
+        self.l_cost_meta = self._kpi_row(form, "Wire length · mass")
         return box
 
     def _build_warnings_box(self) -> QGroupBox:
@@ -203,6 +204,7 @@ class ResultPanel(QWidget):
     # ------------------------------------------------------------------
     def update_result(self, r: DesignResult) -> None:
         from pfc_inductor.ui.theme import get_theme
+
         p = get_theme().palette
 
         # Header pill: feasibility status.
@@ -218,13 +220,13 @@ class ResultPanel(QWidget):
         # show the larger unit so the engineer doesn't read 970000 µH.
         is_line_reactor = r.pct_impedance_actual is not None
         if is_line_reactor:
-            self.l_required.setText(f"{r.L_required_uH/1000:>7.2f} mH")
-            self.l_actual.setText(f"{r.L_actual_uH/1000:>7.2f} mH")
+            self.l_required.setText(f"{r.L_required_uH / 1000:>7.2f} mH")
+            self.l_actual.setText(f"{r.L_actual_uH / 1000:>7.2f} mH")
         else:
             self.l_required.setText(f"{r.L_required_uH:>7.0f} µH")
             self.l_actual.setText(f"{r.L_actual_uH:>7.0f} µH")
         self.l_n.setText(f"{r.N_turns:>7d}")
-        self.l_mu.setText(f"{r.mu_pct_at_peak*100:>6.1f} %")
+        self.l_mu.setText(f"{r.mu_pct_at_peak * 100:>6.1f} %")
 
         # Line-reactor specific rows: visible only for that topology.
         for w in self._lr_rows:
@@ -235,9 +237,13 @@ class ResultPanel(QWidget):
         if is_line_reactor:
             self.l_pctZ.setText(f"{r.pct_impedance_actual:>6.2f} %")
             self.l_vdrop.setText(f"{r.voltage_drop_pct:>6.2f} %")
-            thd_color = (p.success if (r.thd_estimate_pct or 0) <= 25
-                         else p.warning if (r.thd_estimate_pct or 0) <= 35
-                         else p.danger)
+            thd_color = (
+                p.success
+                if (r.thd_estimate_pct or 0) <= 25
+                else p.warning
+                if (r.thd_estimate_pct or 0) <= 35
+                else p.danger
+            )
             self.l_thd.setText(
                 f"<span style='color:{thd_color}'>{r.thd_estimate_pct:>6.1f} %</span>"
             )
@@ -251,11 +257,11 @@ class ResultPanel(QWidget):
 
         # Flux
         self.l_h.setText(f"{r.H_dc_peak_Oe:>7.0f} Oe")
-        self.l_b.setText(f"{r.B_pk_T*1000:>7.0f} mT")
-        self.l_bsat.setText(f"{r.B_sat_limit_T*1000:>7.0f} mT")
-        sat_color = (p.success if r.sat_margin_pct > 10
-                     else p.warning if r.sat_margin_pct > 0
-                     else p.danger)
+        self.l_b.setText(f"{r.B_pk_T * 1000:>7.0f} mT")
+        self.l_bsat.setText(f"{r.B_sat_limit_T * 1000:>7.0f} mT")
+        sat_color = (
+            p.success if r.sat_margin_pct > 10 else p.warning if r.sat_margin_pct > 0 else p.danger
+        )
         self.l_satmargin.setText(
             f"<span style='color:{sat_color}'>{r.sat_margin_pct:>6.1f} %</span>"
         )
@@ -269,33 +275,28 @@ class ResultPanel(QWidget):
         self.l_p_total.setText(f"{L.P_total_W:>7.2f} W")
 
         # Thermal
-        t_color = (p.success if r.T_winding_C < 90
-                   else p.warning if r.T_winding_C < 110
-                   else p.danger)
-        self.l_trise.setText(f"{r.T_rise_C:>7.1f} K")
-        self.l_twind.setText(
-            f"<span style='color:{t_color}'>{r.T_winding_C:>5.0f} °C</span>"
+        t_color = (
+            p.success if r.T_winding_C < 90 else p.warning if r.T_winding_C < 110 else p.danger
         )
-        self.l_rdc.setText(f"{r.R_dc_ohm*1000:>7.1f} mΩ")
-        self.l_rac.setText(f"{r.R_ac_ohm*1000:>7.1f} mΩ")
+        self.l_trise.setText(f"{r.T_rise_C:>7.1f} K")
+        self.l_twind.setText(f"<span style='color:{t_color}'>{r.T_winding_C:>5.0f} °C</span>")
+        self.l_rdc.setText(f"{r.R_dc_ohm * 1000:>7.1f} mΩ")
+        self.l_rac.setText(f"{r.R_ac_ohm * 1000:>7.1f} mΩ")
 
         # Window
         ku_color = p.success if r.Ku_actual <= r.Ku_max else p.danger
         self.l_ku.setText(
-            f"<span style='color:{ku_color}'>{r.Ku_actual*100:>5.1f} %</span>"
-            f"  /  {r.Ku_max*100:.0f} %"
+            f"<span style='color:{ku_color}'>{r.Ku_actual * 100:>5.1f} %</span>"
+            f"  /  {r.Ku_max * 100:.0f} %"
         )
 
         # Warnings
         if r.warnings:
-            html = "<br>".join(
-                f'<span style="color:{p.danger}">●</span> {w}' for w in r.warnings
-            )
+            html = "<br>".join(f'<span style="color:{p.danger}">●</span> {w}' for w in r.warnings)
             self.l_warnings.setText(html)
         else:
             self.l_warnings.setText(
-                f'<span style="color:{p.success}">●</span> '
-                f"Nenhum aviso. Design factível."
+                f'<span style="color:{p.success}">●</span> Nenhum aviso. Design factível.'
             )
 
     def set_cost(self, cost: CostBreakdown | None) -> None:
@@ -307,9 +308,7 @@ class ResultPanel(QWidget):
         self.l_cost_core.setText(f"{cur} {cost.core_cost:>6.2f}")
         self.l_cost_wire.setText(f"{cur} {cost.wire_cost:>6.2f}")
         self.l_cost_total.setText(f"{cur} {cost.total_cost:>6.2f}")
-        self.l_cost_meta.setText(
-            f"{cost.wire_length_m:>5.2f} m · {cost.wire_mass_g:>6.1f} g"
-        )
+        self.l_cost_meta.setText(f"{cost.wire_length_m:>5.2f} m · {cost.wire_mass_g:>6.1f} g")
 
     def refresh_theme(self) -> None:
         """Re-apply theme-dependent styling. Called on theme toggle."""

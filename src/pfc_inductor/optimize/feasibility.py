@@ -18,6 +18,7 @@ positives (showing one that turns out infeasible after the user clicks
   rejecting cores the engine could solve with a slightly different
   wire.
 """
+
 from __future__ import annotations
 
 import math
@@ -50,9 +51,9 @@ N_HARD_CAP_DEFAULT = 250
 # was the only value the constant ever held in practice.
 N_HARD_CAP = N_HARD_CAP_BY_TOPOLOGY["boost_ccm"]
 
-KU_HEADROOM = 0.7    # quick-check cap; engine has its own user-set Ku_max
-B_HEADROOM = 1.6     # accept B_pk up to 1.6 × Bsat in heuristic — engine
-                     # may still produce feasible after rolloff/saturation
+KU_HEADROOM = 0.7  # quick-check cap; engine has its own user-set Ku_max
+B_HEADROOM = 1.6  # accept B_pk up to 1.6 × Bsat in heuristic — engine
+# may still produce feasible after rolloff/saturation
 
 
 def _n_hard_cap(spec: Spec) -> int:
@@ -107,7 +108,10 @@ _peak_current_A = peak_current_A
 
 
 def core_quick_check(
-    spec: Spec, core: Core, material: Material, wire: Wire,
+    spec: Spec,
+    core: Core,
+    material: Material,
+    wire: Wire,
 ) -> Verdict:
     """O(1) viability check.
 
@@ -127,7 +131,7 @@ def core_quick_check(
     # Worst-case rolloff: powder cores with high DC bias drop to ~30 %
     # of initial μ. We use 0.5 as a generous heuristic so we don't
     # exclude cores that could survive moderate bias.
-    L_max_uH = (n_cap ** 2) * AL_nH * 0.5 * 1e-3
+    L_max_uH = (n_cap**2) * AL_nH * 0.5 * 1e-3
     if L_max_uH < L_req_uH:
         return "too_small_L"
 
@@ -150,7 +154,7 @@ def core_quick_check(
     Bsat_T = material.Bsat_25C_T
     if spec.topology == "line_reactor":
         omega = 2.0 * math.pi * max(spec.f_line_Hz, 1.0)
-        L_at_N_H = (N_estimate ** 2) * AL_nH * 1e-9
+        L_at_N_H = (N_estimate**2) * AL_nH * 1e-9
         V_L_rms = omega * L_at_N_H * spec.I_rated_Arms
         Ae_m2 = max(core.Ae_mm2 * 1e-6, 1e-12)
         B_pk = math.sqrt(2.0) * V_L_rms / (omega * N_estimate * Ae_m2)
@@ -169,7 +173,10 @@ def core_quick_check(
 
 
 def filter_viable_cores(
-    spec: Spec, cores: list[Core], material: Material, wire: Wire,
+    spec: Spec,
+    cores: list[Core],
+    material: Material,
+    wire: Wire,
 ) -> tuple[list[Core], dict[str, int]]:
     """Return ``(viable_cores, reason_counts)`` for the given spec.
 
@@ -177,8 +184,7 @@ def filter_viable_cores(
     ("9 feasible · 23 hidden: 18 Ku, 5 saturation").
     """
     viable: list[Core] = []
-    reasons: dict[str, int] = {"too_small_L": 0, "window_overflow": 0,
-                               "saturates": 0}
+    reasons: dict[str, int] = {"too_small_L": 0, "window_overflow": 0, "saturates": 0}
     for c in cores:
         v = core_quick_check(spec, c, material, wire)
         if v == "ok":

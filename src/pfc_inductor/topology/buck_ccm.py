@@ -21,6 +21,7 @@ The module is intentionally light on Pydantic glue: it exposes pure
 functions over ``Spec`` so the engine + cascade dispatch sites can
 call into it the same way they call into ``boost_ccm``.
 """
+
 from __future__ import annotations
 
 import math
@@ -29,10 +30,10 @@ import numpy as np
 
 from pfc_inductor.models import Spec
 
-
 # ---------------------------------------------------------------------------
 # Spec accessors — handle the "DC topology" Vin fields gracefully
 # ---------------------------------------------------------------------------
+
 
 def _vin_min(spec: Spec) -> float:
     """Worst-case low input voltage for current calculations.
@@ -62,11 +63,7 @@ def _vin_max(spec: Spec) -> float:
 
 def _vin_nom(spec: Spec) -> float:
     """Nominal input voltage for waveform sampling."""
-    return float(
-        getattr(spec, "Vin_dc_V", None)
-        or _vin_max(spec)
-        or _vin_min(spec)
-    )
+    return float(getattr(spec, "Vin_dc_V", None) or _vin_max(spec) or _vin_min(spec))
 
 
 def _ripple_ratio(spec: Spec) -> float:
@@ -87,6 +84,7 @@ def _ripple_ratio(spec: Spec) -> float:
 # Output current
 # ---------------------------------------------------------------------------
 
+
 def output_current_A(spec: Spec) -> float:
     """Average inductor current = output DC current."""
     if spec.Vout_V <= 0:
@@ -97,6 +95,7 @@ def output_current_A(spec: Spec) -> float:
 # ---------------------------------------------------------------------------
 # Duty cycle
 # ---------------------------------------------------------------------------
+
 
 def duty_cycle(spec: Spec, Vin: float) -> float:
     """``D = Vout / (Vin · η)`` — CCM volt-seconds balance with η-loss
@@ -111,6 +110,7 @@ def duty_cycle(spec: Spec, Vin: float) -> float:
 # ---------------------------------------------------------------------------
 # Ripple
 # ---------------------------------------------------------------------------
+
 
 def ripple_pp_at_Vin(spec: Spec, L_uH: float, Vin: float) -> float:
     """Peak-to-peak inductor current ripple at the given ``Vin``.
@@ -138,8 +138,8 @@ def worst_case_ripple_pp_A(spec: Spec, L_uH: float) -> float:
 # Required inductance
 # ---------------------------------------------------------------------------
 
-def required_inductance_uH(spec: Spec, *,
-                           ripple_ratio: float | None = None) -> float:
+
+def required_inductance_uH(spec: Spec, *, ripple_ratio: float | None = None) -> float:
     """Minimum L to hold ``ΔI_pp ≤ ripple_ratio · Iout`` at ``Vin_max``.
 
     Worst-case ripple grows with Vin (smaller D → bigger ``1 − D``).
@@ -164,6 +164,7 @@ def required_inductance_uH(spec: Spec, *,
 # ---------------------------------------------------------------------------
 # Peak / RMS / boundary current
 # ---------------------------------------------------------------------------
+
 
 def peak_inductor_current_A(spec: Spec, L_uH: float | None = None) -> float:
     """Peak inductor current: ``Iout + ΔI_pp / 2`` at worst-case Vin.
@@ -208,9 +209,8 @@ def ccm_dcm_boundary_A(spec: Spec, L_uH: float) -> float:
 # Waveforms
 # ---------------------------------------------------------------------------
 
-def waveforms(spec: Spec, L_uH: float, *,
-              n_periods: int = 5,
-              n_points: int = 600) -> dict:
+
+def waveforms(spec: Spec, L_uH: float, *, n_periods: int = 5, n_points: int = 600) -> dict:
     """Sample iL(t) over ``n_periods`` switching cycles at ``Vin_nom``.
 
     Returns a dict with the same shape the boost-CCM module emits so
@@ -284,6 +284,7 @@ def peak_inductor_current_from_waveform(wf: dict) -> float:
 # ---------------------------------------------------------------------------
 # THD — design-quality metric
 # ---------------------------------------------------------------------------
+
 
 def estimate_thd_pct(spec: Spec) -> float:
     """Buck output is DC. Line-side THD on the input cap is a

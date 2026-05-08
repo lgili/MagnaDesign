@@ -1,4 +1,5 @@
 """Tier 1 wrapper tests + parity with the existing sweep."""
+
 from __future__ import annotations
 
 import pytest
@@ -32,17 +33,26 @@ def db():
 def _boost_spec() -> Spec:
     return Spec(
         topology="boost_ccm",
-        Vin_min_Vrms=85.0, Vin_max_Vrms=265.0, Vin_nom_Vrms=220.0,
-        Vout_V=400.0, Pout_W=800.0, eta=0.97,
-        f_sw_kHz=65.0, ripple_pct=30.0,
-        T_amb_C=40.0, T_max_C=100.0, Ku_max=0.40, Bsat_margin=0.20,
+        Vin_min_Vrms=85.0,
+        Vin_max_Vrms=265.0,
+        Vin_nom_Vrms=220.0,
+        Vout_V=400.0,
+        Pout_W=800.0,
+        eta=0.97,
+        f_sw_kHz=65.0,
+        ripple_pct=30.0,
+        T_amb_C=40.0,
+        T_max_C=100.0,
+        Ku_max=0.40,
+        Bsat_margin=0.20,
     )
 
 
 def _ref_combo(db):
     material = find_material(db["materials"], "magnetics-60_highflux")
     core = next(
-        c for c in db["cores"]
+        c
+        for c in db["cores"]
         if c.default_material_id == material.id and 40_000 < c.Ve_mm3 < 100_000
     )
     wire = next(w for w in db["wires"] if w.id == "AWG14")
@@ -50,6 +60,7 @@ def _ref_combo(db):
 
 
 # ─── evaluate_candidate ────────────────────────────────────────────
+
 
 def test_tier1_evaluate_candidate_returns_design_result(db):
     spec = _boost_spec()
@@ -71,10 +82,18 @@ def test_tier1_drops_design_at_N_max(db):
     # will hit N_max trying to reach L_required.
     spec = Spec(
         topology="boost_ccm",
-        Vin_min_Vrms=85.0, Vin_max_Vrms=265.0, Vin_nom_Vrms=220.0,
-        Vout_V=400.0, Pout_W=3000.0, eta=0.97,
-        f_sw_kHz=65.0, ripple_pct=30.0,
-        T_amb_C=40.0, T_max_C=100.0, Ku_max=0.40, Bsat_margin=0.20,
+        Vin_min_Vrms=85.0,
+        Vin_max_Vrms=265.0,
+        Vin_nom_Vrms=220.0,
+        Vout_V=400.0,
+        Pout_W=3000.0,
+        eta=0.97,
+        f_sw_kHz=65.0,
+        ripple_pct=30.0,
+        T_amb_C=40.0,
+        T_max_C=100.0,
+        Ku_max=0.40,
+        Bsat_margin=0.20,
     )
     model = BoostCCMModel(spec)
     material = find_material(db["materials"], "magnetics-60_highflux")
@@ -90,6 +109,7 @@ def test_tier1_drops_design_at_N_max(db):
 
 
 # ─── evaluate_candidate_safe ───────────────────────────────────────
+
 
 def test_tier1_safe_returns_result_when_engine_ok(db):
     spec = _boost_spec()
@@ -128,6 +148,7 @@ def test_tier1_safe_swallows_exceptions(db):
 
 # ─── cost_USD helper ───────────────────────────────────────────────
 
+
 def test_cost_USD_returns_finite_when_priced(db):
     spec = _boost_spec()
     model = BoostCCMModel(spec)
@@ -141,6 +162,7 @@ def test_cost_USD_returns_finite_when_priced(db):
 
 
 # ─── Parity with the existing sweep ────────────────────────────────
+
 
 def test_tier1_top10_matches_existing_sweep_top10(db):
     """Cascade Tier 1 must reproduce `optimize.sweep.sweep` top-10 ranking.
@@ -160,23 +182,25 @@ def test_tier1_top10_matches_existing_sweep_top10(db):
 
     # Sweep (legacy path).
     legacy = sweep(
-        spec, cores, wires, materials,
+        spec,
+        cores,
+        wires,
+        materials,
         material_id=target_material_id,
     )
     legacy_top10 = sorted(legacy, key=lambda r: r.P_total_W)[:10]
-    legacy_keys = [
-        f"{r.core.id}|{r.material.id}|{r.wire.id}|_|_"
-        for r in legacy_top10
-    ]
+    legacy_keys = [f"{r.core.id}|{r.material.id}|{r.wire.id}|_|_" for r in legacy_top10]
 
     # Cascade Tier 1 path.
     materials_by_id = {m.id: m for m in materials}
     cores_by_id = {c.id: c for c in cores}
     wires_by_id = {w.id: w for w in wires}
     candidates = [
-        cand for cand in cartesian(
+        cand
+        for cand in cartesian(
             [m for m in materials if m.id == target_material_id],
-            cores, wires,
+            cores,
+            wires,
         )
     ]
     cascade_results = []

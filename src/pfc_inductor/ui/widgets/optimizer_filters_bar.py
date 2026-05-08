@@ -37,6 +37,7 @@ Public API
 - Signal :attr:`objective_changed` — fires when the combo
   changes; payload is the new key.
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -56,29 +57,37 @@ from pfc_inductor.models import Core, Material, Wire
 from pfc_inductor.ui.theme import get_theme
 from pfc_inductor.ui.widgets.multi_select_chip import MultiSelectChip
 
-
 # (key, label, hint) — keys must match ``pfc_inductor.optimize.sweep.rank``
 # so the simple optimizer can pass the key straight through, and they
 # also drive the cascade's display-time re-rank.
 OBJECTIVES: tuple[tuple[str, str, str], ...] = (
-    ("loss",            "Lowest total loss",
-     "Sort by P_total (W). Most engineers default here when "
-     "thermals dominate."),
-    ("volume",          "Smallest volume",
-     "Sort by core volume (cm³). Pick when board area / cost "
-     "of magnetics dominates."),
-    ("temp",            "Lowest temperature",
-     "Sort by hot-spot temperature (°C). Useful when ambient "
-     "is high or cooling is poor."),
-    ("cost",            "Lowest cost",
-     "Sort by total BOM cost (USD). Requires curated cores "
-     "with cost data."),
-    ("score",           "Score (60 % loss + 40 % volume)",
-     "Balanced 60/40 weighting — losses still dominate but "
-     "volume breaks ties."),
-    ("score_with_cost", "Score 40/30/30 (loss / vol / cost)",
-     "Three-way balanced weighting — picks economical, compact, "
-     "efficient designs in equal measure."),
+    (
+        "loss",
+        "Lowest total loss",
+        "Sort by P_total (W). Most engineers default here when thermals dominate.",
+    ),
+    (
+        "volume",
+        "Smallest volume",
+        "Sort by core volume (cm³). Pick when board area / cost of magnetics dominates.",
+    ),
+    (
+        "temp",
+        "Lowest temperature",
+        "Sort by hot-spot temperature (°C). Useful when ambient is high or cooling is poor.",
+    ),
+    ("cost", "Lowest cost", "Sort by total BOM cost (USD). Requires curated cores with cost data."),
+    (
+        "score",
+        "Score (60 % loss + 40 % volume)",
+        "Balanced 60/40 weighting — losses still dominate but volume breaks ties.",
+    ),
+    (
+        "score_with_cost",
+        "Score 40/30/30 (loss / vol / cost)",
+        "Three-way balanced weighting — picks economical, compact, "
+        "efficient designs in equal measure.",
+    ),
 )
 
 
@@ -91,8 +100,7 @@ class OptimizerFiltersBar(QFrame):
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.setObjectName("OptimizerFiltersBar")
-        self.setSizePolicy(QSizePolicy.Policy.Expanding,
-                           QSizePolicy.Policy.Fixed)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.setStyleSheet(self._qss())
 
         # Cached catalogues so we can resolve chip ids → objects when
@@ -110,13 +118,19 @@ class OptimizerFiltersBar(QFrame):
         chip_row.setSpacing(8)
 
         self.chip_materials = self._labelled_chip(
-            chip_row, "Materials:", "materials",
+            chip_row,
+            "Materials:",
+            "materials",
         )
         self.chip_cores = self._labelled_chip(
-            chip_row, "Cores:", "cores",
+            chip_row,
+            "Cores:",
+            "cores",
         )
         self.chip_wires = self._labelled_chip(
-            chip_row, "Wires:", "wires",
+            chip_row,
+            "Wires:",
+            "wires",
         )
         chip_row.addStretch(1)
 
@@ -167,8 +181,7 @@ class OptimizerFiltersBar(QFrame):
         self._wires = {w.id: w for w in wires}
 
         self.chip_materials.set_items(
-            [(m.id, _material_label(m), _material_tooltip(m))
-             for m in materials],
+            [(m.id, _material_label(m), _material_tooltip(m)) for m in materials],
         )
         self.chip_cores.set_items(
             [(c.id, _core_label(c), _core_tooltip(c)) for c in cores],
@@ -182,20 +195,17 @@ class OptimizerFiltersBar(QFrame):
         Returns the full catalogue when the chip is wildcard."""
         if self.chip_materials.is_all():
             return list(self._materials.values())
-        return [self._materials[i] for i in self.chip_materials.selected()
-                if i in self._materials]
+        return [self._materials[i] for i in self.chip_materials.selected() if i in self._materials]
 
     def selected_cores(self) -> list[Core]:
         if self.chip_cores.is_all():
             return list(self._cores.values())
-        return [self._cores[i] for i in self.chip_cores.selected()
-                if i in self._cores]
+        return [self._cores[i] for i in self.chip_cores.selected() if i in self._cores]
 
     def selected_wires(self) -> list[Wire]:
         if self.chip_wires.is_all():
             return list(self._wires.values())
-        return [self._wires[i] for i in self.chip_wires.selected()
-                if i in self._wires]
+        return [self._wires[i] for i in self.chip_wires.selected() if i in self._wires]
 
     def objective(self) -> str:
         return str(self.cmb_objective.currentData() or "loss")

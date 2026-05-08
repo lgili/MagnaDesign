@@ -11,6 +11,7 @@ Layout (left → right):
 The widget is a ``QFrame`` (not a ``QStatusBar``) so it can host pill
 labels with full QSS control. Replaces ``QMainWindow.statusBar()``.
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -36,8 +37,9 @@ class _PillCounter(QLabel):
     """Pill label whose variant flips between ``neutral`` and a semantic
     colour based on whether the counter is above zero."""
 
-    def __init__(self, label_template: str, semantic: str,
-                 parent: Optional[QWidget] = None) -> None:
+    def __init__(
+        self, label_template: str, semantic: str, parent: Optional[QWidget] = None
+    ) -> None:
         super().__init__(parent)
         self.setProperty("class", "Pill")
         self._template = label_template
@@ -111,9 +113,7 @@ class BottomStatusBar(QFrame):
 
     def _refresh_qss(self) -> None:
         self.setStyleSheet(self._self_qss())
-        self._save_label.setStyleSheet(
-            self._save_label_qss(saved=not self._unsaved_state)
-        )
+        self._save_label.setStyleSheet(self._save_label_qss(saved=not self._unsaved_state))
         # Pill counters re-pick up palette via the global QSS, so a
         # ``style().polish(self)`` cascade from the QApplication-level
         # restyle is enough — no per-pill mutation needed here.
@@ -122,11 +122,15 @@ class BottomStatusBar(QFrame):
     # Public API
     # ------------------------------------------------------------------
     def set_current_selection(
-        self, material_name: str, core_name: str, wire_name: str,
+        self,
+        material_name: str,
+        core_name: str,
+        wire_name: str,
     ) -> None:
         self._selection_material_label.setText(material_name)
         self._selection_core_label.setText(core_name)
         self._selection_wire_label.setText(wire_name)
+
     def set_warnings(self, n: int) -> None:
         self._pill_warnings.set_count(n)
 
@@ -136,8 +140,7 @@ class BottomStatusBar(QFrame):
     def set_validations(self, n: int) -> None:
         self._pill_validations.set_count(n)
 
-    def set_save_status(self, *, unsaved: bool,
-                        last_saved_at: Optional[datetime] = None) -> None:
+    def set_save_status(self, *, unsaved: bool, last_saved_at: Optional[datetime] = None) -> None:
         self._last_saved_at = last_saved_at
         self._unsaved_state = unsaved
         if unsaved:

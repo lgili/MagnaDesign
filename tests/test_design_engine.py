@@ -1,4 +1,5 @@
 """End-to-end design tests (regression: numbers should be in physically realistic range)."""
+
 import pytest
 
 from pfc_inductor.data_loader import (
@@ -27,16 +28,24 @@ def test_800W_design_with_high_flux_60(db):
     """
     materials, cores, wires = db
     spec = Spec(
-        Vin_min_Vrms=85.0, Vin_max_Vrms=265.0, Vin_nom_Vrms=220.0,
-        Vout_V=400.0, Pout_W=800.0, eta=0.97,
-        f_sw_kHz=65.0, ripple_pct=30.0,
-        T_amb_C=40.0, T_max_C=100.0, Ku_max=0.40, Bsat_margin=0.20,
+        Vin_min_Vrms=85.0,
+        Vin_max_Vrms=265.0,
+        Vin_nom_Vrms=220.0,
+        Vout_V=400.0,
+        Pout_W=800.0,
+        eta=0.97,
+        f_sw_kHz=65.0,
+        ripple_pct=30.0,
+        T_amb_C=40.0,
+        T_max_C=100.0,
+        Ku_max=0.40,
+        Bsat_margin=0.20,
     )
     mat = find_material(materials, "magnetics-60_highflux")
     core = next(
-        c for c in cores
-        if c.default_material_id == "magnetics-60_highflux"
-        and 40000 < c.Ve_mm3 < 100000
+        c
+        for c in cores
+        if c.default_material_id == "magnetics-60_highflux" and 40000 < c.Ve_mm3 < 100000
     )
     wire = next(w for w in wires if w.id == "AWG14")
     r = design(spec, core, wire, mat)
@@ -53,10 +62,18 @@ def test_design_warns_on_oversaturation(db):
     """Force a too-small core: expect saturation warning."""
     materials, cores, wires = db
     spec = Spec(
-        Vin_min_Vrms=85.0, Vin_max_Vrms=265.0, Vin_nom_Vrms=220.0,
-        Vout_V=400.0, Pout_W=2000.0, eta=0.97,
-        f_sw_kHz=65.0, ripple_pct=30.0,
-        T_amb_C=40.0, T_max_C=100.0, Ku_max=0.40, Bsat_margin=0.20,
+        Vin_min_Vrms=85.0,
+        Vin_max_Vrms=265.0,
+        Vin_nom_Vrms=220.0,
+        Vout_V=400.0,
+        Pout_W=2000.0,
+        eta=0.97,
+        f_sw_kHz=65.0,
+        ripple_pct=30.0,
+        T_amb_C=40.0,
+        T_max_C=100.0,
+        Ku_max=0.40,
+        Bsat_margin=0.20,
     )
     mat = find_material(materials, "magnetics-60_highflux")
     # Pick a tiny core deliberately
@@ -75,16 +92,22 @@ def test_passive_choke_runs(db):
     materials, cores, wires = db
     spec = Spec(
         topology="passive_choke",
-        Vin_min_Vrms=85.0, Vin_max_Vrms=265.0, Vin_nom_Vrms=220.0,
-        Vout_V=400.0, Pout_W=400.0, eta=0.97,
-        f_sw_kHz=65.0, ripple_pct=30.0,
-        T_amb_C=40.0, T_max_C=100.0, Ku_max=0.40, Bsat_margin=0.20,
+        Vin_min_Vrms=85.0,
+        Vin_max_Vrms=265.0,
+        Vin_nom_Vrms=220.0,
+        Vout_V=400.0,
+        Pout_W=400.0,
+        eta=0.97,
+        f_sw_kHz=65.0,
+        ripple_pct=30.0,
+        T_amb_C=40.0,
+        T_max_C=100.0,
+        Ku_max=0.40,
+        Bsat_margin=0.20,
     )
     mat = find_material(materials, "magnetics-60_highflux")
     core = next(
-        c for c in cores
-        if c.default_material_id == "magnetics-60_highflux"
-        and c.Ve_mm3 > 50000
+        c for c in cores if c.default_material_id == "magnetics-60_highflux" and c.Ve_mm3 > 50000
     )
     wire = next(w for w in wires if w.id == "AWG14")
     r = design(spec, core, wire, mat)

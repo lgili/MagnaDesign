@@ -1,4 +1,5 @@
 """Winding card — compact data table of winding facts."""
+
 from __future__ import annotations
 
 from typing import Optional
@@ -19,9 +20,9 @@ class _BobinamentoBody(QWidget):
         self._table = DataTable()
         v.addWidget(self._table)
 
-    def update_from_design(self, result: DesignResult, spec: Spec,
-                           core: Core, wire: Wire,
-                           material: Material) -> None:
+    def update_from_design(
+        self, result: DesignResult, spec: Spec, core: Core, wire: Wire, material: Material
+    ) -> None:
         # Wire info — accept partial fields gracefully (legacy DBs).
         awg = getattr(wire, "AWG", None) or getattr(wire, "awg", None) or "—"
         d_mm = getattr(wire, "OD_mm", None) or getattr(wire, "diameter_mm", None) or 0.0
@@ -49,9 +50,11 @@ class _BobinamentoBody(QWidget):
             Row("L actual / target", l_label, l_unit),
             Row("Fill factor", f"{result.Ku_actual * 100:.1f}", "%"),
             Row("AWG", str(awg)),
-            Row("Wire diameter",
+            Row(
+                "Wire diameter",
                 f"{d_mm:.3f}" if isinstance(d_mm, (int, float)) else str(d_mm),
-                "mm"),
+                "mm",
+            ),
             Row("Strands", f"{strands}"),
             Row("R_DC", f"{result.R_dc_ohm * 1000:.1f}", "mΩ"),
             Row("R_AC@fsw", f"{result.R_ac_ohm * 1000:.1f}", "mΩ"),

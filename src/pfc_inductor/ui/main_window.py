@@ -25,6 +25,7 @@ is *no longer mounted*. ``SpecPanel`` is reused unchanged inside the
 ``SpecDrawer``; ``PlotPanel`` and ``ResultPanel`` modules stay
 importable for tests but do not appear on screen.
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -111,6 +112,7 @@ class MainWindow(QMainWindow):
     single signal."""
 
     from PySide6.QtCore import Signal as _Signal
+
     design_completed = _Signal(object, object, object, object, object)
     """``Signal(DesignResult, Spec, Core, Wire, Material)``."""
 
@@ -121,14 +123,19 @@ class MainWindow(QMainWindow):
         Pulls spec from the real panel, but selection IDs from the host
         ``MainWindow``'s state — the key seam for this refactoring.
         """
+
         def __init__(self, win: MainWindow):
             self._win = win
+
         def get_spec(self) -> Spec:
             return self._win.projeto_page.spec_panel.get_spec()
+
         def get_core_id(self) -> str:
             return self._win._current_core_id
+
         def get_wire_id(self) -> str:
             return self._win._current_wire_id
+
         def get_material_id(self) -> str:
             return self._win._current_material_id
 
@@ -141,6 +148,7 @@ class MainWindow(QMainWindow):
         # launch. We leave a 32 px margin for the OS taskbar / dock.
         try:
             from PySide6.QtGui import QGuiApplication
+
             screen = QGuiApplication.primaryScreen()
             if screen is not None:
                 avail = screen.availableGeometry()
@@ -175,7 +183,9 @@ class MainWindow(QMainWindow):
 
         # ---- Projeto page (owns SpecDrawer + DashboardPage + tabs) -----
         self.projeto_page = ProjetoPage(
-            self._materials, self._cores, self._wires,
+            self._materials,
+            self._cores,
+            self._wires,
         )
 
         # ---- Selection state (the new source of truth) -----------------
@@ -189,7 +199,9 @@ class MainWindow(QMainWindow):
         self._state_provider = self._StateProvider(self)
         self._calc = CalculationController(
             self._state_provider,
-            self._materials, self._cores, self._wires,
+            self._materials,
+            self._cores,
+            self._wires,
         )
 
         # ---- Other workspace pages -------------------------------------
@@ -230,79 +242,112 @@ class MainWindow(QMainWindow):
         duplicated behaviour, just duplicated discovery.
         """
         from PySide6.QtGui import QShortcut
+
         from pfc_inductor.ui.widgets.command_palette import (
             Command,
             CommandPalette,
         )
-        self._cmd_palette = CommandPalette(self)
-        self._cmd_palette.register_many([
-            # Project lifecycle
-            Command("project.new",     "New project",          "Ctrl+N",
-                    self._on_project_new,
-                    hint="Clears the current session after confirmation."),
-            Command("project.open",    "Open project…",        "Ctrl+O",
-                    self._on_project_open,
-                    hint="Reads a .pfc file from disk."),
-            Command("project.save",    "Save project",         "Ctrl+S",
-                    self._on_project_save),
-            Command("project.save_as", "Save project as…",     "Ctrl+Shift+S",
-                    self._on_project_save_as),
 
-            # Inner-loop actions
-            Command("calc",            "Recalculate",          "Ctrl+R",
+        self._cmd_palette = CommandPalette(self)
+        self._cmd_palette.register_many(
+            [
+                # Project lifecycle
+                Command(
+                    "project.new",
+                    "New project",
+                    "Ctrl+N",
+                    self._on_project_new,
+                    hint="Clears the current session after confirmation.",
+                ),
+                Command(
+                    "project.open",
+                    "Open project…",
+                    "Ctrl+O",
+                    self._on_project_open,
+                    hint="Reads a .pfc file from disk.",
+                ),
+                Command("project.save", "Save project", "Ctrl+S", self._on_project_save),
+                Command(
+                    "project.save_as", "Save project as…", "Ctrl+Shift+S", self._on_project_save_as
+                ),
+                # Inner-loop actions
+                Command(
+                    "calc",
+                    "Recalculate",
+                    "Ctrl+R",
                     self._on_calculate,
-                    hint="Runs the engine with the current spec + selection."),
-            Command("export.report",   "Export datasheet (HTML)", "",
+                    hint="Runs the engine with the current spec + selection.",
+                ),
+                Command(
+                    "export.report",
+                    "Export datasheet (HTML)",
+                    "",
                     self._export_report,
-                    hint="Generates a 3-page HTML datasheet (base64-embedded)."),
-            Command("export.report_pdf", "Export datasheet (PDF)", "",
+                    hint="Generates a 3-page HTML datasheet (base64-embedded).",
+                ),
+                Command(
+                    "export.report_pdf",
+                    "Export datasheet (PDF)",
+                    "",
                     self._export_report_pdf,
-                    hint="Native PDF (vector text, embedded font, "
-                         "deterministic page breaks)."),
-            Command("export.project_pdf", "Export project report (PDF)", "",
+                    hint="Native PDF (vector text, embedded font, deterministic page breaks).",
+                ),
+                Command(
+                    "export.project_pdf",
+                    "Export project report (PDF)",
+                    "",
                     self._export_project_report,
                     hint="Engineering report — theory, equations, "
-                         "and worked calculations per topology."),
-            Command("export.compare",  "Export comparison",    "",
+                    "and worked calculations per topology.",
+                ),
+                Command(
+                    "export.compare",
+                    "Export comparison",
+                    "",
                     self._export_compare,
-                    hint="Saves the comparison table as HTML or CSV."),
-            Command("compare.open",    "Open comparison",      "",
+                    hint="Saves the comparison table as HTML or CSV.",
+                ),
+                Command(
+                    "compare.open",
+                    "Open comparison",
+                    "",
                     self._open_compare,
-                    hint="Stack up to 4 designs side by side."),
-
-            # Validation / dialogs
-            Command("validate.fea",    "Run FEM validation",   "",
+                    hint="Stack up to 4 designs side by side.",
+                ),
+                # Validation / dialogs
+                Command(
+                    "validate.fea",
+                    "Run FEM validation",
+                    "",
                     self._open_fea,
-                    hint="FEMM / FEMMT on the operating point — takes minutes."),
-            Command("similar",         "Find similar components", "",
-                    self._open_similar_parts),
-            Command("litz",            "Optimize Litz",        "",
-                    self._open_litz),
-
-            # Shell
-            Command("theme.toggle",    "Toggle theme (light / dark)", "",
-                    self._toggle_theme),
-            Command("about",           "About the application", "",
-                    self._open_about),
-
-            # Navigation — quick jumps so users don't reach for the
-            # mouse mid-flow.
-            Command("nav.projeto",     "Go to Project",        "",
-                    lambda: self._goto_area("dashboard")),
-            Command("nav.otimizador",  "Go to Optimizer",      "",
-                    lambda: self._goto_area("otimizador")),
-            Command("nav.cascade",     "Go to Full optimizer", "",
-                    lambda: self._goto_area("cascade")),
-            Command("nav.catalogo",    "Go to Catalog",        "",
-                    lambda: self._goto_area("catalogo")),
-            Command("nav.config",      "Go to Settings",       "",
-                    lambda: self._goto_area("configuracoes")),
-        ])
+                    hint="FEMM / FEMMT on the operating point — takes minutes.",
+                ),
+                Command("similar", "Find similar components", "", self._open_similar_parts),
+                Command("litz", "Optimize Litz", "", self._open_litz),
+                # Shell
+                Command("theme.toggle", "Toggle theme (light / dark)", "", self._toggle_theme),
+                Command("about", "About the application", "", self._open_about),
+                # Navigation — quick jumps so users don't reach for the
+                # mouse mid-flow.
+                Command("nav.projeto", "Go to Project", "", lambda: self._goto_area("dashboard")),
+                Command(
+                    "nav.otimizador", "Go to Optimizer", "", lambda: self._goto_area("otimizador")
+                ),
+                Command(
+                    "nav.cascade", "Go to Full optimizer", "", lambda: self._goto_area("cascade")
+                ),
+                Command("nav.catalogo", "Go to Catalog", "", lambda: self._goto_area("catalogo")),
+                Command(
+                    "nav.config", "Go to Settings", "", lambda: self._goto_area("configuracoes")
+                ),
+            ]
+        )
         # Bind the activator. Standard ``QKeySequence.StandardKey.Find``
         # is ``Cmd+F`` on macOS — we want a separate chord. Hardcode
         # ``Ctrl+K`` so it works the same on every platform; on macOS
         # Qt translates ``Ctrl`` → ``Cmd`` automatically.
         from PySide6.QtGui import QKeySequence
+
         sc = QShortcut(QKeySequence("Ctrl+K"), self)
         sc.activated.connect(self._cmd_palette.show)
 
@@ -401,16 +446,26 @@ class MainWindow(QMainWindow):
         # "Full optimizer" is the deep cascade.
         nav_menu = bar.addMenu("&Navigate")
         nav_entries = (
-            ("dashboard",     "Project",          "Ctrl+1",
-             "Main workspace — spec, core, analysis, validation, export."),
-            ("otimizador",    "Optimizer",        "Ctrl+2",
-             "Fast Pareto sweep (≈30 s) — losses × volume × cost."),
-            ("cascade",       "Full optimizer",   "Ctrl+3",
-             "Multi-tier cascade with RK4 + FEM (≈5–15 min)."),
-            ("catalogo",      "Catalog",          "Ctrl+4",
-             "Edit materials, cores and wires. MAS import."),
-            ("configuracoes", "Settings",         "Ctrl+5",
-             "Theme, FEA, Litz, project information."),
+            (
+                "dashboard",
+                "Project",
+                "Ctrl+1",
+                "Main workspace — spec, core, analysis, validation, export.",
+            ),
+            (
+                "otimizador",
+                "Optimizer",
+                "Ctrl+2",
+                "Fast Pareto sweep (≈30 s) — losses × volume × cost.",
+            ),
+            (
+                "cascade",
+                "Full optimizer",
+                "Ctrl+3",
+                "Multi-tier cascade with RK4 + FEM (≈5–15 min).",
+            ),
+            ("catalogo", "Catalog", "Ctrl+4", "Edit materials, cores and wires. MAS import."),
+            ("configuracoes", "Settings", "Ctrl+5", "Theme, FEA, Litz, project information."),
         )
         for area_id, label, sc, tip in nav_entries:
             act = QAction(label, self)
@@ -536,6 +591,7 @@ class MainWindow(QMainWindow):
     @staticmethod
     def _shorten_path(path: str) -> str:
         from pathlib import Path
+
         p = Path(path)
         try:
             home = Path.home()
@@ -577,7 +633,9 @@ class MainWindow(QMainWindow):
         if not self._confirm_discard("Open project"):
             return
         path, _ = QFileDialog.getOpenFileName(
-            self, "Open project", "",
+            self,
+            "Open project",
+            "",
             f"PFC project (*{PROJECT_FILE_EXTENSION});;All files (*.*)",
         )
         if not path:
@@ -589,7 +647,8 @@ class MainWindow(QMainWindow):
             state = load_project(path)
         except (OSError, ValueError) as exc:
             QMessageBox.warning(
-                self, "Failed to open project",
+                self,
+                "Failed to open project",
                 f"Could not read {path}:\n\n{exc}",
             )
             return
@@ -609,7 +668,9 @@ class MainWindow(QMainWindow):
             or f"{self._workflow_state.snapshot().project_name}{PROJECT_FILE_EXTENSION}"
         )
         path, _ = QFileDialog.getSaveFileName(
-            self, "Save project as", suggested,
+            self,
+            "Save project as",
+            suggested,
             f"PFC project (*{PROJECT_FILE_EXTENSION})",
         )
         if not path:
@@ -621,7 +682,8 @@ class MainWindow(QMainWindow):
             final = save_project(path, self._capture_project())
         except OSError as exc:
             QMessageBox.warning(
-                self, "Failed to save",
+                self,
+                "Failed to save",
                 f"Could not write {path}:\n\n{exc}",
             )
             return
@@ -633,7 +695,8 @@ class MainWindow(QMainWindow):
         if not self._workflow_state.snapshot().unsaved:
             return True
         reply = QMessageBox.question(
-            self, title,
+            self,
+            title,
             "The current project has unsaved changes. Continue anyway?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
@@ -642,6 +705,7 @@ class MainWindow(QMainWindow):
 
     def _get_recents(self) -> list[str]:
         import json
+
         qs = QSettings(SETTINGS_ORG, SETTINGS_APP)
         raw = qs.value(self._RECENTS_KEY, "[]", type=str)
         try:
@@ -654,14 +718,17 @@ class MainWindow(QMainWindow):
 
     def _push_recent(self, path: str) -> None:
         import json
+
         recents = push_recent(self._get_recents(), path)
         QSettings(SETTINGS_ORG, SETTINGS_APP).setValue(
-            self._RECENTS_KEY, json.dumps(recents),
+            self._RECENTS_KEY,
+            json.dumps(recents),
         )
 
     def _clear_recents(self) -> None:
         QSettings(SETTINGS_ORG, SETTINGS_APP).setValue(
-            self._RECENTS_KEY, "[]",
+            self._RECENTS_KEY,
+            "[]",
         )
 
     # ==================================================================
@@ -703,10 +770,10 @@ class MainWindow(QMainWindow):
 
         # ---- Stack with 5 pages — now occupies the full width --------
         self.stack = QStackedWidget()
-        self.stack.addWidget(self.projeto_page)        # 0 dashboard
-        self.stack.addWidget(self.otimizador_page)     # 1 otimizador
-        self.stack.addWidget(self.cascade_page)        # 2 cascade
-        self.stack.addWidget(self.catalogo_page)       # 3 catalogo
+        self.stack.addWidget(self.projeto_page)  # 0 dashboard
+        self.stack.addWidget(self.otimizador_page)  # 1 otimizador
+        self.stack.addWidget(self.cascade_page)  # 2 cascade
+        self.stack.addWidget(self.catalogo_page)  # 3 catalogo
         self.stack.addWidget(self.configuracoes_page)  # 4 configuracoes
         h.addWidget(self.stack, 1)
 
@@ -811,7 +878,7 @@ class MainWindow(QMainWindow):
     def _on_overflow_action(self, key: str) -> None:
         handlers = {
             "compare": self._open_compare,
-            "about":   self._open_about,
+            "about": self._open_about,
         }
         h = handlers.get(key)
         if h is not None:
@@ -824,7 +891,8 @@ class MainWindow(QMainWindow):
         s = self._workflow_state.snapshot()
         self.projeto_page.set_project_name(s.project_name)
         self.projeto_page.set_save_status(
-            unsaved=s.unsaved, last_saved_at=s.last_saved_at,
+            unsaved=s.unsaved,
+            last_saved_at=s.last_saved_at,
         )
 
     # ==================================================================
@@ -851,7 +919,9 @@ class MainWindow(QMainWindow):
             current = "boost_ccm"
             n_phases = 1
         dlg = TopologyPickerDialog(
-            current=current, n_phases=int(n_phases), parent=self,
+            current=current,
+            n_phases=int(n_phases),
+            parent=self,
         )
         if dlg.exec() != TopologyPickerDialog.DialogCode.Accepted:
             return
@@ -874,10 +944,14 @@ class MainWindow(QMainWindow):
         # optimizer should not surface line-frequency reactor candidates
         # built on switching-frequency powder cores (or vice-versa).
         eligible_materials = materials_for_topology(
-            self._materials, spec.topology,
+            self._materials,
+            spec.topology,
         )
         dlg = OptimizerDialog(
-            spec, eligible_materials, self._cores, self._wires,
+            spec,
+            eligible_materials,
+            self._cores,
+            self._wires,
             current_material_id=self._current_material_id,
             parent=self,
         )
@@ -886,6 +960,7 @@ class MainWindow(QMainWindow):
 
     def _export_report(self) -> None:
         from PySide6.QtWidgets import QFileDialog
+
         try:
             spec, core, wire, material = self._collect_inputs()
             result = design(spec, core, wire, material)
@@ -893,10 +968,15 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Error", e.user_message())
             return
         default_name = (
-            f"datasheet_{core.part_number}_{material.name}.html"
-        ).replace(" ", "_").replace("/", "-")
+            (f"datasheet_{core.part_number}_{material.name}.html")
+            .replace(" ", "_")
+            .replace("/", "-")
+        )
         path, _ = QFileDialog.getSaveFileName(
-            self, "Save datasheet", default_name, "HTML files (*.html)",
+            self,
+            "Save datasheet",
+            default_name,
+            "HTML files (*.html)",
         )
         if not path:
             return
@@ -908,7 +988,9 @@ class MainWindow(QMainWindow):
                 hint=f"Check write permission for\n{path}",
             )
             QMessageBox.critical(
-                self, "Datasheet generation failed", err.user_message(),
+                self,
+                "Datasheet generation failed",
+                err.user_message(),
             )
             return
         # Mark saved + flip Next Steps.
@@ -920,6 +1002,7 @@ class MainWindow(QMainWindow):
         # generate a datasheet many times per session — the modal was
         # a friction point that demanded a click for every confirmation.
         from pfc_inductor.ui.widgets.toast import Toast
+
         Toast.show_message(
             self,
             f"Datasheet saved to {out}",
@@ -936,6 +1019,7 @@ class MainWindow(QMainWindow):
         breaks); HTML is the screen-grade preview.
         """
         from PySide6.QtWidgets import QFileDialog
+
         try:
             spec, core, wire, material = self._collect_inputs()
             result = design(spec, core, wire, material)
@@ -943,17 +1027,26 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Error", e.user_message())
             return
         default_name = (
-            f"datasheet_{core.part_number}_{material.name}.pdf"
-        ).replace(" ", "_").replace("/", "-")
+            (f"datasheet_{core.part_number}_{material.name}.pdf")
+            .replace(" ", "_")
+            .replace("/", "-")
+        )
         path, _ = QFileDialog.getSaveFileName(
-            self, "Save datasheet (PDF)", default_name,
+            self,
+            "Save datasheet (PDF)",
+            default_name,
             "PDF files (*.pdf)",
         )
         if not path:
             return
         try:
             out = generate_pdf_datasheet(
-                spec, core, material, wire, result, path,
+                spec,
+                core,
+                material,
+                wire,
+                result,
+                path,
             )
         except (OSError, ValueError, KeyError) as e:
             err = ReportGenerationError(
@@ -961,7 +1054,8 @@ class MainWindow(QMainWindow):
                 hint=f"Check write permission for\n{path}",
             )
             QMessageBox.critical(
-                self, "PDF datasheet generation failed",
+                self,
+                "PDF datasheet generation failed",
                 err.user_message(),
             )
             return
@@ -971,6 +1065,7 @@ class MainWindow(QMainWindow):
         self._workflow_state.mark_saved()
         self.projeto_page.mark_action_done("report")
         from pfc_inductor.ui.widgets.toast import Toast
+
         Toast.show_message(
             self,
             f"PDF datasheet saved to {out}",
@@ -988,6 +1083,7 @@ class MainWindow(QMainWindow):
         tracking systems.
         """
         from PySide6.QtWidgets import QFileDialog
+
         try:
             spec, core, wire, material = self._collect_inputs()
             result = design(spec, core, wire, material)
@@ -997,10 +1093,12 @@ class MainWindow(QMainWindow):
         # File name leads with "project_" so the dataheet and
         # project report don't collide in the same folder.
         default_name = (
-            f"project_{core.part_number}_{material.name}.pdf"
-        ).replace(" ", "_").replace("/", "-")
+            (f"project_{core.part_number}_{material.name}.pdf").replace(" ", "_").replace("/", "-")
+        )
         path, _ = QFileDialog.getSaveFileName(
-            self, "Save project report (PDF)", default_name,
+            self,
+            "Save project report (PDF)",
+            default_name,
             "PDF files (*.pdf)",
         )
         if not path:
@@ -1010,7 +1108,12 @@ class MainWindow(QMainWindow):
             # spec/core/material hash the datasheet uses for its
             # P/N — so the two artefacts cross-reference.
             out = generate_project_report(
-                spec, core, material, wire, result, path,
+                spec,
+                core,
+                material,
+                wire,
+                result,
+                path,
                 designer=self._workflow_state.project_name or "—",
             )
         except (OSError, ValueError, KeyError) as e:
@@ -1019,13 +1122,15 @@ class MainWindow(QMainWindow):
                 hint=f"Check write permission for\n{path}",
             )
             QMessageBox.critical(
-                self, "Project report generation failed",
+                self,
+                "Project report generation failed",
                 err.user_message(),
             )
             return
         self._workflow_state.mark_saved()
         self.projeto_page.mark_action_done("report")
         from pfc_inductor.ui.widgets.toast import Toast
+
         Toast.show_message(
             self,
             f"Project report saved to {out}",
@@ -1043,6 +1148,7 @@ class MainWindow(QMainWindow):
         """
         from PySide6.QtCore import QUrl
         from PySide6.QtGui import QDesktopServices
+
         QDesktopServices.openUrl(QUrl.fromLocalFile(path))
 
     def _export_compare(self) -> None:
@@ -1067,16 +1173,18 @@ class MainWindow(QMainWindow):
 
         if dlg is None or len(slots) < 2:
             QMessageBox.information(
-                self, "Comparison empty",
+                self,
+                "Comparison empty",
                 "Add at least 2 designs to the comparison before "
                 "exporting. I'll open the window now — use \"Add "
-                "current\" to populate it.",
+                'current" to populate it.',
             )
             self._open_compare()
             return
 
         path, _ = QFileDialog.getSaveFileName(
-            self, "Export comparison",
+            self,
+            "Export comparison",
             "comparison.pdf",
             "PDF (*.pdf);;HTML (*.html);;CSV (*.csv)",
         )
@@ -1098,7 +1206,9 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Export failed", str(e))
             return
         QMessageBox.information(
-            self, "Exported", f"Comparison saved to:\n{out}",
+            self,
+            "Exported",
+            f"Comparison saved to:\n{out}",
         )
 
     def _open_db_editor(self) -> None:
@@ -1148,7 +1258,11 @@ class MainWindow(QMainWindow):
         spec, core, wire, material = self._collect_inputs()
         result = design(spec, core, wire, material)
         return CompareSlot(
-            spec=spec, core=core, wire=wire, material=material, result=result,
+            spec=spec,
+            core=core,
+            wire=wire,
+            material=material,
+            result=result,
         )
 
     def _open_compare(self) -> None:
@@ -1160,8 +1274,7 @@ class MainWindow(QMainWindow):
         self._compare_dialog.show()
         self._compare_dialog.raise_()
 
-    def _apply_compare_choice(self, material_id: str, core_id: str,
-                              wire_id: str) -> None:
+    def _apply_compare_choice(self, material_id: str, core_id: str, wire_id: str) -> None:
         self._apply_optimizer_choice(material_id, core_id, wire_id)
 
     def _open_litz(self) -> None:
@@ -1181,7 +1294,11 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Invalid selection", e.user_message())
             return
         dlg = FEAValidationDialog(
-            slot.spec, slot.core, slot.wire, slot.material, slot.result,
+            slot.spec,
+            slot.core,
+            slot.wire,
+            slot.material,
+            slot.result,
             parent=self,
         )
         dlg.exec()
@@ -1194,14 +1311,16 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Invalid selection", e.user_message())
             return
         dlg = SimilarPartsDialog(
-            target_core, target_material, self._cores, self._materials,
+            target_core,
+            target_material,
+            self._cores,
+            self._materials,
             parent=self,
         )
         dlg.selection_applied.connect(self._apply_similar_selection)
         dlg.exec()
 
-    def _apply_similar_selection(self, material_id: str,
-                                 core_id: str) -> None:
+    def _apply_similar_selection(self, material_id: str, core_id: str) -> None:
         self._current_material_id = material_id
         self._current_core_id = core_id
         self._on_calculate()
@@ -1211,14 +1330,15 @@ class MainWindow(QMainWindow):
         self._cores = load_cores()
         self._wires = load_wires()
         self._calc.replace_catalogs(
-            self._materials, self._cores, self._wires,
+            self._materials,
+            self._cores,
+            self._wires,
         )
         # TODO: re-validate that the current selection is still valid,
         # or pick a new default. For now, just trigger a recalc.
         self._on_calculate()
 
-    def _apply_optimizer_choice(self, material_id: str, core_id: str,
-                                wire_id: str) -> None:
+    def _apply_optimizer_choice(self, material_id: str, core_id: str, wire_id: str) -> None:
         # Selection swap is a spec-level change as far as the user is
         # concerned — flip the save pill so File → Save has a meaning.
         changed = (
@@ -1281,20 +1401,33 @@ class MainWindow(QMainWindow):
         # reactor at 60 Hz has no business iterating over 241 powder
         # cores designed for 20–200 kHz switching.
         eligible_materials = materials_for_topology(
-            self._materials, spec.topology,
+            self._materials,
+            spec.topology,
         )
 
         # Update the project workspace with the new result.
         self.projeto_page.update_from_design(
-            result, spec, core, wire, material,
+            result,
+            spec,
+            core,
+            wire,
+            material,
         )
         self.projeto_page.populate_nucleo(
-            spec, eligible_materials, self._cores, self._wires,
-            material, core, wire,
+            spec,
+            eligible_materials,
+            self._cores,
+            self._wires,
+            material,
+            core,
+            wire,
         )
         self.projeto_page.set_current_selection(material, core, wire)
         self.otimizador_page.set_inputs(
-            spec, eligible_materials, self._cores, self._wires,
+            spec,
+            eligible_materials,
+            self._cores,
+            self._wires,
             material.id,
         )
         # Cascade page mirrors the same DB + spec; running a deep
@@ -1302,7 +1435,10 @@ class MainWindow(QMainWindow):
         # wire / material selection — the cascade explores the
         # whole catalogue.
         self.cascade_page.set_inputs(
-            spec, eligible_materials, self._cores, self._wires,
+            spec,
+            eligible_materials,
+            self._cores,
+            self._wires,
         )
 
         # Emit for subscribers (tests, future plug-ins).

@@ -9,6 +9,7 @@ that ``MainWindow`` used to inline. Pulling it out lets us:
 - Give the host (``MainWindow``) a single :class:`Protocol` to satisfy
   for the spec panel, instead of importing the concrete class.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -40,6 +41,7 @@ class SpecPanelLike(Protocol):
 @dataclass(frozen=True)
 class CalculationInputs:
     """The four objects the engine needs to compute a design."""
+
     spec: Spec
     core: Core
     wire: Wire
@@ -99,14 +101,16 @@ class CalculationController:
     # ------------------------------------------------------------------
     def find_core(self, core_id: str) -> Core:
         return _find_or_raise(
-            self._cores, core_id,
+            self._cores,
+            core_id,
             label="Core",
             hint="Update the catalog (toolbar → Update) or edit the database.",
         )
 
     def find_wire(self, wire_id: str) -> Wire:
         return _find_or_raise(
-            self._wires, wire_id,
+            self._wires,
+            wire_id,
             label="Fio",
             hint="Atualize o catálogo (toolbar → Atualizar) ou edite a base de dados.",
         )
@@ -115,9 +119,7 @@ class CalculationController:
         try:
             return find_material(self._materials, material_id)
         except (KeyError, ValueError) as exc:
-            raise CatalogError(
-                f"Material '{material_id}' não está no catálogo."
-            ) from exc
+            raise CatalogError(f"Material '{material_id}' não está no catálogo.") from exc
 
     # ------------------------------------------------------------------
     # Pipelines
@@ -128,6 +130,7 @@ class CalculationController:
         :class:`SpecValidationError` so the UI catches a single base
         type."""
         from pydantic import ValidationError
+
         try:
             spec = self._spec_panel.get_spec()
         except ValidationError as exc:
@@ -160,8 +163,13 @@ class CalculationController:
 # Internals
 # ---------------------------------------------------------------------------
 
+
 def _find_or_raise(
-    items: Iterable, item_id: str, *, label: str, hint: str | None = None,
+    items: Iterable,
+    item_id: str,
+    *,
+    label: str,
+    hint: str | None = None,
 ):
     """Linear scan for ``.id == item_id``; raise :class:`CatalogError`
     if not found. Generic so it works for cores, wires, or anything
@@ -170,7 +178,8 @@ def _find_or_raise(
         if getattr(it, "id", None) == item_id:
             return it
     raise CatalogError(
-        f"{label} '{item_id}' não está no catálogo carregado.", hint=hint,
+        f"{label} '{item_id}' não está no catálogo carregado.",
+        hint=hint,
     )
 
 

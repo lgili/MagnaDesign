@@ -41,6 +41,7 @@ working. New fields are introduced for the dashboard refactor:
 - ``Typography.ui_family_brand`` (Inter Variable + system fallback) and
   ``numeric_family`` (mono with ``tnum`` hint).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -53,6 +54,7 @@ ThemeName = Literal["light", "dark"]
 # Sidebar (theme-invariant brand chrome)
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class Sidebar:
     """Navy chrome that does NOT change between light and dark themes.
@@ -61,14 +63,15 @@ class Sidebar:
     theme does not flip it. Every field below resolves to the same byte
     value regardless of which `Palette` is active.
     """
-    bg: str = "#0F1729"          # navy 950 — main sidebar fill
-    bg_hover: str = "#1A2440"    # navy 800 — hover state on nav items
-    bg_active: str = "#243152"   # navy 700 — selected nav item fill
-    border: str = "#1A2440"      # subtle 1px separator
-    text: str = "#E2E8F0"        # off-white primary text
+
+    bg: str = "#0F1729"  # navy 950 — main sidebar fill
+    bg_hover: str = "#1A2440"  # navy 800 — hover state on nav items
+    bg_active: str = "#243152"  # navy 700 — selected nav item fill
+    border: str = "#1A2440"  # subtle 1px separator
+    text: str = "#E2E8F0"  # off-white primary text
     text_muted: str = "#94A3B8"  # secondary text, captions
-    text_active: str = "#FFFFFF" # selected nav item label
-    accent: str = "#A78BFA"      # violet glow used on the brand wordmark
+    text_active: str = "#FFFFFF"  # selected nav item label
+    accent: str = "#A78BFA"  # violet glow used on the brand wordmark
 
 
 # Module-level singleton so callers can `from theme import SIDEBAR`.
@@ -78,6 +81,7 @@ SIDEBAR = Sidebar()
 # ---------------------------------------------------------------------------
 # Viz3D (theme-invariant material/scene realism)
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class Viz3D:
@@ -89,12 +93,13 @@ class Viz3D:
     avoids the trap of dark-mode tinting a render that should match what
     the user will see on their bench.
     """
+
     # Material colours by ``Material.type``.
-    material_powder: str = "#B9A98C"          # warm sandy iron
-    material_ferrite: str = "#3A3838"         # dark anthracite
-    material_nanocrystalline: str = "#5D6C7A" # bluish steel
-    material_amorphous: str = "#6E7178"       # gunmetal
-    material_silicon_steel: str = "#A4A39E"   # rolled GO/NGO sheet
+    material_powder: str = "#B9A98C"  # warm sandy iron
+    material_ferrite: str = "#3A3838"  # dark anthracite
+    material_nanocrystalline: str = "#5D6C7A"  # bluish steel
+    material_amorphous: str = "#6E7178"  # gunmetal
+    material_silicon_steel: str = "#A4A39E"  # rolled GO/NGO sheet
     material_default: str = "#888888"
     # Bobbin (PA66 / Mylar former).
     bobbin: str = "#E8E2D0"
@@ -104,8 +109,8 @@ class Viz3D:
     # the lacquer, only visible at cut ends. We keep both tokens so
     # the renderer can show the enamel for the helix and the bare
     # copper for any visible end-stubs / cut-aways.
-    wire_enamel: str = "#A0522D"              # sienna brown — coated wire
-    wire_copper: str = "#B87333"              # bare copper — end stubs
+    wire_enamel: str = "#A0522D"  # sienna brown — coated wire
+    wire_copper: str = "#B87333"  # bare copper — end stubs
     # Scene background gradient (top → bottom).
     bg_top: str = "#CDD6E0"
     bg_bottom: str = "#F0F3F7"
@@ -122,6 +127,7 @@ VIZ3D = Viz3D()
 # Card shadow tokens
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class ShadowSpec:
     """Structured drop-shadow descriptor.
@@ -136,8 +142,9 @@ class ShadowSpec:
     The color string uses the ``#AARRGGBB`` form (8 hex digits) so the alpha
     rides along — Qt's ``QColor("#AARRGGBB")`` accepts it directly.
     """
-    color: str   # #AARRGGBB
-    blur: int    # px
+
+    color: str  # #AARRGGBB
+    blur: int  # px
     dx: int = 0
     dy: int = 2
 
@@ -145,6 +152,7 @@ class ShadowSpec:
 # ---------------------------------------------------------------------------
 # Palette (light + dark)
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class Palette:
@@ -185,7 +193,7 @@ class Palette:
     info_bg: str
 
     # Domain
-    copper: str           # used in 3D viewer for windings
+    copper: str  # used in 3D viewer for windings
     copper_bright: str
     plot_envelope: str
     plot_ripple: str
@@ -196,9 +204,9 @@ class Palette:
     # ``danger`` tokens for plain data, which used to make a "Cu AC"
     # bar look like a "warning" status. Three series cover today's
     # callers; extend the dataclass when a 4th lands.
-    data_series_1: str    # primary categorical (e.g. Cu DC)
-    data_series_2: str    # secondary
-    data_series_3: str    # tertiary
+    data_series_1: str  # primary categorical (e.g. Cu DC)
+    data_series_2: str  # secondary
+    data_series_3: str  # tertiary
 
     # Pareto / scatter plots (matplotlib, no theme rebuild on the fly —
     # read at dialog construction time).
@@ -219,7 +227,7 @@ class Palette:
     # Misc
     selection_bg: str
     focus_ring: str
-    shadow: str           # legacy CSS string — kept for v1 callers
+    shadow: str  # legacy CSS string — kept for v1 callers
 
 
 LIGHT = Palette(
@@ -228,25 +236,21 @@ LIGHT = Palette(
     surface_elevated="#FFFFFF",
     border="#E4E4E7",
     border_strong="#D4D4D8",
-
     text="#18181B",
     text_secondary="#52525B",
     # text_muted bumped #A1A1AA → #71717A so caption-class text on bg
     # passes WCAG AA body contrast (was 2.9:1, now 4.6:1).
     text_muted="#71717A",
     text_inverse="#FAFAFA",
-
     accent="#3B82F6",
     accent_hover="#2563EB",
     accent_pressed="#1D4ED8",
     accent_subtle_bg="#EFF6FF",
     accent_subtle_text="#1D4ED8",
-
     accent_violet="#7C3AED",
     accent_violet_hover="#6D28D9",
     accent_violet_subtle_bg="#F5F3FF",
     accent_violet_subtle_text="#5B21B6",
-
     success="#16A34A",
     success_bg="#F0FDF4",
     warning="#D97706",
@@ -255,30 +259,24 @@ LIGHT = Palette(
     danger_bg="#FEF2F2",
     info="#0891B2",
     info_bg="#ECFEFF",
-
     copper="#C98A4B",
     copper_bright="#E59A5C",
     plot_envelope="#3B82F6",
     plot_ripple="#F59E0B",
     plot_static="#A1A1AA",
-
     # Categorical series — kept distinct from semantic warning/danger.
-    data_series_1="#3B82F6",            # blue 500 — primary
-    data_series_2="#A855F7",            # violet 500 — secondary
-    data_series_3="#C98A4B",            # copper — tertiary (reuses copper)
-
+    data_series_1="#3B82F6",  # blue 500 — primary
+    data_series_2="#A855F7",  # violet 500 — secondary
+    data_series_3="#C98A4B",  # copper — tertiary (reuses copper)
     plot_pareto_infeasible="#A1A1AA",
     plot_pareto_feasible="#3A78B5",
     plot_pareto_frontier="#D04040",
-
     compare_better_bg="#DFF5E3",
     compare_worse_bg="#FBE2E2",
-
     # Light theme: low-alpha black shadow.
     card_shadow_sm=ShadowSpec(color="#14000000", blur=10, dx=0, dy=1),
     card_shadow_md=ShadowSpec(color="#1F000000", blur=24, dx=0, dy=4),
     card_shadow_focus=ShadowSpec(color="#403B82F6", blur=16, dx=0, dy=0),
-
     selection_bg="#DBEAFE",
     focus_ring="#3B82F6",
     shadow="rgba(0, 0, 0, 0.05)",
@@ -299,7 +297,6 @@ DARK = Palette(
     # of a hard outline.
     border="#2A2F3A",
     border_strong="#404655",
-
     # ---- Text — three real tiers, separated -------------------------
     # ``text`` slightly cooler so it doesn't bloom on the surface.
     # ``text_secondary`` and ``text_muted`` are now distinct (the v1
@@ -308,19 +305,16 @@ DARK = Palette(
     text_secondary="#B4BAC6",
     text_muted="#8A91A0",
     text_inverse="#0B0D12",
-
     # ---- Accents — cooler/less saturated to sit on near-black -------
     accent="#7AAFFF",
     accent_hover="#A6CBFF",
     accent_pressed="#5A93EE",
     accent_subtle_bg="#13284D",
     accent_subtle_text="#B6D2FF",
-
     accent_violet="#B49CFF",
     accent_violet_hover="#CFC0FF",
     accent_violet_subtle_bg="#241848",
     accent_violet_subtle_text="#E2D7FF",
-
     # ---- Semantic — kept (good already) -----------------------------
     success="#4ADE80",
     success_bg="#0F2818",
@@ -330,30 +324,24 @@ DARK = Palette(
     danger_bg="#2A1414",
     info="#22D3EE",
     info_bg="#0E2A2E",
-
     copper="#E59A5C",
     copper_bright="#FFB070",
     plot_envelope="#7AAFFF",
     plot_ripple="#FBBF24",
     plot_static="#52525B",
-
     # Categorical series for dark — refreshed to track the new accent.
-    data_series_1="#7AAFFF",            # blue 400 — primary
-    data_series_2="#B49CFF",            # violet 400 — secondary
-    data_series_3="#E59A5C",            # copper bright — tertiary
-
+    data_series_1="#7AAFFF",  # blue 400 — primary
+    data_series_2="#B49CFF",  # violet 400 — secondary
+    data_series_3="#E59A5C",  # copper bright — tertiary
     plot_pareto_infeasible="#52525B",
     plot_pareto_feasible="#7AAFFF",
     plot_pareto_frontier="#F87171",
-
     compare_better_bg="#0F2818",
     compare_worse_bg="#2A1414",
-
     # ---- Shadows — punchier so cards lift off the deeper bg ---------
     card_shadow_sm=ShadowSpec(color="#80000000", blur=14, dx=0, dy=2),
     card_shadow_md=ShadowSpec(color="#A0000000", blur=32, dx=0, dy=8),
     card_shadow_focus=ShadowSpec(color="#807AAFFF", blur=20, dx=0, dy=0),
-
     selection_bg="#1E3A8A",
     focus_ring="#7AAFFF",
     shadow="rgba(0, 0, 0, 0.45)",
@@ -363,6 +351,7 @@ DARK = Palette(
 # ---------------------------------------------------------------------------
 # Spacing / Radius / Typography
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class Spacing:
@@ -375,23 +364,23 @@ class Spacing:
     xxl: int = 24
 
     # v2 dashboard density scale
-    page: int = 24       # outer page padding
-    card_pad: int = 20   # inside-card padding
-    card_gap: int = 16   # between cards on the dashboard grid
-    section: int = 32    # between major sections (header → stepper → grid)
+    page: int = 24  # outer page padding
+    card_pad: int = 20  # inside-card padding
+    card_gap: int = 16  # between cards on the dashboard grid
+    section: int = 32  # between major sections (header → stepper → grid)
 
 
 @dataclass(frozen=True)
 class Radius:
     sm: int = 4
     md: int = 6
-    lg: int = 8         # legacy alias; equals chip
+    lg: int = 8  # legacy alias; equals chip
     pill: int = 999
 
     # v2 explicit surface radii
-    card: int = 16      # outer card frame
-    button: int = 10    # primary / secondary buttons
-    chip: int = 8       # small chips and segmented controls
+    card: int = 16  # outer card frame
+    button: int = 10  # primary / secondary buttons
+    chip: int = 8  # small chips and segmented controls
 
 
 @dataclass(frozen=True)
@@ -403,8 +392,7 @@ class Typography:
     )
     # v1 mono family.
     mono_family: str = (
-        '"JetBrains Mono", "SF Mono", "Menlo", "Cascadia Code", '
-        '"Consolas", monospace'
+        '"JetBrains Mono", "SF Mono", "Menlo", "Cascadia Code", "Consolas", monospace'
     )
 
     # v2 brand UI face: Inter first when installed locally, complete fallback.
@@ -418,8 +406,7 @@ class Typography:
     # MetricCard) can read the hint and pass ``QFont.setFeatures(["tnum"])``
     # to keep digits from jittering on update.
     numeric_family: str = (
-        '"JetBrains Mono", "SF Mono", "Menlo", "Cascadia Code", '
-        '"Consolas", monospace'
+        '"JetBrains Mono", "SF Mono", "Menlo", "Cascadia Code", "Consolas", monospace'
     )
 
     # Sizes (px) — compact scale tuned for engineering density.
@@ -442,6 +429,7 @@ class Typography:
 # Card minimum sizes (per-card class) and viewport breakpoints
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class CardMinSize:
     """Per-card class minimums enforced by the dashboard grid.
@@ -453,18 +441,19 @@ class CardMinSize:
     means a future "density" toggle can swap one ``CardMinSize`` for
     another without touching widget code.
     """
+
     # Heights tightened across the board so the Análise tab fits on a
     # 1366×768 laptop without scroll. The minimums kept widgets from
     # collapsing on narrow viewports — they didn't need to also pin a
     # tall stretch ceiling.
-    nucleo:     tuple[int, int] = (480, 320)   # was (480, 380)
-    viz3d:      tuple[int, int] = (320, 300)   # was (320, 360)
-    formas:     tuple[int, int] = (520, 240)   # was (520, 280)
-    perdas:     tuple[int, int] = (220, 200)   # was (220, 220)
-    bobinam:    tuple[int, int] = (180, 180)   # was (180, 200)
-    entreferro: tuple[int, int] = (180, 180)   # was (180, 200)
-    proximos:   tuple[int, int] = (200, 200)   # was (200, 220)
-    metric:     tuple[int, int] = (132, 80)
+    nucleo: tuple[int, int] = (480, 320)  # was (480, 380)
+    viz3d: tuple[int, int] = (320, 300)  # was (320, 360)
+    formas: tuple[int, int] = (520, 240)  # was (520, 280)
+    perdas: tuple[int, int] = (220, 200)  # was (220, 220)
+    bobinam: tuple[int, int] = (180, 180)  # was (180, 200)
+    entreferro: tuple[int, int] = (180, 180)  # was (180, 200)
+    proximos: tuple[int, int] = (200, 200)  # was (200, 220)
+    metric: tuple[int, int] = (132, 80)
     # Trimmed 108 → 84 px so the 6-tile ResumoStrip doesn't pin the
     # MainWindow to a width past the laptop screen edge. At 84 the
     # strip floors at ~640 px (6·84 + spacing + capped badge);
@@ -484,6 +473,7 @@ class Breakpoint:
     to a 6-column grid between ``sm`` and ``md``, and only enables the
     full 12-column bento at ``md`` and above.
     """
+
     sm: int = 1024
     md: int = 1280
     lg: int = 1600
@@ -502,9 +492,10 @@ class Animation:
     when we add the accessibility hook callers should consult it
     before scheduling a timer for ``flash_ms`` or ``nudge_ms``.
     """
-    flash_ms: int = 1200       # post-apply outline flash on ResumoStrip
-    nudge_ms: int = 4000       # nudge banner ("ver em Análise →")
-    toast_ms: int = 3000       # generic toast/snackbar dwell time
+
+    flash_ms: int = 1200  # post-apply outline flash on ResumoStrip
+    nudge_ms: int = 4000  # nudge banner ("ver em Análise →")
+    toast_ms: int = 3000  # generic toast/snackbar dwell time
 
 
 ANIMATION = Animation()
@@ -513,6 +504,7 @@ ANIMATION = Animation()
 # ---------------------------------------------------------------------------
 # Theme state singleton
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class ThemeState:
@@ -541,7 +533,7 @@ def set_theme(name: ThemeName) -> ThemeState:
         radius=_state.radius,
         type=_state.type,
         sidebar=SIDEBAR,  # invariant
-        viz3d=VIZ3D,      # invariant
+        viz3d=VIZ3D,  # invariant
     )
     _broadcaster.theme_changed.emit()
     return _state
@@ -555,6 +547,7 @@ def is_dark() -> bool:
 # Theme-change broadcaster
 # ---------------------------------------------------------------------------
 
+
 # Imported lazily so that ``import pfc_inductor.ui.theme`` from non-GUI
 # contexts (e.g. the data loader's tests) does not pull in PySide6.
 def _make_broadcaster():
@@ -562,6 +555,7 @@ def _make_broadcaster():
 
     class _Broadcaster(QObject):
         theme_changed = Signal()
+
     return _Broadcaster()
 
 

@@ -32,6 +32,7 @@ Worker-thread workaround:
   Ctrl-C inside gmsh's UI no longer interrupts the Python process — but
   we never expose that UI, so the trade-off is invisible to the user.
 """
+
 from __future__ import annotations
 
 import contextlib
@@ -61,6 +62,7 @@ def _silence_signal_in_worker_thread():
         return
 
     import signal as _signal_mod
+
     real = _signal_mod.signal
 
     def _noop(_sig, _handler):
@@ -83,8 +85,9 @@ def _install_no_space_femmt_shim() -> None:
     # Find the real FEMMT package directory by inspecting site-packages.
     try:
         import site
+
         candidates: list[Path] = []
-        for sp in site.getsitepackages() + [site.getusersitepackages()]:
+        for sp in [*site.getsitepackages(), site.getusersitepackages()]:
             p = Path(sp) / "femmt"
             if p.is_dir():
                 candidates.append(p)
@@ -117,6 +120,7 @@ def _install_no_space_femmt_shim() -> None:
     except Exception:
         # Best-effort; if we fail, the import will surface the real error.
         pass
+
 
 from pfc_inductor.fea.models import FEAValidation, FEMMNotAvailable, FEMMSolveError
 from pfc_inductor.models import (
@@ -165,14 +169,22 @@ def validate_design_femmt(
             return _toroid_validation(spec, core, wire, material, result, output_dir, timeout_s, ft)
         if kind in ("ee", "etd", "pq"):
             return _bobbin_validation(
-                spec, core, wire, material, result, output_dir, timeout_s, ft, kind,
+                spec,
+                core,
+                wire,
+                material,
+                result,
+                output_dir,
+                timeout_s,
+                ft,
+                kind,
             )
-    raise FEMMSolveError(
-        f"Core shape {kind!r} not yet supported by the FEMMT backend."
-    )
+    raise FEMMSolveError(f"Core shape {kind!r} not yet supported by the FEMMT backend.")
 
 
-def _toroid_validation(spec, core, wire, material, result, output_dir, timeout_s, ft) -> FEAValidation:
+def _toroid_validation(
+    spec, core, wire, material, result, output_dir, timeout_s, ft
+) -> FEAValidation:
     """Toroidal axisymmetric magnetostatic problem in FEMMT."""
     dims = _toroid_dims(core)
     if dims is None:
@@ -205,6 +217,7 @@ def _toroid_validation(spec, core, wire, material, result, output_dir, timeout_s
         # cross-section is too tight to physically pack the turns — L is
         # dominated by le, so window inflation barely affects accuracy.
         import math
+
         wire_diam_m = (wire.d_iso_mm or wire.d_cu_mm or 1.0) * 1e-3
         insulation_m = 5e-4
         pitch_m = wire_diam_m + insulation_m
@@ -247,11 +260,10 @@ def _toroid_validation(spec, core, wire, material, result, output_dir, timeout_s
         winding_window = ft.WindingWindow(core_obj, insulation)
         vww = winding_window.split_window(ft.WindingWindowSplit.NoSplit)
 
-        winding = ft.Conductor(0, ft.Conductivity.Copper,
-                               winding_material_temperature=45)
+        winding = ft.Conductor(0, ft.Conductivity.Copper, winding_material_temperature=45)
         if wire.type == "litz" and wire.d_strand_mm and wire.n_strands:
             winding.set_litz_round_conductor(
-                conductor_radius=(wire.d_bundle_mm or wire.A_cu_mm2 ** 0.5 * 0.6) * 0.5e-3,
+                conductor_radius=(wire.d_bundle_mm or wire.A_cu_mm2**0.5 * 0.6) * 0.5e-3,
                 number_strands=wire.n_strands,
                 strand_radius=wire.d_strand_mm * 0.5e-3,
                 fill_factor=None,
@@ -265,7 +277,9 @@ def _toroid_validation(spec, core, wire, material, result, output_dir, timeout_s
         winding.parallel = False
 
         vww.set_winding(
-            winding, result.N_turns, None,
+            winding,
+            result.N_turns,
+            None,
             ft.Align.ToEdges,
             placing_strategy=ft.ConductorDistribution.HorizontalRightward_VerticalUpward,
             zigzag=True,
@@ -273,7 +287,9 @@ def _toroid_validation(spec, core, wire, material, result, output_dir, timeout_s
         geo.set_winding_windows([winding_window])
 
         geo.create_model(
-            freq=fsw_Hz, pre_visualize_geometry=False, save_png=False,
+            freq=fsw_Hz,
+            pre_visualize_geometry=False,
+            save_png=False,
         )
         geo.single_simulation(
             freq=fsw_Hz,
@@ -328,7 +344,9 @@ def _toroid_validation(spec, core, wire, material, result, output_dir, timeout_s
     )
 
 
-def _bobbin_validation(spec, core, wire, material, result, output_dir, timeout_s, ft, kind) -> FEAValidation:
+def _bobbin_validation(
+    spec, core, wire, material, result, output_dir, timeout_s, ft, kind
+) -> FEAValidation:
     """EE/ETD/PQ axisymmetric magnetostatic problem in FEMMT.
 
     For these cores FEMMT's ``CoreType.Single`` is the natural fit: PQ
@@ -465,11 +483,10 @@ def _bobbin_validation(spec, core, wire, material, result, output_dir, timeout_s
         winding_window = ft.WindingWindow(core_obj, insulation)
         vww = winding_window.split_window(ft.WindingWindowSplit.NoSplit)
 
-        winding = ft.Conductor(0, ft.Conductivity.Copper,
-                               winding_material_temperature=45)
+        winding = ft.Conductor(0, ft.Conductivity.Copper, winding_material_temperature=45)
         if wire.type == "litz" and wire.d_strand_mm and wire.n_strands:
             winding.set_litz_round_conductor(
-                conductor_radius=(wire.d_bundle_mm or wire.A_cu_mm2 ** 0.5 * 0.6) * 0.5e-3,
+                conductor_radius=(wire.d_bundle_mm or wire.A_cu_mm2**0.5 * 0.6) * 0.5e-3,
                 number_strands=wire.n_strands,
                 strand_radius=wire.d_strand_mm * 0.5e-3,
                 fill_factor=None,
@@ -483,7 +500,9 @@ def _bobbin_validation(spec, core, wire, material, result, output_dir, timeout_s
         winding.parallel = False
 
         vww.set_winding(
-            winding, result.N_turns, None,
+            winding,
+            result.N_turns,
+            None,
             ft.Align.ToEdges,
             placing_strategy=ft.ConductorDistribution.HorizontalRightward_VerticalUpward,
             zigzag=True,
@@ -491,7 +510,9 @@ def _bobbin_validation(spec, core, wire, material, result, output_dir, timeout_s
         geo.set_winding_windows([winding_window])
 
         geo.create_model(
-            freq=fsw_Hz, pre_visualize_geometry=False, save_png=False,
+            freq=fsw_Hz,
+            pre_visualize_geometry=False,
+            save_png=False,
         )
         geo.single_simulation(
             freq=fsw_Hz,
@@ -503,7 +524,7 @@ def _bobbin_validation(spec, core, wire, material, result, output_dir, timeout_s
         log = geo.read_log()
     finally:
         os.chdir(original_cwd)
-        
+
     L_FEA_H = _extract_L_H(log)
     flux_FEA_Wb = _extract_flux(log)
     if abs(flux_FEA_Wb) > 0 and result.N_turns > 0 and Ae_m2 > 0:
@@ -518,9 +539,9 @@ def _bobbin_validation(spec, core, wire, material, result, output_dir, timeout_s
 
     notes_geom = (
         f"FEMMT CoreType.Single mapeado para shape {kind.upper()}: "
-        f"d_centro={core_inner_diameter_m*1e3:.2f} mm "
-        f"(eq. round leg), janela {window_w_m*1e3:.1f}×{window_h_m*1e3:.1f} mm "
-        f"(inflate {inflate:.2f}×). gap={gap_m*1e3:.3f} mm. "
+        f"d_centro={core_inner_diameter_m * 1e3:.2f} mm "
+        f"(eq. round leg), janela {window_w_m * 1e3:.1f}×{window_h_m * 1e3:.1f} mm "
+        f"(inflate {inflate:.2f}×). gap={gap_m * 1e3:.3f} mm. "
         f"μ_eff(H={H_Oe:.0f} Oe)={mu_eff:.0f}."
     )
 
@@ -549,9 +570,11 @@ def _bobbin_validation(spec, core, wire, material, result, output_dir, timeout_s
 def _femmt_onelab_configured() -> bool:
     try:
         import femmt
+
         config_path = Path(femmt.__file__).parent / "config.json"
         if config_path.exists():
             import json
+
             data = json.loads(config_path.read_text())
             onelab = data.get("onelab")
             return bool(onelab and (Path(onelab) / "onelab.py").exists())

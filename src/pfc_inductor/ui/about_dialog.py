@@ -3,6 +3,7 @@
 Reads from `pfc_inductor.positioning` so the in-app view never drifts
 from the docs source of truth.
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -135,8 +136,7 @@ class AboutDialog(QDialog):
             btn.setToolTip(f"{c.name} — {c.note}\n{c.url}")
             btn.setProperty("ghost", "true")
             url = c.url
-            btn.clicked.connect(lambda _checked=False, u=url:
-                                QDesktopServices.openUrl(QUrl(u)))
+            btn.clicked.connect(lambda _checked=False, u=url: QDesktopServices.openUrl(QUrl(u)))
             h.addWidget(btn)
         h.addStretch(1)
         return box
@@ -156,6 +156,7 @@ class AboutDialog(QDialog):
     def _open_positioning_doc(self):
         """Open the local POSITIONING.md in the default app."""
         from pathlib import Path
+
         # Walk up from this file: src/pfc_inductor/ui/about_dialog.py → repo root
         here = Path(__file__).resolve()
         repo_root = here.parents[3]

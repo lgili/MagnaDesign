@@ -4,6 +4,7 @@ FEMMT 0.5.x reads its config from
 ``<site-packages>/femmt/config.json``. Older docs and some versions
 also honour ``~/.femmt_settings.json``. We write both for safety.
 """
+
 from __future__ import annotations
 
 import json
@@ -44,7 +45,8 @@ def write_femmt_config(onelab_dir: Path) -> list[Path]:
 
     HOME_CONFIG.parent.mkdir(parents=True, exist_ok=True)
     HOME_CONFIG.write_text(
-        json.dumps(payload, indent=2) + "\n", encoding="utf-8",
+        json.dumps(payload, indent=2) + "\n",
+        encoding="utf-8",
     )
     written.append(HOME_CONFIG)
 
@@ -53,7 +55,8 @@ def write_femmt_config(onelab_dir: Path) -> list[Path]:
         try:
             pkg_cfg.parent.mkdir(parents=True, exist_ok=True)
             pkg_cfg.write_text(
-                json.dumps(payload, indent=2) + "\n", encoding="utf-8",
+                json.dumps(payload, indent=2) + "\n",
+                encoding="utf-8",
             )
             written.append(pkg_cfg)
         except OSError:

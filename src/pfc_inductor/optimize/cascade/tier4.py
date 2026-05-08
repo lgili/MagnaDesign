@@ -21,6 +21,7 @@ Per-candidate cost: ~N × (Tier 3 wall) ≈ 10–15 s on a typical
 workstation. For top-K = 5 candidates that's ~1 minute total —
 well below the per-tier budget the openspec design.md sets.
 """
+
 from __future__ import annotations
 
 import time
@@ -105,12 +106,18 @@ def evaluate_candidate(
         # Spin a copy of the engine result that points the FEA solver
         # at this bias point; everything else (N, Ae, gap…) stays the
         # same.
-        sim_result = design_result.model_copy(update={
-            "I_line_pk_A": I_sample,
-            "I_pk_max_A": I_sample,
-        })
+        sim_result = design_result.model_copy(
+            update={
+                "I_line_pk_A": I_sample,
+                "I_pk_max_A": I_sample,
+            }
+        )
         fea: FEAValidation = validate_design(
-            model.spec, core, wire, material, sim_result,
+            model.spec,
+            core,
+            wire,
+            material,
+            sim_result,
             timeout_s=timeout_s,
         )
         sample_currents.append(I_sample)
@@ -182,9 +189,15 @@ def evaluate_candidate_safe(
     try:
         return (
             evaluate_candidate(
-                model, candidate, core, material, wire,
-                tier1=tier1, tier3=tier3,
-                sweep_fractions=sweep_fractions, timeout_s=timeout_s,
+                model,
+                candidate,
+                core,
+                material,
+                wire,
+                tier1=tier1,
+                tier3=tier3,
+                sweep_fractions=sweep_fractions,
+                timeout_s=timeout_s,
             ),
             None,
         )

@@ -16,6 +16,7 @@ missing attribute via `hasattr`) or implement it to raise
 `NotImplementedError`. The cascade surfaces a clear "topology does
 not support tier N yet" message to the user in either case.
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
@@ -38,7 +39,10 @@ class ConverterModel(Protocol):
 
     # ─── Tier 0 ────────────────────────────────────────────────
     def feasibility_envelope(
-        self, core: Core, material: Material, wire: Wire,
+        self,
+        core: Core,
+        material: Material,
+        wire: Wire,
     ) -> FeasibilityEnvelope:
         """Cheap geometric / saturation envelope.
 
@@ -50,7 +54,10 @@ class ConverterModel(Protocol):
 
     # ─── Tier 1 ────────────────────────────────────────────────
     def steady_state(
-        self, core: Core, material: Material, wire: Wire,
+        self,
+        core: Core,
+        material: Material,
+        wire: Wire,
     ) -> DesignResult:
         """Closed-form steady-state operating point.
 

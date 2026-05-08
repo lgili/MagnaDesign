@@ -13,6 +13,7 @@ candidate-killer: any candidate whose simulated `B(t)` exceeds the
 spec's `Bsat · (1 - margin)` envelope at any sample is dropped from
 the next-tier ranking regardless of its analytical loss.
 """
+
 from __future__ import annotations
 
 import time
@@ -77,7 +78,9 @@ def evaluate_candidate(
         return None
 
     inductor = NonlinearInductor.from_design_point(
-        core=core, material=material, N=N,
+        core=core,
+        material=material,
+        N=N,
         T_C=design_result.T_winding_C,
     )
 
@@ -85,7 +88,9 @@ def evaluate_candidate(
     # can budget per-tier time without timing the housekeeping.
     t0 = time.perf_counter()
     waveform = simulate_to_steady_state(
-        model, inductor, config=config,
+        model,
+        inductor,
+        config=config,
     )
     sim_wall = time.perf_counter() - t0
 
@@ -163,8 +168,14 @@ def evaluate_candidate_safe(
     try:
         return (
             evaluate_candidate(
-                model, candidate, core, material, wire,
-                tier1=tier1, config=config, bsat_margin=bsat_margin,
+                model,
+                candidate,
+                core,
+                material,
+                wire,
+                tier1=tier1,
+                config=config,
+                bsat_margin=bsat_margin,
             ),
             None,
         )

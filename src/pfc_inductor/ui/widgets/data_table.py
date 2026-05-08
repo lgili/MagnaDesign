@@ -5,6 +5,7 @@ the left (regular weight, secondary text), value on the right (mono,
 tabular-nums, semibold) with the unit immediately after in muted weight.
 Optional zebra striping.
 """
+
 from __future__ import annotations
 
 from typing import Iterable, NamedTuple, Optional, Sequence
@@ -29,6 +30,7 @@ class Row(NamedTuple):
     (``label, value, unit = row``) still works while gaining
     ``row.label``/``row.value``/``row.unit`` for new callers.
     """
+
     label: str
     value: str
     unit: Optional[str] = None
@@ -47,8 +49,7 @@ class DataTable(QFrame):
         super().__init__(parent)
         self.setObjectName("DataTable")
         self.setFrameShape(QFrame.Shape.NoFrame)
-        self.setSizePolicy(QSizePolicy.Policy.Expanding,
-                           QSizePolicy.Policy.Preferred)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self._striped = striped
 
         self._grid = QGridLayout(self)
@@ -96,17 +97,22 @@ class DataTable(QFrame):
 
             lbl = QLabel(label)
             lbl.setStyleSheet(
-                f"color: {p.text_secondary}; "
-                f"font-size: {t.body}px; padding: 6px 10px;"
+                f"color: {p.text_secondary}; font-size: {t.body}px; padding: 6px 10px;"
             )
 
             val = QLabel(value)
             val_font = val.font()
             val_font.setStyleHint(QFont.StyleHint.Monospace)
-            val_font.setFamilies([
-                "JetBrains Mono", "SF Mono", "Menlo",
-                "Cascadia Code", "Consolas", "monospace",
-            ])
+            val_font.setFamilies(
+                [
+                    "JetBrains Mono",
+                    "SF Mono",
+                    "Menlo",
+                    "Cascadia Code",
+                    "Consolas",
+                    "monospace",
+                ]
+            )
             val_font.setPixelSize(t.body_md)
             val_font.setWeight(QFont.Weight.DemiBold)
             val.setFont(val_font)
@@ -115,14 +121,12 @@ class DataTable(QFrame):
 
             unit_lbl = QLabel(unit or "")
             unit_lbl.setStyleSheet(
-                f"color: {p.text_muted}; font-size: {t.caption}px;"
-                "padding: 6px 10px 6px 0;"
+                f"color: {p.text_muted}; font-size: {t.caption}px;padding: 6px 10px 6px 0;"
             )
 
             self._grid.addWidget(lbl, i, 0, alignment=Qt.AlignmentFlag.AlignVCenter)
             self._grid.addWidget(val, i, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
-            self._grid.addWidget(unit_lbl, i, 2,
-                                 alignment=Qt.AlignmentFlag.AlignVCenter)
+            self._grid.addWidget(unit_lbl, i, 2, alignment=Qt.AlignmentFlag.AlignVCenter)
             self._row_widgets.append((bg_frame, lbl, val, unit_lbl))
 
     def row_count(self) -> int:

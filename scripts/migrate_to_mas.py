@@ -8,15 +8,18 @@ Run from the project root:
 
     .venv/bin/python scripts/migrate_to_mas.py
 """
+
 from __future__ import annotations
+
 import json
 from pathlib import Path
 
-from pfc_inductor.data_loader import load_materials, load_cores, load_wires
+from pfc_inductor.data_loader import load_cores, load_materials, load_wires
 from pfc_inductor.models.mas import (
-    material_to_mas, core_to_mas, wire_to_mas,
+    core_to_mas,
+    material_to_mas,
+    wire_to_mas,
 )
-
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 OUT_DIR = REPO_ROOT / "data" / "mas"
@@ -33,47 +36,43 @@ def main() -> None:
             "scripts/migrate_to_mas.py. Custom fields under x-pfc-inductor."
         ),
         "materials": [
-            material_to_mas(m).model_dump(mode="json", by_alias=True,
-                                          exclude_none=True)
+            material_to_mas(m).model_dump(mode="json", by_alias=True, exclude_none=True)
             for m in mats
         ],
     }
     (OUT_DIR / "materials.json").write_text(
-        json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8",
+        json.dumps(payload, indent=2, ensure_ascii=False),
+        encoding="utf-8",
     )
     print(f"  materials.json — {len(mats)} entries")
 
     cores = load_cores()
     payload = {
         "_comment": (
-            "MAS-shaped cores. Auto-generated from data/cores.json by "
-            "scripts/migrate_to_mas.py."
+            "MAS-shaped cores. Auto-generated from data/cores.json by scripts/migrate_to_mas.py."
         ),
         "cores": [
-            core_to_mas(c).model_dump(mode="json", by_alias=True,
-                                      exclude_none=True)
-            for c in cores
+            core_to_mas(c).model_dump(mode="json", by_alias=True, exclude_none=True) for c in cores
         ],
     }
     (OUT_DIR / "cores.json").write_text(
-        json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8",
+        json.dumps(payload, indent=2, ensure_ascii=False),
+        encoding="utf-8",
     )
     print(f"  cores.json     — {len(cores)} entries")
 
     wires = load_wires()
     payload = {
         "_comment": (
-            "MAS-shaped wires. Auto-generated from data/wires.json by "
-            "scripts/migrate_to_mas.py."
+            "MAS-shaped wires. Auto-generated from data/wires.json by scripts/migrate_to_mas.py."
         ),
         "wires": [
-            wire_to_mas(w).model_dump(mode="json", by_alias=True,
-                                      exclude_none=True)
-            for w in wires
+            wire_to_mas(w).model_dump(mode="json", by_alias=True, exclude_none=True) for w in wires
         ],
     }
     (OUT_DIR / "wires.json").write_text(
-        json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8",
+        json.dumps(payload, indent=2, ensure_ascii=False),
+        encoding="utf-8",
     )
     print(f"  wires.json     — {len(wires)} entries")
     print("Done. Loader will prefer MAS layout on next launch.")

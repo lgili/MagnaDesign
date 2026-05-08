@@ -14,6 +14,7 @@ Exit codes
 - ``2`` (``COMPLIANCE_FAIL``) — at least one standard returned
   ``FAIL`` or ``MARGINAL`` without the allow flag.
 """
+
 from __future__ import annotations
 
 import json
@@ -26,7 +27,6 @@ import click
 from pfc_inductor.cli.exit_codes import ExitCode
 from pfc_inductor.cli.utils import load_session, wrap_design_error
 from pfc_inductor.compliance import evaluate
-from pfc_inductor.compliance.dispatcher import RegionTag
 
 
 def register(group: click.Group) -> None:
@@ -44,15 +44,14 @@ def register(group: click.Group) -> None:
     default="Worldwide",
     show_default=True,
     help="Drives which standards apply. Today only IEC 61000-3-2 "
-         "is wired (EU / Worldwide / BR all route through Class D).",
+    "is wired (EU / Worldwide / BR all route through Class D).",
 )
 @click.option(
     "--edition",
     type=click.Choice(["4.0", "5.0"]),
     default="5.0",
     show_default=True,
-    help="IEC 61000-3-2 edition. 5.0 (post-2018) tightens the "
-         "high-order harmonic factor.",
+    help="IEC 61000-3-2 edition. 5.0 (post-2018) tightens the high-order harmonic factor.",
 )
 @click.option(
     "--out",
@@ -60,21 +59,20 @@ def register(group: click.Group) -> None:
     type=click.Path(dir_okay=False, path_type=Path),
     default=None,
     help="When provided, write a PDF compliance report to this "
-         "path. Otherwise only the JSON / pretty summary prints.",
+    "path. Otherwise only the JSON / pretty summary prints.",
 )
 @click.option(
     "--allow-marginal/--strict",
     default=False,
     show_default=True,
     help="With ``--allow-marginal`` a MARGINAL verdict still exits "
-         "with code 0; default ``--strict`` treats MARGINAL as FAIL "
-         "(suitable for go / no-go release gates).",
+    "with code 0; default ``--strict`` treats MARGINAL as FAIL "
+    "(suitable for go / no-go release gates).",
 )
 @click.option(
     "--pretty/--json",
     default=False,
-    help="Render summary as a key-value table (--pretty) or as "
-         "JSON (default).",
+    help="Render summary as a key-value table (--pretty) or as JSON (default).",
 )
 @click.pass_context
 @wrap_design_error
@@ -113,6 +111,7 @@ def _compliance_cmd(
     # to extract the harmonic spectrum from. We import here so
     # the CLI startup stays Qt-free until the GUI path opts in.
     from pfc_inductor.design import design as run_design
+
     result = run_design(
         loaded.spec,
         loaded.selected_core,
@@ -132,28 +131,28 @@ def _compliance_cmd(
     )
 
     payload = {
-        "project":  bundle.project_name,
+        "project": bundle.project_name,
         "topology": bundle.topology,
-        "region":   bundle.region,
-        "overall":  bundle.overall,
+        "region": bundle.region,
+        "overall": bundle.overall,
         "standards": [
             {
-                "standard":   s.standard,
-                "edition":    s.edition,
-                "scope":      s.scope,
+                "standard": s.standard,
+                "edition": s.edition,
+                "scope": s.scope,
                 "conclusion": s.conclusion,
-                "summary":    s.summary,
+                "summary": s.summary,
                 "rows": [
                     {
-                        "label":    label,
-                        "value":    value,
-                        "limit":    limit,
+                        "label": label,
+                        "value": value,
+                        "limit": limit,
                         "margin_pct": margin,
-                        "passed":   passed,
+                        "passed": passed,
                     }
                     for (label, value, limit, margin, passed) in s.rows
                 ],
-                "notes":      list(s.notes),
+                "notes": list(s.notes),
             }
             for s in bundle.standards
         ],
@@ -161,13 +160,16 @@ def _compliance_cmd(
 
     if pdf_path is not None:
         from pfc_inductor.compliance.pdf_writer import write_compliance_pdf
+
         try:
             from importlib.metadata import version as _version
+
             app_version = _version("magnadesign")
         except Exception:
             app_version = ""
         out = write_compliance_pdf(
-            bundle, pdf_path,
+            bundle,
+            pdf_path,
             app_version=app_version,
         )
         click.echo(f"PDF → {out}", err=True)
@@ -189,8 +191,7 @@ def _compliance_cmd(
         # warning so the CI script can decide whether silence
         # is acceptable.
         click.echo(
-            "::warning::No applicable standards for this "
-            "topology + region combination.",
+            "::warning::No applicable standards for this topology + region combination.",
             err=True,
         )
         ctx.exit(int(ExitCode.OK))

@@ -4,6 +4,7 @@ Three cards stacked. Each card is a thin façade over an existing
 dialog/feature so the inner-loop is "everything I need to *trust* the
 design before exporting".
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -67,9 +68,9 @@ class ValidarTab(QWidget):
         self._last_result: Optional[DesignResult] = None
 
     # ------------------------------------------------------------------
-    def update_from_design(self, result: DesignResult, spec: Spec,
-                           core: Core, wire: Wire,
-                           material: Material) -> None:
+    def update_from_design(
+        self, result: DesignResult, spec: Spec, core: Core, wire: Wire, material: Material
+    ) -> None:
         self._last_result = result
         # Refresh the FEA summary line.
         self._fea_summary.setText(
@@ -110,8 +111,8 @@ class ValidarTab(QWidget):
         btn.setToolTip(
             "Solves the magnetic problem at the operating point — "
             "takes a few minutes. Blocks the UI until done."
-            if enabled else
-            "Calculate a design first (Ctrl+R) to enable FEM validation."
+            if enabled
+            else "Calculate a design first (Ctrl+R) to enable FEM validation."
         )
 
     # ------------------------------------------------------------------
@@ -137,10 +138,8 @@ class ValidarTab(QWidget):
         btn.setProperty("class", "Secondary")
         btn.setIcon(ui_icon("cube", color=get_theme().palette.text, size=14))
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn.setEnabled(False)         # gated until first design lands
-        btn.setToolTip(
-            "Calculate a design first (Ctrl+R) to enable FEM validation."
-        )
+        btn.setEnabled(False)  # gated until first design lands
+        btn.setToolTip("Calculate a design first (Ctrl+R) to enable FEM validation.")
         btn.clicked.connect(self.fea_requested.emit)
         # Inline time estimate so the engineer doesn't click expecting
         # a sub-second response and then think the app froze. Kept as
@@ -162,10 +161,7 @@ class ValidarTab(QWidget):
     def _hint_qss() -> str:
         p = get_theme().palette
         t = get_theme().type
-        return (
-            f"color: {p.text_muted};"
-            f"font-size: {t.caption}px;"
-        )
+        return f"color: {p.text_muted};font-size: {t.caption}px;"
 
     def _build_bh_card(self) -> Card:
         body = QFrame()

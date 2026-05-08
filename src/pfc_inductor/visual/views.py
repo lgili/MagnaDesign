@@ -7,6 +7,7 @@ Coordinate convention (matches the mesh builder):
 - ``+Y`` = depth  (front-back)
 - ``+Z`` = height (up-down)
 """
+
 from __future__ import annotations
 
 from typing import Literal
@@ -18,17 +19,15 @@ ViewName = Literal["front", "top", "side", "iso"]
 
 # (camera direction from origin, up vector). The eye is placed at
 # ``centre + dir·distance`` and looks back at the centre.
-VIEW_CAMERAS: dict[str, tuple[tuple[float, float, float],
-                              tuple[float, float, float]]] = {
-    "front":  ((0.0, -1.0, 0.0), (0.0, 0.0, 1.0)),
-    "top":    ((0.0,  0.0, 1.0), (0.0, 1.0, 0.0)),
-    "side":   ((1.0,  0.0, 0.0), (0.0, 0.0, 1.0)),
-    "iso":    ((1.0, -1.0, 0.7), (0.0, 0.0, 1.0)),
+VIEW_CAMERAS: dict[str, tuple[tuple[float, float, float], tuple[float, float, float]]] = {
+    "front": ((0.0, -1.0, 0.0), (0.0, 0.0, 1.0)),
+    "top": ((0.0, 0.0, 1.0), (0.0, 1.0, 0.0)),
+    "side": ((1.0, 0.0, 0.0), (0.0, 0.0, 1.0)),
+    "iso": ((1.0, -1.0, 0.7), (0.0, 0.0, 1.0)),
 }
 
 
-def set_camera_to_view(plotter, view: ViewName, *,
-                       parallel_for_orthographic: bool = True) -> None:
+def set_camera_to_view(plotter, view: ViewName, *, parallel_for_orthographic: bool = True) -> None:
     """Configure ``plotter``'s camera for the named canonical view.
 
     ``front``, ``top``, and ``side`` switch the camera to parallel
@@ -37,13 +36,17 @@ def set_camera_to_view(plotter, view: ViewName, *,
     """
     cam_dir, up_vec = VIEW_CAMERAS[view]
     bounds = plotter.bounds  # (xmin, xmax, ymin, ymax, zmin, zmax)
-    centre = np.array([
-        (bounds[0] + bounds[1]) / 2,
-        (bounds[2] + bounds[3]) / 2,
-        (bounds[4] + bounds[5]) / 2,
-    ])
+    centre = np.array(
+        [
+            (bounds[0] + bounds[1]) / 2,
+            (bounds[2] + bounds[3]) / 2,
+            (bounds[4] + bounds[5]) / 2,
+        ]
+    )
     span = max(
-        bounds[1] - bounds[0], bounds[3] - bounds[2], bounds[5] - bounds[4],
+        bounds[1] - bounds[0],
+        bounds[3] - bounds[2],
+        bounds[5] - bounds[4],
     )
     distance = span * 2.4
     eye = centre + np.array(cam_dir, dtype=float) * distance

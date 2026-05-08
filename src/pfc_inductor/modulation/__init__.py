@@ -25,6 +25,7 @@ Public API
   legacy single-point callers: hands off to ``design()`` when the
   spec has no band, ``eval_band`` when it does.
 """
+
 from __future__ import annotations
 
 from pfc_inductor.modulation.engine import (

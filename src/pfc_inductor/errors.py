@@ -32,6 +32,7 @@ Pattern at the boundary
             "Invalid spec. Check the highlighted fields."
         ) from exc
 """
+
 from __future__ import annotations
 
 

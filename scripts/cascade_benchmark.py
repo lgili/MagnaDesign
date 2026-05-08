@@ -17,6 +17,7 @@ per spec so it finishes in seconds (not the ~80 minutes of a
 full cascade run). Phase B/C/D will gate on this same harness
 extended with their respective tiers.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -83,26 +84,52 @@ def _bench_specs() -> list[BenchmarkSpec]:
     """
     boost = Spec(
         topology="boost_ccm",
-        Vin_min_Vrms=85.0, Vin_max_Vrms=265.0, Vin_nom_Vrms=220.0,
-        Vout_V=400.0, Pout_W=800.0, eta=0.97,
-        f_sw_kHz=65.0, ripple_pct=30.0,
-        T_amb_C=40.0, T_max_C=100.0, Ku_max=0.40, Bsat_margin=0.20,
+        Vin_min_Vrms=85.0,
+        Vin_max_Vrms=265.0,
+        Vin_nom_Vrms=220.0,
+        Vout_V=400.0,
+        Pout_W=800.0,
+        eta=0.97,
+        f_sw_kHz=65.0,
+        ripple_pct=30.0,
+        T_amb_C=40.0,
+        T_max_C=100.0,
+        Ku_max=0.40,
+        Bsat_margin=0.20,
     )
     choke = Spec(
         topology="passive_choke",
-        Vin_min_Vrms=85.0, Vin_max_Vrms=265.0, Vin_nom_Vrms=220.0,
-        Vout_V=400.0, Pout_W=400.0, eta=0.97,
-        f_sw_kHz=65.0, ripple_pct=30.0,
-        T_amb_C=40.0, T_max_C=100.0, Ku_max=0.40, Bsat_margin=0.20,
+        Vin_min_Vrms=85.0,
+        Vin_max_Vrms=265.0,
+        Vin_nom_Vrms=220.0,
+        Vout_V=400.0,
+        Pout_W=400.0,
+        eta=0.97,
+        f_sw_kHz=65.0,
+        ripple_pct=30.0,
+        T_amb_C=40.0,
+        T_max_C=100.0,
+        Ku_max=0.40,
+        Bsat_margin=0.20,
     )
     reactor = Spec(
         topology="line_reactor",
-        Vin_min_Vrms=380.0, Vin_max_Vrms=440.0, Vin_nom_Vrms=400.0,
+        Vin_min_Vrms=380.0,
+        Vin_max_Vrms=440.0,
+        Vin_nom_Vrms=400.0,
         f_line_Hz=60.0,
-        Vout_V=600.0, Pout_W=20_000.0, eta=0.97,
-        f_sw_kHz=65.0, ripple_pct=30.0,
-        T_amb_C=40.0, T_max_C=100.0, Ku_max=0.40, Bsat_margin=0.20,
-        n_phases=3, L_req_mH=1.0, I_rated_Arms=30.0,
+        Vout_V=600.0,
+        Pout_W=20_000.0,
+        eta=0.97,
+        f_sw_kHz=65.0,
+        ripple_pct=30.0,
+        T_amb_C=40.0,
+        T_max_C=100.0,
+        Ku_max=0.40,
+        Bsat_margin=0.20,
+        n_phases=3,
+        L_req_mH=1.0,
+        I_rated_Arms=30.0,
     )
     return [
         BenchmarkSpec(
@@ -141,8 +168,7 @@ def _filter_db(
         )
     cores_filtered = [c for c in cores if c.default_material_id == material_id]
     wires_filtered = [
-        w for w in wires
-        if w.id in {"AWG12", "AWG14", "AWG16", "AWG18"} and w.type == "round"
+        w for w in wires if w.id in {"AWG12", "AWG14", "AWG16", "AWG18"} and w.type == "round"
     ]
     return mats, cores_filtered, wires_filtered
 
@@ -157,7 +183,10 @@ def run_benchmark(
     cores_full = load_cores()
     wires_full = load_wires()
     materials, cores, wires = _filter_db(
-        materials_full, cores_full, wires_full, bench.material_id,
+        materials_full,
+        cores_full,
+        wires_full,
+        bench.material_id,
     )
 
     store = RunStore(db_path)
@@ -325,14 +354,22 @@ def main() -> int:
                     "n_candidates": r.n_candidates,
                     "final_status": r.final_status,
                     "tier_timings": [
-                        {"tier": t.tier, "wall_seconds": t.wall_seconds,
-                         "candidates_done": t.candidates_done}
+                        {
+                            "tier": t.tier,
+                            "wall_seconds": t.wall_seconds,
+                            "candidates_done": t.candidates_done,
+                        }
                         for t in r.tier_timings
                     ],
                     "top_5": [
-                        {"rank": row.rank, "core_id": row.core_id,
-                         "material_id": row.material_id, "wire_id": row.wire_id,
-                         "loss_W": row.loss_W, "temp_C": row.temp_C}
+                        {
+                            "rank": row.rank,
+                            "core_id": row.core_id,
+                            "material_id": row.material_id,
+                            "wire_id": row.wire_id,
+                            "loss_W": row.loss_W,
+                            "temp_C": row.temp_C,
+                        }
                         for row in r.top_5
                     ],
                 }

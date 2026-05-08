@@ -11,9 +11,9 @@ with ``v_L = Vin − Vout`` during the switch's ON phase and
 ``v_L = −Vout`` during OFF. The PWM carrier is a sawtooth at
 ``f_sw``.
 """
+
 from __future__ import annotations
 
-import math
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -36,8 +36,7 @@ class BuckCCMModel:
     def __init__(self, spec: Spec) -> None:
         if spec.topology != "buck_ccm":
             raise ValueError(
-                f"BuckCCMModel requires spec.topology == 'buck_ccm', "
-                f"got {spec.topology!r}",
+                f"BuckCCMModel requires spec.topology == 'buck_ccm', got {spec.topology!r}",
             )
         self.spec = spec
         # Cached scalars used inside the hot ODE path.
@@ -55,7 +54,10 @@ class BuckCCMModel:
     # ─── Tier-0 / Tier-1 ─────────────────────────────────────────
 
     def feasibility_envelope(
-        self, core: Core, material: Material, wire: Wire,
+        self,
+        core: Core,
+        material: Material,
+        wire: Wire,
     ) -> FeasibilityEnvelope:
         verdict = core_quick_check(self.spec, core, material, wire)
         if verdict == "ok":
@@ -63,7 +65,10 @@ class BuckCCMModel:
         return FeasibilityEnvelope(feasible=False, reasons=[verdict])
 
     def steady_state(
-        self, core: Core, material: Material, wire: Wire,
+        self,
+        core: Core,
+        material: Material,
+        wire: Wire,
     ) -> DesignResult:
         return design(self.spec, core, wire, material)
 
@@ -81,7 +86,7 @@ class BuckCCMModel:
         self,
         t: float,
         x: np.ndarray,
-        inductor: "NonlinearInductor",
+        inductor: NonlinearInductor,
     ) -> np.ndarray:
         """Buck-CCM inductor: ``L · di/dt = v_L``.
 

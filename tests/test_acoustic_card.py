@@ -1,4 +1,5 @@
 """AcousticCard widget + AnalisePage integration tests."""
+
 from __future__ import annotations
 
 import os
@@ -11,6 +12,7 @@ import pytest
 @pytest.fixture(scope="module")
 def app():
     from PySide6.QtWidgets import QApplication
+
     inst = QApplication.instance() or QApplication([])
     yield inst
 
@@ -20,7 +22,10 @@ def reference_inputs():
     """Feasible 600 W boost-PFC with Magnetics 60 µ HighFlux —
     quiet enough for the model to land below 30 dB(A) typical."""
     from pfc_inductor.data_loader import (
-        ensure_user_data, load_cores, load_materials, load_wires,
+        ensure_user_data,
+        load_cores,
+        load_materials,
+        load_wires,
     )
     from pfc_inductor.design import design as run_design
     from pfc_inductor.models import Spec
@@ -30,13 +35,17 @@ def reference_inputs():
     cores = load_cores()
     wires = load_wires()
     spec = Spec(
-        topology="boost_ccm", Pout_W=600,
-        Vin_min_Vrms=85, Vin_max_Vrms=265, Vout_V=400,
-        f_sw_kHz=65, ripple_pct=20, T_amb_C=40,
+        topology="boost_ccm",
+        Pout_W=600,
+        Vin_min_Vrms=85,
+        Vin_max_Vrms=265,
+        Vout_V=400,
+        f_sw_kHz=65,
+        ripple_pct=20,
+        T_amb_C=40,
     )
     mat = next(m for m in mats if m.id == "magnetics-60_highflux")
-    core = next(c for c in cores
-                if c.id == "magnetics-c058777a2-60_highflux")
+    core = next(c for c in cores if c.id == "magnetics-c058777a2-60_highflux")
     wire = next(w for w in wires if w.id == "AWG14")
     result = run_design(spec, core, wire, mat)
     return spec, core, wire, mat, result
@@ -51,6 +60,7 @@ def test_acoustic_card_initial_state_hidden(app) -> None:
     from pfc_inductor.ui.dashboard.cards.acoustic_card import (
         AcousticCard,
     )
+
     card = AcousticCard()
     try:
         assert card.isHidden()
@@ -60,7 +70,8 @@ def test_acoustic_card_initial_state_hidden(app) -> None:
 
 
 def test_acoustic_card_reveals_on_valid_design(
-    app, reference_inputs,
+    app,
+    reference_inputs,
 ) -> None:
     """Engine reports B_pk + ripple > 0 → card reveals + hero
     label populated with SPL value."""
@@ -102,7 +113,11 @@ def test_acoustic_card_hides_for_zero_design(app, reference_inputs) -> None:
     card = AcousticCard()
     try:
         card.update_from_design(
-            _ZeroResult(), spec, core, wire, mat,  # type: ignore[arg-type]
+            _ZeroResult(),
+            spec,
+            core,
+            wire,
+            mat,  # type: ignore[arg-type]
         )
         assert card.isHidden()
     finally:
@@ -127,7 +142,8 @@ def test_acoustic_card_clear_resets_state(app, reference_inputs) -> None:
 
 
 def test_acoustic_card_table_lists_contributors(
-    app, reference_inputs,
+    app,
+    reference_inputs,
 ) -> None:
     """Per-mechanism table shows one row per non-inf contributor."""
     from pfc_inductor.ui.dashboard.cards.acoustic_card import (
@@ -166,7 +182,8 @@ def test_analise_page_mounts_acoustic_card(app) -> None:
 
 
 def test_analise_page_acoustic_card_in_batch_loop(
-    app, reference_inputs,
+    app,
+    reference_inputs,
 ) -> None:
     """``update_from_design`` calls ``card_acoustic.update_from_design``
     via the ``_cards`` batch loop — verifies the card is

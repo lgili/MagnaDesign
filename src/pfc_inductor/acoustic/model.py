@@ -35,17 +35,19 @@ once the validation reference set's bench data lands. The
 estimator is documented as such in the report — engineers
 should treat its output as a screening tool, not a guarantee.
 """
+
 from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Literal, Optional
+from typing import Literal
 
 from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
 
-
 DominantMechanism = Literal[
-    "magnetostriction", "winding_lorentz", "bobbin_resonance",
+    "magnetostriction",
+    "winding_lorentz",
+    "bobbin_resonance",
     "none",
 ]
 
@@ -61,18 +63,18 @@ DominantMechanism = Literal[
 # (matches the inter-vendor spread for a given family).
 # ---------------------------------------------------------------------------
 _LAMBDA_S_DEFAULT_PPM_BY_TYPE: dict[str, float] = {
-    "ferrite":             1.0,    # MnZn / NiZn average
-    "MnZn":                0.7,    # quieter — typical for
-                                   # power ferrites (3C90, N87)
-    "NiZn":               25.0,    # NiZn ferrites hum loudly
-    "powder":              0.5,    # powder cores in general
-    "powder_high_flux":    0.5,
-    "powder_kool_mu":      0.3,    # Kool Mu — quietest powder
-    "powder_mpp":          0.2,    # MPP molypermalloy
-    "powder_xflux":        0.6,
-    "lamination":          8.0,    # silicon-steel laminations
-    "amorphous":           1.5,
-    "nanocrystalline":     0.5,
+    "ferrite": 1.0,  # MnZn / NiZn average
+    "MnZn": 0.7,  # quieter — typical for
+    # power ferrites (3C90, N87)
+    "NiZn": 25.0,  # NiZn ferrites hum loudly
+    "powder": 0.5,  # powder cores in general
+    "powder_high_flux": 0.5,
+    "powder_kool_mu": 0.3,  # Kool Mu — quietest powder
+    "powder_mpp": 0.2,  # MPP molypermalloy
+    "powder_xflux": 0.6,
+    "lamination": 8.0,  # silicon-steel laminations
+    "amorphous": 1.5,
+    "nanocrystalline": 0.5,
 }
 
 # Threshold below which a design is "quiet enough for an
@@ -88,6 +90,7 @@ DEFAULT_QUIET_THRESHOLD_DBA: float = 30.0
 # constant so re-tuning against new bench data is one edit.
 _RADIATION_EFFICIENCY: float = 1.5e-4
 
+
 # A-weighting at audible band centre frequencies — simplified
 # from the IEC 61672 curve. Used only for the dominant-tone
 # correction; full-spectrum A-weighting would require an
@@ -100,12 +103,8 @@ def _a_weighting_dB(frequency_Hz: float) -> float:
     f = max(float(frequency_Hz), 10.0)
     f2 = f * f
     f4 = f2 * f2
-    num = 12200.0 ** 2 * f4
-    den = (
-        (f2 + 20.6 ** 2) *
-        math.sqrt((f2 + 107.7 ** 2) * (f2 + 737.9 ** 2)) *
-        (f2 + 12200.0 ** 2)
-    )
+    num = 12200.0**2 * f4
+    den = (f2 + 20.6**2) * math.sqrt((f2 + 107.7**2) * (f2 + 737.9**2)) * (f2 + 12200.0**2)
     if den <= 0:
         return -999.0
     return 20.0 * math.log10(num / den) + 2.0
@@ -209,8 +208,7 @@ def _spl_magnetostriction_dba(
     quadratic in B — a sinusoidal B at fsw produces a
     rectified-sine λ at 2·fsw.
     """
-    if (lambda_s_ppm <= 0 or B_pk_T <= 0 or fsw_Hz <= 0
-            or core_volume_m3 <= 0):
+    if lambda_s_ppm <= 0 or B_pk_T <= 0 or fsw_Hz <= 0 or core_volume_m3 <= 0:
         return float("-inf"), 2.0 * fsw_Hz
 
     # Surface displacement amplitude:  Δl = λ_s × (B/B_sat)²
@@ -246,7 +244,7 @@ def _spl_winding_lorentz_dba(
     Negligible for single-layer designs; dominates when N_layers
     is large (Litz with many helical strands per layer).
     """
-    if (I_ripple_pk_pk_A <= 0 or fsw_Hz <= 0 or n_layers <= 1):
+    if I_ripple_pk_pk_A <= 0 or fsw_Hz <= 0 or n_layers <= 1:
         return float("-inf"), fsw_Hz
 
     # Per-pair force scales with I². Ripple amplitude is the
@@ -255,9 +253,7 @@ def _spl_winding_lorentz_dba(
     # Layer separation ≈ wire diameter × insulation factor.
     # Conservative default 1.5 mm for AWG 14-class rounds.
     d_layer_m = 1.5e-3
-    force_n_per_m = (
-        4e-7 * math.pi * (i_ac_a ** 2) / (2.0 * math.pi * d_layer_m)
-    )
+    force_n_per_m = 4e-7 * math.pi * (i_ac_a**2) / (2.0 * math.pi * d_layer_m)
     # Per-pair force × number of inter-layer pairs (n_layers - 1).
     total_force = force_n_per_m * max(n_layers - 1, 0)
     # Convert mechanical force to a velocity amplitude assuming
@@ -330,10 +326,15 @@ def estimate_noise(
 
     # Per-mechanism estimates.
     db_mag, freq_mag = _spl_magnetostriction_dba(
-        lambda_s, B_pk_T, fsw_Hz, volume_m3,
+        lambda_s,
+        B_pk_T,
+        fsw_Hz,
+        volume_m3,
     )
     db_lor, freq_lor = _spl_winding_lorentz_dba(
-        ripple, fsw_Hz, n_layers,
+        ripple,
+        fsw_Hz,
+        n_layers,
     )
     boost = _bobbin_resonance_boost_dB(fsw_Hz, n_layers, volume_m3)
 
@@ -360,14 +361,12 @@ def estimate_noise(
     # contribution. Ties resolved by the alphabetic ordering of
     # the keys so the result is deterministic.
     dominant: DominantMechanism = max(
-        contributors.items(), key=lambda kv: (kv[1], kv[0]),
+        contributors.items(),
+        key=lambda kv: (kv[1], kv[0]),
     )[0]
     if boost >= 6.0:
         dominant = "bobbin_resonance"
-    dominant_freq = (
-        freq_mag if dominant in ("magnetostriction", "bobbin_resonance")
-        else freq_lor
-    )
+    dominant_freq = freq_mag if dominant in ("magnetostriction", "bobbin_resonance") else freq_lor
 
     return NoiseEstimate(
         dB_a_at_1m=float(spl_dba),

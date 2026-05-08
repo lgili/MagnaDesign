@@ -5,6 +5,7 @@ Renders the dashboard headlessly to a PNG and compares it against
 tolerance. Update the baseline only when the layout intentionally
 changes (and review the diff before committing).
 """
+
 from __future__ import annotations
 
 import os
@@ -22,6 +23,7 @@ SIZE = (1140, 820)
 @pytest.fixture(scope="module")
 def app():
     from PySide6.QtWidgets import QApplication
+
     inst = QApplication.instance() or QApplication([])
     yield inst
 
@@ -29,11 +31,13 @@ def app():
 def _render_dashboard():
     from pfc_inductor.ui.dashboard import DashboardPage
     from pfc_inductor.ui.theme import set_theme
+
     set_theme("light")
     p = DashboardPage()
     p.resize(*SIZE)
     p.show()
     from PySide6.QtWidgets import QApplication
+
     app = QApplication.instance()
     if app is not None:
         app.processEvents()
@@ -67,8 +71,7 @@ def test_dashboard_matches_baseline(app):
 
     if rendered.size() != baseline.size():
         pytest.fail(
-            f"Size mismatch: rendered {rendered.size()} vs "
-            f"baseline {baseline.size()}",
+            f"Size mismatch: rendered {rendered.size()} vs baseline {baseline.size()}",
         )
 
     w, h = rendered.width(), rendered.height()
@@ -83,9 +86,11 @@ def test_dashboard_matches_baseline(app):
             n_total += 1
             r1 = rendered.pixelColor(x, y)
             r2 = baseline.pixelColor(x, y)
-            if (abs(r1.red() - r2.red()) > eps
-                    or abs(r1.green() - r2.green()) > eps
-                    or abs(r1.blue() - r2.blue()) > eps):
+            if (
+                abs(r1.red() - r2.red()) > eps
+                or abs(r1.green() - r2.green()) > eps
+                or abs(r1.blue() - r2.blue()) > eps
+            ):
                 n_diff += 1
     pct = 100.0 * n_diff / max(n_total, 1)
     assert pct <= 1.0, (

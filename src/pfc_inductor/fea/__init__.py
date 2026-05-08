@@ -6,6 +6,7 @@ Usage:
         result = validate_design(spec, core, wire, material, design_result)
         print(result.L_pct_error, result.B_pct_error)
 """
+
 from pfc_inductor.fea.models import (
     FEAValidation,
     FEMMNotAvailable,

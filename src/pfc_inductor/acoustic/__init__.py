@@ -34,6 +34,7 @@ Public API
   with sensible defaults when the catalogue entry doesn't
   carry an explicit λ_s value.
 """
+
 from __future__ import annotations
 
 from pfc_inductor.acoustic.model import (

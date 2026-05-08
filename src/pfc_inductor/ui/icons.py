@@ -21,6 +21,7 @@ Hyphenated and underscored names are accepted interchangeably so callers
 can use the upstream Lucide naming directly (``check-circle``) without
 losing back-compat with the v1 names (``check_circle``).
 """
+
 from __future__ import annotations
 
 from functools import lru_cache
@@ -44,7 +45,7 @@ _SVG_ATTRS = (
 
 def _svg(*parts: str) -> str:
     """Compose an SVG document from inline child elements."""
-    return f'<svg {_SVG_ATTRS}>' + "".join(parts) + "</svg>"
+    return f"<svg {_SVG_ATTRS}>" + "".join(parts) + "</svg>"
 
 
 _ICONS: dict[str, str] = {
@@ -110,7 +111,6 @@ _ICONS: dict[str, str] = {
         '<polyline points="8 17 12 21 16 17"/>',
         '<line x1="12" y1="12" x2="12" y2="21"/>',
     ),
-
     # --- v2 additions ----------------------------------------------------
     "layout-dashboard": _svg(
         '<rect x="3" y="3" width="7" height="9" rx="1"/>',
@@ -330,6 +330,7 @@ _ICONS: dict[str, str] = {
 # Public API
 # ---------------------------------------------------------------------------
 
+
 def _normalise(name: str) -> str:
     """Accept both ``check-circle`` and ``check_circle`` spellings."""
     return name.replace("_", "-")
@@ -370,8 +371,7 @@ def icon(name: str, color: str = "#52525B", size: int = 18) -> QIcon:
     if norm not in _ICONS:
         sample = ", ".join(available_icons()[:8])
         raise KeyError(
-            f"Unknown icon name: {name!r}. "
-            f"Available (first 8 of {len(_ICONS)}): {sample}, …"
+            f"Unknown icon name: {name!r}. Available (first 8 of {len(_ICONS)}): {sample}, …"
         )
     return QIcon(_render_pixmap(norm, color, size))
 

@@ -22,6 +22,7 @@ A hand-drawn gauge with the same gradient palette as the BH-loop
 danger line keeps the visual language coherent across the Analysis
 tab.
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -40,7 +41,6 @@ from PySide6.QtWidgets import (
 from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
 from pfc_inductor.ui.theme import get_theme, on_theme_changed
 from pfc_inductor.ui.widgets import Card
-
 
 # Threshold (°C) of margin where the gauge tone flips. Mirrors the
 # ResumoStrip's policy used for B-margin so the colour language stays
@@ -63,16 +63,14 @@ class _ThermalGauge(QWidget):
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
-        self.setSizePolicy(QSizePolicy.Policy.Expanding,
-                           QSizePolicy.Policy.Fixed)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.setMinimumHeight(48)
         self._t_amb: float = 25.0
         self._t_winding: Optional[float] = None
         self._t_max: float = 125.0
         on_theme_changed(self.update)
 
-    def set_temperatures(self, t_amb: float, t_winding: Optional[float],
-                         t_max: float) -> None:
+    def set_temperatures(self, t_amb: float, t_winding: Optional[float], t_max: float) -> None:
         self._t_amb = float(t_amb)
         self._t_winding = float(t_winding) if t_winding is not None else None
         self._t_max = float(t_max)
@@ -97,10 +95,10 @@ class _ThermalGauge(QWidget):
         # so the same design always paints the same colours regardless
         # of how generous T_max is.
         grad = QLinearGradient(margin_x, 0, margin_x + bar_w, 0)
-        grad.setColorAt(0.00, QColor(p.success))                    # cool
-        grad.setColorAt(0.55, QColor(p.warning))                    # warm
-        grad.setColorAt(0.85, QColor(p.danger))                     # hot
-        grad.setColorAt(1.00, QColor(p.danger).darker(115))         # over
+        grad.setColorAt(0.00, QColor(p.success))  # cool
+        grad.setColorAt(0.55, QColor(p.warning))  # warm
+        grad.setColorAt(0.85, QColor(p.danger))  # hot
+        grad.setColorAt(1.00, QColor(p.danger).darker(115))  # over
 
         bar_rect = QRectF(margin_x, bar_y, bar_w, self.BAR_HEIGHT)
         qp.setPen(QPen(QColor(p.border), 1.0))
@@ -115,13 +113,14 @@ class _ThermalGauge(QWidget):
         qp.setPen(QPen(QColor(p.text_secondary), 1.0))
         amb_rect = QRectF(margin_x, bar_y + self.BAR_HEIGHT + 2, 60, 14)
         qp.drawText(
-            amb_rect, int(Qt.AlignmentFlag.AlignLeft),
+            amb_rect,
+            int(Qt.AlignmentFlag.AlignLeft),
             f"{self._t_amb:.0f}°C",
         )
-        max_rect = QRectF(margin_x + bar_w - 60, bar_y + self.BAR_HEIGHT + 2,
-                          60, 14)
+        max_rect = QRectF(margin_x + bar_w - 60, bar_y + self.BAR_HEIGHT + 2, 60, 14)
         qp.drawText(
-            max_rect, int(Qt.AlignmentFlag.AlignRight),
+            max_rect,
+            int(Qt.AlignmentFlag.AlignRight),
             f"{self._t_max:.0f}°C",
         )
 
@@ -130,8 +129,7 @@ class _ThermalGauge(QWidget):
             return
         # Clamp so an over-temp design pins to the right edge instead
         # of painting outside the rect.
-        t_clamped = max(self._t_amb,
-                        min(self._t_winding, self._t_max + 5))
+        t_clamped = max(self._t_amb, min(self._t_winding, self._t_max + 5))
         ratio = (t_clamped - self._t_amb) / (self._t_max - self._t_amb)
         needle_x = margin_x + ratio * bar_w
         needle_top = bar_y - 4
@@ -140,8 +138,7 @@ class _ThermalGauge(QWidget):
         # Needle: tall thin black line on top of the gauge so it's
         # visible against any gradient stop.
         qp.setPen(QPen(QColor(p.text), 2.4))
-        qp.drawLine(int(needle_x), int(needle_top),
-                    int(needle_x), int(needle_bot))
+        qp.drawLine(int(needle_x), int(needle_top), int(needle_x), int(needle_bot))
         # Cap with a small filled circle for visual weight.
         qp.setBrush(QBrush(QColor(p.text)))
         qp.setPen(Qt.PenStyle.NoPen)
@@ -185,12 +182,10 @@ class _ThermalGaugeBody(QWidget):
 
         on_theme_changed(self._refresh_qss)
 
-    def _make_pill(self, caption: str, value: str,
-                   *, emphasised: bool = False) -> QFrame:
+    def _make_pill(self, caption: str, value: str, *, emphasised: bool = False) -> QFrame:
         """Three-stat pill: caption (small) + value (big)."""
         f = QFrame()
-        f.setObjectName("ThermalPillEmphasised" if emphasised
-                        else "ThermalPill")
+        f.setObjectName("ThermalPillEmphasised" if emphasised else "ThermalPill")
         col = QVBoxLayout(f)
         col.setContentsMargins(10, 6, 10, 6)
         col.setSpacing(2)
@@ -230,9 +225,9 @@ class _ThermalGaugeBody(QWidget):
         return wrap
 
     # ------------------------------------------------------------------
-    def update_from_design(self, result: DesignResult, spec: Spec,
-                           core: Core, wire: Wire,
-                           material: Material) -> None:
+    def update_from_design(
+        self, result: DesignResult, spec: Spec, core: Core, wire: Wire, material: Material
+    ) -> None:
         t_amb = float(spec.T_amb_C)
         t_max = float(spec.T_max_C)
         t_winding = float(result.T_winding_C)
@@ -269,10 +264,14 @@ class _ThermalGaugeBody(QWidget):
         self._set_pill_tone(self._pill_now, margin_c)
 
         # Origin split — proportional Cu vs core.
-        cu_W = max(0.0, getattr(result.losses, "P_cu_dc_W", 0.0)
-                   + getattr(result.losses, "P_cu_ac_W", 0.0))
-        core_W = max(0.0, getattr(result.losses, "P_core_line_W", 0.0)
-                     + getattr(result.losses, "P_core_ripple_W", 0.0))
+        cu_W = max(
+            0.0, getattr(result.losses, "P_cu_dc_W", 0.0) + getattr(result.losses, "P_cu_ac_W", 0.0)
+        )
+        core_W = max(
+            0.0,
+            getattr(result.losses, "P_core_line_W", 0.0)
+            + getattr(result.losses, "P_core_ripple_W", 0.0),
+        )
         total = cu_W + core_W
         if total <= 1e-9:
             cu_ratio, core_ratio = 0.5, 0.5
@@ -295,8 +294,7 @@ class _ThermalGaugeBody(QWidget):
         self._set_pill_tone(self._pill_now, None)
 
     # ------------------------------------------------------------------
-    def _set_pill_tone(self, pill: QFrame,
-                       margin_c: Optional[float]) -> None:
+    def _set_pill_tone(self, pill: QFrame, margin_c: Optional[float]) -> None:
         p = get_theme().palette
         if margin_c is None:
             border = p.border
@@ -314,8 +312,7 @@ class _ThermalGaugeBody(QWidget):
         self._pill_max.setStyleSheet(self._pill_qss(p.border))
         # Don't overwrite the emphasised pill's tonal border here.
         if not self._pill_now.styleSheet():
-            self._pill_now.setStyleSheet(self._pill_qss(p.border,
-                                                        emphasised=True))
+            self._pill_now.setStyleSheet(self._pill_qss(p.border, emphasised=True))
         self._cu_seg.setStyleSheet(
             f"QFrame#ThermalCuSeg {{ background: {p.accent};"
             f" border-top-left-radius: 5px;"
@@ -339,9 +336,9 @@ class _ThermalGaugeBody(QWidget):
             f"  border-radius: 8px;"
             f"}}"
             f"QLabel {{ color: {p.text}; }}"
-            f"QLabel[role=\"muted\"] {{ color: {p.text_secondary};"
+            f'QLabel[role="muted"] {{ color: {p.text_secondary};'
             f" font-size: 10px; font-weight: 500; }}"
-            f"QLabel[role=\"metric\"] {{ color: {p.text};"
+            f'QLabel[role="metric"] {{ color: {p.text};'
             f" font-size: 18px; font-weight: 700; }}"
         )
 

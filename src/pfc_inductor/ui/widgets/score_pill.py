@@ -8,6 +8,7 @@ Maps a score in [0, 100] to one of five semantic colour bands:
 - ``[40, 55)``  → amber-2 (orange-leaning)
 - ``[0, 40)``   → danger (red)
 """
+
 from __future__ import annotations
 
 from typing import Callable, Optional

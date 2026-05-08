@@ -1,4 +1,5 @@
 """Heuristic scoring functions for the Núcleo card's ranked-table view."""
+
 from __future__ import annotations
 
 import os
@@ -11,6 +12,7 @@ import pytest
 @pytest.fixture(scope="module")
 def app():
     from PySide6.QtWidgets import QApplication
+
     inst = QApplication.instance() or QApplication([])
     yield inst
 
@@ -23,6 +25,7 @@ def db():
         load_materials,
         load_wires,
     )
+
     ensure_user_data()
     return {
         "materials": load_materials(),
@@ -35,9 +38,11 @@ def db():
 # Score functions return [0, 100]
 # ---------------------------------------------------------------------------
 
+
 def test_score_material_in_range(app, db):
     from pfc_inductor.models import Spec
     from pfc_inductor.optimize.scoring import score_material
+
     spec = Spec()
     for m in db["materials"][:25]:
         s = score_material(spec, m)
@@ -47,6 +52,7 @@ def test_score_material_in_range(app, db):
 def test_score_core_in_range(app, db):
     from pfc_inductor.models import Spec
     from pfc_inductor.optimize.scoring import score_core
+
     spec = Spec()
     mat = db["materials"][0]
     wire = db["wires"][0]
@@ -58,6 +64,7 @@ def test_score_core_in_range(app, db):
 def test_score_wire_in_range(app, db):
     from pfc_inductor.models import Spec
     from pfc_inductor.optimize.scoring import score_wire
+
     spec = Spec()
     mat = db["materials"][0]
     core = db["cores"][0]
@@ -69,6 +76,7 @@ def test_score_wire_in_range(app, db):
 # ---------------------------------------------------------------------------
 # Topology-aware scoring
 # ---------------------------------------------------------------------------
+
 
 def test_score_material_topology_band_changes_ranking(app, db):
     """The μᵢ band scoring is topology-dependent: a material in the
@@ -106,9 +114,11 @@ def test_score_material_topology_band_changes_ranking(app, db):
 # rank_* helpers return sorted descending
 # ---------------------------------------------------------------------------
 
+
 def test_rank_materials_sorted_descending(app, db):
     from pfc_inductor.models import Spec
     from pfc_inductor.optimize.scoring import rank_materials
+
     spec = Spec()
     ranked = rank_materials(spec, db["materials"])
     assert len(ranked) == len(db["materials"])
@@ -119,6 +129,7 @@ def test_rank_materials_sorted_descending(app, db):
 def test_rank_cores_sorted_descending(app, db):
     from pfc_inductor.models import Spec
     from pfc_inductor.optimize.scoring import rank_cores
+
     spec = Spec()
     mat = db["materials"][0]
     wire = db["wires"][0]
@@ -131,6 +142,7 @@ def test_rank_cores_sorted_descending(app, db):
 def test_rank_wires_sorted_descending(app, db):
     from pfc_inductor.models import Spec
     from pfc_inductor.optimize.scoring import rank_wires
+
     spec = Spec()
     mat = db["materials"][0]
     core = db["cores"][0]
@@ -144,6 +156,7 @@ def test_rank_wires_sorted_descending(app, db):
 # Vendor curation gives small but consistent bonus
 # ---------------------------------------------------------------------------
 
+
 def test_curated_vendor_bonus_is_positive(app, db):
     """Two cores identical except for vendor — curated wins."""
     from pfc_inductor.models import Spec
@@ -155,31 +168,50 @@ def test_curated_vendor_bonus_is_positive(app, db):
 
     # Find a curated vendor core and an unknown-vendor core.
     curated = next(
-        c for c in db["cores"]
-        if (c.vendor or "").lower() in {
-            "magnetics", "magmattec", "micrometals", "csc",
-            "thornton", "dongxing",
+        c
+        for c in db["cores"]
+        if (c.vendor or "").lower()
+        in {
+            "magnetics",
+            "magmattec",
+            "micrometals",
+            "csc",
+            "thornton",
+            "dongxing",
         }
     )
     not_curated = next(
-        c for c in db["cores"]
-        if (c.vendor or "").lower() not in {
-            "magnetics", "magmattec", "micrometals", "csc",
-            "thornton", "dongxing", "tdk", "ferroxcube",
+        c
+        for c in db["cores"]
+        if (c.vendor or "").lower()
+        not in {
+            "magnetics",
+            "magmattec",
+            "micrometals",
+            "csc",
+            "thornton",
+            "dongxing",
+            "tdk",
+            "ferroxcube",
         }
     )
     assert score_core(spec, curated, mat, wire) >= 0
     # Direct comparison would need pairing same-feasibility; we just
     # assert the curated bonus surfaces in *some* row at the top.
     from pfc_inductor.optimize.scoring import rank_cores
+
     top10 = [c for c, _s in rank_cores(spec, db["cores"], mat, wire)[:10]]
     curated_in_top = sum(
-        1 for c in top10
-        if (c.vendor or "").lower() in {
-            "magnetics", "magmattec", "micrometals", "csc",
-            "thornton", "dongxing",
+        1
+        for c in top10
+        if (c.vendor or "").lower()
+        in {
+            "magnetics",
+            "magmattec",
+            "micrometals",
+            "csc",
+            "thornton",
+            "dongxing",
         }
     )
-    assert curated_in_top >= 5, (
-        f"expected ≥5 curated vendors in top-10 cores, got {curated_in_top}"
-    )
+    assert curated_in_top >= 5, f"expected ≥5 curated vendors in top-10 cores, got {curated_in_top}"

@@ -16,6 +16,7 @@ page text becomes glyph indices, not searchable ASCII. The
 size + magic + font checks catch the realistic failure modes
 (empty story, font fallback, truncated write).
 """
+
 from __future__ import annotations
 
 import tempfile
@@ -46,21 +47,34 @@ def _assert_valid_pdf(path: Path) -> bytes:
 def test_project_report_boost_ccm():
     mats, cores, wires = load_materials(), load_cores(), load_wires()
     spec = Spec(
-        Vin_min_Vrms=85.0, Vin_max_Vrms=265.0, Vin_nom_Vrms=220.0,
-        Vout_V=400.0, Pout_W=800.0, eta=0.97,
-        f_sw_kHz=65.0, ripple_pct=30.0,
+        Vin_min_Vrms=85.0,
+        Vin_max_Vrms=265.0,
+        Vin_nom_Vrms=220.0,
+        Vout_V=400.0,
+        Pout_W=800.0,
+        eta=0.97,
+        f_sw_kHz=65.0,
+        ripple_pct=30.0,
     )
     mat = find_material(mats, "magnetics-60_highflux")
-    core = next(c for c in cores
-                if c.default_material_id == "magnetics-60_highflux"
-                and 40000 < c.Ve_mm3 < 100000)
+    core = next(
+        c
+        for c in cores
+        if c.default_material_id == "magnetics-60_highflux" and 40000 < c.Ve_mm3 < 100000
+    )
     wire = next(w for w in wires if w.id == "AWG14")
     r = design(spec, core, wire, mat)
 
     with tempfile.TemporaryDirectory() as td:
         out = generate_project_report(
-            spec, core, mat, wire, r, Path(td) / "project.pdf",
-            designer="Test Engineer", revision="A.0",
+            spec,
+            core,
+            mat,
+            wire,
+            r,
+            Path(td) / "project.pdf",
+            designer="Test Engineer",
+            revision="A.0",
             project_id="PRJ-2026-001",
         )
         raw = _assert_valid_pdf(out)
@@ -74,8 +88,13 @@ def test_project_report_line_reactor():
     mats, cores, wires = load_materials(), load_cores(), load_wires()
     spec = Spec(
         topology="line_reactor",
-        Vin_nom_Vrms=380.0, Pout_W=10000.0, I_rated_Arms=20.0,
-        f_line_Hz=60.0, n_phases=3, pct_impedance=3.0, eta=0.95,
+        Vin_nom_Vrms=380.0,
+        Pout_W=10000.0,
+        I_rated_Arms=20.0,
+        f_line_Hz=60.0,
+        n_phases=3,
+        pct_impedance=3.0,
+        eta=0.95,
     )
     mat = next(m for m in mats if m.type == "silicon-steel")
     core = next(c for c in cores if c.shape == "EI")
@@ -84,7 +103,12 @@ def test_project_report_line_reactor():
 
     with tempfile.TemporaryDirectory() as td:
         out = generate_project_report(
-            spec, core, mat, wire, r, Path(td) / "lr_project.pdf",
+            spec,
+            core,
+            mat,
+            wire,
+            r,
+            Path(td) / "lr_project.pdf",
             project_id="PRJ-LR-001",
         )
         _assert_valid_pdf(out)
@@ -94,8 +118,10 @@ def test_project_report_passive_choke():
     mats, cores, wires = load_materials(), load_cores(), load_wires()
     spec = Spec(
         topology="passive_choke",
-        Vin_nom_Vrms=220.0, Pout_W=2000.0,
-        f_line_Hz=60.0, eta=0.92,
+        Vin_nom_Vrms=220.0,
+        Pout_W=2000.0,
+        f_line_Hz=60.0,
+        eta=0.92,
     )
     mat = next(m for m in mats if m.type == "silicon-steel")
     core = next(c for c in cores if c.shape == "EI")
@@ -104,7 +130,12 @@ def test_project_report_passive_choke():
 
     with tempfile.TemporaryDirectory() as td:
         out = generate_project_report(
-            spec, core, mat, wire, r, Path(td) / "pc_project.pdf",
+            spec,
+            core,
+            mat,
+            wire,
+            r,
+            Path(td) / "pc_project.pdf",
             project_id="PRJ-PC-001",
         )
         _assert_valid_pdf(out)
@@ -116,20 +147,32 @@ def test_project_report_falls_back_to_stamp_when_no_project_id():
     P/N — so the two artefacts cross-reference."""
     mats, cores, wires = load_materials(), load_cores(), load_wires()
     spec = Spec(
-        Vin_min_Vrms=85.0, Vin_max_Vrms=265.0, Vin_nom_Vrms=220.0,
-        Vout_V=400.0, Pout_W=600.0, eta=0.95,
-        f_sw_kHz=80.0, ripple_pct=30.0,
+        Vin_min_Vrms=85.0,
+        Vin_max_Vrms=265.0,
+        Vin_nom_Vrms=220.0,
+        Vout_V=400.0,
+        Pout_W=600.0,
+        eta=0.95,
+        f_sw_kHz=80.0,
+        ripple_pct=30.0,
     )
     mat = find_material(mats, "magnetics-60_highflux")
-    core = next(c for c in cores
-                if c.default_material_id == "magnetics-60_highflux"
-                and 40000 < c.Ve_mm3 < 100000)
+    core = next(
+        c
+        for c in cores
+        if c.default_material_id == "magnetics-60_highflux" and 40000 < c.Ve_mm3 < 100000
+    )
     wire = next(w for w in wires if w.id == "AWG14")
     r = design(spec, core, wire, mat)
 
     with tempfile.TemporaryDirectory() as td:
         out = generate_project_report(
-            spec, core, mat, wire, r, Path(td) / "default_id.pdf",
+            spec,
+            core,
+            mat,
+            wire,
+            r,
+            Path(td) / "default_id.pdf",
         )
         _assert_valid_pdf(out)
 
@@ -141,26 +184,35 @@ def test_project_report_designer_propagates(designer):
     so we verify via the metadata."""
     mats, cores, wires = load_materials(), load_cores(), load_wires()
     spec = Spec(
-        Vin_min_Vrms=85.0, Vin_max_Vrms=265.0, Vin_nom_Vrms=220.0,
-        Vout_V=400.0, Pout_W=600.0, eta=0.95,
-        f_sw_kHz=80.0, ripple_pct=30.0,
+        Vin_min_Vrms=85.0,
+        Vin_max_Vrms=265.0,
+        Vin_nom_Vrms=220.0,
+        Vout_V=400.0,
+        Pout_W=600.0,
+        eta=0.95,
+        f_sw_kHz=80.0,
+        ripple_pct=30.0,
     )
     mat = find_material(mats, "magnetics-60_highflux")
-    core = next(c for c in cores
-                if c.default_material_id == "magnetics-60_highflux"
-                and 40000 < c.Ve_mm3 < 100000)
+    core = next(
+        c
+        for c in cores
+        if c.default_material_id == "magnetics-60_highflux" and 40000 < c.Ve_mm3 < 100000
+    )
     wire = next(w for w in wires if w.id == "AWG14")
     r = design(spec, core, wire, mat)
 
     with tempfile.TemporaryDirectory() as td:
         out = generate_project_report(
-            spec, core, mat, wire, r,
+            spec,
+            core,
+            mat,
+            wire,
+            r,
             Path(td) / "designer.pdf",
             designer=designer,
         )
         raw = out.read_bytes()
         ascii_designer = designer.encode("ascii", errors="ignore")
         if ascii_designer:
-            assert ascii_designer in raw, (
-                f"Designer {designer!r} not in /Info dict"
-            )
+            assert ascii_designer in raw, f"Designer {designer!r} not in /Info dict"

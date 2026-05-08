@@ -13,6 +13,7 @@ Covers:
 - Round-trip through SpecPanel.get_spec / set_spec preserves the
   band.
 """
+
 from __future__ import annotations
 
 import os
@@ -25,6 +26,7 @@ import pytest
 @pytest.fixture(scope="module")
 def app():
     from PySide6.QtWidgets import QApplication
+
     inst = QApplication.instance() or QApplication([])
     yield inst
 
@@ -32,6 +34,7 @@ def app():
 @pytest.fixture
 def group(app):
     from pfc_inductor.ui.widgets.modulation_group import ModulationGroup
+
     g = ModulationGroup()
     yield g
     g.deleteLater()
@@ -79,10 +82,7 @@ def test_toggle_off_returns_none(group) -> None:
 def test_profile_combo_has_three_choices(group) -> None:
     """uniform / triangular_dither / rpm_band — keys must match
     ``ModulationProfile`` literal."""
-    keys = {
-        group._cmb_profile.itemData(i)
-        for i in range(group._cmb_profile.count())
-    }
+    keys = {group._cmb_profile.itemData(i) for i in range(group._cmb_profile.count())}
     assert keys == {"uniform", "triangular_dither", "rpm_band"}
 
 
@@ -132,9 +132,12 @@ def test_from_modulation_with_none_resets_to_disabled(group) -> None:
 
 def test_from_modulation_populates_every_field(group) -> None:
     from pfc_inductor.models import FswModulation
+
     mod = FswModulation(
-        fsw_min_kHz=8.0, fsw_max_kHz=22.0,
-        profile="triangular_dither", n_eval_points=7,
+        fsw_min_kHz=8.0,
+        fsw_max_kHz=22.0,
+        profile="triangular_dither",
+        n_eval_points=7,
     )
     group.from_modulation(mod)
     assert group.is_enabled()
@@ -181,9 +184,13 @@ def test_spec_panel_round_trip_through_modulation(app) -> None:
 
         # Round-trip a banded spec through set_spec → get_spec.
         m = FswModulation(
-            fsw_min_kHz=10, fsw_max_kHz=30,
-            profile="rpm_band", n_eval_points=4,
-            rpm_min=1500, rpm_max=4500, pole_pairs=2,
+            fsw_min_kHz=10,
+            fsw_max_kHz=30,
+            profile="rpm_band",
+            n_eval_points=4,
+            rpm_min=1500,
+            rpm_max=4500,
+            pole_pairs=2,
         )
         spec_in = spec0.model_copy(update={"fsw_modulation": m})
         panel.set_spec(spec_in)

@@ -18,6 +18,7 @@ Public API
 - :func:`render_summary` — terminal-friendly table rendered by
   the notebook's last cell.
 """
+
 from __future__ import annotations
 
 from validation.lib.compare import (

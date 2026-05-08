@@ -1,10 +1,10 @@
 """UL 1411 envelope tests."""
+
 from __future__ import annotations
 
 import pytest
 
 from pfc_inductor.standards.ul1411 import (
-    UlReport,
     evaluate,
     hipot_test_voltage,
     temperature_rise_limit_C,
@@ -97,7 +97,7 @@ def test_evaluate_class_step_up_on_failure() -> None:
         working_voltage_Vrms=230.0,
     )
     assert not rep_a.passes_temperature  # 80 > 65 limit
-    assert rep_f.passes_temperature       # 80 < 115 limit
+    assert rep_f.passes_temperature  # 80 < 115 limit
 
 
 # ---------------------------------------------------------------------------
@@ -108,9 +108,14 @@ def test_dispatcher_applies_ul1411_for_us_region() -> None:
     from pfc_inductor.models import Spec
 
     spec = Spec(
-        topology="boost_ccm", Pout_W=600,
-        Vin_min_Vrms=85, Vin_max_Vrms=265, Vout_V=400,
-        f_sw_kHz=65, ripple_pct=20, T_amb_C=40,
+        topology="boost_ccm",
+        Pout_W=600,
+        Vin_min_Vrms=85,
+        Vin_max_Vrms=265,
+        Vout_V=400,
+        f_sw_kHz=65,
+        ripple_pct=20,
+        T_amb_C=40,
     )
     assert "UL 1411" in applicable_standards(spec, "US")
 
@@ -120,9 +125,14 @@ def test_dispatcher_applies_ul1411_for_worldwide_region() -> None:
     from pfc_inductor.models import Spec
 
     spec = Spec(
-        topology="boost_ccm", Pout_W=600,
-        Vin_min_Vrms=85, Vin_max_Vrms=265, Vout_V=400,
-        f_sw_kHz=65, ripple_pct=20, T_amb_C=40,
+        topology="boost_ccm",
+        Pout_W=600,
+        Vin_min_Vrms=85,
+        Vin_max_Vrms=265,
+        Vout_V=400,
+        f_sw_kHz=65,
+        ripple_pct=20,
+        T_amb_C=40,
     )
     assert "UL 1411" in applicable_standards(spec, "Worldwide")
 
@@ -134,9 +144,14 @@ def test_dispatcher_skips_ul1411_for_eu_only() -> None:
     from pfc_inductor.models import Spec
 
     spec = Spec(
-        topology="boost_ccm", Pout_W=600,
-        Vin_min_Vrms=85, Vin_max_Vrms=265, Vout_V=400,
-        f_sw_kHz=65, ripple_pct=20, T_amb_C=40,
+        topology="boost_ccm",
+        Pout_W=600,
+        Vin_min_Vrms=85,
+        Vin_max_Vrms=265,
+        Vout_V=400,
+        f_sw_kHz=65,
+        ripple_pct=20,
+        T_amb_C=40,
     )
     assert "UL 1411" not in applicable_standards(spec, "EU")
 
@@ -146,7 +161,10 @@ def test_full_evaluate_includes_ul1411_for_us_region() -> None:
     carries UL 1411 with the temperature-rise row + hi-pot row."""
     from pfc_inductor.compliance import evaluate as bundle_evaluate
     from pfc_inductor.data_loader import (
-        ensure_user_data, load_cores, load_materials, load_wires,
+        ensure_user_data,
+        load_cores,
+        load_materials,
+        load_wires,
     )
     from pfc_inductor.design import design as run_design
     from pfc_inductor.models import Spec
@@ -156,13 +174,17 @@ def test_full_evaluate_includes_ul1411_for_us_region() -> None:
     cores = load_cores()
     wires = load_wires()
     spec = Spec(
-        topology="boost_ccm", Pout_W=600,
-        Vin_min_Vrms=85, Vin_max_Vrms=265, Vout_V=400,
-        f_sw_kHz=65, ripple_pct=20, T_amb_C=40,
+        topology="boost_ccm",
+        Pout_W=600,
+        Vin_min_Vrms=85,
+        Vin_max_Vrms=265,
+        Vout_V=400,
+        f_sw_kHz=65,
+        ripple_pct=20,
+        T_amb_C=40,
     )
     mat = next(m for m in mats if m.id == "magnetics-60_highflux")
-    core = next(c for c in cores
-                if c.id == "magnetics-c058777a2-60_highflux")
+    core = next(c for c in cores if c.id == "magnetics-c058777a2-60_highflux")
     wire = next(w for w in wires if w.id == "AWG14")
     result = run_design(spec, core, wire, mat)
 

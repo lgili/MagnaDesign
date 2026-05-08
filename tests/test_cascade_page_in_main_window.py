@@ -13,6 +13,7 @@ mount lands cleanly:
   `_apply_optimizer_choice` and switches the active area to
   Projeto.
 """
+
 from __future__ import annotations
 
 import os
@@ -25,17 +26,20 @@ import pytest
 @pytest.fixture(scope="module")
 def app():
     from PySide6.QtWidgets import QApplication
+
     inst = QApplication.instance() or QApplication([])
     yield inst
 
 
 # ─── Sidebar registration ──────────────────────────────────────
 
+
 def test_sidebar_lists_cascade_entry():
     """Sidebar entries are 4-tuples ``(id, label, icon, tooltip)`` —
     we only need the id+label here, so unpack defensively to stay
     forward-compatible with shape tweaks."""
     from pfc_inductor.ui.shell.sidebar import SIDEBAR_AREAS
+
     ids = {entry[0] for entry in SIDEBAR_AREAS}
     assert "cascade" in ids
     cascade_entry = next(e for e in SIDEBAR_AREAS if e[0] == "cascade")
@@ -46,6 +50,7 @@ def test_sidebar_lists_cascade_entry():
 
 
 # ─── MainWindow mount ──────────────────────────────────────────
+
 
 def test_main_window_mounts_cascade_page(app):
     from pfc_inductor.ui.main_window import AREA_PAGES, MainWindow
@@ -96,6 +101,7 @@ def test_main_window_pipes_db_into_cascade_page(app):
 
 # ─── Open-in-design routing ────────────────────────────────────
 
+
 def test_cascade_selection_applied_routes_to_apply_optimizer_choice(app):
     """The new "Aplicar selecionado" button on the cascade page must
     push selections through the same `_apply_optimizer_choice` path
@@ -107,15 +113,14 @@ def test_cascade_selection_applied_routes_to_apply_optimizer_choice(app):
     try:
         win.sidebar.navigation_requested.emit("cascade")
         any_core = win._cores[0]
-        any_material = next(
-            m for m in win._materials
-            if m.id == any_core.default_material_id
-        )
+        any_material = next(m for m in win._materials if m.id == any_core.default_material_id)
         any_wire = win._wires[0]
 
         # Emit the cascade page's `selection_applied` directly.
         win.cascade_page.selection_applied.emit(
-            any_material.id, any_core.id, any_wire.id,
+            any_material.id,
+            any_core.id,
+            any_wire.id,
         )
 
         # Selection updated on MainWindow.
@@ -144,14 +149,9 @@ def test_cascade_open_in_design_signal_routes_to_dashboard(app):
 
         # Pick a real (core, material, wire) the design engine knows about.
         any_core = win._cores[0]
-        any_material = next(
-            m for m in win._materials
-            if m.id == any_core.default_material_id
-        )
+        any_material = next(m for m in win._materials if m.id == any_core.default_material_id)
         any_wire = win._wires[0]
-        key = (
-            f"{any_core.id}|{any_material.id}|{any_wire.id}|_|_"
-        )
+        key = f"{any_core.id}|{any_material.id}|{any_wire.id}|_|_"
 
         # Emit the cascade page's signal; the routing is what we test.
         win.cascade_page.open_in_design_requested.emit(key)

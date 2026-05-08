@@ -32,6 +32,7 @@ it. Adding a new kind requires (a) the symbolic name here and
 the kinds string-typed (rather than a Python enum) makes JSON /
 YAML round-tripping cleaner.
 """
+
 from __future__ import annotations
 
 import json
@@ -39,7 +40,6 @@ from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
-
 
 ToleranceDistribution = Literal["gaussian", "uniform", "triangle"]
 """Statistical shape used by Monte-Carlo sampling.
@@ -55,13 +55,13 @@ distribution — the distribution only matters for yield estimation.
 
 ToleranceKind = Literal[
     # Spec-level inputs
-    "Vin_Vrms",   # ± offset on nominal Vin (Vrms)
-    "T_amb_C",    # absolute deviation on T_amb (°C)
-    "Pout_pct",   # ± deviation on Pout (% of nominal)
+    "Vin_Vrms",  # ± offset on nominal Vin (Vrms)
+    "T_amb_C",  # absolute deviation on T_amb (°C)
+    "Pout_pct",  # ± deviation on Pout (% of nominal)
     # Component variations
-    "AL_pct",     # ± deviation on inductance factor
-    "Bsat_pct",   # ± deviation on saturation flux density
-    "mu_r_pct",   # ± deviation on relative permeability
+    "AL_pct",  # ± deviation on inductance factor
+    "Bsat_pct",  # ± deviation on saturation flux density
+    "mu_r_pct",  # ± deviation on relative permeability
     "wire_dia_pct",  # ± deviation on copper diameter
 ]
 
@@ -109,7 +109,7 @@ class ToleranceSet(BaseModel):
     tolerances: list[Tolerance]
 
     @classmethod
-    def from_json(cls, payload: dict) -> "ToleranceSet":
+    def from_json(cls, payload: dict) -> ToleranceSet:
         """Defensive loader — unknown fields ignored, missing
         ``description`` filled with empty string. Mirrors the
         ``ProjectFile`` loader's leniency so a stray vendor-edited
@@ -117,7 +117,7 @@ class ToleranceSet(BaseModel):
         return cls.model_validate(payload)
 
     @classmethod
-    def from_path(cls, path: Path) -> "ToleranceSet":
+    def from_path(cls, path: Path) -> ToleranceSet:
         return cls.from_json(json.loads(Path(path).read_text()))
 
     def to_dict(self) -> dict:

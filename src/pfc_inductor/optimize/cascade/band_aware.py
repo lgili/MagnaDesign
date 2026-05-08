@@ -26,6 +26,7 @@ Public API
   :class:`CandidateRow` + the engine catalogues + a banded spec,
   returns a fresh list with worst-case fields substituted in.
 """
+
 from __future__ import annotations
 
 import math
@@ -105,10 +106,8 @@ def band_aware_rerank(
         worst_temp = _worst_metric(banded, "T_winding_C")
         new_row = replace(
             row,
-            loss_t1_W=(worst_loss if worst_loss is not None
-                       else row.loss_t1_W),
-            temp_t1_C=(worst_temp if worst_temp is not None
-                       else row.temp_t1_C),
+            loss_t1_W=(worst_loss if worst_loss is not None else row.loss_t1_W),
+            temp_t1_C=(worst_temp if worst_temp is not None else row.temp_t1_C),
         )
         out.append(new_row)
 

@@ -1,4 +1,5 @@
 """Dialog: find equivalent cores/materials for the current selection."""
+
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
@@ -73,9 +74,9 @@ class SimilarPartsDialog(QDialog):
         return (
             f"{c.vendor} — {c.part_number}  ({c.shape})\n"
             f"Ae={c.Ae_mm2:.1f} mm²  Wa={c.Wa_mm2:.1f} mm²  AL={c.AL_nH:.0f} nH  "
-            f"Ve={c.Ve_mm3/1000:.1f} cm³\n"
+            f"Ve={c.Ve_mm3 / 1000:.1f} cm³\n"
             f"Material: {m.vendor} — {m.name}  μ_r={m.mu_initial:.0f}  "
-            f"Bsat(25/100°C)={m.Bsat_25C_T*1000:.0f}/{m.Bsat_100C_T*1000:.0f} mT"
+            f"Bsat(25/100°C)={m.Bsat_25C_T * 1000:.0f}/{m.Bsat_100C_T * 1000:.0f} mT"
         )
 
     def _build_filter_box(self) -> QGroupBox:
@@ -130,10 +131,19 @@ class SimilarPartsDialog(QDialog):
         self.lbl_count = QLabel("—")
         v.addWidget(self.lbl_count)
         self.table = QTableWidget(0, 9)
-        self.table.setHorizontalHeaderLabels([
-            "Vendor", "Part number", "Shape", "Material",
-            "Δ Ae", "Δ Wa", "Δ AL", "Δ μ_r", "d",
-        ])
+        self.table.setHorizontalHeaderLabels(
+            [
+                "Vendor",
+                "Part number",
+                "Shape",
+                "Material",
+                "Δ Ae",
+                "Δ Wa",
+                "Δ AL",
+                "Δ μ_r",
+                "d",
+            ]
+        )
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
@@ -172,8 +182,11 @@ class SimilarPartsDialog(QDialog):
     def _refresh(self):
         crit = self._criteria()
         self._current_matches = find_equivalents(
-            self._target_core, self._target_material,
-            self._cores, self._materials, crit,
+            self._target_core,
+            self._target_material,
+            self._cores,
+            self._materials,
+            crit,
         )
         self._populate_table()
 

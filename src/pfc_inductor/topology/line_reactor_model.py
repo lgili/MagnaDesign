@@ -1,5 +1,6 @@
 """Line reactor (1Ø / 3Ø, diode-bridge front end) — Phase-A adapter
 + Phase-B state-space."""
+
 from __future__ import annotations
 
 import math
@@ -24,8 +25,7 @@ class LineReactorModel:
     def __init__(self, spec: Spec) -> None:
         if spec.topology != "line_reactor":
             raise ValueError(
-                f"LineReactorModel requires spec.topology == 'line_reactor', "
-                f"got {spec.topology!r}",
+                f"LineReactorModel requires spec.topology == 'line_reactor', got {spec.topology!r}",
             )
         self.spec = spec
         self._omega_line = 2.0 * math.pi * float(spec.f_line_Hz)
@@ -33,7 +33,10 @@ class LineReactorModel:
         self._V_phase_pk = math.sqrt(2.0) * float(spec.phase_voltage_Vrms)
 
     def feasibility_envelope(
-        self, core: Core, material: Material, wire: Wire,
+        self,
+        core: Core,
+        material: Material,
+        wire: Wire,
     ) -> FeasibilityEnvelope:
         verdict = core_quick_check(self.spec, core, material, wire)
         if verdict == "ok":
@@ -41,7 +44,10 @@ class LineReactorModel:
         return FeasibilityEnvelope(feasible=False, reasons=[verdict])
 
     def steady_state(
-        self, core: Core, material: Material, wire: Wire,
+        self,
+        core: Core,
+        material: Material,
+        wire: Wire,
     ) -> DesignResult:
         return design(self.spec, core, wire, material)
 
@@ -81,7 +87,8 @@ class LineReactorModel:
         i_L = float(x[0])
         v_phase = self._V_phase_pk * math.sin(self._omega_line * t)
         Z_base = float(self.spec.phase_voltage_Vrms) / max(
-            float(self.spec.I_rated_Arms), 1e-6,
+            float(self.spec.I_rated_Arms),
+            1e-6,
         )
         v_L = v_phase - Z_base * i_L
         L = inductor.L_H(i_L)

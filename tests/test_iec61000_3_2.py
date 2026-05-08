@@ -5,6 +5,7 @@ Cross-checked against the upstream calculations in
 real PDF test reports). Numbers in this file are *the same* numbers
 that drive the lab's pass/fail decisions today.
 """
+
 from __future__ import annotations
 
 import math
@@ -17,29 +18,41 @@ from pfc_inductor.standards import iec61000_3_2 as iec
 # ---------------------------------------------------------------------------
 # Factor / absolute limit tables
 # ---------------------------------------------------------------------------
-@pytest.mark.parametrize("n,expected_factor", [
-    (3, 3.4), (5, 1.9), (7, 1.0), (9, 0.5), (11, 0.35),
-])
+@pytest.mark.parametrize(
+    "n,expected_factor",
+    [
+        (3, 3.4),
+        (5, 1.9),
+        (7, 1.0),
+        (9, 0.5),
+        (11, 0.35),
+    ],
+)
 def test_factor_per_watt_fixed_orders_match_table_3(n, expected_factor):
     assert iec.factor_per_watt_ma(n) == expected_factor
 
 
-@pytest.mark.parametrize("n,expected_abs_a", [
-    (3, 2.30), (5, 1.14), (7, 0.77), (9, 0.40), (11, 0.33),
-])
+@pytest.mark.parametrize(
+    "n,expected_abs_a",
+    [
+        (3, 2.30),
+        (5, 1.14),
+        (7, 0.77),
+        (9, 0.40),
+        (11, 0.33),
+    ],
+)
 def test_absolute_limit_fixed_orders_match_table_3(n, expected_abs_a):
     assert iec.absolute_limit_a(n) == expected_abs_a
 
 
 @pytest.mark.parametrize("n", [13, 15, 17, 19, 21, 25, 39])
 def test_factor_extension_4_0_decays_as_3_85_over_n(n):
-    assert math.isclose(iec.factor_per_watt_ma(n, edition="4.0"),
-                        3.85 / n, rel_tol=1e-9)
+    assert math.isclose(iec.factor_per_watt_ma(n, edition="4.0"), 3.85 / n, rel_tol=1e-9)
 
 
 def test_factor_extension_5_0_uses_3_65():
-    assert math.isclose(iec.factor_per_watt_ma(13, edition="5.0"),
-                        3.65 / 13, rel_tol=1e-9)
+    assert math.isclose(iec.factor_per_watt_ma(13, edition="5.0"), 3.65 / 13, rel_tol=1e-9)
 
 
 @pytest.mark.parametrize("n", [13, 17, 21, 39])
@@ -73,6 +86,7 @@ def test_class_d_limits_at_high_power_clamp_to_absolute():
 def test_class_d_limits_match_upstream_extrator():
     """Cross-check our limits against the lab's reference implementation."""
     import sys
+
     upstream_path = "/Users/lgili/Documents/02 - Trabalho/extrator_harmonicos/src"
     if upstream_path not in sys.path:
         sys.path.insert(0, upstream_path)
@@ -107,7 +121,7 @@ def test_evaluate_compliance_fails_when_one_over():
     Pi = 400.0
     limits = iec.class_d_limits(Pi)
     measured = {n: lim * 0.5 for n, lim in limits.items()}
-    measured[5] = limits[5] * 1.20    # 20% over the 5th-harmonic limit
+    measured[5] = limits[5] * 1.20  # 20% over the 5th-harmonic limit
     rep = iec.evaluate_compliance(measured, Pi)
     assert not rep.passes
     assert rep.limiting_harmonic == 5

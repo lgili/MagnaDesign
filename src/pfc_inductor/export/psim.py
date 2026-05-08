@@ -14,10 +14,11 @@ The fragment is a textual contract — PSIM doesn't have a
 universal text-import format like LTspice's ``.lib``, so the
 file is intended for paste-into-element-property-dialog usage.
 """
+
 from __future__ import annotations
 
 import textwrap
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from pfc_inductor.export.curves import flux_vs_current
 from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
@@ -37,8 +38,11 @@ def to_psim_fragment(
     I_max = max(_peak_current_A(result), 1e-3) * 1.5
 
     flux_table = flux_vs_current(
-        material=material, core=core, n_turns=n_turns,
-        I_max=I_max, n_points=n_points,
+        material=material,
+        core=core,
+        n_turns=n_turns,
+        I_max=I_max,
+        n_points=n_points,
     )
 
     R_dc = float(getattr(result, "R_dc_ohm", 0.0) or 0.0)
@@ -48,14 +52,16 @@ def to_psim_fragment(
     L_nominal_uH = float(result.L_actual_uH or 0.0)
 
     header = _build_header(
-        spec=spec, core=core, wire=wire, material=material,
-        n_turns=n_turns, L_uH=L_nominal_uH, I_max=I_max,
+        spec=spec,
+        core=core,
+        wire=wire,
+        material=material,
+        n_turns=n_turns,
+        L_uH=L_nominal_uH,
+        I_max=I_max,
     )
 
-    pairs_block = "\n".join(
-        f"  {I:.6f}  {flux:.6e}"
-        for I, flux in flux_table
-    )
+    pairs_block = "\n".join(f"  {I:.6f}  {flux:.6e}" for I, flux in flux_table)
 
     body = textwrap.dedent(f"""\
         # PSIM Saturable Inductor — paste into element parameters
@@ -79,10 +85,16 @@ def to_psim_fragment(
 # Helpers (mirrors of ltspice.py — kept inline so the modules stay independent)
 # ---------------------------------------------------------------------------
 def _build_header(
-    *, spec: Spec, core: Core, wire: Wire, material: Material,
-    n_turns: int, L_uH: float, I_max: float,
+    *,
+    spec: Spec,
+    core: Core,
+    wire: Wire,
+    material: Material,
+    n_turns: int,
+    L_uH: float,
+    I_max: float,
 ) -> str:
-    timestamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    timestamp = datetime.now(UTC).isoformat(timespec="seconds")
     return textwrap.dedent(f"""\
         # --------------------------------------------------------------
         # MagnaDesign — PSIM Saturable-Inductor fragment export

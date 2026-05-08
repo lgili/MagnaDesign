@@ -1,4 +1,5 @@
 """Top-left view chips: Frente / Cima / Lateral / Iso."""
+
 from __future__ import annotations
 
 from typing import Optional
@@ -16,9 +17,9 @@ from pfc_inductor.ui.theme import get_theme, on_theme_changed
 
 _VIEWS = (
     ("front", "Frente"),
-    ("top",   "Cima"),
-    ("side",  "Lateral"),
-    ("iso",   "Iso"),
+    ("top", "Cima"),
+    ("side", "Lateral"),
+    ("iso", "Iso"),
 )
 
 

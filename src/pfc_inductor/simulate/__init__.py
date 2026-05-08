@@ -15,6 +15,7 @@ The package is intentionally topology-agnostic. Each topology owns
 its own state-space (the differential equations + switching events)
 in its `*_model.py` adapter.
 """
+
 from pfc_inductor.simulate.integrator import (
     SimulationConfig,
     simulate_to_steady_state,

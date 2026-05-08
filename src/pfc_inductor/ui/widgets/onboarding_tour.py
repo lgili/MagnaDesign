@@ -22,6 +22,7 @@ Visual style is intentionally lightweight — a translucent overlay +
 a balloon callout, *not* a multi-modal wizard. Engineers don't want
 to be lectured; they want enough to start clicking.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -50,6 +51,7 @@ class TourStep:
     - ``body``: 1–2 sentence explanation.
     - ``cta_label``: CTA on the right of the bubble ("Next", "OK").
     """
+
     title: str
     body: str
     cta_label: str = "Next"
@@ -115,8 +117,7 @@ class OnboardingTour(QWidget):
         # paint the dim overlay ourselves while keeping the balloon's
         # children fully opaque.
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
-        self.setSizePolicy(QSizePolicy.Policy.Expanding,
-                           QSizePolicy.Policy.Expanding)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
         self._balloon = self._build_balloon()
         self._balloon.setParent(self)
@@ -128,8 +129,9 @@ class OnboardingTour(QWidget):
     # Public API
     # ------------------------------------------------------------------
     @classmethod
-    def maybe_show(cls, parent: QWidget,
-                   settings_key: str = "ui/onboarding_seen") -> Optional["OnboardingTour"]:
+    def maybe_show(
+        cls, parent: QWidget, settings_key: str = "ui/onboarding_seen"
+    ) -> Optional[OnboardingTour]:
         """Show only if the persistent flag isn't set yet.
 
         Use from the host's first-show event handler. Returns the
@@ -151,7 +153,7 @@ class OnboardingTour(QWidget):
     # ------------------------------------------------------------------
     # Lifecycle / rendering
     # ------------------------------------------------------------------
-    def paintEvent(self, _event):                                  # noqa: D401
+    def paintEvent(self, _event):
         # Hand-painted dim overlay — single ``fillRect`` is the cheapest
         # way to render a uniform translucent layer. ``QGraphicsOpacity``
         # would also work but introduces an effect node we don't need.
@@ -161,7 +163,7 @@ class OnboardingTour(QWidget):
         c.setAlphaF(self.OVERLAY_OPACITY)
         painter.fillRect(self.rect(), c)
 
-    def resizeEvent(self, _event):                                 # noqa: D401
+    def resizeEvent(self, _event):
         self._reposition()
 
     # ------------------------------------------------------------------
@@ -226,7 +228,7 @@ class OnboardingTour(QWidget):
         bh = self._balloon.sizeHint().height() or 200
         cx = self.width() // 2
         x = max(16, cx - bw // 2)
-        y = self.height() - bh - 64       # 64 px above bottom edge
+        y = self.height() - bh - 64  # 64 px above bottom edge
         self._balloon.setGeometry(x, y, bw, bh)
 
     # ------------------------------------------------------------------
@@ -248,7 +250,8 @@ class OnboardingTour(QWidget):
             from pfc_inductor.settings import SETTINGS_APP, SETTINGS_ORG
 
             QSettings(SETTINGS_ORG, SETTINGS_APP).setValue(
-                self._settings_key, True,
+                self._settings_key,
+                True,
             )
         self.finished.emit()
         self.deleteLater()
@@ -271,30 +274,19 @@ class OnboardingTour(QWidget):
     def _title_qss() -> str:
         p = get_theme().palette
         t = get_theme().type
-        return (
-            f"color: {p.text};"
-            f"font-size: {t.title_md}px;"
-            f"font-weight: {t.semibold};"
-        )
+        return f"color: {p.text};font-size: {t.title_md}px;font-weight: {t.semibold};"
 
     @staticmethod
     def _body_qss() -> str:
         p = get_theme().palette
         t = get_theme().type
-        return (
-            f"color: {p.text_secondary};"
-            f"font-size: {t.body_md}px;"
-            f"line-height: 1.4;"
-        )
+        return f"color: {p.text_secondary};font-size: {t.body_md}px;line-height: 1.4;"
 
     @staticmethod
     def _counter_qss() -> str:
         p = get_theme().palette
         t = get_theme().type
-        return (
-            f"color: {p.text_muted};"
-            f"font-size: {t.caption}px;"
-        )
+        return f"color: {p.text_muted};font-size: {t.caption}px;"
 
     @staticmethod
     def _skip_qss() -> str:

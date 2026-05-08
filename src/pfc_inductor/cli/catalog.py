@@ -27,6 +27,7 @@ Examples
     magnadesign catalog cores --filter vendor=Magnetics --csv mag.csv
     magnadesign catalog wires --filter d_cu_mm=1.0
 """
+
 from __future__ import annotations
 
 import csv
@@ -45,11 +46,10 @@ from pfc_inductor.data_loader import (
     load_wires,
 )
 
-
 _RESOURCES: dict[str, Any] = {
     "materials": load_materials,
-    "cores":     load_cores,
-    "wires":     load_wires,
+    "cores": load_cores,
+    "wires": load_wires,
 }
 
 
@@ -68,15 +68,14 @@ def register(group: click.Group) -> None:
     "filters",
     multiple=True,
     help="Repeat as ``--filter key=value``. Case-insensitive "
-         "substring match. Multiple filters AND together.",
+    "substring match. Multiple filters AND together.",
 )
 @click.option(
     "--csv",
     "csv_path",
     type=click.Path(dir_okay=False, path_type=Path),
     default=None,
-    help="When set, write CSV to this path. Otherwise emit JSON "
-         "on stdout.",
+    help="When set, write CSV to this path. Otherwise emit JSON on stdout.",
 )
 @click.option(
     "--limit",
@@ -141,7 +140,8 @@ def _parse_filters(filters: tuple[str, ...]) -> list[tuple[str, str]]:
 
 
 def _apply_filters(
-    rows: Iterable[Any], filters: list[tuple[str, str]],
+    rows: Iterable[Any],
+    filters: list[tuple[str, str]],
 ) -> Iterable[Any]:
     """Yield rows where every filter's substring is contained in
     the row's attribute (case-insensitive)."""
@@ -205,9 +205,7 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
             # spreadsheet-friendly flat shape; the JSON output
             # path keeps the nested structure for tools that need
             # it.
-            flat = {
-                k: _flatten(v) for k, v in row.items()
-            }
+            flat = {k: _flatten(v) for k, v in row.items()}
             writer.writerow(flat)
 
 

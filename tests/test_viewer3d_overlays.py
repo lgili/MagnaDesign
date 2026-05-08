@@ -1,4 +1,5 @@
 """Overlay HUD widgets for the 3D viewer."""
+
 from __future__ import annotations
 
 import os
@@ -11,6 +12,7 @@ import pytest
 @pytest.fixture(scope="module")
 def app():
     from PySide6.QtWidgets import QApplication
+
     inst = QApplication.instance() or QApplication([])
     yield inst
 
@@ -19,14 +21,17 @@ def app():
 # ViewChips
 # ---------------------------------------------------------------------------
 
+
 def test_view_chips_default_active_is_iso(app):
     from pfc_inductor.ui.viewer3d import ViewChips
+
     c = ViewChips()
     assert c.active() == "iso"
 
 
 def test_view_chips_click_emits_view_changed(app):
     from pfc_inductor.ui.viewer3d import ViewChips
+
     c = ViewChips()
     received: list[str] = []
     c.view_changed.connect(received.append)
@@ -37,6 +42,7 @@ def test_view_chips_click_emits_view_changed(app):
 
 def test_view_chips_set_active_does_not_emit(app):
     from pfc_inductor.ui.viewer3d import ViewChips
+
     c = ViewChips()
     received: list[str] = []
     c.view_changed.connect(received.append)
@@ -49,8 +55,10 @@ def test_view_chips_set_active_does_not_emit(app):
 # OrientationCube
 # ---------------------------------------------------------------------------
 
+
 def test_orientation_cube_paints(app):
     from pfc_inductor.ui.viewer3d import OrientationCube
+
     cube = OrientationCube()
     assert cube.size().width() == cube.SIZE
     assert cube.size().height() == cube.SIZE
@@ -62,12 +70,14 @@ def test_orientation_cube_face_click_emits_signals(app):
     flaky in offscreen mode. The contract we care about: hitting a +X
     face routes to the side view, +Y to front, +Z to top."""
     from pfc_inductor.ui.viewer3d import OrientationCube
+
     cube = OrientationCube()
     received: list[str] = []
     cube.view_requested.connect(received.append)
     # Synthesise a click at the centre of each visible face polygon.
     from PySide6.QtCore import QEvent, QPointF, Qt
     from PySide6.QtGui import QMouseEvent
+
     # ``_face_polygons`` was renamed to ``_slot_polygons`` in the v3
     # OrientationCube refactor; this test follows the new attribute.
     for name, poly in cube._slot_polygons.items():
@@ -90,8 +100,10 @@ def test_orientation_cube_face_click_emits_signals(app):
 # SideToolbar
 # ---------------------------------------------------------------------------
 
+
 def test_side_toolbar_button_set(app):
     from pfc_inductor.ui.viewer3d import SideToolbar
+
     t = SideToolbar()
     expected = {"maximize-2", "image", "layers", "crop", "ruler", "settings-2"}
     assert set(t._buttons.keys()) == expected
@@ -99,6 +111,7 @@ def test_side_toolbar_button_set(app):
 
 def test_side_toolbar_screenshot_signal(app):
     from pfc_inductor.ui.viewer3d import SideToolbar
+
     t = SideToolbar()
     fired = []
     t.screenshot_requested.connect(lambda: fired.append(1))
@@ -108,6 +121,7 @@ def test_side_toolbar_screenshot_signal(app):
 
 def test_side_toolbar_layers_emits_dict(app):
     from pfc_inductor.ui.viewer3d import SideToolbar
+
     t = SideToolbar()
     received: list[dict] = []
     t.layers_requested.connect(received.append)
@@ -122,8 +136,10 @@ def test_side_toolbar_layers_emits_dict(app):
 # BottomActions
 # ---------------------------------------------------------------------------
 
+
 def test_bottom_actions_have_4_buttons(app):
     from pfc_inductor.ui.viewer3d import BottomActions
+
     b = BottomActions()
     for label_attr in ("btn_explode", "btn_section", "btn_measure", "btn_export"):
         assert getattr(b, label_attr) is not None
@@ -131,6 +147,7 @@ def test_bottom_actions_have_4_buttons(app):
 
 def test_bottom_actions_export_menu_emits_format(app):
     from pfc_inductor.ui.viewer3d import BottomActions
+
     b = BottomActions()
     received: list[str] = []
     b.export_requested.connect(received.append)
@@ -143,6 +160,7 @@ def test_bottom_actions_export_menu_emits_format(app):
 
 def test_bottom_actions_explode_emits_bool(app):
     from pfc_inductor.ui.viewer3d import BottomActions
+
     b = BottomActions()
     fired: list[bool] = []
     b.explode_toggled.connect(fired.append)
@@ -155,8 +173,10 @@ def test_bottom_actions_explode_emits_bool(app):
 # Shared camera presets
 # ---------------------------------------------------------------------------
 
+
 def test_visual_views_exposed(app):
     from pfc_inductor.visual import VIEW_CAMERAS
+
     assert set(VIEW_CAMERAS.keys()) == {"front", "top", "side", "iso"}
     # Each entry is (dir, up) where up is non-zero in some axis.
     for name, (cam_dir, up_vec) in VIEW_CAMERAS.items():
@@ -167,8 +187,10 @@ def test_visual_views_exposed(app):
 # CoreView3D fallback (offscreen ⇒ no plotter, but overlays still mount)
 # ---------------------------------------------------------------------------
 
+
 def test_core_view_3d_falls_back_in_offscreen(app):
     from pfc_inductor.ui.core_view_3d import CoreView3D
+
     v = CoreView3D()
     # Plotter is None under offscreen Qt.
     assert v.plotter is None

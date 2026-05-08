@@ -12,6 +12,7 @@ ships data the user didn't authorise. Tests cover:
   hands properties through the same scrubber the crashes
   module uses.
 """
+
 from __future__ import annotations
 
 import os
@@ -87,7 +88,8 @@ def test_set_consent_partial_keeps_other_flag(isolated_consent) -> None:
 
 
 def test_has_consent_respects_kill_switch(
-    isolated_consent, monkeypatch,
+    isolated_consent,
+    monkeypatch,
 ) -> None:
     from pfc_inductor.telemetry import has_consent, set_consent
 
@@ -115,10 +117,12 @@ def test_scrub_event_redacts_home_paths() -> None:
     home = os.path.expanduser("~")
     event = {
         "exception": {
-            "values": [{
-                "type": "RuntimeError",
-                "value": f"failed at {home}/projects/secret.pfc",
-            }],
+            "values": [
+                {
+                    "type": "RuntimeError",
+                    "value": f"failed at {home}/projects/secret.pfc",
+                }
+            ],
         },
     }
     out = scrub_event(event)
@@ -152,11 +156,13 @@ def test_scrub_event_drops_project_file_breadcrumbs() -> None:
     from pfc_inductor.telemetry import scrub_event
 
     event = {
-        "breadcrumbs": {"values": [
-            {"category": "ui", "message": "click"},
-            {"category": "project_file", "message": "dump"},
-            {"category": "engine", "message": "design"},
-        ]},
+        "breadcrumbs": {
+            "values": [
+                {"category": "ui", "message": "click"},
+                {"category": "project_file", "message": "dump"},
+                {"category": "engine", "message": "design"},
+            ]
+        },
     }
     out = scrub_event(event)
     cats = [bc["category"] for bc in out["breadcrumbs"]["values"]]
@@ -183,7 +189,8 @@ def test_init_crash_reporter_is_noop_without_consent(
 
 
 def test_init_crash_reporter_is_noop_when_disabled(
-    isolated_consent, monkeypatch,
+    isolated_consent,
+    monkeypatch,
 ) -> None:
     from pfc_inductor.telemetry import init_crash_reporter, set_consent
 
@@ -193,7 +200,8 @@ def test_init_crash_reporter_is_noop_when_disabled(
 
 
 def test_init_crash_reporter_is_noop_without_dsn(
-    isolated_consent, monkeypatch,
+    isolated_consent,
+    monkeypatch,
 ) -> None:
     """Even with consent + SDK installed, no DSN → no-op."""
     from pfc_inductor.telemetry import init_crash_reporter, set_consent
@@ -226,8 +234,7 @@ def test_track_event_calls_backend_when_consented(
     set_backend(_capture)
     try:
         set_consent(crashes=False, analytics=True)
-        ok = track_event("opened_project",
-                         {"topology": "boost_ccm"})
+        ok = track_event("opened_project", {"topology": "boost_ccm"})
         assert ok is True
         assert len(received) == 1
         name, props, did = received[0]
@@ -241,6 +248,7 @@ def test_track_event_calls_backend_when_consented(
         # Restore the no-op backend so subsequent tests aren't
         # polluted.
         from pfc_inductor.telemetry.analytics import _noop_backend
+
         set_backend(_noop_backend)
 
 
@@ -259,15 +267,19 @@ def test_track_event_scrubs_properties(isolated_consent) -> None:
     try:
         set_consent(analytics=True)
         home = os.path.expanduser("~")
-        track_event("opened", {
-            "path": f"{home}/secret/foo.pfc",
-            "email": "alice@example.com",
-        })
+        track_event(
+            "opened",
+            {
+                "path": f"{home}/secret/foo.pfc",
+                "email": "alice@example.com",
+            },
+        )
         props = received.get("properties", {})
         assert home not in str(props)
         assert "alice@example.com" not in str(props)
     finally:
         from pfc_inductor.telemetry.analytics import _noop_backend
+
         set_backend(_noop_backend)
 
 

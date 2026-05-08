@@ -1,4 +1,5 @@
 """A snapshot of one design for side-by-side comparison."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -16,9 +17,7 @@ class CompareSlot:
 
     @property
     def label(self) -> str:
-        return (
-            f"{self.material.name} + {self.core.part_number} + {self.wire.id}"
-        )
+        return f"{self.material.name} + {self.core.part_number} + {self.wire.id}"
 
     @property
     def short_label(self) -> str:

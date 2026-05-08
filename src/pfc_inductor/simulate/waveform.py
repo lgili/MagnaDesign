@@ -8,6 +8,7 @@ The companion ``CycleStats`` aggregates per-cycle peaks the
 integrator uses for steady-state detection, kept on the waveform
 so callers can audit how convergence was declared.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -19,11 +20,11 @@ import numpy as np
 class CycleStats:
     """Per-line-cycle peak metrics; populated by the integrator."""
 
-    i_pk_per_cycle_A: np.ndarray   # shape (n_cycles,)
-    B_pk_per_cycle_T: np.ndarray   # shape (n_cycles,)
-    converged: bool                # True iff peaks stabilised
-    rel_tol: float                 # tolerance the integrator declared on
-    convergence_window: int        # how many cycles were compared
+    i_pk_per_cycle_A: np.ndarray  # shape (n_cycles,)
+    B_pk_per_cycle_T: np.ndarray  # shape (n_cycles,)
+    converged: bool  # True iff peaks stabilised
+    rel_tol: float  # tolerance the integrator declared on
+    convergence_window: int  # how many cycles were compared
 
 
 @dataclass(frozen=True)
@@ -38,7 +39,9 @@ class Waveform:
         default_factory=lambda: CycleStats(
             i_pk_per_cycle_A=np.array([]),
             B_pk_per_cycle_T=np.array([]),
-            converged=False, rel_tol=0.0, convergence_window=0,
+            converged=False,
+            rel_tol=0.0,
+            convergence_window=0,
         ),
     )
 

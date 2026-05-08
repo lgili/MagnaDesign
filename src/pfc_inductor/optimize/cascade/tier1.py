@@ -10,6 +10,7 @@ process pool. It catches every exception so a single bad candidate
 never aborts a sweep — failures are recorded as a `notes` entry on
 the candidate's row and the orchestrator moves on.
 """
+
 from __future__ import annotations
 
 from typing import Optional

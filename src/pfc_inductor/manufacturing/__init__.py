@@ -26,6 +26,7 @@ above and returns a :class:`MfgSpec` dataclass; both writers
 consume that single payload so a CLI invocation is a one-liner
 chain.
 """
+
 from __future__ import annotations
 
 from pfc_inductor.manufacturing.acceptance import (
@@ -33,8 +34,8 @@ from pfc_inductor.manufacturing.acceptance import (
     build_acceptance_tests,
 )
 from pfc_inductor.manufacturing.insulation_stack import (
-    InsulationClass,
     INSULATION_CLASSES,
+    InsulationClass,
     hipot_voltage_V,
     pick_insulation_class,
 )
@@ -46,15 +47,15 @@ from pfc_inductor.manufacturing.winding_layout import (
 )
 
 __all__ = [
-    "AcceptanceTest",
-    "build_acceptance_tests",
-    "build_mfg_spec",
     "INSULATION_CLASSES",
-    "hipot_voltage_V",
+    "AcceptanceTest",
     "InsulationClass",
     "LayerPlan",
     "MfgSpec",
+    "WindingPlan",
+    "build_acceptance_tests",
+    "build_mfg_spec",
+    "hipot_voltage_V",
     "pick_insulation_class",
     "plan_winding",
-    "WindingPlan",
 ]

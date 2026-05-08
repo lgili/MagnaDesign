@@ -42,6 +42,7 @@ The reactor sees the fundamental V across it. From V = N·dΦ/dt:
 
 where V_L_rms = (pct/100) · V_phase_rms.
 """
+
 from __future__ import annotations
 
 import math
@@ -148,9 +149,9 @@ def commutation_overlap_rad(spec: Spec, L_actual_mH: float) -> float:
     omega = 2.0 * math.pi * max(spec.f_line_Hz, 1.0)
     X_L = omega * L_actual_mH * 1e-3
     if spec.n_phases == 3:
-        V_pk = math.sqrt(2.0) * spec.Vin_nom_Vrms        # V_LL peak
+        V_pk = math.sqrt(2.0) * spec.Vin_nom_Vrms  # V_LL peak
     else:
-        V_pk = math.sqrt(2.0) * spec.Vin_nom_Vrms        # V_LN peak
+        V_pk = math.sqrt(2.0) * spec.Vin_nom_Vrms  # V_LN peak
     if V_pk <= 0:
         return 0.0
     arg = 1.0 - 2.0 * X_L * spec.I_rated_Arms / V_pk
@@ -159,8 +160,11 @@ def commutation_overlap_rad(spec: Spec, L_actual_mH: float) -> float:
 
 
 def line_current_waveform(
-    spec: Spec, L_actual_mH: float,
-    *, n_cycles: int = 2, n_points: int = 2000,
+    spec: Spec,
+    L_actual_mH: float,
+    *,
+    n_cycles: int = 2,
+    n_points: int = 2000,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Synthesise i_a(t) for a diode rectifier + DC-link line reactor.
 
@@ -208,7 +212,10 @@ def line_current_waveform(
 
 
 def _waveform_3ph_rectifier(
-    spec: Spec, L_actual_mH: float, t: np.ndarray, T: float,
+    spec: Spec,
+    L_actual_mH: float,
+    t: np.ndarray,
+    T: float,
 ) -> np.ndarray:
     """Phase-A current of a 6-pulse rectifier (textbook approximation).
 
@@ -241,7 +248,9 @@ def _waveform_3ph_rectifier(
 
 
 def _waveform_1ph_cap_dc_link(
-    t: np.ndarray, T: float, pct_Z: float,
+    t: np.ndarray,
+    T: float,
+    pct_Z: float,
 ) -> np.ndarray:
     """Line current of a 1-phase rectifier with capacitive DC-link.
 
@@ -251,7 +260,7 @@ def _waveform_1ph_cap_dc_link(
     of width ``τ`` centred at each AC peak, where τ scales with
     pct_impedance.
     """
-    duty = 0.20 + 0.045 * pct_Z          # 1.5% → 0.27, 5% → 0.42, 10% → 0.65
+    duty = 0.20 + 0.045 * pct_Z  # 1.5% → 0.27, 5% → 0.42, 10% → 0.65
     duty = min(0.55, max(0.18, duty))
     tau = duty * (T / 2.0)
 
@@ -270,7 +279,10 @@ def _waveform_1ph_cap_dc_link(
 
 
 def harmonic_amplitudes_pct(
-    spec: Spec, L_actual_mH: float, *, n_harmonics: int = 15,
+    spec: Spec,
+    L_actual_mH: float,
+    *,
+    n_harmonics: int = 15,
 ) -> np.ndarray:
     """Per-harmonic amplitude (% of fundamental) — derived by FFT of the
     same waveform model used by ``line_current_waveform``.
@@ -283,8 +295,7 @@ def harmonic_amplitudes_pct(
     # Sample at 50 cycles, 50000 points → FFT bin width = f_line/50,
     # bin h = h*50, plenty of resolution and exact alignment.
     n_cycles, n_pts = 50, 50000
-    t, i = line_current_waveform(spec, L_actual_mH,
-                                 n_cycles=n_cycles, n_points=n_pts)
+    _t, i = line_current_waveform(spec, L_actual_mH, n_cycles=n_cycles, n_points=n_pts)
     fft = np.fft.rfft(i)
     mag_peak = np.abs(fft) * 2.0 / n_pts
     fund = float(mag_peak[n_cycles])
@@ -300,7 +311,11 @@ def harmonic_amplitudes_pct(
 
 
 def harmonic_spectrum(
-    t: np.ndarray, i: np.ndarray, *, f_line_Hz: float, n_harmonics: int = 15,
+    t: np.ndarray,
+    i: np.ndarray,
+    *,
+    f_line_Hz: float,
+    n_harmonics: int = 15,
 ) -> tuple[np.ndarray, np.ndarray, float]:
     """FFT of the supplied line current. Returns (n, mag_pct, THD%).
 

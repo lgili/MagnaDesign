@@ -7,6 +7,7 @@ the **saturation margin** as both an absolute B/B_sat ratio and a
 percentage — the two numbers an engineer reads first to confirm a
 design isn't sitting on the saturation knee.
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -26,10 +27,8 @@ class _EntreferroBody(QWidget):
         g.setVerticalSpacing(10)
         self.m_AL = MetricCard("A_L", "—", "nH/N²", compact=True)
         self.m_BBs = MetricCard("B / B_sat", "—", "T", compact=True)
-        self.m_H = MetricCard("H_peak", "—", "Oe",
-                              trend_better="lower", compact=True)
-        self.m_margin = MetricCard("Sat. margin", "—", "%",
-                                   trend_better="higher", compact=True)
+        self.m_H = MetricCard("H_peak", "—", "Oe", trend_better="lower", compact=True)
+        self.m_margin = MetricCard("Sat. margin", "—", "%", trend_better="higher", compact=True)
         # 2×2 grid keeps the card squarish and exposes 4 facts at a
         # glance — was 1×3 with ``μ_eff`` in the middle slot.
         g.addWidget(self.m_AL, 0, 0)
@@ -37,12 +36,12 @@ class _EntreferroBody(QWidget):
         g.addWidget(self.m_H, 1, 0)
         g.addWidget(self.m_margin, 1, 1)
 
-    def update_from_design(self, result: DesignResult, spec: Spec,
-                           core: Core, wire: Wire,
-                           material: Material) -> None:
+    def update_from_design(
+        self, result: DesignResult, spec: Spec, core: Core, wire: Wire, material: Material
+    ) -> None:
         # A_L (nH/N²): L = A_L · N²  ⇒  A_L = L / N² (in nH/N²)
         L_nH = result.L_actual_uH * 1000.0
-        A_L = L_nH / max(result.N_turns ** 2, 1)
+        A_L = L_nH / max(result.N_turns**2, 1)
         self.m_AL.set_value(f"{A_L:.0f}")
 
         # B / B_sat — peak flux vs limit (shows both numbers

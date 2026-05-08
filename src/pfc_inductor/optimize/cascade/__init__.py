@@ -10,6 +10,7 @@ Phase B/C/D add Tier 2 (transient ODE), Tier 3 (batched FEA) and
 Tier 4 (transient FEA). The public API surface in this package is
 intentionally narrow — most callers go through the orchestrator.
 """
+
 from pfc_inductor.optimize.cascade.orchestrator import (
     CascadeConfig,
     CascadeOrchestrator,

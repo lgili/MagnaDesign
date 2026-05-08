@@ -9,6 +9,7 @@ v3 contract:
 - No QToolBar, no 8-step stepper, no Modo Clássico, no QSplitter
   mounting SpecPanel|PlotPanel|ResultPanel.
 """
+
 from __future__ import annotations
 
 import os
@@ -21,6 +22,7 @@ import pytest
 @pytest.fixture(scope="module")
 def app():
     from PySide6.QtWidgets import QApplication
+
     inst = QApplication.instance() or QApplication([])
     yield inst
 
@@ -28,6 +30,7 @@ def app():
 @pytest.fixture
 def win(app):
     from pfc_inductor.ui.main_window import MainWindow
+
     w = MainWindow()
     yield w
     w.close()
@@ -38,6 +41,7 @@ def test_main_window_has_v3_shell_widgets(win):
     from pfc_inductor.ui.shell.header import WorkspaceHeader
     from pfc_inductor.ui.shell.scoreboard import Scoreboard
     from pfc_inductor.ui.shell.spec_drawer import SpecDrawer
+
     assert isinstance(win.sidebar, Sidebar)
     assert isinstance(win.projeto_page.drawer, SpecDrawer)
     assert isinstance(win.projeto_page.scoreboard, Scoreboard)
@@ -48,6 +52,7 @@ def test_main_window_has_v3_shell_widgets(win):
 
 def test_main_window_no_legacy_qtoolbar(win):
     from PySide6.QtWidgets import QToolBar
+
     bars = win.findChildren(QToolBar)
     assert bars == []
 
@@ -62,6 +67,7 @@ def test_main_window_no_legacy_splitter(win):
     from pfc_inductor.ui.plot_panel import PlotPanel
     from pfc_inductor.ui.result_panel import ResultPanel
     from pfc_inductor.ui.spec_panel import SpecPanel
+
     legacy_panels = (SpecPanel, PlotPanel, ResultPanel)
 
     for sp in win.findChildren(QSplitter):
@@ -77,8 +83,13 @@ def test_main_window_no_legacy_splitter(win):
 
 def test_sidebar_navigation_routes_to_stack(win):
     from pfc_inductor.ui.main_window import AREA_PAGES
+
     assert AREA_PAGES == (
-        "dashboard", "otimizador", "cascade", "catalogo", "configuracoes",
+        "dashboard",
+        "otimizador",
+        "cascade",
+        "catalogo",
+        "configuracoes",
     )
     for area in AREA_PAGES:
         win.sidebar._on_nav_clicked(area)
@@ -104,6 +115,7 @@ def test_calc_populates_scoreboard(win):
 
 def test_theme_toggle_does_not_change_sidebar_palette(win, app):
     from pfc_inductor.ui.theme import SIDEBAR
+
     win._toggle_theme()
     assert SIDEBAR.bg == "#0F1729"
     win._toggle_theme()  # restore

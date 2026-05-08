@@ -4,6 +4,7 @@ The official binaries live at ``https://onelab.info/files/`` and are
 versioned by year (no semver). We pin the tag so re-installing on a
 different machine pulls the same build.
 """
+
 from __future__ import annotations
 
 from pfc_inductor.setup_deps.platform_info import PlatformInfo

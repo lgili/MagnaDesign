@@ -3,6 +3,7 @@
 One row per metric, one column per slot. Cells coloured in light green
 (better) or light red (worse) relative to column 0.
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -30,8 +31,8 @@ def generate_compare_html(slots: list[CompareSlot], output_path: str | Path) -> 
     n = len(slots)
 
     head_cells = "".join(
-        f'<th>{escape(s.short_label.replace(chr(10), " · "))}'
-        f'{(" <span class=ref>REF</span>" if i == 0 else "")}</th>'
+        f"<th>{escape(s.short_label.replace(chr(10), ' · '))}"
+        f"{(' <span class=ref>REF</span>' if i == 0 else '')}</th>"
         for i, s in enumerate(slots)
     )
 
@@ -46,18 +47,18 @@ def generate_compare_html(slots: list[CompareSlot], output_path: str | Path) -> 
             try:
                 val_text = metric.format(s)
                 v = metric.value_of(s)
-                kind = categorize(metric.key, ref_val, v) if (i > 0 and ref_val is not None) else "neutral"
+                kind = (
+                    categorize(metric.key, ref_val, v)
+                    if (i > 0 and ref_val is not None)
+                    else "neutral"
+                )
             except Exception:
                 val_text = "—"
                 kind = "neutral"
             unit = f" {metric.unit}" if metric.unit else ""
             bg = _BG[kind]
-            cells.append(
-                f'<td style="background:{bg};">{escape(val_text)}{escape(unit)}</td>'
-            )
-        body_rows.append(
-            f'<tr><th class="metric">{escape(metric.label)}</th>{"".join(cells)}</tr>'
-        )
+            cells.append(f'<td style="background:{bg};">{escape(val_text)}{escape(unit)}</td>')
+        body_rows.append(f'<tr><th class="metric">{escape(metric.label)}</th>{"".join(cells)}</tr>')
 
     spec_rows = _spec_table(slots)
     sel_rows = _selection_table(slots)
@@ -117,15 +118,32 @@ def _spec_table(slots: list[CompareSlot]) -> str:
         ("Topology", lambda s: s.spec.topology),
         ("Vin (range)", lambda s: f"{s.spec.Vin_min_Vrms:.0f}–{s.spec.Vin_max_Vrms:.0f} Vrms"),
         # Boost/Passive fields
-        ("Vout", lambda s: f"{s.spec.Vout_V:.0f} V" if s.spec.topology != 'line_reactor' else "—"),
-        ("Pout", lambda s: f"{s.spec.Pout_W:.0f} W" if s.spec.topology != 'line_reactor' else "—"),
-        ("fsw", lambda s: f"{s.spec.f_sw_kHz:.0f} kHz" if s.spec.topology != 'line_reactor' else "—"),
-        ("Ripple target", lambda s: f"{s.spec.ripple_pct:.0f} %" if s.spec.topology != 'line_reactor' else "—"),
+        ("Vout", lambda s: f"{s.spec.Vout_V:.0f} V" if s.spec.topology != "line_reactor" else "—"),
+        ("Pout", lambda s: f"{s.spec.Pout_W:.0f} W" if s.spec.topology != "line_reactor" else "—"),
+        (
+            "fsw",
+            lambda s: f"{s.spec.f_sw_kHz:.0f} kHz" if s.spec.topology != "line_reactor" else "—",
+        ),
+        (
+            "Ripple target",
+            lambda s: f"{s.spec.ripple_pct:.0f} %" if s.spec.topology != "line_reactor" else "—",
+        ),
         # Line Reactor fields
-        ("Phases", lambda s: str(s.spec.n_phases) if s.spec.topology == 'line_reactor' else "—"),
-        ("Line V", lambda s: f"{s.spec.Vin_nom_Vrms:.0f} Vrms" if s.spec.topology == 'line_reactor' else "—"),
-        ("Rated I", lambda s: f"{s.spec.I_rated_Arms:.1f} A" if s.spec.topology == 'line_reactor' else "—"),
-        ("Target inductance", lambda s: f"{s.spec.L_req_mH:.2f} mH" if s.spec.topology == 'line_reactor' else "—"),
+        ("Phases", lambda s: str(s.spec.n_phases) if s.spec.topology == "line_reactor" else "—"),
+        (
+            "Line V",
+            lambda s: (
+                f"{s.spec.Vin_nom_Vrms:.0f} Vrms" if s.spec.topology == "line_reactor" else "—"
+            ),
+        ),
+        (
+            "Rated I",
+            lambda s: f"{s.spec.I_rated_Arms:.1f} A" if s.spec.topology == "line_reactor" else "—",
+        ),
+        (
+            "Target inductance",
+            lambda s: f"{s.spec.L_req_mH:.2f} mH" if s.spec.topology == "line_reactor" else "—",
+        ),
         # Common fields
         ("T amb", lambda s: f"{s.spec.T_amb_C:.0f} °C"),
     ]
@@ -146,9 +164,12 @@ def _selection_table(slots: list[CompareSlot]) -> str:
     rows = []
     fields = [
         ("Core", lambda s: f"{s.core.vendor} — {s.core.part_number} ({s.core.shape})"),
-        ("Material", lambda s: f"{s.material.vendor} — {s.material.name}  μ={s.material.mu_initial:.0f}"),
+        (
+            "Material",
+            lambda s: f"{s.material.vendor} — {s.material.name}  μ={s.material.mu_initial:.0f}",
+        ),
         ("Wire", lambda s: f"{s.wire.id} ({s.wire.type})"),
-        ("Core volume", lambda s: f"{s.core.Ve_mm3/1000:.1f} cm³"),
+        ("Core volume", lambda s: f"{s.core.Ve_mm3 / 1000:.1f} cm³"),
     ]
     for name, fn in fields:
         cells = "".join(f"<td>{escape(str(fn(s)))}</td>" for s in slots)

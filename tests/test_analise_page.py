@@ -4,6 +4,7 @@ The second tab of the Projeto workspace, hosting waveforms, losses,
 winding and gap detail. Replaces the bento ``DashboardPage`` for the
 post-selection design analysis flow.
 """
+
 from __future__ import annotations
 
 import os
@@ -16,6 +17,7 @@ import pytest
 @pytest.fixture(scope="module")
 def app():
     from PySide6.QtWidgets import QApplication
+
     inst = QApplication.instance() or QApplication([])
     yield inst
 
@@ -51,6 +53,7 @@ def test_analise_page_card_set(app):
     card. NucleoCard / Viz3DCard / Resumo / ProximosPassos are NOT
     here — they live elsewhere in v3."""
     from pfc_inductor.ui.workspace.analise_page import AnalisePage
+
     p = AnalisePage()
     from pfc_inductor.ui.dashboard.cards import (
         BHLoopCard,
@@ -65,20 +68,26 @@ def test_analise_page_card_set(app):
     from pfc_inductor.ui.dashboard.cards.acoustic_card import (
         AcousticCard,
     )
+
     expected = {
-        FormasOndaCard, BHLoopCard, ThermalGaugeCard, LCurrentCard,
-        PerdasCard, BobinamentoCard, EntreferroCard,
-        DetalhesTecnicosCard, AcousticCard,
+        FormasOndaCard,
+        BHLoopCard,
+        ThermalGaugeCard,
+        LCurrentCard,
+        PerdasCard,
+        BobinamentoCard,
+        EntreferroCard,
+        DetalhesTecnicosCard,
+        AcousticCard,
     }
     types = {type(c) for c in p._cards}
-    assert types == expected, (
-        f"Card set drifted; got {types}, expected {expected}"
-    )
+    assert types == expected, f"Card set drifted; got {types}, expected {expected}"
     assert len(p._cards) == len(expected)
 
 
 def test_analise_page_update_propagates(app, design_bundle):
     from pfc_inductor.ui.workspace.analise_page import AnalisePage
+
     p = AnalisePage()
     result, spec, core, wire, material = design_bundle
     p.update_from_design(result, spec, core, wire, material)
@@ -88,6 +97,7 @@ def test_analise_page_update_propagates(app, design_bundle):
 
 def test_analise_page_clear_resets_every_card(app, design_bundle):
     from pfc_inductor.ui.workspace.analise_page import AnalisePage
+
     p = AnalisePage()
     result, spec, core, wire, material = design_bundle
     p.update_from_design(result, spec, core, wire, material)

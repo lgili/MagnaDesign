@@ -42,6 +42,7 @@ plot legend. Returns ``None`` if the spec is half-configured (no
 inductance, no rated current, etc.) so the caller can fall back to
 the engine's sampled arrays.
 """
+
 from __future__ import annotations
 
 import math
@@ -51,10 +52,10 @@ import numpy as np
 
 from pfc_inductor.models import DesignResult, Spec
 
-
 # ---------------------------------------------------------------------------
 # Public types
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class RealisticWaveform:
@@ -114,9 +115,12 @@ class RealisticWaveform:
 # Spectrum + THD helper
 # ---------------------------------------------------------------------------
 
+
 def _spectrum_at_harmonics(
-    t_s: np.ndarray, signal: np.ndarray,
-    fundamental_Hz: float, n_harmonics: int = 20,
+    t_s: np.ndarray,
+    signal: np.ndarray,
+    fundamental_Hz: float,
+    n_harmonics: int = 20,
 ) -> tuple[np.ndarray, np.ndarray, float]:
     """FFT of ``signal`` sampled at the harmonic bins of ``fundamental_Hz``.
 
@@ -172,7 +176,8 @@ def _spectrum_at_harmonics(
 
 
 def _attach_spectrum(
-    wf: RealisticWaveform, fundamental_Hz: float,
+    wf: RealisticWaveform,
+    fundamental_Hz: float,
     n_harmonics: int = 20,
 ) -> RealisticWaveform:
     """Compute spectrum + THD on ``wf.iL_A`` and return a new bundle.
@@ -182,7 +187,10 @@ def _attach_spectrum(
     spectrum is invariant under phase rotation).
     """
     h, pct, thd = _spectrum_at_harmonics(
-        wf.t_s, wf.iL_A, fundamental_Hz, n_harmonics=n_harmonics,
+        wf.t_s,
+        wf.iL_A,
+        fundamental_Hz,
+        n_harmonics=n_harmonics,
     )
     return RealisticWaveform(
         topology=wf.topology,
@@ -203,8 +211,8 @@ def _attach_spectrum(
 # Topology-specific synthesisers
 # ---------------------------------------------------------------------------
 
-def _boost_ccm(spec: Spec, result: DesignResult,
-               n_samples: int) -> RealisticWaveform | None:
+
+def _boost_ccm(spec: Spec, result: DesignResult, n_samples: int) -> RealisticWaveform | None:
     """Boost-CCM iL(t) — sinusoidal PFC envelope + per-cycle HF ripple.
 
     State-space averaging gives the slow envelope; the HF triangle
@@ -241,8 +249,7 @@ def _boost_ccm(spec: Spec, result: DesignResult,
     Vout = float(spec.Vout_V or 0.0)
     Pout = float(spec.Pout_W or 0.0)
     eta = float(getattr(spec, "eta", 0.95) or 0.95)
-    if (f_line <= 0 or f_sw_kHz <= 0 or Vin_min <= 0
-            or Vout <= 0 or Pout <= 0):
+    if f_line <= 0 or f_sw_kHz <= 0 or Vin_min <= 0 or Vout <= 0 or Pout <= 0:
         return None
 
     L = L_uH * 1e-6
@@ -297,8 +304,7 @@ def _boost_ccm(spec: Spec, result: DesignResult,
     return _attach_spectrum(base, fundamental_Hz=2.0 * f_line)
 
 
-def _passive_choke(spec: Spec, result: DesignResult,
-                   n_samples: int) -> RealisticWaveform | None:
+def _passive_choke(spec: Spec, result: DesignResult, n_samples: int) -> RealisticWaveform | None:
     """Passive choke iL(t) — DC bus current with line-frequency ripple.
 
     A passive PFC choke sits between the bridge and the bulk cap.
@@ -350,9 +356,7 @@ def _passive_choke(spec: Spec, result: DesignResult,
 
     note = ""
     if delta_pp_raw > 1.6 * I_dc:
-        note = " · ⚠ L abaixo do recomendado (ripple raw {:.0f} A)".format(
-            delta_pp_raw,
-        )
+        note = f" · ⚠ L abaixo do recomendado (ripple raw {delta_pp_raw:.0f} A)"
     base = RealisticWaveform(
         topology="passive_choke",
         n_phases=1,
@@ -369,8 +373,7 @@ def _passive_choke(spec: Spec, result: DesignResult,
     return _attach_spectrum(base, fundamental_Hz=2.0 * f_line)
 
 
-def _line_reactor_1ph(spec: Spec, result: DesignResult,
-                      n_samples: int) -> RealisticWaveform | None:
+def _line_reactor_1ph(spec: Spec, result: DesignResult, n_samples: int) -> RealisticWaveform | None:
     """1φ line-reactor iL(t) — calibrated by the engine, not synthesised.
 
     The engine's design path for ``line_reactor`` already runs
@@ -408,8 +411,11 @@ def _line_reactor_1ph(spec: Spec, result: DesignResult,
             f"I_pk = {result.I_line_pk_A:.2f} A"
         )
         base = RealisticWaveform(
-            topology="line_reactor", n_phases=1,
-            t_s=t, iL_A=iL, label=label,
+            topology="line_reactor",
+            n_phases=1,
+            t_s=t,
+            iL_A=iL,
+            label=label,
         )
         return _attach_spectrum(base, fundamental_Hz=f_line)
 
@@ -435,12 +441,10 @@ def _line_reactor_1ph(spec: Spec, result: DesignResult,
     period = 1.0 / f_line
     t = np.linspace(0.0, 2 * period, n_samples, endpoint=False)
     phase = (omega * t) % (2.0 * math.pi)
-    pos_pulse = np.cos(0.5 * np.pi * (phase - 0.5 * math.pi)
-                       / (0.5 * theta_cond))
-    pos_window = (np.abs(phase - 0.5 * math.pi) < 0.5 * theta_cond)
-    neg_pulse = np.cos(0.5 * np.pi * (phase - 1.5 * math.pi)
-                       / (0.5 * theta_cond))
-    neg_window = (np.abs(phase - 1.5 * math.pi) < 0.5 * theta_cond)
+    pos_pulse = np.cos(0.5 * np.pi * (phase - 0.5 * math.pi) / (0.5 * theta_cond))
+    pos_window = np.abs(phase - 0.5 * math.pi) < 0.5 * theta_cond
+    neg_pulse = np.cos(0.5 * np.pi * (phase - 1.5 * math.pi) / (0.5 * theta_cond))
+    neg_window = np.abs(phase - 1.5 * math.pi) < 0.5 * theta_cond
     I_pk_raw = 1.2 * math.pi * I_dc / max(theta_cond, 0.1)
     I_pk = min(I_pk_raw, 5.0 * max(I_dc, 0.1))
     iL = np.zeros_like(t)
@@ -461,8 +465,7 @@ def _line_reactor_1ph(spec: Spec, result: DesignResult,
     return _attach_spectrum(base, fundamental_Hz=f_line)
 
 
-def _line_reactor_3ph(spec: Spec, result: DesignResult,
-                      n_samples: int) -> RealisticWaveform | None:
+def _line_reactor_3ph(spec: Spec, result: DesignResult, n_samples: int) -> RealisticWaveform | None:
     """3φ line-reactor iL_a/b/c(t) — engine-calibrated A + ±120° rotations.
 
     The engine populates ``result.waveform_iL_A`` for one
@@ -490,7 +493,7 @@ def _line_reactor_3ph(spec: Spec, result: DesignResult,
         period = 1.0 / f_line
         if t.size >= 2:
             dt = float(t[1] - t[0])
-            shift_samples = int(round((period / 3.0) / dt))
+            shift_samples = round((period / 3.0) / dt)
         else:
             shift_samples = max(iL_a.size // 6, 1)
         iL_b = np.roll(iL_a, -shift_samples)  # B lags A by 120°
@@ -504,8 +507,10 @@ def _line_reactor_3ph(spec: Spec, result: DesignResult,
             f"3 fases via shift ±T/3"
         )
         base = RealisticWaveform(
-            topology="line_reactor", n_phases=3,
-            t_s=t, iL_A=iL_a,
+            topology="line_reactor",
+            n_phases=3,
+            t_s=t,
+            iL_A=iL_a,
             iL_extra=(iL_b, iL_c),
             extra_labels=("iL_b", "iL_c"),
             label=label,
@@ -526,7 +531,8 @@ def _line_reactor_3ph(spec: Spec, result: DesignResult,
     I_dc = Pout / max(Vbus, 1.0)
     omega = 2.0 * math.pi * f_line
     theta_cond_total = max(
-        min(math.atan2(omega * L, Vbus / max(I_dc, 0.1)), 1.0), 0.4,
+        min(math.atan2(omega * L, Vbus / max(I_dc, 0.1)), 1.0),
+        0.4,
     )
 
     period = 1.0 / f_line
@@ -542,11 +548,13 @@ def _line_reactor_3ph(spec: Spec, result: DesignResult,
     iL_c = _phase_current(+2.0 * math.pi / 3.0)
 
     base = RealisticWaveform(
-        topology="line_reactor", n_phases=3, t_s=t, iL_A=iL_a,
-        iL_extra=(iL_b, iL_c), extra_labels=("iL_b", "iL_c"),
-        label=(
-            f"Reator 3φ (fallback) · I_dc ≈ {I_dc:.2f} A · 3 fases a 120°"
-        ),
+        topology="line_reactor",
+        n_phases=3,
+        t_s=t,
+        iL_A=iL_a,
+        iL_extra=(iL_b, iL_c),
+        extra_labels=("iL_b", "iL_c"),
+        label=(f"Reator 3φ (fallback) · I_dc ≈ {I_dc:.2f} A · 3 fases a 120°"),
     )
     return _attach_spectrum(base, fundamental_Hz=f_line)
 
@@ -555,8 +563,8 @@ def _line_reactor_3ph(spec: Spec, result: DesignResult,
 # Buck CCM synthesiser
 # ---------------------------------------------------------------------------
 
-def _buck_ccm(spec: Spec, result: DesignResult,
-              n_samples: int) -> RealisticWaveform | None:
+
+def _buck_ccm(spec: Spec, result: DesignResult, n_samples: int) -> RealisticWaveform | None:
     """Buck-CCM iL(t) — pure HF triangle ripple on a DC level.
 
     State-space averaging: with the high-side switch ON the inductor
@@ -640,8 +648,12 @@ def _buck_ccm(spec: Spec, result: DesignResult,
 # Dispatch
 # ---------------------------------------------------------------------------
 
+
 def synthesize_il_waveform(
-    spec: Spec, result: DesignResult, *, n_samples: int = 2400,
+    spec: Spec,
+    result: DesignResult,
+    *,
+    n_samples: int = 2400,
 ) -> RealisticWaveform | None:
     """Return a topology-aware ``RealisticWaveform`` for the spec.
 

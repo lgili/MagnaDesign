@@ -1,4 +1,5 @@
 """Export tab — datasheet preview + export CTAs."""
+
 from __future__ import annotations
 
 from typing import Optional
@@ -63,9 +64,9 @@ class ExportarTab(QWidget):
         self._last_summary: Optional[str] = None
 
     # ------------------------------------------------------------------
-    def update_from_design(self, result: DesignResult, spec: Spec,
-                           core: Core, wire: Wire,
-                           material: Material) -> None:
+    def update_from_design(
+        self, result: DesignResult, spec: Spec, core: Core, wire: Wire, material: Material
+    ) -> None:
         self._summary.setText(
             f"{material.name} · {core.part_number or core.id} · "
             f"L = {result.L_actual_uH:.0f} µH · "
@@ -102,17 +103,13 @@ class ExportarTab(QWidget):
         # to ship; HTML stays as the secondary preview path.
         pdf_btn = QPushButton("Generate datasheet (PDF)")
         pdf_btn.setProperty("class", "Primary")
-        pdf_btn.setIcon(ui_icon("file-text",
-                                color=get_theme().palette.text_inverse,
-                                size=14))
+        pdf_btn.setIcon(ui_icon("file-text", color=get_theme().palette.text_inverse, size=14))
         pdf_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         pdf_btn.clicked.connect(self.export_pdf_requested.emit)
 
         html_btn = QPushButton("Generate datasheet (HTML)")
         html_btn.setProperty("class", "Secondary")
-        html_btn.setIcon(ui_icon("file-text",
-                                  color=get_theme().palette.text,
-                                  size=14))
+        html_btn.setIcon(ui_icon("file-text", color=get_theme().palette.text, size=14))
         html_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         html_btn.clicked.connect(self.export_html_requested.emit)
 
@@ -149,9 +146,7 @@ class ExportarTab(QWidget):
 
         btn = QPushButton("Generate project report (PDF)")
         btn.setProperty("class", "Primary")
-        btn.setIcon(ui_icon("file-text",
-                             color=get_theme().palette.text_inverse,
-                             size=14))
+        btn.setIcon(ui_icon("file-text", color=get_theme().palette.text_inverse, size=14))
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.clicked.connect(self.export_project_pdf_requested.emit)
 

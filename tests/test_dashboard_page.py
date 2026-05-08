@@ -1,4 +1,5 @@
 """DashboardPage + per-card integration regressions."""
+
 from __future__ import annotations
 
 import os
@@ -11,6 +12,7 @@ import pytest
 @pytest.fixture(scope="module")
 def app():
     from PySide6.QtWidgets import QApplication
+
     inst = QApplication.instance() or QApplication([])
     yield inst
 
@@ -46,10 +48,12 @@ def design_bundle():
 # Page structure
 # ---------------------------------------------------------------------------
 
+
 def test_dashboard_has_eight_cards(app):
     """v3 dropped the TopologiaCard (topology lives in SpecDrawer).
     Layout shrinks from 9 cards to 8."""
     from pfc_inductor.ui.dashboard import DashboardPage
+
     p = DashboardPage()
     assert len(p._cards) == 8
 
@@ -59,6 +63,7 @@ def test_dashboard_grid_positions(app):
     Núcleo + Viz3D; row 2 = FormasOnda (full width); row 3 = 4 sub-cards
     (Perdas/Bobinamento/Entreferro/Próximos)."""
     from pfc_inductor.ui.dashboard import DashboardPage
+
     p = DashboardPage()
     # Smoke: every card has a non-null geometry parent.
     for c in p._cards:
@@ -69,8 +74,10 @@ def test_dashboard_grid_positions(app):
 # Update from design fans out to every card
 # ---------------------------------------------------------------------------
 
+
 def test_update_from_design_populates_resumo(app, design_bundle):
     from pfc_inductor.ui.dashboard import DashboardPage
+
     p = DashboardPage()
     result, spec, core, wire, material = design_bundle
     p.update_from_design(result, spec, core, wire, material)
@@ -80,6 +87,7 @@ def test_update_from_design_populates_resumo(app, design_bundle):
 
 def test_update_from_design_populates_perdas_bar(app, design_bundle):
     from pfc_inductor.ui.dashboard import DashboardPage
+
     p = DashboardPage()
     result, spec, core, wire, material = design_bundle
     p.update_from_design(result, spec, core, wire, material)
@@ -90,6 +98,7 @@ def test_update_from_design_populates_perdas_bar(app, design_bundle):
 
 def test_update_from_design_populates_bobinamento_table(app, design_bundle):
     from pfc_inductor.ui.dashboard import DashboardPage
+
     p = DashboardPage()
     result, spec, core, wire, material = design_bundle
     p.update_from_design(result, spec, core, wire, material)
@@ -100,6 +109,7 @@ def test_update_from_design_populates_bobinamento_table(app, design_bundle):
 
 def test_update_from_design_populates_entreferro(app, design_bundle):
     from pfc_inductor.ui.dashboard import DashboardPage
+
     p = DashboardPage()
     result, spec, core, wire, material = design_bundle
     p.update_from_design(result, spec, core, wire, material)
@@ -109,6 +119,7 @@ def test_update_from_design_populates_entreferro(app, design_bundle):
 
 def test_dashboard_clear_resets_every_card(app, design_bundle):
     from pfc_inductor.ui.dashboard import DashboardPage
+
     p = DashboardPage()
     result, spec, core, wire, material = design_bundle
     p.update_from_design(result, spec, core, wire, material)
@@ -121,8 +132,10 @@ def test_dashboard_clear_resets_every_card(app, design_bundle):
 # Resumo aggregate badge
 # ---------------------------------------------------------------------------
 
+
 def test_resumo_aggregate_badge_reflects_metric_statuses(app, design_bundle):
     from pfc_inductor.ui.dashboard import DashboardPage
+
     p = DashboardPage()
     result, spec, core, wire, material = design_bundle
     p.update_from_design(result, spec, core, wire, material)
@@ -136,8 +149,10 @@ def test_resumo_aggregate_badge_reflects_metric_statuses(app, design_bundle):
 # Próximos passos signal forwarding
 # ---------------------------------------------------------------------------
 
+
 def test_proximos_passos_forwards_signals(app):
     from pfc_inductor.ui.dashboard import DashboardPage
+
     p = DashboardPage()
     fired = []
     p.fea_requested.connect(lambda: fired.append("fea"))
@@ -157,6 +172,7 @@ def test_proximos_passos_forwards_signals(app):
 
 def test_dashboard_mark_action_done(app):
     from pfc_inductor.ui.dashboard import DashboardPage
+
     p = DashboardPage()
     p.mark_action_done("report")
     assert p.card_proximos._actions["report"] == "done"
@@ -166,10 +182,12 @@ def test_dashboard_mark_action_done(app):
 # MainWindow integration
 # ---------------------------------------------------------------------------
 
+
 def test_main_window_emits_design_completed(app):
     """A successful construction-time _on_calculate must populate
     dashboard cards via the design_completed signal path."""
     from pfc_inductor.ui.main_window import MainWindow
+
     received = []
     w = MainWindow()
     w.design_completed.connect(lambda *args: received.append(args))

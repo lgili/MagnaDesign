@@ -7,6 +7,7 @@ Edit cadence: revisit every six months (open-source moves; FEMMT may add
 cost models, etc.). When a competitor closes a gap, mark coverage to
 "partial" or "yes" and re-think the differential's strategic value.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -88,8 +89,12 @@ DIFFERENTIALS: list[Differential] = [
             "ripple D(t)). Outros tools são genéricos."
         ),
         coverage={
-            "femmt": "no", "mas": "na", "aimag": "no",
-            "frenetic": "partial", "magnetics_designer": "no", "coilcraft": "no",
+            "femmt": "no",
+            "mas": "na",
+            "aimag": "no",
+            "frenetic": "partial",
+            "magnetics_designer": "no",
+            "coilcraft": "no",
         },
     ),
     Differential(
@@ -101,8 +106,12 @@ DIFFERENTIALS: list[Differential] = [
             "não têm."
         ),
         coverage={
-            "femmt": "no", "mas": "na", "aimag": "no",
-            "frenetic": "yes", "magnetics_designer": "no", "coilcraft": "no",
+            "femmt": "no",
+            "mas": "na",
+            "aimag": "no",
+            "frenetic": "yes",
+            "magnetics_designer": "no",
+            "coilcraft": "no",
         },
     ),
     Differential(
@@ -113,8 +122,12 @@ DIFFERENTIALS: list[Differential] = [
             "como novo fio. Built-in, sem deps."
         ),
         coverage={
-            "femmt": "partial", "mas": "na", "aimag": "no",
-            "frenetic": "yes", "magnetics_designer": "no", "coilcraft": "no",
+            "femmt": "partial",
+            "mas": "na",
+            "aimag": "no",
+            "frenetic": "yes",
+            "magnetics_designer": "no",
+            "coilcraft": "no",
         },
     ),
     Differential(
@@ -126,8 +139,12 @@ DIFFERENTIALS: list[Differential] = [
             "vendor."
         ),
         coverage={
-            "femmt": "no", "mas": "na", "aimag": "no",
-            "frenetic": "partial", "magnetics_designer": "yes", "coilcraft": "no",
+            "femmt": "no",
+            "mas": "na",
+            "aimag": "no",
+            "frenetic": "partial",
+            "magnetics_designer": "yes",
+            "coilcraft": "no",
         },
     ),
     Differential(
@@ -139,8 +156,12 @@ DIFFERENTIALS: list[Differential] = [
             "saturation margin."
         ),
         coverage={
-            "femmt": "no", "mas": "na", "aimag": "no",
-            "frenetic": "no", "magnetics_designer": "no", "coilcraft": "no",
+            "femmt": "no",
+            "mas": "na",
+            "aimag": "no",
+            "frenetic": "no",
+            "magnetics_designer": "no",
+            "coilcraft": "no",
         },
     ),
     Differential(
@@ -152,8 +173,12 @@ DIFFERENTIALS: list[Differential] = [
             "Apps de engenharia geralmente são feios."
         ),
         coverage={
-            "femmt": "partial", "mas": "na", "aimag": "no",
-            "frenetic": "yes", "magnetics_designer": "partial", "coilcraft": "yes",
+            "femmt": "partial",
+            "mas": "na",
+            "aimag": "no",
+            "frenetic": "yes",
+            "magnetics_designer": "partial",
+            "coilcraft": "yes",
         },
     ),
     Differential(
@@ -164,8 +189,12 @@ DIFFERENTIALS: list[Differential] = [
             "técnica em PT-BR. Mercado que ninguém atende."
         ),
         coverage={
-            "femmt": "no", "mas": "no", "aimag": "no",
-            "frenetic": "no", "magnetics_designer": "no", "coilcraft": "no",
+            "femmt": "no",
+            "mas": "no",
+            "aimag": "no",
+            "frenetic": "no",
+            "magnetics_designer": "no",
+            "coilcraft": "no",
         },
     ),
 ]

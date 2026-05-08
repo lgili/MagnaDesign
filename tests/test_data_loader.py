@@ -1,4 +1,5 @@
 """Sanity checks on the bundled JSON databases."""
+
 from pfc_inductor.data_loader import (
     load_cores,
     load_curated_ids,
@@ -16,7 +17,7 @@ def test_materials_load_and_have_steinmetz():
         # whose data is concentrated at 0.5-3 MHz and yields steeper fits.
         assert 1.0 <= m.steinmetz.alpha <= 3.0, f"{m.id}: alpha={m.steinmetz.alpha}"
         assert 1.0 <= m.steinmetz.beta <= 6.5, f"{m.id}: beta={m.steinmetz.beta}"
-        assert 0.2 <= m.Bsat_25C_T <= 2.1   # silicon steel reaches ~2.03 T
+        assert 0.2 <= m.Bsat_25C_T <= 2.1  # silicon steel reaches ~2.03 T
 
 
 def test_cores_have_geometry():
@@ -47,6 +48,7 @@ def test_brazilian_vendors_present():
 def test_catalog_merge_adds_openmagnetics_entries():
     """When data/mas/catalog/*.json exists, those entries are appended."""
     from pathlib import Path
+
     repo = Path(__file__).resolve().parents[1]
     catalog_path = repo / "data" / "mas" / "catalog" / "materials.json"
     if not catalog_path.exists():
@@ -78,8 +80,7 @@ def test_curated_only_filter_excludes_catalog_rows():
     expected_markers = ("OpenMagnetics", "PyETK")
     for m in catalog_only:
         assert any(marker in m.notes for marker in expected_markers), (
-            f"catalog material {m.id!r} has no source marker in notes: "
-            f"{m.notes!r}"
+            f"catalog material {m.id!r} has no source marker in notes: {m.notes!r}"
         )
 
 
@@ -105,11 +106,19 @@ def test_catalog_material_drives_design_engine():
 
     spec = Spec(
         topology="boost_ccm",
-        Vin_min_Vrms=85, Vin_max_Vrms=265, Vin_nom_Vrms=220,
+        Vin_min_Vrms=85,
+        Vin_max_Vrms=265,
+        Vin_nom_Vrms=220,
         f_line_Hz=50,
-        Vout_V=400, Pout_W=600, eta=0.97,
-        f_sw_kHz=65, ripple_pct=30,
-        T_amb_C=40, T_max_C=100, Ku_max=0.4, Bsat_margin=0.2,
+        Vout_V=400,
+        Pout_W=600,
+        eta=0.97,
+        f_sw_kHz=65,
+        ripple_pct=30,
+        T_amb_C=40,
+        T_max_C=100,
+        Ku_max=0.4,
+        Bsat_margin=0.2,
     )
     # Rebuild the material reference via the loader path so any future
     # adapter changes are exercised.

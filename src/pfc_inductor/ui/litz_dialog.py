@@ -5,6 +5,7 @@ displays the recommended construction next to the best round-wire
 baseline. The recommendation can be saved to the user-data wires.json so
 it persists in the wire combobox.
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -140,10 +141,19 @@ class LitzOptimizerDialog(QDialog):
         v.addWidget(self.lbl_summary)
 
         self.table = QTableWidget(0, 9)
-        self.table.setHorizontalHeaderLabels([
-            "Construction", "AWG strand", "N strands", "d_bundle [mm]",
-            "A_cu [mm²]", "AC/DC", "P_total [W]", "T [°C]", "Cost",
-        ])
+        self.table.setHorizontalHeaderLabels(
+            [
+                "Construction",
+                "AWG strand",
+                "N strands",
+                "d_bundle [mm]",
+                "A_cu [mm²]",
+                "AC/DC",
+                "P_total [W]",
+                "T [°C]",
+                "Cost",
+            ]
+        )
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
@@ -172,15 +182,16 @@ class LitzOptimizerDialog(QDialog):
         ac_dc = self.sp_AC_DC.value()
         d = optimal_strand_diameter_mm(f_Hz, layers, ac_dc)
         awg, d_actual = closest_strand_AWG(d)
-        self.lbl_d_opt.setText(
-            f"d_opt = {d:.3f} mm  →  AWG{awg} ({d_actual:.3f} mm)"
-        )
+        self.lbl_d_opt.setText(f"d_opt = {d:.3f} mm  →  AWG{awg} ({d_actual:.3f} mm)")
 
     def _run(self):
         self.btn_run.setEnabled(False)
         try:
             rec = recommend_litz(
-                self._spec, self._core, self._material, self._wires,
+                self._spec,
+                self._core,
+                self._material,
+                self._wires,
                 target_J_A_mm2=self.sp_J.value(),
                 target_AC_DC=self.sp_AC_DC.value(),
                 max_bundle_mm=self.sp_max_bundle.value(),
@@ -254,10 +265,11 @@ class LitzOptimizerDialog(QDialog):
         idx = rows[0].row()
         if idx >= len(self._row_to_cand):
             return
-        tag, cand = self._row_to_cand[idx]
+        _tag, cand = self._row_to_cand[idx]
         if cand.wire.type != "litz":
             QMessageBox.information(
-                self, "Non-Litz row",
+                self,
+                "Non-Litz row",
                 "Only Litz constructions can be saved as a new wire.",
             )
             return
@@ -281,7 +293,8 @@ class LitzOptimizerDialog(QDialog):
             return
         self.wire_saved.emit(new_id)
         QMessageBox.information(
-            self, "Saved",
+            self,
+            "Saved",
             f"Litz wire '{new_id}' added to the user database.\n"
             f"Re-open the app or reload the database to see it in the combobox.",
         )

@@ -1,4 +1,5 @@
 """Passive line-frequency choke — Phase-A adapter + Phase-B state-space."""
+
 from __future__ import annotations
 
 import math
@@ -31,7 +32,10 @@ class PassiveChokeModel:
         self._V_in_pk = math.sqrt(2.0) * float(spec.Vin_min_Vrms)
 
     def feasibility_envelope(
-        self, core: Core, material: Material, wire: Wire,
+        self,
+        core: Core,
+        material: Material,
+        wire: Wire,
     ) -> FeasibilityEnvelope:
         verdict = core_quick_check(self.spec, core, material, wire)
         if verdict == "ok":
@@ -39,7 +43,10 @@ class PassiveChokeModel:
         return FeasibilityEnvelope(feasible=False, reasons=[verdict])
 
     def steady_state(
-        self, core: Core, material: Material, wire: Wire,
+        self,
+        core: Core,
+        material: Material,
+        wire: Wire,
     ) -> DesignResult:
         return design(self.spec, core, wire, material)
 

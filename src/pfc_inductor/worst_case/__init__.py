@@ -27,6 +27,7 @@ Public API
 - :func:`simulate_yield` — Monte-Carlo, seedable for repro.
 - :class:`WorstCaseSummary` — the aggregated output.
 """
+
 from __future__ import annotations
 
 from pfc_inductor.worst_case.engine import (
@@ -49,8 +50,8 @@ from pfc_inductor.worst_case.tolerances import (
 )
 
 __all__ = [
-    "CornerResult",
     "DEFAULT_TOLERANCES",
+    "CornerResult",
     "Tolerance",
     "ToleranceDistribution",
     "ToleranceSet",

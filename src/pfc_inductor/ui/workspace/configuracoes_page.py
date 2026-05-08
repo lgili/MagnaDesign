@@ -4,6 +4,7 @@ Theme toggle, FEA installer, Litz optimizer, About. The "Classic
 mode" toggle (which used to live here) is removed in v3 — the
 legacy splitter is no longer reachable.
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -40,10 +41,13 @@ class ConfiguracoesPage(QWidget):
         outer.setSpacing(0)
 
         from pfc_inductor.ui.shell.page_header import WorkspacePageHeader
-        outer.addWidget(WorkspacePageHeader(
-            "Settings",
-            "Theme, FEA (FEMMT + ONELAB), Litz wire and project info.",
-        ))
+
+        outer.addWidget(
+            WorkspacePageHeader(
+                "Settings",
+                "Theme, FEA (FEMMT + ONELAB), Litz wire and project info.",
+            )
+        )
 
         body = QFrame()
         body_v = QVBoxLayout(body)
@@ -78,8 +82,7 @@ class ConfiguracoesPage(QWidget):
         btn = QPushButton("Toggle theme")
         btn.setProperty("class", "Secondary")
         icon_name = "sun" if is_dark() else "moon"
-        btn.setIcon(ui_icon(icon_name,
-                            color=get_theme().palette.text, size=14))
+        btn.setIcon(ui_icon(icon_name, color=get_theme().palette.text, size=14))
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.clicked.connect(self.theme_toggle_requested.emit)
         row = QHBoxLayout()

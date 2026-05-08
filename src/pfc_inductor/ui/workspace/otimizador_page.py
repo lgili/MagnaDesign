@@ -12,6 +12,7 @@ The page is **stateless on construction**: the embed starts in
 ``_on_calculate`` so the optimizer always reflects the latest spec
 and catalog.
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -19,7 +20,6 @@ from typing import Optional
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QFrame,
-    QLabel,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
@@ -44,15 +44,18 @@ class OtimizadorPage(QWidget):
         super().__init__(parent)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         outer = QVBoxLayout(self)
-        outer.setContentsMargins(0, 0, 0, 0)        # header runs edge-to-edge
+        outer.setContentsMargins(0, 0, 0, 0)  # header runs edge-to-edge
         outer.setSpacing(0)
 
         from pfc_inductor.ui.shell.page_header import WorkspacePageHeader
-        outer.addWidget(WorkspacePageHeader(
-            "Optimizer",
-            "Pareto sweep — multi-objective core × material × wire "
-            "exploration (loss, volume, cost).",
-        ))
+
+        outer.addWidget(
+            WorkspacePageHeader(
+                "Optimizer",
+                "Pareto sweep — multi-objective core × material × wire "
+                "exploration (loss, volume, cost).",
+            )
+        )
 
         body = QFrame()
         body_v = QVBoxLayout(body)
@@ -82,5 +85,9 @@ class OtimizadorPage(QWidget):
     ) -> None:
         """Forward to the embed. Called by the host after recompute."""
         self._embed.set_inputs(
-            spec, materials, cores, wires, current_material_id,
+            spec,
+            materials,
+            cores,
+            wires,
+            current_material_id,
         )

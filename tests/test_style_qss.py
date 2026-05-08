@@ -5,6 +5,7 @@ when the styles are actually applied to a widget. These tests catch the
 kind of breakage Qt swallows silently — missing tokens, mistyped
 selectors, stale fragments after a refactor.
 """
+
 from __future__ import annotations
 
 import os
@@ -28,6 +29,7 @@ from pfc_inductor.ui.theme import SIDEBAR, get_theme, set_theme
 @pytest.fixture(scope="module")
 def app():
     from PySide6.QtWidgets import QApplication
+
     inst = QApplication.instance() or QApplication([])
     yield inst
 
@@ -36,6 +38,7 @@ def app():
 # Composition
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.parametrize("theme_name", ["light", "dark"])
 def test_make_stylesheet_renders_for_each_theme(theme_name, app):
     set_theme(theme_name)
@@ -43,11 +46,11 @@ def test_make_stylesheet_renders_for_each_theme(theme_name, app):
     # Smoke: every fragment must contribute something non-empty.
     assert "QMainWindow" in qss
     assert "QPushButton" in qss
-    assert "QFrame#Card" in qss                       # cards fragment
-    assert "QFrame#Sidebar" in qss                    # sidebar fragment
-    assert 'QPushButton[class~="Primary"]' in qss     # v2 buttons
-    assert 'QToolButton[class~="Chip"]' in qss        # chips
-    assert "QFrame#Stepper" in qss                    # stepper
+    assert "QFrame#Card" in qss  # cards fragment
+    assert "QFrame#Sidebar" in qss  # sidebar fragment
+    assert 'QPushButton[class~="Primary"]' in qss  # v2 buttons
+    assert 'QToolButton[class~="Chip"]' in qss  # chips
+    assert "QFrame#Stepper" in qss  # stepper
     set_theme("light")
 
 
@@ -56,6 +59,7 @@ def test_make_stylesheet_applies_without_warnings(app):
     Qt parser warnings (Qt would just print to stderr; a smoke test
     that parser_state is sane is enough)."""
     from PySide6.QtWidgets import QWidget
+
     set_theme("light")
     w = QWidget()
     w.setStyleSheet(make_stylesheet(get_theme()))
@@ -68,6 +72,7 @@ def test_make_stylesheet_applies_without_warnings(app):
 # ---------------------------------------------------------------------------
 # Per-fragment sentinel assertions
 # ---------------------------------------------------------------------------
+
 
 def test_card_qss_radius_is_16(app):
     qss = card_qss(elevation=1)

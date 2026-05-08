@@ -71,6 +71,11 @@ docs = [
     "sphinx-copybutton>=0.5",
     "myst-parser>=2.0",
     "sphinxcontrib-mermaid>=0.9",
+    # MyST's ``linkify`` extension (auto-converts bare URLs to
+    # links) is opt-in but the Sphinx build aborts with
+    # "Linkify enabled but not installed." when the underlying
+    # ``linkify-it-py`` is missing — pin it as a hard dep here.
+    "linkify-it-py>=2.0",
 ]
 
 [project.scripts]
@@ -149,13 +154,46 @@ ignore = [
     "RUF001", # ambiguous Unicode in string literals (e.g. "B–H curve").
     "RUF002", # ambiguous Unicode in docstrings.
     "RUF003", # ambiguous Unicode in comments (schematic ASCII art labels).
+    # Power-electronics convention: ``I`` is current, ``L`` is inductance,
+    # ``O`` is rarely a variable but reads naturally as "output". The
+    # readability win of matching textbook notation outweighs the
+    # generic "ambiguous identifier" warning.
+    "E741",   # ambiguous variable name (`I`, `L`, `O`).
+    # The cascade / sweep code keeps short lambdas as score-key
+    # functions (``key=lambda c: c.cost``); promoting each to a
+    # ``def`` adds noise without changing behaviour. PEP 8's lambda
+    # rule is style-guide, not correctness.
+    "E731",   # do not assign a lambda — fine for short-lived comparators.
 ]
 
 [tool.ruff.lint.per-file-ignores]
 # UI uses lazy imports inside methods to avoid pulling Qt at module import.
 "src/pfc_inductor/ui/*" = ["E402"]
+# FEA + 3D rendering modules guard heavy native imports (FEMMT,
+# pyvista) behind module-level ``try/except`` blocks, which Ruff
+# (correctly) reads as imports below the import-block boundary.
+# The pattern is intentional — they're optional runtime deps.
+"src/pfc_inductor/fea/*" = ["E402"]
+"src/pfc_inductor/visual/*" = ["E402"]
+"src/pfc_inductor/report/views_3d.py" = ["E402"]
 # Tests freely poke private members for regression coverage.
-"tests/*" = ["B011", "RUF001"]
+# - B007: ``for shape_str, _ in pairs`` uses idx-only loops a lot.
+# - B023: closure-over-loop-var is fine in pytest fixtures that
+#   collect closures into a list before the loop ends.
+# - E402: ``QT_QPA_PLATFORM = "offscreen"`` is set before importing
+#   Qt-using modules — that's the whole point.
+# - F841: tests sometimes assign intermediate values for clarity
+#   even when they only assert later variants.
+"tests/*" = ["B007", "B011", "B023", "E402", "F841", "RUF001"]
+# Scripts are batch importers / one-shot CLI tools — strict-zip
+# noise (B905) is more annoying than valuable. F841 likewise:
+# scripts deliberately bind intermediate variables for readability
+# during interactive debugging.
+"scripts/*" = ["B905", "F841"]
+# Validation notebooks set ``DESIGN_DIR`` etc. between import
+# blocks (per-cell layout); the "import at top of cell" rule
+# fights that pattern without buying anything.
+"validation/*" = ["E402"]
 
 [tool.mypy]
 python_version = "3.11"

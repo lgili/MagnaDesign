@@ -3,6 +3,7 @@
 Uses a JSON text editor per entry (validated against pydantic model on save).
 Power-user friendly without writing 200 lines of generic form generators.
 """
+
 from __future__ import annotations
 
 import json
@@ -220,7 +221,9 @@ class _ListJsonEditor(QWidget):
 
     def _on_add(self):
         new_id, ok = QInputDialog.getText(
-            self, "New record", "Unique ID for the new record:",
+            self,
+            "New record",
+            "Unique ID for the new record:",
         )
         if not ok or not new_id:
             return
@@ -241,18 +244,33 @@ class _ListJsonEditor(QWidget):
 
     def _stub_for_new(self, new_id: str):
         from pfc_inductor.models.material import SteinmetzParams
+
         if self.model_cls is Material:
             return Material(
-                id=new_id, vendor="?", family="?", name=new_id,
-                type="powder", mu_initial=60, Bsat_25C_T=1.0, Bsat_100C_T=0.9,
+                id=new_id,
+                vendor="?",
+                family="?",
+                name=new_id,
+                type="powder",
+                mu_initial=60,
+                Bsat_25C_T=1.0,
+                Bsat_100C_T=0.9,
                 steinmetz=SteinmetzParams(Pv_ref_mWcm3=200, alpha=1.4, beta=2.5),
                 rolloff=None,
             )
         if self.model_cls is Core:
             return Core(
-                id=new_id, vendor="?", shape="toroid", part_number=new_id,
+                id=new_id,
+                vendor="?",
+                shape="toroid",
+                part_number=new_id,
                 default_material_id=self.entries[0].default_material_id if self.entries else "?",
-                Ae_mm2=100, le_mm=80, Ve_mm3=8000, Wa_mm2=300, MLT_mm=60, AL_nH=100,
+                Ae_mm2=100,
+                le_mm=80,
+                Ve_mm3=8000,
+                Wa_mm2=300,
+                MLT_mm=60,
+                AL_nH=100,
             )
         if self.model_cls is Wire:
             return Wire(id=new_id, type="round", A_cu_mm2=0.5, d_cu_mm=0.8, d_iso_mm=0.85)
@@ -291,10 +309,14 @@ class _ListJsonEditor(QWidget):
         if cur is None:
             return
         eid = cur.data(Qt.ItemDataRole.UserRole)
-        if QMessageBox.question(
-            self, "Confirm removal",
-            f"Remove '{eid}'? This action is committed on save.",
-        ) != QMessageBox.StandardButton.Yes:
+        if (
+            QMessageBox.question(
+                self,
+                "Confirm removal",
+                f"Remove '{eid}'? This action is committed on save.",
+            )
+            != QMessageBox.StandardButton.Yes
+        ):
             return
         self.entries = [e for e in self.entries if e.id != eid]
         self._dirty = True

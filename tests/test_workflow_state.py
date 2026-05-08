@@ -1,4 +1,5 @@
 """WorkflowState mutator + persistence regressions."""
+
 from __future__ import annotations
 
 import os
@@ -14,6 +15,7 @@ import pytest
 @pytest.fixture(scope="module")
 def app():
     from PySide6.QtWidgets import QApplication
+
     inst = QApplication.instance() or QApplication([])
     yield inst
 
@@ -22,8 +24,10 @@ def app():
 # Mutators
 # ---------------------------------------------------------------------------
 
+
 def test_set_current_step_clamps_to_valid_range(app):
     from pfc_inductor.ui.state import WORKFLOW_STEPS, WorkflowState
+
     s = WorkflowState()
     s.set_current_step(99)
     assert s.current_step == len(WORKFLOW_STEPS) - 1
@@ -33,6 +37,7 @@ def test_set_current_step_clamps_to_valid_range(app):
 
 def test_mark_step_done_is_idempotent_emits_once(app):
     from pfc_inductor.ui.state import WorkflowState
+
     s = WorkflowState()
     received = []
     s.state_changed.connect(lambda: received.append(1))
@@ -44,6 +49,7 @@ def test_mark_step_done_is_idempotent_emits_once(app):
 
 def test_set_warnings_emits_only_when_value_actually_changes(app):
     from pfc_inductor.ui.state import WorkflowState
+
     s = WorkflowState()
     fired = []
     s.state_changed.connect(lambda: fired.append(1))
@@ -56,6 +62,7 @@ def test_set_warnings_emits_only_when_value_actually_changes(app):
 
 def test_mark_saved_clears_unsaved_and_sets_timestamp(app):
     from pfc_inductor.ui.state import WorkflowState
+
     s = WorkflowState()
     s.set_project_name("New name")  # marks dirty
     assert s.unsaved
@@ -67,6 +74,7 @@ def test_mark_saved_clears_unsaved_and_sets_timestamp(app):
 
 def test_snapshot_returns_independent_copy(app):
     from pfc_inductor.ui.state import WorkflowState
+
     s = WorkflowState()
     s.set_warnings(2)
     snap1 = s.snapshot()
@@ -77,6 +85,7 @@ def test_snapshot_returns_independent_copy(app):
 # ---------------------------------------------------------------------------
 # Persistence
 # ---------------------------------------------------------------------------
+
 
 def test_settings_round_trip(app):
     from PySide6.QtCore import QSettings

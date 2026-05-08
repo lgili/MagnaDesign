@@ -46,6 +46,7 @@ The redesign:
   the coil + accent stroke. Stays the visual centre of gravity —
   this is, after all, an inductor-design app.
 """
+
 from __future__ import annotations
 
 from typing import Literal, Optional
@@ -75,6 +76,7 @@ TopologyKind = Literal[
 # ---------------------------------------------------------------------------
 # Drawing primitives
 # ---------------------------------------------------------------------------
+
 
 class _SchematicPainter:
     """Logical-coordinate wrapper around ``QPainter``.
@@ -110,8 +112,13 @@ class _SchematicPainter:
         return pen
 
     # ---- primitives ---------------------------------------------------
-    def wire(self, p1: tuple[float, float], p2: tuple[float, float],
-             color: QColor, width: float = STROKE_WIRE) -> None:
+    def wire(
+        self,
+        p1: tuple[float, float],
+        p2: tuple[float, float],
+        color: QColor,
+        width: float = STROKE_WIRE,
+    ) -> None:
         self._qp.setPen(self._pen(color, width))
         self._qp.drawLine(QPointF(*p1), QPointF(*p2))
 
@@ -126,9 +133,16 @@ class _SchematicPainter:
         self._qp.setBrush(QBrush(color))
         self._qp.drawEllipse(QPointF(*p), 2.6, 2.6)
 
-    def label(self, p: tuple[float, float], text: str, color: QColor,
-              *, weight: int = 600, size: int = 11,
-              align: int = Qt.AlignmentFlag.AlignCenter) -> None:
+    def label(
+        self,
+        p: tuple[float, float],
+        text: str,
+        color: QColor,
+        *,
+        weight: int = 600,
+        size: int = 11,
+        align: int = Qt.AlignmentFlag.AlignCenter,
+    ) -> None:
         self._qp.setPen(self._pen(color, 1.0))
         font = QFont()
         font.setPixelSize(size)
@@ -146,15 +160,21 @@ class _SchematicPainter:
         """
         self._qp.setPen(self._pen(color, self.STROKE_COMPONENT))
         x, y = p
-        self._qp.drawLine(QPointF(x - 9, y),     QPointF(x + 9, y))
+        self._qp.drawLine(QPointF(x - 9, y), QPointF(x + 9, y))
         self._qp.drawLine(QPointF(x - 6, y + 4), QPointF(x + 6, y + 4))
         self._qp.drawLine(QPointF(x - 3, y + 8), QPointF(x + 3, y + 8))
 
     # ---- inductor (the highlighted component) ------------------------
-    def inductor(self, centre: tuple[float, float], length: float,
-                 *, accent: QColor, glow_bg: QColor,
-                 highlighted: bool = True,
-                 vertical: bool = False) -> None:
+    def inductor(
+        self,
+        centre: tuple[float, float],
+        length: float,
+        *,
+        accent: QColor,
+        glow_bg: QColor,
+        highlighted: bool = True,
+        vertical: bool = False,
+    ) -> None:
         """Inductor coil symbol with optional accent glow background.
 
         Always drawn with 4 humps for the canonical "coiled wire" look
@@ -172,7 +192,9 @@ class _SchematicPainter:
                 self._qp.setPen(Qt.PenStyle.NoPen)
                 self._qp.setBrush(QBrush(glow_bg))
                 self._qp.drawRoundedRect(
-                    QRectF(x0 - 18, y0 - 6, 36, length + 12), 9, 9,
+                    QRectF(x0 - 18, y0 - 6, 36, length + 12),
+                    9,
+                    9,
                 )
             color = accent if highlighted else QColor(get_theme().palette.text_secondary)
             self._qp.setPen(self._pen(color, self.STROKE_INDUCTOR))
@@ -184,9 +206,9 @@ class _SchematicPainter:
             for i in range(n_humps):
                 cy_i = y0 + (i + 0.5) * hump_h
                 path.arcTo(
-                    QRectF(x0 - hump_h / 2, cy_i - hump_h / 2,
-                           hump_h, hump_h),
-                    90, -180,
+                    QRectF(x0 - hump_h / 2, cy_i - hump_h / 2, hump_h, hump_h),
+                    90,
+                    -180,
                 )
             self._qp.drawPath(path)
             return
@@ -197,7 +219,9 @@ class _SchematicPainter:
             self._qp.setPen(Qt.PenStyle.NoPen)
             self._qp.setBrush(QBrush(glow_bg))
             self._qp.drawRoundedRect(
-                QRectF(x0 - 6, cy - 18, length + 12, 36), 9, 9,
+                QRectF(x0 - 6, cy - 18, length + 12, 36),
+                9,
+                9,
             )
         color = accent if highlighted else QColor("#000000")
         self._qp.setPen(self._pen(color, self.STROKE_INDUCTOR))
@@ -210,13 +234,13 @@ class _SchematicPainter:
             cx_i = x0 + (i + 0.5) * hump_w
             path.arcTo(
                 QRectF(cx_i - hump_w / 2, cy - hump_w / 2, hump_w, hump_w),
-                180, -180,
+                180,
+                -180,
             )
         self._qp.drawPath(path)
 
     # ---- transistor (block style, "Q1" labeled) ----------------------
-    def mosfet(self, centre: tuple[float, float], color: QColor,
-               label: str = "Q1") -> None:
+    def mosfet(self, centre: tuple[float, float], color: QColor, label: str = "Q1") -> None:
         """Generic active switch: rounded rectangle with the device
         label inside + a small switch arrow.
 
@@ -242,9 +266,14 @@ class _SchematicPainter:
         self.label((cx, cy - h / 2 - 12), label, color, size=10, weight=600)
 
     # ---- diode --------------------------------------------------------
-    def diode(self, centre: tuple[float, float], color: QColor,
-              label: Optional[str] = None,
-              *, orientation: str = "right") -> None:
+    def diode(
+        self,
+        centre: tuple[float, float],
+        color: QColor,
+        label: Optional[str] = None,
+        *,
+        orientation: str = "right",
+    ) -> None:
         """Standard triangle-and-bar diode symbol.
 
         ``orientation`` controls forward direction:
@@ -308,13 +337,14 @@ class _SchematicPainter:
             self.label((cx, cy - 22), label, color, size=10, weight=600)
 
     # ---- diode bridge (block-style) ----------------------------------
-    def diode_bridge(self, centre: tuple[float, float], color: QColor,
-                     *, label: str = "BR") -> tuple[
-                         tuple[float, float],  # ac_top
-                         tuple[float, float],  # ac_bot
-                         tuple[float, float],  # dc_pos (top)
-                         tuple[float, float],  # dc_neg (bottom)
-                     ]:
+    def diode_bridge(
+        self, centre: tuple[float, float], color: QColor, *, label: str = "BR"
+    ) -> tuple[
+        tuple[float, float],  # ac_top
+        tuple[float, float],  # ac_bot
+        tuple[float, float],  # dc_pos (top)
+        tuple[float, float],  # dc_neg (bottom)
+    ]:
         """Single rotated-square rectifier bridge glyph.
 
         Reference manuals (TI, ST, app notes) draw the diode bridge
@@ -331,9 +361,9 @@ class _SchematicPainter:
         self._qp.setPen(self._pen(color, self.STROKE_COMPONENT))
         self._qp.setBrush(Qt.BrushStyle.NoBrush)
         diamond = QPainterPath()
-        diamond.moveTo(cx,     cy - s)
+        diamond.moveTo(cx, cy - s)
         diamond.lineTo(cx + s, cy)
-        diamond.lineTo(cx,     cy + s)
+        diamond.lineTo(cx, cy + s)
         diamond.lineTo(cx - s, cy)
         diamond.closeSubpath()
         self._qp.drawPath(diamond)
@@ -345,21 +375,29 @@ class _SchematicPainter:
         self._qp.setBrush(QBrush(color))
         for tip, base_left, base_right in (
             # left-segment diode points UP (AC- → +DC)
-            ((cx - s / 2 - 2, cy - s / 2 + 2),
-             (cx - s / 2 - 5, cy - s / 2 + 7),
-             (cx - s / 2 + 1, cy - s / 2 + 7)),
+            (
+                (cx - s / 2 - 2, cy - s / 2 + 2),
+                (cx - s / 2 - 5, cy - s / 2 + 7),
+                (cx - s / 2 + 1, cy - s / 2 + 7),
+            ),
             # top-right diode points UP (DC+ → top)
-            ((cx + s / 2 - 2, cy - s / 2 - 2),
-             (cx + s / 2 - 5, cy - s / 2 + 3),
-             (cx + s / 2 + 1, cy - s / 2 + 3)),
+            (
+                (cx + s / 2 - 2, cy - s / 2 - 2),
+                (cx + s / 2 - 5, cy - s / 2 + 3),
+                (cx + s / 2 + 1, cy - s / 2 + 3),
+            ),
             # bottom-left diode points DOWN (bot → AC-)
-            ((cx - s / 2 + 1, cy + s / 2 + 2),
-             (cx - s / 2 - 2, cy + s / 2 - 3),
-             (cx - s / 2 + 4, cy + s / 2 - 3)),
+            (
+                (cx - s / 2 + 1, cy + s / 2 + 2),
+                (cx - s / 2 - 2, cy + s / 2 - 3),
+                (cx - s / 2 + 4, cy + s / 2 - 3),
+            ),
             # bottom-right diode points DOWN (DC- ← bot)
-            ((cx + s / 2 + 1, cy + s / 2 - 2),
-             (cx + s / 2 - 2, cy + s / 2 - 7),
-             (cx + s / 2 + 4, cy + s / 2 - 7)),
+            (
+                (cx + s / 2 + 1, cy + s / 2 - 2),
+                (cx + s / 2 - 2, cy + s / 2 - 7),
+                (cx + s / 2 + 4, cy + s / 2 - 7),
+            ),
         ):
             tri = QPainterPath()
             tri.moveTo(*base_left)
@@ -381,14 +419,20 @@ class _SchematicPainter:
         return (
             (cx - s, cy),  # ac left
             (cx + s, cy),  # ac right
-            (cx,     cy - s),  # dc+
-            (cx,     cy + s),  # dc−
+            (cx, cy - s),  # dc+
+            (cx, cy + s),  # dc−
         )
 
     # ---- capacitor ----------------------------------------------------
-    def capacitor(self, centre: tuple[float, float], color: QColor,
-                  label: str = "C", polarised: bool = True,
-                  *, vertical: bool = True) -> None:
+    def capacitor(
+        self,
+        centre: tuple[float, float],
+        color: QColor,
+        label: str = "C",
+        polarised: bool = True,
+        *,
+        vertical: bool = True,
+    ) -> None:
         cx, cy = centre
         self._qp.setPen(self._pen(color, self.STROKE_COMPONENT))
         self._qp.setBrush(Qt.BrushStyle.NoBrush)
@@ -402,7 +446,8 @@ class _SchematicPainter:
                 self._qp.drawPath(path)
             else:
                 self._qp.drawLine(
-                    QPointF(cx - 13, cy + 5), QPointF(cx + 13, cy + 5),
+                    QPointF(cx - 13, cy + 5),
+                    QPointF(cx + 13, cy + 5),
                 )
             # leads
             self._qp.drawLine(QPointF(cx, cy - 18), QPointF(cx, cy - 5))
@@ -410,7 +455,11 @@ class _SchematicPainter:
             # "+" mark for polarized cap
             if polarised:
                 self.label(
-                    (cx + 22, cy - 4), "+", color, size=10, weight=700,
+                    (cx + 22, cy - 4),
+                    "+",
+                    color,
+                    size=10,
+                    weight=700,
                 )
             self.label((cx + 24, cy + 6), label, color, size=10, weight=600)
         else:
@@ -422,15 +471,17 @@ class _SchematicPainter:
                 self._qp.drawPath(path)
             else:
                 self._qp.drawLine(
-                    QPointF(cx + 5, cy - 13), QPointF(cx + 5, cy + 13),
+                    QPointF(cx + 5, cy - 13),
+                    QPointF(cx + 5, cy + 13),
                 )
             self._qp.drawLine(QPointF(cx - 18, cy), QPointF(cx - 5, cy))
             self._qp.drawLine(QPointF(cx + 5, cy), QPointF(cx + 18, cy))
             self.label((cx, cy - 22), label, color, size=10, weight=600)
 
     # ---- AC source ---------------------------------------------------
-    def voltage_source_ac(self, centre: tuple[float, float], color: QColor,
-                          label: str = "Vac") -> None:
+    def voltage_source_ac(
+        self, centre: tuple[float, float], color: QColor, label: str = "Vac"
+    ) -> None:
         cx, cy = centre
         self._qp.setPen(self._pen(color, self.STROKE_COMPONENT))
         self._qp.setBrush(Qt.BrushStyle.NoBrush)
@@ -443,8 +494,9 @@ class _SchematicPainter:
         self.label((cx, cy + 28), label, color, size=10, weight=600)
 
     # ---- load (rectangle with R-style hatching) ----------------------
-    def load_block(self, centre: tuple[float, float], color: QColor,
-                   *, label: str = "LOAD") -> None:
+    def load_block(
+        self, centre: tuple[float, float], color: QColor, *, label: str = "LOAD"
+    ) -> None:
         cx, cy = centre
         w, h = 60, 50
         rect = QRectF(cx - w / 2, cy - h / 2, w, h)
@@ -454,8 +506,7 @@ class _SchematicPainter:
         self.label((cx, cy), label, color, size=10, weight=600)
 
     # ---- DC bus rail (heavy line + label) ----------------------------
-    def dc_bus_label(self, p: tuple[float, float], color: QColor,
-                     label: str = "+VDC") -> None:
+    def dc_bus_label(self, p: tuple[float, float], color: QColor, label: str = "+VDC") -> None:
         self.label(p, label, color, size=9, weight=600)
 
 
@@ -463,8 +514,8 @@ class _SchematicPainter:
 # Topology renderers
 # ---------------------------------------------------------------------------
 
-def _render_boost_ccm(p: _SchematicPainter, accent: QColor,
-                      neutral: QColor, glow: QColor) -> None:
+
+def _render_boost_ccm(p: _SchematicPainter, accent: QColor, neutral: QColor, glow: QColor) -> None:
     """Boost CCM PFC: Vac → bridge → L → Q/D → Cbus → load.
 
     Layout (logical px, 1000×250 canvas):
@@ -500,11 +551,10 @@ def _render_boost_ccm(p: _SchematicPainter, accent: QColor,
     p.wire(dc_pos, (dc_pos[0], y_top), neutral)
     p.wire(dc_neg, (dc_neg[0], y_bot), neutral)
     p.wire((dc_pos[0], y_top), (430 - 70, y_top), neutral)  # to L
-    p.wire((dc_neg[0], y_bot), (760, y_bot), neutral)       # to cap
+    p.wire((dc_neg[0], y_bot), (760, y_bot), neutral)  # to cap
 
     # Inductor (highlighted).
-    p.inductor((430, y_top), 130, accent=accent, glow_bg=glow,
-               highlighted=True)
+    p.inductor((430, y_top), 130, accent=accent, glow_bg=glow, highlighted=True)
     p.label((430, y_top - 28), "L", accent, size=12, weight=700)
 
     # L → switching node.
@@ -537,8 +587,9 @@ def _render_boost_ccm(p: _SchematicPainter, accent: QColor,
     p.load_block((890, 125), neutral)
 
 
-def _render_passive_choke(p: _SchematicPainter, accent: QColor,
-                          neutral: QColor, glow: QColor) -> None:
+def _render_passive_choke(
+    p: _SchematicPainter, accent: QColor, neutral: QColor, glow: QColor
+) -> None:
     """Passive PFC choke: Vac → bridge → L → Cbus → load.
 
     No switch — the inductor on the DC bus filters the rectified
@@ -562,8 +613,7 @@ def _render_passive_choke(p: _SchematicPainter, accent: QColor,
     # +DC bus from bridge → inductor → cap. Inductor at x=430 to match
     # the test's pixel-sample contract (logical 430,80).
     p.wire((dc_pos[0], y_top), (430 - 80, y_top), neutral)
-    p.inductor((430, y_top), 150, accent=accent, glow_bg=glow,
-               highlighted=True)
+    p.inductor((430, y_top), 150, accent=accent, glow_bg=glow, highlighted=True)
     p.label((430, y_top - 28), "L", accent, size=12, weight=700)
     p.wire((430 + 80, y_top), (720, y_top), neutral)
 
@@ -583,8 +633,9 @@ def _render_passive_choke(p: _SchematicPainter, accent: QColor,
     p.load_block((880, 125), neutral)
 
 
-def _render_line_reactor_1ph(p: _SchematicPainter, accent: QColor,
-                             neutral: QColor, glow: QColor) -> None:
+def _render_line_reactor_1ph(
+    p: _SchematicPainter, accent: QColor, neutral: QColor, glow: QColor
+) -> None:
     """Single-phase line reactor: Vac → L (AC line) → bridge → Cbus → load.
 
     The inductor lives on the AC side this time — it commutates with
@@ -597,8 +648,7 @@ def _render_line_reactor_1ph(p: _SchematicPainter, accent: QColor,
 
     # Inductor on the top AC line.
     p.wire((96, y_top), (250 - 60, y_top), neutral)
-    p.inductor((250, y_top), 110, accent=accent, glow_bg=glow,
-               highlighted=True)
+    p.inductor((250, y_top), 110, accent=accent, glow_bg=glow, highlighted=True)
     p.label((250, y_top - 28), "L", accent, size=12, weight=700)
     p.wire((250 + 60, y_top), (370, y_top), neutral)
 
@@ -628,8 +678,9 @@ def _render_line_reactor_1ph(p: _SchematicPainter, accent: QColor,
     p.load_block((880, 125), neutral)
 
 
-def _render_line_reactor_3ph(p: _SchematicPainter, accent: QColor,
-                             neutral: QColor, glow: QColor) -> None:
+def _render_line_reactor_3ph(
+    p: _SchematicPainter, accent: QColor, neutral: QColor, glow: QColor
+) -> None:
     """Three-phase line reactor: 3 × L on the line side → 6-pulse bridge
     → DC bus → load. Inductors hang horizontally, one per phase.
     """
@@ -646,10 +697,8 @@ def _render_line_reactor_3ph(p: _SchematicPainter, accent: QColor,
         p.wire((x_in_label + 22, y), (x_L - 55, y), neutral)
 
     # Three inductors (highlighted; one per phase).
-    for y, lbl in zip((y_l1, y_l2, y_l3), ("L_a", "L_b", "L_c"),
-                      strict=False):
-        p.inductor((x_L, y), length=100, accent=accent, glow_bg=glow,
-                   highlighted=True)
+    for y, lbl in zip((y_l1, y_l2, y_l3), ("L_a", "L_b", "L_c"), strict=False):
+        p.inductor((x_L, y), length=100, accent=accent, glow_bg=glow, highlighted=True)
         p.label((x_L, y - 26), lbl, accent, size=10, weight=700)
 
     # 6-pulse bridge drawn as a labelled rectangle. The hexagon was
@@ -663,8 +712,7 @@ def _render_line_reactor_3ph(p: _SchematicPainter, accent: QColor,
     self_qp.setPen(p._pen(neutral, p.STROKE_COMPONENT))
     self_qp.setBrush(Qt.BrushStyle.NoBrush)
     self_qp.drawRoundedRect(rect, 6, 6)
-    p.label((cx, cy + box_h / 2 + 12), "6-PULSE BRIDGE",
-            neutral, size=10, weight=600)
+    p.label((cx, cy + box_h / 2 + 12), "6-PULSE BRIDGE", neutral, size=10, weight=600)
 
     # Three AC inputs land on the left edge of the box at the same
     # y as their inductor — straight horizontal wires, no diagonals.
@@ -682,8 +730,7 @@ def _render_line_reactor_3ph(p: _SchematicPainter, accent: QColor,
     # Output cap + load.
     p.junction_dot((x_cap, y_l1), neutral)
     p.junction_dot((x_cap, y_l3), neutral)
-    p.capacitor((x_cap, 125), neutral, "C_bus", polarised=True,
-                vertical=True)
+    p.capacitor((x_cap, 125), neutral, "C_bus", polarised=True, vertical=True)
     p.wire((x_cap, y_l1), (x_cap, 125 - 18), neutral)
     p.wire((x_cap, 125 + 18), (x_cap, y_l3), neutral)
 
@@ -693,8 +740,7 @@ def _render_line_reactor_3ph(p: _SchematicPainter, accent: QColor,
     p.load_block((x_load, 125), neutral)
 
 
-def _render_buck_ccm(p: _SchematicPainter, accent: QColor,
-                     neutral: QColor, glow: QColor) -> None:
+def _render_buck_ccm(p: _SchematicPainter, accent: QColor, neutral: QColor, glow: QColor) -> None:
     """Synchronous buck DC-DC step-down: Vin → Q1 → L → Cout → load.
 
     Layout (logical px, 1000 × 250 canvas):
@@ -741,16 +787,14 @@ def _render_buck_ccm(p: _SchematicPainter, accent: QColor,
 
     # ---- Switching node + freewheel diode to the negative rail
     p.junction_dot((sw_node_x, y_top), neutral)
-    p.diode((sw_node_x, 125), neutral, "D",
-            orientation="up")  # cathode up (toward sw node)
+    p.diode((sw_node_x, 125), neutral, "D", orientation="up")  # cathode up (toward sw node)
     p.wire((sw_node_x, y_top), (sw_node_x, 125 - 14), neutral)
     p.wire((sw_node_x, 125 + 14), (sw_node_x, y_bot), neutral)
     p.junction_dot((sw_node_x, y_bot), neutral)
 
     # ---- Inductor (highlighted) — sw_node → +Vout rail
     p.wire((sw_node_x, y_top), (500 - 65, y_top), neutral)
-    p.inductor((500, y_top), 130, accent=accent, glow_bg=glow,
-               highlighted=True)
+    p.inductor((500, y_top), 130, accent=accent, glow_bg=glow, highlighted=True)
     p.label((500, y_top - 28), "L", accent, size=12, weight=700)
     p.wire((500 + 65, y_top), (700, y_top), neutral)
 
@@ -769,17 +813,18 @@ def _render_buck_ccm(p: _SchematicPainter, accent: QColor,
 
 
 _TOPOLOGY_RENDERERS = {
-    "boost_ccm":         _render_boost_ccm,
-    "passive_choke":     _render_passive_choke,
-    "line_reactor_1ph":  _render_line_reactor_1ph,
-    "line_reactor_3ph":  _render_line_reactor_3ph,
-    "buck_ccm":          _render_buck_ccm,
+    "boost_ccm": _render_boost_ccm,
+    "passive_choke": _render_passive_choke,
+    "line_reactor_1ph": _render_line_reactor_1ph,
+    "line_reactor_3ph": _render_line_reactor_3ph,
+    "buck_ccm": _render_buck_ccm,
 }
 
 
 # ---------------------------------------------------------------------------
 # Widget
 # ---------------------------------------------------------------------------
+
 
 class TopologySchematicWidget(QWidget):
     """Vector circuit schematic for one of the supported topologies."""
@@ -791,8 +836,7 @@ class TopologySchematicWidget(QWidget):
         super().__init__(parent)
         self.setMinimumHeight(140)
         self.setMaximumHeight(180)
-        self.setSizePolicy(QSizePolicy.Policy.Expanding,
-                           QSizePolicy.Policy.Preferred)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self._topology: TopologyKind = "boost_ccm"
         on_theme_changed(self.update)
 
@@ -845,11 +889,12 @@ class TopologySchematicWidget(QWidget):
 # Topology picker dialog
 # ---------------------------------------------------------------------------
 
+
 def topology_picker_choices() -> list[tuple[str, str]]:
     """Return ``(key, label)`` pairs for the topology picker dialog."""
     return [
-        ("boost_ccm",         "Boost CCM Active"),
-        ("passive_choke",     "Passive PFC Choke"),
-        ("line_reactor_1ph",  "Line Reactor (1ph)"),
-        ("line_reactor_3ph",  "Line Reactor (3ph)"),
+        ("boost_ccm", "Boost CCM Active"),
+        ("passive_choke", "Passive PFC Choke"),
+        ("line_reactor_1ph", "Line Reactor (1ph)"),
+        ("line_reactor_3ph", "Line Reactor (3ph)"),
     ]

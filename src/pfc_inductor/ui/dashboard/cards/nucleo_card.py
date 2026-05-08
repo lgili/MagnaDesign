@@ -17,6 +17,7 @@ user picks a row whose id differs from the current selection. Emits
 ids — only the field for the active tab actually changes; the others
 stay at their current value.
 """
+
 from __future__ import annotations
 
 from typing import Optional, Sequence
@@ -34,7 +35,6 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
     QLineEdit,
-    QPushButton,
     QSizePolicy,
     QStyledItemDelegate,
     QStyleOptionViewItem,
@@ -54,14 +54,21 @@ from pfc_inductor.ui.widgets import Card, ScorePill
 
 # Vendors we have curated cost data + calibration for.
 _CURATED_VENDORS = {
-    "magnetics", "magmattec", "micrometals", "csc",
-    "thornton", "dongxing", "tdk", "ferroxcube",
+    "magnetics",
+    "magmattec",
+    "micrometals",
+    "csc",
+    "thornton",
+    "dongxing",
+    "tdk",
+    "ferroxcube",
 }
 
 
 # ---------------------------------------------------------------------------
 # Table model — generic over (object, columns, score)
 # ---------------------------------------------------------------------------
+
 
 class _CandidateModel(QAbstractTableModel):
     """Generic table model holding (candidate, columns, score) tuples.
@@ -72,17 +79,15 @@ class _CandidateModel(QAbstractTableModel):
     raw float to :class:`_ScorePillDelegate`.
     """
 
-    def __init__(self, headers: list[str],
-                 parent: Optional[QWidget] = None) -> None:
+    def __init__(self, headers: list[str], parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
-        self._headers = list(headers) + ["Score"]
+        self._headers = [*list(headers), "Score"]
         self._rows: list[tuple[object, list[str], float]] = []
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
-    def set_rows(self,
-                 rows: Sequence[tuple[object, list[str], float]]) -> None:
+    def set_rows(self, rows: Sequence[tuple[object, list[str], float]]) -> None:
         self.beginResetModel()
         self._rows = list(rows)
         self.endResetModel()
@@ -102,8 +107,9 @@ class _CandidateModel(QAbstractTableModel):
     def columnCount(self, parent: QModelIndex = QModelIndex()) -> int:
         return 0 if parent.isValid() else len(self._headers)
 
-    def headerData(self, section: int, orientation: Qt.Orientation,
-                   role: int = Qt.ItemDataRole.DisplayRole):
+    def headerData(
+        self, section: int, orientation: Qt.Orientation, role: int = Qt.ItemDataRole.DisplayRole
+    ):
         if orientation != Qt.Orientation.Horizontal:
             return None
         if role == Qt.ItemDataRole.DisplayRole:
@@ -111,10 +117,7 @@ class _CandidateModel(QAbstractTableModel):
         # Tooltip on the Score column header — without this, users
         # asked "score against what?" The text spells out the rank
         # function so the engineer trusts the ordering.
-        if (
-            role == Qt.ItemDataRole.ToolTipRole
-            and section == len(self._headers) - 1
-        ):
+        if role == Qt.ItemDataRole.ToolTipRole and section == len(self._headers) - 1:
             return (
                 "Score combines losses, volume and cost (weights "
                 "60/30/10) for the current spec.\n"
@@ -123,8 +126,7 @@ class _CandidateModel(QAbstractTableModel):
             )
         return None
 
-    def data(self, index: QModelIndex,
-             role: int = Qt.ItemDataRole.DisplayRole):
+    def data(self, index: QModelIndex, role: int = Qt.ItemDataRole.DisplayRole):
         if not index.isValid():
             return None
         r, c = index.row(), index.column()
@@ -151,14 +153,14 @@ class _CandidateModel(QAbstractTableModel):
 # ScorePill delegate
 # ---------------------------------------------------------------------------
 
+
 class _ScorePillDelegate(QStyledItemDelegate):
     """Render the score column as a coloured pill using the project
     :class:`ScorePill` widget for sizing/colour, but draw via
     ``QPainter`` so the painter integrates with the QTableView's
     selection / hover rendering."""
 
-    def paint(self, painter: QPainter, option: QStyleOptionViewItem,
-              index: QModelIndex) -> None:
+    def paint(self, painter: QPainter, option: QStyleOptionViewItem, index: QModelIndex) -> None:
         score_obj = index.data(Qt.ItemDataRole.UserRole)
         if not isinstance(score_obj, float):
             super().paint(painter, option, index)
@@ -185,6 +187,7 @@ class _ScorePillDelegate(QStyledItemDelegate):
 # Filter proxy
 # ---------------------------------------------------------------------------
 
+
 class _CandidateFilterProxy(QSortFilterProxyModel):
     """Filter proxy with a search string + curated-vendor checkbox.
 
@@ -207,16 +210,14 @@ class _CandidateFilterProxy(QSortFilterProxyModel):
         self._curated_only = bool(on)
         self.invalidate()
 
-    def filterAcceptsRow(self, source_row: int,
-                         source_parent: QModelIndex) -> bool:
+    def filterAcceptsRow(self, source_row: int, source_parent: QModelIndex) -> bool:
         m = self.sourceModel()
         if not isinstance(m, _CandidateModel):
             return True
         candidate = m.candidate_at(source_row)
         if self._search:
             haystack = " ".join(
-                str(getattr(candidate, k, "") or "")
-                for k in ("id", "name", "vendor")
+                str(getattr(candidate, k, "") or "") for k in ("id", "name", "vendor")
             ).lower()
             if self._search not in haystack:
                 return False
@@ -231,13 +232,13 @@ class _CandidateFilterProxy(QSortFilterProxyModel):
 # Tab body — one per Material / Core / Wire
 # ---------------------------------------------------------------------------
 
+
 class _CandidateTab(QWidget):
     """Search + table + filter checkbox for a single tab."""
 
     selection_changed = Signal()
 
-    def __init__(self, headers: list[str],
-                 parent: Optional[QWidget] = None) -> None:
+    def __init__(self, headers: list[str], parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         v = QVBoxLayout(self)
         v.setContentsMargins(0, 0, 0, 0)
@@ -263,12 +264,8 @@ class _CandidateTab(QWidget):
         self.table.setModel(self._proxy)
         self.table.setShowGrid(False)
         self.table.setAlternatingRowColors(True)
-        self.table.setSelectionBehavior(
-            QTableView.SelectionBehavior.SelectRows
-        )
-        self.table.setSelectionMode(
-            QTableView.SelectionMode.SingleSelection
-        )
+        self.table.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
+        self.table.setSelectionMode(QTableView.SelectionMode.SingleSelection)
         self.table.setEditTriggers(QTableView.EditTrigger.NoEditTriggers)
         self.table.setSortingEnabled(True)
         self.table.verticalHeader().setVisible(False)
@@ -291,8 +288,7 @@ class _CandidateTab(QWidget):
             h.setSectionResizeMode(i, QHeaderView.ResizeMode.ResizeToContents)
         h.setSectionResizeMode(score_col, QHeaderView.ResizeMode.Fixed)
         self.table.setColumnWidth(score_col, 80)
-        self.table.setSizePolicy(QSizePolicy.Policy.Expanding,
-                                 QSizePolicy.Policy.Expanding)
+        self.table.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         v.addWidget(self.table, 1)
 
         # Wire filter signals
@@ -329,9 +325,7 @@ class _CandidateTab(QWidget):
             for src_row in range(self._model.rowCount()):
                 cand = self._model.candidate_at(src_row)
                 if getattr(cand, "id", None) == preserve_id:
-                    proxy_idx = self._proxy.mapFromSource(
-                        self._model.index(src_row, 0)
-                    )
+                    proxy_idx = self._proxy.mapFromSource(self._model.index(src_row, 0))
                     if proxy_idx.isValid():
                         self.table.selectionModel().select(
                             proxy_idx,
@@ -357,6 +351,7 @@ class _CandidateTab(QWidget):
 # ---------------------------------------------------------------------------
 # Public NucleoCard
 # ---------------------------------------------------------------------------
+
 
 class _NucleoBody(QWidget):
     """Tabbed body — emits a single signal when the user applies a
@@ -398,9 +393,7 @@ class _NucleoBody(QWidget):
         self._last_rebuild_key: tuple | None = None
 
         for tab in (self.tab_material, self.tab_core, self.tab_wire):
-            tab.selection_changed.connect(
-                lambda tab=tab: self._on_table_selection_changed(tab)
-            )
+            tab.selection_changed.connect(lambda tab=tab: self._on_table_selection_changed(tab))
 
     # ------------------------------------------------------------------
     # Public API
@@ -425,7 +418,11 @@ class _NucleoBody(QWidget):
         refresh the cached current-selection state and return.
         """
         rebuild_key = self._compute_rebuild_key(
-            spec, materials, cores, wires, current_material,
+            spec,
+            materials,
+            cores,
+            wires,
+            current_material,
         )
 
         # Always cache the current selection so ``_on_table_selection_changed``
@@ -449,35 +446,53 @@ class _NucleoBody(QWidget):
             # Material tab
             m_rows: list[tuple[object, list[str], float]] = []
             for m, s in rank_materials(spec, materials):
-                m_rows.append((m, [
-                    f"{m.name} ({m.vendor})",
-                    f"{m.mu_initial:.0f}",
-                    f"{m.Bsat_25C_T:.2f}",
-                ], s))
+                m_rows.append(
+                    (
+                        m,
+                        [
+                            f"{m.name} ({m.vendor})",
+                            f"{m.mu_initial:.0f}",
+                            f"{m.Bsat_25C_T:.2f}",
+                        ],
+                        s,
+                    )
+                )
             self.tab_material.set_rows(
-                m_rows, preserve_id=current_material.id,
+                m_rows,
+                preserve_id=current_material.id,
             )
 
             # Core tab
             c_rows: list[tuple[object, list[str], float]] = []
             for c, s in rank_cores(spec, cores, current_material, current_wire):
-                c_rows.append((c, [
-                    c.part_number or c.id,
-                    c.vendor,
-                    f"{c.Ve_mm3 / 1000:.1f}",
-                ], s))
+                c_rows.append(
+                    (
+                        c,
+                        [
+                            c.part_number or c.id,
+                            c.vendor,
+                            f"{c.Ve_mm3 / 1000:.1f}",
+                        ],
+                        s,
+                    )
+                )
             self.tab_core.set_rows(c_rows, preserve_id=current_core.id)
 
             # Wire tab
             w_rows: list[tuple[object, list[str], float]] = []
             for w, s in rank_wires(spec, current_core, wires, current_material):
-                label = (w.id if w.type != "round"
-                         else (f"AWG {w.awg}" if w.awg else w.id))
-                w_rows.append((w, [
-                    label,
-                    w.type,
-                    f"{w.A_cu_mm2:.3f}",
-                ], s))
+                label = w.id if w.type != "round" else (f"AWG {w.awg}" if w.awg else w.id)
+                w_rows.append(
+                    (
+                        w,
+                        [
+                            label,
+                            w.type,
+                            f"{w.A_cu_mm2:.3f}",
+                        ],
+                        s,
+                    )
+                )
             self.tab_wire.set_rows(w_rows, preserve_id=current_wire.id)
 
             self._last_rebuild_key = rebuild_key
@@ -485,8 +500,12 @@ class _NucleoBody(QWidget):
             self._is_populating = False
 
     def _compute_rebuild_key(
-        self, spec: Spec, materials: list[Material], cores: list[Core],
-        wires: list[Wire], current_material: Material,
+        self,
+        spec: Spec,
+        materials: list[Material],
+        cores: list[Core],
+        wires: list[Wire],
+        current_material: Material,
     ) -> tuple:
         """Fingerprint the inputs that affect the rendered row set.
 
@@ -528,9 +547,9 @@ class _NucleoBody(QWidget):
             current_material.id,
         )
 
-    def update_from_design(self, result: DesignResult, spec: Spec,
-                           core: Core, wire: Wire,
-                           material: Material) -> None:
+    def update_from_design(
+        self, result: DesignResult, spec: Spec, core: Core, wire: Wire, material: Material
+    ) -> None:
         # Update only the "current selection" — full re-rank can be
         # triggered explicitly via populate().
         self._current_material = material
@@ -560,8 +579,7 @@ class _NucleoBody(QWidget):
             if prospective_mat and prospective_mat != self._current_material:
                 # 1. Filter cores compatible with the new material.
                 compatible_cores = [
-                    c for c in self._cores
-                    if c.default_material_id == prospective_mat.id
+                    c for c in self._cores if c.default_material_id == prospective_mat.id
                 ]
                 # Fallback: if no cores are explicitly compatible, show all.
                 if not compatible_cores:
@@ -572,7 +590,9 @@ class _NucleoBody(QWidget):
                 for c, s in rank_cores(
                     self._spec, compatible_cores, prospective_mat, self._current_wire
                 ):
-                    c_rows.append((c, [c.part_number or c.id, c.vendor, f"{c.Ve_mm3 / 1000:.1f}"], s))
+                    c_rows.append(
+                        (c, [c.part_number or c.id, c.vendor, f"{c.Ve_mm3 / 1000:.1f}"], s)
+                    )
                 self.tab_core.set_rows(c_rows)
 
                 # 3. Re-rank wires (less critical, but good to keep consistent).
@@ -580,7 +600,7 @@ class _NucleoBody(QWidget):
                 for w, s in rank_wires(
                     self._spec, self._current_core, self._wires, prospective_mat
                 ):
-                    label = (w.id if w.type != "round" else (f"AWG {w.awg}" if w.awg else w.id))
+                    label = w.id if w.type != "round" else (f"AWG {w.awg}" if w.awg else w.id)
                     w_rows.append((w, [label, w.type, f"{w.A_cu_mm2:.3f}"], s))
                 self.tab_wire.set_rows(w_rows)
             return
@@ -625,6 +645,7 @@ class _NucleoBody(QWidget):
 # transitive Card → ScorePill (also a QLabel).
 def QLabel_(text: str = ""):
     from PySide6.QtWidgets import QLabel
+
     lbl = QLabel(text)
     lbl.setProperty("role", "muted")
     return lbl
@@ -633,6 +654,7 @@ def QLabel_(text: str = ""):
 # ---------------------------------------------------------------------------
 # Card wrapper
 # ---------------------------------------------------------------------------
+
 
 class NucleoCard(Card):
     """Public facade: forwards :meth:`update_from_design` and the

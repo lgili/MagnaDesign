@@ -1,4 +1,5 @@
 """Cascade DTO Pydantic round-trip tests."""
+
 from __future__ import annotations
 
 import pytest
@@ -64,8 +65,9 @@ def test_tier0_result_round_trip():
     assert restored == r
 
 
-def _make_design_result(*, P_total: float = 5.0, T: float = 80.0,
-                       feasible: bool = True) -> DesignResult:
+def _make_design_result(
+    *, P_total: float = 5.0, T: float = 80.0, feasible: bool = True
+) -> DesignResult:
     """Hand-rolled DesignResult for tests — avoids spinning the engine."""
     return DesignResult(
         L_required_uH=400.0,

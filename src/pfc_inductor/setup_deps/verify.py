@@ -10,6 +10,7 @@ problems behind solver-specific errors. Instead we exercise:
 The result is a structured ``VerifyReport`` so the UI can show each
 sub-check with its own status icon.
 """
+
 from __future__ import annotations
 
 import importlib
@@ -61,9 +62,7 @@ def verify_fea_setup() -> VerifyReport:
         rep.notes.append("Caminho do ONELAB não configurado.")
         return rep
     if not is_onelab_installed(onelab):
-        rep.notes.append(
-            f"ONELAB configurado em {onelab} mas binários estão ausentes."
-        )
+        rep.notes.append(f"ONELAB configurado em {onelab} mas binários estão ausentes.")
         return rep
     rep.onelab_binaries_present = True
 
@@ -74,8 +73,6 @@ def verify_fea_setup() -> VerifyReport:
     # codesign edge cases.
     plat = detect_platform()
     if plat.is_macos and not (onelab / "getdp").exists():
-        rep.notes.append(
-            "macOS: getdp não encontrado — Gatekeeper pode estar bloqueando."
-        )
+        rep.notes.append("macOS: getdp não encontrado — Gatekeeper pode estar bloqueando.")
 
     return rep

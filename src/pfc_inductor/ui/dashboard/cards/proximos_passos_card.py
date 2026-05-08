@@ -1,4 +1,5 @@
 """Next Steps card — actionable workflow next-steps."""
+
 from __future__ import annotations
 
 from typing import Optional
@@ -48,9 +49,9 @@ class ProximosPassosCard(Card):
         self._refresh()
 
     # ------------------------------------------------------------------
-    def update_from_design(self, result: DesignResult, spec: Spec,
-                           core: Core, wire: Wire,
-                           material: Material) -> None:
+    def update_from_design(
+        self, result: DesignResult, spec: Spec, core: Core, wire: Wire, material: Material
+    ) -> None:
         # Litz step is "done" if a Litz wire is selected, otherwise
         # "pending" (until the user touches it).
         kind = _wire_kind(wire)
@@ -72,15 +73,12 @@ class ProximosPassosCard(Card):
     # ------------------------------------------------------------------
     def _refresh(self) -> None:
         items = [
-            ActionItem("Validate with FEM",
-                       self._actions["fea"], self.fea_requested.emit),
-            ActionItem("Compare with alternatives",
-                       self._actions["compare"], self.compare_requested.emit),
-            ActionItem("Optimize Litz",
-                       self._actions["litz"], self.litz_requested.emit),
-            ActionItem("Find similar parts",
-                       self._actions["similar"], self.similar_requested.emit),
-            ActionItem("Generate report",
-                       self._actions["report"], self.report_requested.emit),
+            ActionItem("Validate with FEM", self._actions["fea"], self.fea_requested.emit),
+            ActionItem(
+                "Compare with alternatives", self._actions["compare"], self.compare_requested.emit
+            ),
+            ActionItem("Optimize Litz", self._actions["litz"], self.litz_requested.emit),
+            ActionItem("Find similar parts", self._actions["similar"], self.similar_requested.emit),
+            ActionItem("Generate report", self._actions["report"], self.report_requested.emit),
         ]
         self._steps_widget.set_items(items)

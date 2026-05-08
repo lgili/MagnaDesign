@@ -26,11 +26,11 @@ unknown fields are ignored, missing fields fall back to sensible
 defaults so a partial file still opens (the user gets a banner
 explaining what was patched).
 """
+
 from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -70,7 +70,7 @@ class ProjectFile(BaseModel):
         material_id: str = "",
         core_id: str = "",
         wire_id: str = "",
-    ) -> "ProjectFile":
+    ) -> ProjectFile:
         return cls(
             name=name,
             spec=spec,

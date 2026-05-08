@@ -21,6 +21,7 @@ needing any closed-form triangular wave constants.
 Reference: J. Mühlethaler et al., "Improved core-loss calculation for
 magnetic components employed in power electronic systems," IEEE TPE, 2012.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -29,9 +30,7 @@ from numpy.typing import ArrayLike
 from pfc_inductor.models import Material
 
 
-def steinmetz_volumetric_mWcm3(
-    material: Material, f_kHz: float, B_pk_mT: float
-) -> float:
+def steinmetz_volumetric_mWcm3(material: Material, f_kHz: float, B_pk_mT: float) -> float:
     """Pv [mW/cm^3] anchored at (f_ref, B_ref, Pv_ref)."""
     s = material.steinmetz
     if f_kHz < s.f_min_kHz:
@@ -97,9 +96,7 @@ def core_loss_W_pfc(
     f_line_kHz = f_line_Hz * 1e-3
     P_line = core_loss_W_sinusoidal(material, 2 * f_line_kHz, B_pk_line_T, Ve_mm3)
     if delta_B_pp_T_array is not None:
-        P_ripple = core_loss_W_pfc_ripple_iGSE(
-            material, f_sw_kHz, delta_B_pp_T_array, Ve_mm3
-        )
+        P_ripple = core_loss_W_pfc_ripple_iGSE(material, f_sw_kHz, delta_B_pp_T_array, Ve_mm3)
     else:
         B_pk_ripple_T = delta_B_ripple_avg_T / 2.0
         P_ripple = core_loss_W_sinusoidal(material, f_sw_kHz, B_pk_ripple_T, Ve_mm3)

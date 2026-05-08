@@ -31,6 +31,7 @@ UI shape
     │  required for certification.                         │
     └──────────────────────────────────────────────────────┘
 """
+
 from __future__ import annotations
 
 import math
@@ -84,7 +85,7 @@ class AcousticCard(Card):
         nonsense "0 dB(A)" would mislead the user."""
         try:
             estimate = estimate_noise(spec, core, wire, material, result)
-        except Exception:  # noqa: BLE001 — surface as silent hide
+        except Exception:
             self.setVisible(False)
             return
         if estimate.dominant_mechanism == "none":
@@ -109,7 +110,8 @@ class _AcousticBody(QFrame):
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred,
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Preferred,
         )
         v = QVBoxLayout(self)
         v.setContentsMargins(12, 8, 12, 8)
@@ -169,16 +171,15 @@ class _AcousticBody(QFrame):
     def show_estimate(self, est: NoiseEstimate) -> None:
         # Hero: SPL value + dominant tone frequency in kHz.
         self._hero.setText(
-            f"{est.dB_a_at_1m:.1f} dB(A) "
-            f"@ {est.dominant_frequency_Hz / 1000:.1f} kHz",
+            f"{est.dB_a_at_1m:.1f} dB(A) @ {est.dominant_frequency_Hz / 1000:.1f} kHz",
         )
         self._refresh_hero_color(est)
 
         mechanism_label = {
-            "magnetostriction":  "Magnetostriction",
-            "winding_lorentz":   "Winding Lorentz",
-            "bobbin_resonance":  "Bobbin resonance",
-            "none":              "—",
+            "magnetostriction": "Magnetostriction",
+            "winding_lorentz": "Winding Lorentz",
+            "bobbin_resonance": "Bobbin resonance",
+            "none": "—",
         }.get(est.dominant_mechanism, est.dominant_mechanism)
         self._dominant.setText(f"Dominant: {mechanism_label}")
 
@@ -196,16 +197,15 @@ class _AcousticBody(QFrame):
 
         # Per-mechanism contribution table.
         contributors = [
-            (mech, db) for mech, db in est.contributors_dba.items()
-            if math.isfinite(db)
+            (mech, db) for mech, db in est.contributors_dba.items() if math.isfinite(db)
         ]
         contributors.sort(key=lambda kv: -kv[1])
         self._table.setRowCount(len(contributors))
         for r, (mech, db) in enumerate(contributors):
             label_text = mechanism_label = {
-                "magnetostriction":  "Magnetostriction",
-                "winding_lorentz":   "Winding Lorentz",
-                "bobbin_resonance":  "Bobbin resonance",
+                "magnetostriction": "Magnetostriction",
+                "winding_lorentz": "Winding Lorentz",
+                "bobbin_resonance": "Bobbin resonance",
             }.get(mech, mech)
             self._table.setItem(r, 0, QTableWidgetItem(label_text))
             cell = QTableWidgetItem(f"{db:.1f} dB(A)")
@@ -229,11 +229,7 @@ class _AcousticBody(QFrame):
         #   0 to +6 dB       → warning
         #   < 0 dB           → danger
         head = est.headroom_to_threshold_dB
-        color = (
-            p.success if head >= 6.0
-            else p.warning if head >= 0.0
-            else p.danger
-        )
+        color = p.success if head >= 6.0 else p.warning if head >= 0.0 else p.danger
         self._hero.setStyleSheet(
             f"color: {color}; "
             f"font-family: {t.numeric_family}; "
@@ -245,13 +241,9 @@ class _AcousticBody(QFrame):
         p = get_theme().palette
         t = get_theme().type
         head = est.headroom_to_threshold_dB
-        color = (
-            p.success if head >= 0.0
-            else p.danger
-        )
+        color = p.success if head >= 0.0 else p.danger
         self._headroom.setStyleSheet(
-            f"color: {color}; font-size: {t.body}px;"
-            f"font-weight: {t.medium};"
+            f"color: {color}; font-size: {t.body}px;font-weight: {t.medium};"
         )
 
     def _refresh_theme(self) -> None:

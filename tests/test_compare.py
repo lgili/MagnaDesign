@@ -1,4 +1,5 @@
 """Compare module + HTML/CSV export tests."""
+
 import csv
 import tempfile
 from pathlib import Path
@@ -20,20 +21,27 @@ from pfc_inductor.models import Spec
 @pytest.fixture(scope="module")
 def two_slots():
     mats, cores, wires = load_materials(), load_cores(), load_wires()
-    spec = Spec(Vin_min_Vrms=85.0, Vin_max_Vrms=265.0, Vin_nom_Vrms=220.0,
-                Vout_V=400.0, Pout_W=800.0, eta=0.97,
-                f_sw_kHz=65.0, ripple_pct=30.0)
+    spec = Spec(
+        Vin_min_Vrms=85.0,
+        Vin_max_Vrms=265.0,
+        Vin_nom_Vrms=220.0,
+        Vout_V=400.0,
+        Pout_W=800.0,
+        eta=0.97,
+        f_sw_kHz=65.0,
+        ripple_pct=30.0,
+    )
     mat_a = find_material(mats, "magnetics-60_highflux")
     mat_b = find_material(mats, "magnetics-60_xflux")
     core_a = next(
-        c for c in cores
-        if c.default_material_id == "magnetics-60_highflux"
-        and 40000 < c.Ve_mm3 < 100000
+        c
+        for c in cores
+        if c.default_material_id == "magnetics-60_highflux" and 40000 < c.Ve_mm3 < 100000
     )
     core_b = next(
-        c for c in cores
-        if c.default_material_id == "magnetics-60_xflux"
-        and 40000 < c.Ve_mm3 < 100000
+        c
+        for c in cores
+        if c.default_material_id == "magnetics-60_xflux" and 40000 < c.Ve_mm3 < 100000
     )
     w = next(w for w in wires if w.id == "AWG14")
     r_a = design(spec, core_a, w, mat_a)
@@ -88,6 +96,7 @@ def test_compare_slot_label(two_slots):
 
 def test_html_compare_self_contained(two_slots):
     from pfc_inductor.report import generate_compare_html
+
     with tempfile.TemporaryDirectory() as td:
         out = generate_compare_html(two_slots, Path(td) / "cmp.html")
         text = out.read_text(encoding="utf-8")
@@ -108,9 +117,7 @@ def test_csv_export_format(two_slots, tmp_path):
         header = ["Métrica", "Unidade"] + [s.label for s in two_slots]
         w.writerow(header)
         for metric in METRICS:
-            row = [metric.label, metric.unit] + [
-                metric.format(s) for s in two_slots
-            ]
+            row = [metric.label, metric.unit] + [metric.format(s) for s in two_slots]
             w.writerow(row)
     rows = list(csv.reader(out.open(encoding="utf-8")))
     assert len(rows) == 1 + len(METRICS)

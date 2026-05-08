@@ -16,6 +16,7 @@ Two notions of "similar":
 The distance metric is a weighted Euclidean over per-parameter % deltas
 normalised by their tolerances; smaller is closer.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -44,9 +45,15 @@ class SimilarityCriteria:
     same_shape: bool = True
     same_vendor: bool = False
     exclude_self: bool = True
-    weights: dict[str, float] = field(default_factory=lambda: {
-        "Ae": 1.5, "Wa": 1.0, "AL": 1.5, "mu_r": 1.0, "Bsat": 1.0,
-    })
+    weights: dict[str, float] = field(
+        default_factory=lambda: {
+            "Ae": 1.5,
+            "Wa": 1.0,
+            "AL": 1.5,
+            "mu_r": 1.0,
+            "Bsat": 1.0,
+        }
+    )
 
 
 @dataclass
@@ -101,8 +108,11 @@ def _compute_deltas(
 
 def _within_tolerance(deltas: dict[str, float], crit: SimilarityCriteria) -> bool:
     tol = {
-        "Ae": crit.Ae_pct, "Wa": crit.Wa_pct, "AL": crit.AL_pct,
-        "mu_r": crit.mu_r_pct, "Bsat": crit.Bsat_pct,
+        "Ae": crit.Ae_pct,
+        "Wa": crit.Wa_pct,
+        "AL": crit.AL_pct,
+        "mu_r": crit.mu_r_pct,
+        "Bsat": crit.Bsat_pct,
     }
     for k in _PARAM_KEYS:
         if abs(deltas[k]) > tol[k]:
@@ -113,8 +123,11 @@ def _within_tolerance(deltas: dict[str, float], crit: SimilarityCriteria) -> boo
 def _distance(deltas: dict[str, float], crit: SimilarityCriteria) -> float:
     """Weighted Euclidean over normalised deltas."""
     tol = {
-        "Ae": crit.Ae_pct, "Wa": crit.Wa_pct, "AL": crit.AL_pct,
-        "mu_r": crit.mu_r_pct, "Bsat": crit.Bsat_pct,
+        "Ae": crit.Ae_pct,
+        "Wa": crit.Wa_pct,
+        "AL": crit.AL_pct,
+        "mu_r": crit.mu_r_pct,
+        "Bsat": crit.Bsat_pct,
     }
     s = 0.0
     for k in _PARAM_KEYS:
@@ -123,7 +136,7 @@ def _distance(deltas: dict[str, float], crit: SimilarityCriteria) -> float:
             continue
         norm = deltas[k] / tol[k]
         s += w * (norm * norm)
-    return s ** 0.5
+    return s**0.5
 
 
 def find_equivalents(
@@ -153,13 +166,17 @@ def find_equivalents(
         if not _within_tolerance(deltas, crit):
             continue
         d = _distance(deltas, crit)
-        matches.append(SimilarMatch(
-            core=c, material=m, distance=d, deltas_pct=deltas,
-            is_same_part_number=(
-                c.vendor == target_core.vendor
-                and c.part_number == target_core.part_number
-            ),
-        ))
+        matches.append(
+            SimilarMatch(
+                core=c,
+                material=m,
+                distance=d,
+                deltas_pct=deltas,
+                is_same_part_number=(
+                    c.vendor == target_core.vendor and c.part_number == target_core.part_number
+                ),
+            )
+        )
 
     matches.sort(key=lambda x: (not x.is_same_part_number, x.distance))
     return matches
