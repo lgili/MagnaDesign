@@ -70,6 +70,18 @@ telemetry = [
 updater = [
     "cryptography>=42.0",
 ]
+# Numba JIT acceleration for the cascade hot loops — see
+# ``docs/PERFORMANCE.md`` for the benchmark (54× on the
+# Steinmetz inner loop, ~3-5× on the full engine.design()
+# pipeline). Opt-in because Numba + LLVM add ~50 MB to the
+# bundle; users on weak PCs benefit, users with capacity to
+# spare can skip the install. The runtime falls back to the
+# pure-numpy code path when Numba isn't installed — same
+# numbers, just slower. Enable with
+# ``uv pip install -e ".[performance]"`` on the maintainer build.
+performance = [
+    "numba>=0.60",
+]
 # FEA validation backend (FEMMT). Pinned because FEMMT 0.5.x has hard
 # constraints on scipy and setuptools that conflict with newer wheels.
 # Install with `uv pip install -e ".[fea]"` on Python 3.12.
