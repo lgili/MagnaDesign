@@ -1,7 +1,7 @@
 """Modal dialog that runs the FEA dependency installer.
 
 Opens automatically on first launch when ONELAB is missing, and is also
-reachable from the toolbar action **"Reinstalar dependências FEA"**.
+reachable from the toolbar action **"Reinstall FEA dependencies"**.
 
 The setup runs in a worker thread so the UI stays responsive — a 50 MB
 download over a slow link can take a couple of minutes.
@@ -65,18 +65,18 @@ class SetupDepsDialog(QDialog):
 
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
-        self.setWindowTitle("Instalar dependências FEA")
+        self.setWindowTitle("Install FEA dependencies")
         self.resize(720, 520)
         self._thread: Optional[QThread] = None
 
         v = QVBoxLayout(self)
 
         self.lbl_intro = QLabel(
-            "<b>Instalação automática do backend FEA</b><br>"
-            "Vamos baixar o ONELAB (~50 MB), assinar os binários se for "
-            "macOS, escrever o <code>config.json</code> da FEMMT e "
-            "verificar tudo no final. É idempotente — pode rodar de novo "
-            "se algo der errado."
+            "<b>Automatic FEA backend installation</b><br>"
+            "We'll download ONELAB (~50 MB), sign the binaries on macOS, "
+            "write FEMMT's <code>config.json</code> and verify everything "
+            "at the end. The flow is idempotent — you can re-run it safely "
+            "if something fails."
         )
         self.lbl_intro.setWordWrap(True)
         v.addWidget(self.lbl_intro)
@@ -104,11 +104,11 @@ class SetupDepsDialog(QDialog):
 
         h = QHBoxLayout()
         h.addStretch(1)
-        self.btn_run = QPushButton("Instalar")
+        self.btn_run = QPushButton("Install")
         self.btn_run.setStyleSheet("font-weight: bold; padding: 6px 18px;")
         self.btn_run.clicked.connect(self._run)
         h.addWidget(self.btn_run)
-        self.btn_close = QPushButton("Fechar")
+        self.btn_close = QPushButton("Close")
         self.btn_close.clicked.connect(self.reject)
         h.addWidget(self.btn_close)
         v.addLayout(h)
@@ -122,25 +122,25 @@ class SetupDepsDialog(QDialog):
         v = check_fea_setup()
         self.lst_steps.clear()
         items = [
-            ("FEMMT importável", v.femmt_importable,
+            ("FEMMT importable", v.femmt_importable,
              (v.femmt_version and f"v{v.femmt_version}") or ""),
-            ("ONELAB configurado",
+            ("ONELAB configured",
              v.onelab_dir is not None,
              str(v.onelab_dir) if v.onelab_dir else ""),
-            ("Binários ONELAB presentes", v.onelab_binaries_present, ""),
+            ("ONELAB binaries present", v.onelab_binaries_present, ""),
         ]
         for name, ok, detail in items:
             self._add_step_item(name, ok, detail)
         if v.fea_ready:
             self.lbl_result.setText(
-                f"<span style='color:{_OK}'>● Tudo pronto.</span> "
-                "Rodar o instalador é seguro mas opcional."
+                f"<span style='color:{_OK}'>● All set.</span> "
+                "Re-running the installer is safe but optional."
             )
-            self.btn_run.setText("Reinstalar mesmo assim")
+            self.btn_run.setText("Reinstall anyway")
         else:
             self.lbl_result.setText(
-                f"<span style='color:{_WARN}'>● Faltam itens.</span> "
-                "Clique em <b>Instalar</b> para configurar tudo."
+                f"<span style='color:{_WARN}'>● Missing items.</span> "
+                "Click <b>Install</b> to configure everything."
             )
 
     def _add_step_item(self, name: str, ok: bool, detail: str = "") -> None:
@@ -160,7 +160,7 @@ class SetupDepsDialog(QDialog):
         self.txt_log.clear()
         self.lbl_result.clear()
         self.progress.setValue(0)
-        self.txt_log.appendPlainText("Iniciando setup…")
+        self.txt_log.appendPlainText("Starting setup…")
 
         self._worker = _SetupWorker(onelab_dir=None)
         self._thread = QThread(self)
@@ -180,9 +180,9 @@ class SetupDepsDialog(QDialog):
 
     def _on_failed(self, msg: str) -> None:
         self.btn_run.setEnabled(True)
-        self.txt_log.appendPlainText(f"\nERRO: {msg}")
+        self.txt_log.appendPlainText(f"\nERROR: {msg}")
         self.lbl_result.setText(
-            f"<span style='color:{_BAD}'>● Falhou: {msg}</span>"
+            f"<span style='color:{_BAD}'>● Failed: {msg}</span>"
         )
         self.completed.emit(False)
 
@@ -195,12 +195,12 @@ class SetupDepsDialog(QDialog):
         v = check_fea_setup()
         if v.fea_ready:
             self.lbl_result.setText(
-                f"<span style='color:{_OK}'>● Setup concluído.</span> "
-                "Pode rodar Validar (FEA) com confiança."
+                f"<span style='color:{_OK}'>● Setup complete.</span> "
+                "You can run Validate (FEA) with confidence."
             )
         else:
             self.lbl_result.setText(
-                f"<span style='color:{_WARN}'>● Concluído com pendências.</span> "
+                f"<span style='color:{_WARN}'>● Completed with pending items.</span> "
                 + "; ".join(v.notes)
             )
         self.completed.emit(v.fea_ready)

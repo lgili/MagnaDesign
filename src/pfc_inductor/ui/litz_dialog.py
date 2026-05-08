@@ -67,7 +67,7 @@ class LitzOptimizerDialog(QDialog):
         outer.addLayout(self._build_buttons())
 
     def _build_target_box(self) -> QGroupBox:
-        box = QGroupBox("Design alvo")
+        box = QGroupBox("Target design")
         v = QVBoxLayout(box)
         f = QFont()
         f.setStyleHint(QFont.StyleHint.Monospace)
@@ -76,14 +76,14 @@ class LitzOptimizerDialog(QDialog):
             f"{self._material.vendor} — {self._material.name}  +  "
             f"{self._core.vendor} — {self._core.part_number} ({self._core.shape})\n"
             f"Pout = {self._spec.Pout_W:.0f} W   fsw = {self._spec.f_sw_kHz:.0f} kHz   "
-            f"Vin (mín) = {self._spec.Vin_min_Vrms:.0f} Vrms"
+            f"Vin (min) = {self._spec.Vin_min_Vrms:.0f} Vrms"
         )
         lbl.setFont(f)
         v.addWidget(lbl)
         return box
 
     def _build_inputs_box(self) -> QGroupBox:
-        box = QGroupBox("Critérios da otimização")
+        box = QGroupBox("Optimization criteria")
         h = QHBoxLayout(box)
         f = QFormLayout()
 
@@ -93,14 +93,14 @@ class LitzOptimizerDialog(QDialog):
         self.sp_J.setSingleStep(0.5)
         self.sp_J.setSuffix(" A/mm²")
         self.sp_J.setValue(4.0)
-        f.addRow("Densidade de corrente alvo:", self.sp_J)
+        f.addRow("Target current density:", self.sp_J)
 
         self.sp_AC_DC = QDoubleSpinBox()
         self.sp_AC_DC.setRange(1.001, 2.0)
         self.sp_AC_DC.setDecimals(3)
         self.sp_AC_DC.setSingleStep(0.01)
         self.sp_AC_DC.setValue(1.10)
-        f.addRow("Razão AC/DC alvo:", self.sp_AC_DC)
+        f.addRow("Target AC/DC ratio:", self.sp_AC_DC)
 
         self.sp_max_bundle = QDoubleSpinBox()
         self.sp_max_bundle.setRange(0.5, 30.0)
@@ -108,19 +108,19 @@ class LitzOptimizerDialog(QDialog):
         self.sp_max_bundle.setSingleStep(0.5)
         self.sp_max_bundle.setSuffix(" mm")
         self.sp_max_bundle.setValue(8.0)
-        f.addRow("Diâmetro máx do bundle:", self.sp_max_bundle)
+        f.addRow("Max bundle diameter:", self.sp_max_bundle)
 
         self.sp_layers = QSpinBox()
         self.sp_layers.setRange(1, 30)
         self.sp_layers.setValue(1 if "tor" in (self._core.shape or "").lower() else 5)
-        f.addRow("Camadas efetivas (Nₗ):", self.sp_layers)
+        f.addRow("Effective layers (Nₗ):", self.sp_layers)
 
         h.addLayout(f)
 
         side = QVBoxLayout()
         self.lbl_d_opt = QLabel("d_opt: —")
         side.addWidget(self.lbl_d_opt)
-        self.btn_run = QPushButton("Otimizar")
+        self.btn_run = QPushButton("Optimize")
         self.btn_run.setStyleSheet("font-weight: bold; padding: 6px 18px;")
         self.btn_run.clicked.connect(self._run)
         side.addWidget(self.btn_run)
@@ -133,16 +133,16 @@ class LitzOptimizerDialog(QDialog):
         return box
 
     def _build_result_box(self) -> QGroupBox:
-        box = QGroupBox("Recomendação")
+        box = QGroupBox("Recommendation")
         v = QVBoxLayout(box)
-        self.lbl_summary = QLabel("Clique 'Otimizar' para gerar candidatos.")
+        self.lbl_summary = QLabel("Click 'Optimize' to generate candidates.")
         self.lbl_summary.setStyleSheet("color:#555;")
         v.addWidget(self.lbl_summary)
 
         self.table = QTableWidget(0, 9)
         self.table.setHorizontalHeaderLabels([
-            "Construção", "AWG strand", "N strands", "d_bundle [mm]",
-            "A_cu [mm²]", "AC/DC", "P_total [W]", "T [°C]", "Custo",
+            "Construction", "AWG strand", "N strands", "d_bundle [mm]",
+            "A_cu [mm²]", "AC/DC", "P_total [W]", "T [°C]", "Cost",
         ])
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
@@ -157,10 +157,10 @@ class LitzOptimizerDialog(QDialog):
     def _build_buttons(self) -> QHBoxLayout:
         h = QHBoxLayout()
         h.addStretch(1)
-        self.btn_save = QPushButton("Salvar selecionado como novo fio")
+        self.btn_save = QPushButton("Save selected as new wire")
         self.btn_save.setEnabled(False)
         self.btn_save.clicked.connect(self._save_selected)
-        self.btn_close = QPushButton("Fechar")
+        self.btn_close = QPushButton("Close")
         self.btn_close.clicked.connect(self.reject)
         h.addWidget(self.btn_save)
         h.addWidget(self.btn_close)
@@ -186,7 +186,7 @@ class LitzOptimizerDialog(QDialog):
                 max_bundle_mm=self.sp_max_bundle.value(),
             )
         except Exception as e:
-            QMessageBox.critical(self, "Erro", str(e))
+            QMessageBox.critical(self, "Error", str(e))
             self.btn_run.setEnabled(True)
             return
         self._rec = rec
@@ -235,21 +235,21 @@ class LitzOptimizerDialog(QDialog):
             rp = rec.round_wire_baseline.result.losses.P_total_W
             delta_pct = (dp - rp) / rp * 100.0
             verdict = (
-                f"Litz vence (−{abs(delta_pct):.1f}% de perda)"
+                f"Litz wins (−{abs(delta_pct):.1f}% loss)"
                 if dp < rp
-                else f"Round-wire vence (Litz é {delta_pct:+.1f}%)"
+                else f"Round-wire wins (Litz is {delta_pct:+.1f}%)"
             )
             self.lbl_summary.setText(
-                f"{len(rec.candidates)} candidatos Litz avaliados, "
-                f"baseline round-wire: {rec.round_wire_baseline.wire.id}. {verdict}"
+                f"{len(rec.candidates)} Litz candidates evaluated, "
+                f"round-wire baseline: {rec.round_wire_baseline.wire.id}. {verdict}"
             )
         else:
-            self.lbl_summary.setText("Nenhum candidato viável encontrado.")
+            self.lbl_summary.setText("No feasible candidates found.")
 
     def _save_selected(self):
         rows = self.table.selectionModel().selectedRows()
         if not rows:
-            QMessageBox.information(self, "Selecione", "Escolha uma linha primeiro.")
+            QMessageBox.information(self, "Select a row", "Pick a row first.")
             return
         idx = rows[0].row()
         if idx >= len(self._row_to_cand):
@@ -257,31 +257,31 @@ class LitzOptimizerDialog(QDialog):
         tag, cand = self._row_to_cand[idx]
         if cand.wire.type != "litz":
             QMessageBox.information(
-                self, "Linha não-Litz",
-                "Só é possível salvar construções Litz como novo fio.",
+                self, "Non-Litz row",
+                "Only Litz constructions can be saved as a new wire.",
             )
             return
         suggested = cand.wire.id
         new_id, ok = QInputDialog.getText(
-            self, "Salvar Litz", "ID único para o novo fio:", text=suggested
+            self, "Save Litz", "Unique ID for the new wire:", text=suggested
         )
         if not ok or not new_id.strip():
             return
         new_id = new_id.strip()
         all_wires = list(load_wires())
         if any(w.id == new_id for w in all_wires):
-            QMessageBox.warning(self, "ID em uso", f"Já existe '{new_id}'.")
+            QMessageBox.warning(self, "ID in use", f"'{new_id}' already exists.")
             return
         new_wire = cand.wire.model_copy(update={"id": new_id})
         all_wires.append(new_wire)
         try:
             save_wires(all_wires)
         except Exception as e:
-            QMessageBox.critical(self, "Erro ao salvar", str(e))
+            QMessageBox.critical(self, "Save error", str(e))
             return
         self.wire_saved.emit(new_id)
         QMessageBox.information(
-            self, "Salvo",
-            f"Fio Litz '{new_id}' adicionado à base de dados do usuário.\n"
-            f"Reabra o app ou recarregue a base para vê-lo no combobox.",
+            self, "Saved",
+            f"Litz wire '{new_id}' added to the user database.\n"
+            f"Re-open the app or reload the database to see it in the combobox.",
         )

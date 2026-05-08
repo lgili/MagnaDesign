@@ -88,12 +88,12 @@ def test_main_window_topology_picker_applies_to_spec_panel(app, monkeypatch):
     # The spec panel (now hosted inside the SpecDrawer) should reflect
     # the chosen topology via the new ``topology()`` accessor — the
     # ``cmb_topology`` QComboBox was removed when the SpecDrawer's
-    # "Alterar Topologia" button became the single source of truth.
+    # "Change Topology" button became the single source of truth.
     sp = w.projeto_page.spec_panel
     assert sp.topology() == "passive_choke"
     assert sp.get_spec().topology == "passive_choke"
     # Drawer button label tracks the SpecPanel's ``topology_changed``.
-    assert "Choke passivo" in w.projeto_page.drawer._btn_change_topo.text()
+    assert "Passive choke" in w.projeto_page.drawer._btn_change_topo.text()
     w.close()
 
 

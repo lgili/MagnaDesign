@@ -1,6 +1,6 @@
 """Topology picker dialog.
 
-Shown when the user clicks "Alterar Topologia" on the Topologia card.
+Shown when the user clicks "Change Topology" on the Topology card.
 Presents the four supported topologies as selectable cards, each with
 a small schematic preview and a one-line description. Returns the
 canonical topology key + ``n_phases`` (only meaningful for the line
@@ -31,17 +31,17 @@ from pfc_inductor.ui.widgets import TopologySchematicWidget
 # (key, label, n_phases-or-None, description)
 _OPTIONS: list[tuple[str, str, Optional[int], str]] = [
     ("boost_ccm", "Boost CCM Active", None,
-     "PFC ativo. Indutor + chave + diodo + capacitor barramento. "
-     "fsw típica 50–200 kHz."),
+     "Active PFC. Inductor + switch + diode + bus capacitor. "
+     "Typical fsw 50–200 kHz."),
     ("passive_choke", "Passive PFC Choke", None,
-     "Choke passivo na saída do retificador. Filtragem suave, "
-     "menor custo, sem chaveamento."),
+     "Passive choke on the rectifier output. Soft filtering, "
+     "lower cost, no switching."),
     ("line_reactor_1ph", "Line Reactor (1ph)", 1,
-     "Reator de linha 1φ na entrada do retificador a diodo. "
-     "Para conformidade IEC 61000-3-2."),
+     "1φ line reactor on the input of a diode rectifier. "
+     "For IEC 61000-3-2 compliance."),
     ("line_reactor_3ph", "Line Reactor (3ph)", 3,
-     "Reator de linha 3φ na entrada de retificador 6-pulsos. "
-     "Reduz THD harmônica para drive industrial."),
+     "3φ line reactor on the input of a 6-pulse rectifier. "
+     "Reduces harmonic THD for industrial drives."),
 ]
 
 
@@ -130,20 +130,20 @@ class TopologyPickerDialog(QDialog):
         parent: Optional[QWidget] = None,
     ) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Escolher Topologia")
+        self.setWindowTitle("Choose topology")
         self.setMinimumSize(720, 480)
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(20, 20, 20, 20)
         outer.setSpacing(16)
 
-        title = QLabel("Selecione uma topologia")
+        title = QLabel("Select a topology")
         title.setProperty("role", "title")
         outer.addWidget(title)
 
         subtitle = QLabel(
-            "A escolha define a matemática do indutor "
-            "(forma de onda, perdas, dimensionamento)."
+            "The choice defines the inductor math "
+            "(waveform, losses, sizing)."
         )
         subtitle.setProperty("role", "muted")
         subtitle.setWordWrap(True)
@@ -183,11 +183,11 @@ class TopologyPickerDialog(QDialog):
         ok_btn = btns.button(QDialogButtonBox.StandardButton.Ok)
         if ok_btn is not None:
             ok_btn.setProperty("class", "Primary")
-            ok_btn.setText("Aplicar")
+            ok_btn.setText("Apply")
         cancel_btn = btns.button(QDialogButtonBox.StandardButton.Cancel)
         if cancel_btn is not None:
             cancel_btn.setProperty("class", "Secondary")
-            cancel_btn.setText("Cancelar")
+            cancel_btn.setText("Cancel")
         outer.addWidget(btns)
 
         self._selected_key: str = current_key if current_key in self._options \

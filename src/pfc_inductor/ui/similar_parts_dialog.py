@@ -40,7 +40,7 @@ class SimilarPartsDialog(QDialog):
         parent=None,
     ):
         super().__init__(parent)
-        self.setWindowTitle("Peças similares")
+        self.setWindowTitle("Similar parts")
         self.resize(1100, 600)
         self._target_core = target_core
         self._target_material = target_material
@@ -57,7 +57,7 @@ class SimilarPartsDialog(QDialog):
         self._refresh()
 
     def _build_target_box(self) -> QGroupBox:
-        box = QGroupBox("Alvo (selecionado atualmente)")
+        box = QGroupBox("Target (currently selected)")
         h = QHBoxLayout(box)
         f = QFont()
         f.setStyleHint(QFont.StyleHint.Monospace)
@@ -79,7 +79,7 @@ class SimilarPartsDialog(QDialog):
         )
 
     def _build_filter_box(self) -> QGroupBox:
-        box = QGroupBox("Tolerâncias")
+        box = QGroupBox("Tolerances")
         h = QHBoxLayout(box)
 
         self.sp_Ae = self._tol_spin(10.0)
@@ -96,9 +96,9 @@ class SimilarPartsDialog(QDialog):
         f2.addRow("Δ μ_r (%):", self.sp_mu)
         f3 = QFormLayout()
         f3.addRow("Δ Bsat (%):", self.sp_Bsat)
-        self.chk_same_shape = QCheckBox("Mesma forma")
+        self.chk_same_shape = QCheckBox("Same shape")
         self.chk_same_shape.setChecked(True)
-        self.chk_same_vendor = QCheckBox("Mesmo fabricante")
+        self.chk_same_vendor = QCheckBox("Same vendor")
         self.chk_same_vendor.setChecked(False)
         f3.addRow(self.chk_same_shape)
         f3.addRow(self.chk_same_vendor)
@@ -125,13 +125,13 @@ class SimilarPartsDialog(QDialog):
         return s
 
     def _build_table(self) -> QGroupBox:
-        box = QGroupBox("Resultados (ordenados por proximidade)")
+        box = QGroupBox("Results (sorted by closeness)")
         v = QVBoxLayout(box)
         self.lbl_count = QLabel("—")
         v.addWidget(self.lbl_count)
         self.table = QTableWidget(0, 9)
         self.table.setHorizontalHeaderLabels([
-            "Vendor", "Part number", "Forma", "Material",
+            "Vendor", "Part number", "Shape", "Material",
             "Δ Ae", "Δ Wa", "Δ AL", "Δ μ_r", "d",
         ])
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)

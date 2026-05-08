@@ -94,7 +94,7 @@ class _ColumnWidget(QFrame):
             v.addLayout(row)
 
         # Apply button
-        btn_apply = QPushButton("Aplicar este")
+        btn_apply = QPushButton("Apply this")
         btn_apply.clicked.connect(lambda: self.apply_requested.emit(self))
         v.addWidget(btn_apply)
         v.addStretch(1)
@@ -128,7 +128,7 @@ class CompareDialog(QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Comparar designs")
+        self.setWindowTitle("Compare designs")
         self.resize(1400, 720)
         self._slots: list[CompareSlot] = []
         self._columns: list[_ColumnWidget] = []
@@ -142,21 +142,21 @@ class CompareDialog(QDialog):
 
     def _build_toolbar(self) -> QHBoxLayout:
         h = QHBoxLayout()
-        self.btn_add_current = QPushButton("Adicionar design atual")
+        self.btn_add_current = QPushButton("Add current design")
         self.btn_add_current.setStyleSheet("font-weight: bold;")
         self.btn_add_current.clicked.connect(self._on_add_current)
         h.addWidget(self.btn_add_current)
-        self.btn_clear = QPushButton("Limpar")
+        self.btn_clear = QPushButton("Clear")
         self.btn_clear.clicked.connect(self._on_clear)
         h.addWidget(self.btn_clear)
         h.addStretch(1)
-        self.btn_export_html = QPushButton("Exportar HTML")
+        self.btn_export_html = QPushButton("Export HTML")
         self.btn_export_html.clicked.connect(self._on_export_html)
         h.addWidget(self.btn_export_html)
-        self.btn_export_csv = QPushButton("Exportar CSV")
+        self.btn_export_csv = QPushButton("Export CSV")
         self.btn_export_csv.clicked.connect(self._on_export_csv)
         h.addWidget(self.btn_export_csv)
-        self.btn_close = QPushButton("Fechar")
+        self.btn_close = QPushButton("Close")
         self.btn_close.clicked.connect(self.reject)
         h.addWidget(self.btn_close)
         return h
@@ -173,7 +173,7 @@ class CompareDialog(QDialog):
         return box
 
     def _build_status(self) -> QLabel:
-        self._status = QLabel("Adicione um design para começar.")
+        self._status = QLabel("Add a design to get started.")
         self._status.setStyleSheet(
             f"color:{get_theme().palette.text_secondary}; padding:4px;"
         )
@@ -185,8 +185,8 @@ class CompareDialog(QDialog):
     def add_slot(self, slot: CompareSlot) -> bool:
         if len(self._slots) >= MAX_SLOTS:
             QMessageBox.information(
-                self, "Limite atingido",
-                f"O comparador suporta no máximo {MAX_SLOTS} designs lado a lado.",
+                self, "Limit reached",
+                f"The comparator supports at most {MAX_SLOTS} designs side by side.",
             )
             return False
         self._slots.append(slot)
@@ -199,13 +199,13 @@ class CompareDialog(QDialog):
     def _on_add_current(self):
         parent = self.parent()
         if parent is None or not hasattr(parent, "current_compare_slot"):
-            QMessageBox.warning(self, "Sem design ativo",
-                                "Não foi possível pegar o design atual.")
+            QMessageBox.warning(self, "No active design",
+                                "Could not capture the current design.")
             return
         try:
             slot = parent.current_compare_slot()
         except Exception as e:
-            QMessageBox.warning(self, "Erro", str(e))
+            QMessageBox.warning(self, "Error", str(e))
             return
         self.add_slot(slot)
 
@@ -246,7 +246,7 @@ class CompareDialog(QDialog):
         if not self._slots:
             return
         path, _ = QFileDialog.getSaveFileName(
-            self, "Salvar comparação", "comparacao.html",
+            self, "Save comparison", "comparison.html",
             "HTML (*.html)",
         )
         if not path:
@@ -255,15 +255,15 @@ class CompareDialog(QDialog):
         try:
             out = generate_compare_html(self._slots, path)
         except Exception as e:
-            QMessageBox.critical(self, "Erro ao exportar", str(e))
+            QMessageBox.critical(self, "Export error", str(e))
             return
-        QMessageBox.information(self, "Exportado", f"Salvo em:\n{out}")
+        QMessageBox.information(self, "Exported", f"Saved to:\n{out}")
 
     def _on_export_csv(self):
         if not self._slots:
             return
         path, _ = QFileDialog.getSaveFileName(
-            self, "Salvar CSV", "comparacao.csv",
+            self, "Save CSV", "comparison.csv",
             "CSV (*.csv)",
         )
         if not path:
@@ -271,15 +271,15 @@ class CompareDialog(QDialog):
         try:
             self._write_csv(path)
         except Exception as e:
-            QMessageBox.critical(self, "Erro ao exportar", str(e))
+            QMessageBox.critical(self, "Export error", str(e))
             return
-        QMessageBox.information(self, "Exportado", f"Salvo em:\n{path}")
+        QMessageBox.information(self, "Exported", f"Saved to:\n{path}")
 
     def _write_csv(self, path: str):
         import csv
         with open(path, "w", newline="", encoding="utf-8") as f:
             w = csv.writer(f)
-            header = ["Métrica", "Unidade"] + [s.label for s in self._slots]
+            header = ["Metric", "Unit"] + [s.label for s in self._slots]
             w.writerow(header)
             for metric in METRICS:
                 row = [metric.label, metric.unit]
@@ -302,7 +302,7 @@ class CompareDialog(QDialog):
         # Empty-state CTA: when the dialog opens with zero slots the
         # columns area used to be a vacant rectangle and the toolbar
         # button was the only visible affordance. New users blanked
-        # out — they didn't connect "Adicionar design atual" with the
+        # out — they didn't connect "Add current design" with the
         # empty space below. Now we paint an inline placeholder card
         # with a duplicate, prominently sized CTA right where the
         # comparison columns will land.
@@ -311,9 +311,9 @@ class CompareDialog(QDialog):
             self._columns_layout.addWidget(placeholder, 1)
             self._status.setText(
                 "Use "
-                "<b>Adicionar design atual</b> para snapshot do projeto "
-                "ativo. Repita após cada Recalcular para acumular "
-                f"até {MAX_SLOTS} alternativas lado a lado."
+                "<b>Add current design</b> to snapshot the active "
+                "project. Repeat after each Recalculate to stack "
+                f"up to {MAX_SLOTS} alternatives side by side."
             )
             self.btn_add_current.setEnabled(True)
             return
@@ -334,8 +334,8 @@ class CompareDialog(QDialog):
 
         n = len(self._slots)
         self._status.setText(
-            f"{n}/{MAX_SLOTS} designs no comparador. "
-            f"Coluna 1 é a referência; verde = melhor, vermelho = pior."
+            f"{n}/{MAX_SLOTS} designs in the comparator. "
+            f"Column 1 is the reference; green = better, red = worse."
         )
         self.btn_add_current.setEnabled(n < MAX_SLOTS)
 
@@ -356,15 +356,15 @@ class CompareDialog(QDialog):
         wrap.setMinimumHeight(280)
         v = QVBoxLayout(wrap)
         v.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title = QLabel("Comparativo vazio")
+        title = QLabel("Empty comparison")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title.setStyleSheet(
             f"color: {p.text}; font-size: 16px; font-weight: 600;"
             " border: 0;"
         )
         sub = QLabel(
-            "Tire um snapshot do projeto atual para iniciar.\n"
-            f"Você pode acumular até {MAX_SLOTS} designs lado a lado."
+            "Snapshot the current project to get started.\n"
+            f"You can stack up to {MAX_SLOTS} designs side by side."
         )
         sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
         sub.setStyleSheet(

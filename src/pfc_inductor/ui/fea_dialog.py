@@ -61,11 +61,11 @@ class _ValidationWorker(QObject):
             )
             self.finished.emit(v)
         except FEMMNotAvailable as e:
-            self.failed.emit(f"Backend FEA não disponível: {e}")
+            self.failed.emit(f"FEA backend unavailable: {e}")
         except FEMMSolveError as e:
-            self.failed.emit(f"Solver falhou:\n{e}")
+            self.failed.emit(f"Solver failed:\n{e}")
         except Exception as e:
-            self.failed.emit(f"Erro inesperado: {type(e).__name__}: {e}")
+            self.failed.emit(f"Unexpected error: {type(e).__name__}: {e}")
 
 
 class FEAValidationDialog(QDialog):
@@ -81,7 +81,7 @@ class FEAValidationDialog(QDialog):
         parent=None,
     ):
         super().__init__(parent)
-        self.setWindowTitle("Validação por FEA")
+        self.setWindowTitle("FEA validation")
         self.resize(1000, 720)
         self._spec = spec
         self._core = core
@@ -99,7 +99,7 @@ class FEAValidationDialog(QDialog):
         self._on_initial_state()
 
     def _build_header(self) -> QGroupBox:
-        box = QGroupBox("STATUS DO BACKEND FEA")
+        box = QGroupBox("FEA BACKEND STATUS")
         h = QHBoxLayout(box)
         self.lbl_status = QLabel("...")
         self.lbl_status.setWordWrap(True)
@@ -107,7 +107,7 @@ class FEAValidationDialog(QDialog):
         return box
 
     def _build_target_box(self) -> QGroupBox:
-        box = QGroupBox("Design alvo")
+        box = QGroupBox("Target design")
         v = QVBoxLayout(box)
         f = QFont()
         f.setStyleHint(QFont.StyleHint.Monospace)
@@ -127,7 +127,7 @@ class FEAValidationDialog(QDialog):
         )
 
     def _build_results_box(self) -> QGroupBox:
-        box = QGroupBox("Resultado da validação")
+        box = QGroupBox("Validation result")
         v = QVBoxLayout(box)
         form = QFormLayout()
         f = QFont()
@@ -142,10 +142,10 @@ class FEAValidationDialog(QDialog):
         self.l_solve.setFont(f)
         self.l_confidence = QLabel("—")
 
-        form.addRow("Indutância (FEA vs analítica):", self.l_L)
-        form.addRow("B pico (FEA vs analítico):", self.l_B)
-        form.addRow("Tempo de solução:", self.l_solve)
-        form.addRow("Confiança:", self.l_confidence)
+        form.addRow("Inductance (FEA vs analytic):", self.l_L)
+        form.addRow("Peak B (FEA vs analytic):", self.l_B)
+        form.addRow("Solve time:", self.l_solve)
+        form.addRow("Confidence:", self.l_confidence)
         v.addLayout(form)
 
         self.progress = QProgressBar()
@@ -168,11 +168,11 @@ class FEAValidationDialog(QDialog):
     def _build_buttons(self) -> QHBoxLayout:
         h = QHBoxLayout()
         h.addStretch(1)
-        self.btn_run = QPushButton("Validar com FEA")
+        self.btn_run = QPushButton("Validate with FEA")
         self.btn_run.setStyleSheet("font-weight: bold; padding: 6px 18px;")
         self.btn_run.clicked.connect(self._run)
         h.addWidget(self.btn_run)
-        self.btn_close = QPushButton("Fechar")
+        self.btn_close = QPushButton("Close")
         self.btn_close.clicked.connect(self.reject)
         h.addWidget(self.btn_close)
         return h
@@ -189,9 +189,9 @@ class FEAValidationDialog(QDialog):
             if not is_femmt_onelab_configured():
                 self.lbl_status.setText(
                     f'<span style="color:{p.warning}">●</span> '
-                    f'<b>FEMMT</b> {ver} importável, mas <b>ONELAB ainda não '
-                    f'está configurado</b>.<br>'
-                    f'<i>Veja <code>docs/fea-install.md</code> para configurar '
+                    f'<b>FEMMT</b> {ver} importable, but <b>ONELAB is not '
+                    f'yet configured</b>.<br>'
+                    f'<i>See <code>docs/fea-install.md</code> for setup '
                     f'(<code>~/onelab</code> + <code>config.json</code>).</i>'
                 )
                 self.btn_run.setEnabled(False)
@@ -199,21 +199,21 @@ class FEAValidationDialog(QDialog):
             if fidelity == "high":
                 self.lbl_status.setText(
                     f'<span style="color:{p.success}">●</span> '
-                    f'<b>FEMMT</b> {ver} — geometria nativa para '
-                    f'<b>{shape.upper()}</b> (fidelidade alta)'
+                    f'<b>FEMMT</b> {ver} — native geometry for '
+                    f'<b>{shape.upper()}</b> (high fidelity)'
                 )
             else:
                 hint = ""
                 if not is_femm_available():
                     hint = (
-                        '<br><i>Para fidelidade alta em toroide, instale FEMM '
-                        'legado e a app o usa automaticamente '
-                        '(<code>brew install xfemm</code> ou Wine).</i>'
+                        '<br><i>For high-fidelity toroid, install legacy FEMM '
+                        'and the app uses it automatically '
+                        '(<code>brew install xfemm</code> or Wine).</i>'
                     )
                 self.lbl_status.setText(
                     f'<span style="color:{p.warning}">●</span> '
-                    f'<b>FEMMT</b> {ver} — toroide via PQ-equivalente '
-                    f'(<i>aproximado</i>, divergência típica 1.5–6×){hint}'
+                    f'<b>FEMMT</b> {ver} — toroid via PQ-equivalent '
+                    f'(<i>approximate</i>, typical 1.5–6× divergence){hint}'
                 )
             self.btn_run.setEnabled(True)
             return
@@ -221,8 +221,8 @@ class FEAValidationDialog(QDialog):
         if chosen == "femm":
             ver = femm_version()
             extra = (
-                ' — axissimétrico nativo (fidelidade alta)'
-                if fidelity == "high" else ' (fidelidade aproximada)'
+                ' — native axisymmetric (high fidelity)'
+                if fidelity == "high" else ' (approximate fidelity)'
             )
             color = p.success if fidelity == "high" else p.warning
             self.lbl_status.setText(
@@ -235,8 +235,8 @@ class FEAValidationDialog(QDialog):
             return
 
         self.lbl_status.setText(
-            f'<span style="color:{p.danger}">●</span> Nenhum backend FEA disponível para '
-            f'forma <b>{shape.upper()}</b>.<br>'
+            f'<span style="color:{p.danger}">●</span> No FEA backend available for '
+            f'shape <b>{shape.upper()}</b>.<br>'
             f'<i>{install_hint()}</i>'
         )
         self.btn_run.setEnabled(False)
@@ -249,9 +249,9 @@ class FEAValidationDialog(QDialog):
         self.txt_log.clear()
         backend = active_backend()
         if backend == "femmt":
-            self.txt_log.appendPlainText("Construindo problema FEMMT (axissimétrico)...")
+            self.txt_log.appendPlainText("Building FEMMT problem (axisymmetric)...")
         else:
-            self.txt_log.appendPlainText("Construindo geometria e script Lua (FEMM legado)...")
+            self.txt_log.appendPlainText("Building geometry and Lua script (legacy FEMM)...")
 
         self._worker = _ValidationWorker(
             self._spec, self._core, self._wire, self._material, self._result,
@@ -273,8 +273,8 @@ class FEAValidationDialog(QDialog):
     def _on_failed(self, msg: str):
         self.progress.hide()
         self.btn_run.setEnabled(True)
-        self.txt_log.appendPlainText(f"\nERRO: {msg}")
-        QMessageBox.warning(self, "Validação falhou", msg)
+        self.txt_log.appendPlainText(f"\nERROR: {msg}")
+        QMessageBox.warning(self, "Validation failed", msg)
 
     def _show_validation(self, v: FEAValidation):
         pal = get_theme().palette
@@ -292,15 +292,15 @@ class FEAValidationDialog(QDialog):
         self.l_confidence.setText(
             f'<span style="color:{color};font-weight:bold">{v.confidence}</span>'
         )
-        self.txt_log.appendPlainText("\nResultados:")
+        self.txt_log.appendPlainText("\nResults:")
         self.txt_log.appendPlainText(f"  fem: {v.fem_path}")
         self.txt_log.appendPlainText(f"  flux linkage: {v.flux_linkage_FEA_Wb:.6e} Wb")
         self.txt_log.appendPlainText(f"  test current: {v.test_current_A:.3f} A")
         if v.log_excerpt:
-            self.txt_log.appendPlainText("\nLog do solver:")
+            self.txt_log.appendPlainText("\nSolver log:")
             self.txt_log.appendPlainText(v.log_excerpt)
         if v.notes:
-            self.txt_log.appendPlainText(f"\nObs: {v.notes}")
+            self.txt_log.appendPlainText(f"\nNotes: {v.notes}")
 
     @staticmethod
     def _color_pct(p: float) -> str:

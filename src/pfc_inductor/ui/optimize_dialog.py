@@ -3,12 +3,12 @@
 Two surfaces:
 
 - :class:`OptimizerEmbed` — a ``QWidget`` containing the entire
-  optimizer body (controls, table, plot, "Aplicar" button). Mountable
+  optimizer body (controls, table, plot, "Apply" button). Mountable
   in any page; used by the v3 :class:`OtimizadorPage
   <pfc_inductor.ui.workspace.otimizador_page.OtimizadorPage>`.
 
 - :class:`OptimizerDialog` — modal wrapper that composes
-  ``OptimizerEmbed`` plus a ``Fechar`` button. Kept for back-compat
+  ``OptimizerEmbed`` plus a ``Close`` button. Kept for back-compat
   with the legacy overflow-menu launch path.
 """
 from __future__ import annotations
@@ -122,7 +122,7 @@ class OptimizerEmbed(QWidget):
         if self._spec is None:
             self.btn_run.setEnabled(False)
             self.lbl_count.setText(
-                "Aguardando spec — calcule um design primeiro.",
+                "Waiting for a spec — calculate a design first.",
             )
 
     # ------------------------------------------------------------------
@@ -146,7 +146,7 @@ class OptimizerEmbed(QWidget):
         # Refresh the material combo with the new catalog.
         self.cmb_material.blockSignals(True)
         self.cmb_material.clear()
-        self.cmb_material.addItem("(varrer todos)", None)
+        self.cmb_material.addItem("(sweep all)", None)
         for m in self._materials:
             self.cmb_material.addItem(f"{m.vendor} — {m.name}", m.id)
         for i in range(self.cmb_material.count()):
@@ -157,16 +157,16 @@ class OptimizerEmbed(QWidget):
         self.btn_run.setEnabled(True)
         if not self._results:
             self.lbl_count.setText(
-                "Pronto — escolha material e ordenação, depois clique em "
-                "<b>Rodar varredura</b> para gerar a Pareto front.",
+                "Ready — pick material and ordering, then click "
+                "<b>Run sweep</b> to generate the Pareto front.",
             )
 
     def _build_controls(self, current_material_id: str) -> QGroupBox:
-        box = QGroupBox("Configuração da varredura")
+        box = QGroupBox("Sweep configuration")
         h = QHBoxLayout(box)
         f = QFormLayout()
         self.cmb_material = QComboBox()
-        self.cmb_material.addItem("(varrer todos)", None)
+        self.cmb_material.addItem("(sweep all)", None)
         for m in self._materials:
             self.cmb_material.addItem(f"{m.vendor} — {m.name}", m.id)
         # Pre-select current material
@@ -178,28 +178,28 @@ class OptimizerEmbed(QWidget):
 
         self.cmb_rank = QComboBox()
         for label, key in [
-            ("Menor perda total", "loss"),
-            ("Menor volume", "volume"),
-            ("Menor temperatura", "temp"),
-            ("Menor custo", "cost"),
-            ("Score (60% perda + 40% volume)", "score"),
-            ("Score 40/30/30 (perda/volume/custo)", "score_with_cost"),
+            ("Lowest total loss", "loss"),
+            ("Smallest volume", "volume"),
+            ("Lowest temperature", "temp"),
+            ("Lowest cost", "cost"),
+            ("Score (60% loss + 40% volume)", "score"),
+            ("Score 40/30/30 (loss/volume/cost)", "score_with_cost"),
         ]:
             self.cmb_rank.addItem(label, key)
-        f.addRow("Ordenar por:", self.cmb_rank)
+        f.addRow("Sort by:", self.cmb_rank)
 
-        self.chk_compat = QCheckBox("Restringir a núcleos compatíveis com o material")
+        self.chk_compat = QCheckBox("Restrict to cores compatible with the material")
         self.chk_compat.setChecked(True)
-        self.chk_feasible = QCheckBox("Ocultar designs inviáveis")
+        self.chk_feasible = QCheckBox("Hide infeasible designs")
         # Default ON: show only candidates that satisfy Ku/Bsat/T limits.
         # Most users want a list of "what can I actually build", not a
         # catalogue of failures. Toggle off to inspect borderline cases.
         self.chk_feasible.setChecked(True)
-        self.chk_curated_only = QCheckBox("Apenas curados")
+        self.chk_curated_only = QCheckBox("Curated only")
         self.chk_curated_only.setToolTip(
-            "Limita a varredura aos materiais e fios curados, ignorando o "
-            "catálogo OpenMagnetics — evita ranking dominado por entradas "
-            "sem calibração de Steinmetz/rolloff."
+            "Limits the sweep to curated materials and wires, ignoring "
+            "the OpenMagnetics catalog — avoids rankings dominated by "
+            "entries without Steinmetz/rolloff calibration."
         )
         h.addLayout(f)
 
@@ -207,7 +207,7 @@ class OptimizerEmbed(QWidget):
         side.addWidget(self.chk_compat)
         side.addWidget(self.chk_feasible)
         side.addWidget(self.chk_curated_only)
-        self.btn_run = QPushButton("Rodar varredura")
+        self.btn_run = QPushButton("Run sweep")
         self.btn_run.setStyleSheet("font-weight: bold; padding: 4px 10px;")
         self.btn_run.clicked.connect(self._run_sweep)
         side.addWidget(self.btn_run)
@@ -223,14 +223,14 @@ class OptimizerEmbed(QWidget):
         return box
 
     def _build_table(self) -> QGroupBox:
-        box = QGroupBox("Resultados")
+        box = QGroupBox("Results")
         v = QVBoxLayout(box)
-        self.lbl_count = QLabel("Nenhuma varredura ainda.")
+        self.lbl_count = QLabel("No sweep yet.")
         v.addWidget(self.lbl_count)
         self.table = QTableWidget(0, 10)
         self.table.setHorizontalHeaderLabels([
-            "Núcleo", "Fio", "Material", "Vol [cm³]",
-            "L [µH]", "N", "P [W]", "T [°C]", "Custo", "Status",
+            "Core", "Wire", "Material", "Vol [cm³]",
+            "L [µH]", "N", "P [W]", "T [°C]", "Cost", "Status",
         ])
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
@@ -244,7 +244,7 @@ class OptimizerEmbed(QWidget):
         return box
 
     def _build_plot(self) -> QGroupBox:
-        box = QGroupBox("Volume × Perda total (Pareto destacado)")
+        box = QGroupBox("Volume × Total loss (Pareto highlighted)")
         v = QVBoxLayout(box)
         self.fig = Figure(figsize=(5, 5), tight_layout=True)
         self.canvas = FigureCanvasQTAgg(self.fig)
@@ -274,14 +274,14 @@ class OptimizerEmbed(QWidget):
             self.ax.spines[spine].set_visible(False)
         self.ax.text(
             0.5, 0.55,
-            "Pareto sweep multi-objetivo",
+            "Multi-objective Pareto sweep",
             ha="center", va="center", fontsize=11, fontweight="bold",
             transform=self.ax.transAxes, color="#52525B",
         )
         self.ax.text(
             0.5, 0.42,
-            "Configure material e ordenação acima,\n"
-            "depois clique em \"Rodar varredura\".",
+            "Configure material and ordering above,\n"
+            "then click \"Run sweep\".",
             ha="center", va="center", fontsize=9,
             transform=self.ax.transAxes, color="#71717A",
         )
@@ -290,7 +290,7 @@ class OptimizerEmbed(QWidget):
     def _build_buttons(self) -> QHBoxLayout:
         h = QHBoxLayout()
         h.addStretch(1)
-        self.btn_apply = QPushButton("Aplicar selecionado")
+        self.btn_apply = QPushButton("Apply selection")
         self.btn_apply.setProperty("class", "Primary")
         self.btn_apply.setEnabled(False)
         self.btn_apply.clicked.connect(self._apply_selection)
@@ -342,7 +342,7 @@ class OptimizerEmbed(QWidget):
         self.btn_run.setEnabled(True)
 
     def _on_failed(self, msg: str):
-        QMessageBox.critical(self, "Erro na varredura", msg)
+        QMessageBox.critical(self, "Sweep error", msg)
         self.btn_run.setEnabled(True)
 
     def _refresh_table(self):
@@ -388,20 +388,20 @@ class OptimizerEmbed(QWidget):
         # the user a concrete remediation path instead of just an empty
         # table.
         if n_total == 0:
-            self.lbl_count.setText("Nenhum design avaliado ainda. Clique em <b>Rodar varredura</b>.")
+            self.lbl_count.setText("No designs evaluated yet. Click <b>Run sweep</b>.")
         elif n_feasible == 0:
             self.lbl_count.setText(
-                f"<b>0 designs viáveis</b> entre {n_total} avaliados. "
-                "Tente: aumentar <i>Ku máx</i> ou <i>Margem Bsat</i>; "
-                "reduzir Pout; selecionar (varrer todos) materiais; "
-                "desmarcar <i>Apenas curados</i>."
+                f"<b>0 feasible designs</b> out of {n_total} evaluated. "
+                "Try: increasing <i>Ku max</i> or <i>Bsat margin</i>; "
+                "reducing Pout; selecting (sweep all) materials; "
+                "unchecking <i>Curated only</i>."
             )
         else:
             pct = 100.0 * n_feasible / n_total
-            extra = "" if feasible_only else f" — {n_total - n_feasible} inviáveis ocultos abaixo"
+            extra = "" if feasible_only else f" — {n_total - n_feasible} infeasible hidden below"
             self.lbl_count.setText(
-                f"<b>{n_feasible} viáveis</b> de {n_total} avaliados ({pct:.1f}%). "
-                f"Mostrando top {len(rows)}{extra}."
+                f"<b>{n_feasible} feasible</b> out of {n_total} evaluated ({pct:.1f}%). "
+                f"Showing top {len(rows)}{extra}."
             )
 
     def _refresh_plot(self):
@@ -413,11 +413,11 @@ class OptimizerEmbed(QWidget):
         if infeas:
             xi, yi = zip(*infeas, strict=False)
             self.ax.scatter(xi, yi, c=p.plot_pareto_infeasible,
-                            s=8, alpha=0.4, label="inviável")
+                            s=8, alpha=0.4, label="infeasible")
         if feas:
             xf, yf = zip(*feas, strict=False)
             self.ax.scatter(xf, yf, c=p.plot_pareto_feasible,
-                            s=10, alpha=0.7, label="viável")
+                            s=10, alpha=0.7, label="feasible")
         if self._pareto:
             xp = [r.volume_cm3 for r in self._pareto]
             yp = [r.P_total_W for r in self._pareto]
@@ -464,7 +464,7 @@ class OptimizerDialog(QDialog):
         parent=None,
     ):
         super().__init__(parent)
-        self.setWindowTitle("Otimizador — varredura núcleos × fios")
+        self.setWindowTitle("Optimizer — sweep cores × wires")
         self.resize(1200, 700)
         layout = QVBoxLayout(self)
 
@@ -479,7 +479,7 @@ class OptimizerDialog(QDialog):
 
         bottom = QHBoxLayout()
         bottom.addStretch(1)
-        btn_close = QPushButton("Fechar")
+        btn_close = QPushButton("Close")
         btn_close.clicked.connect(self.reject)
         bottom.addWidget(btn_close)
         layout.addLayout(bottom)

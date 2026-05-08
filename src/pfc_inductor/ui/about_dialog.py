@@ -36,7 +36,7 @@ class AboutDialog(QDialog):
 
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
-        self.setWindowTitle("Sobre o PFC Inductor Designer")
+        self.setWindowTitle("About PFC Inductor Designer")
         self.resize(960, 620)
 
         outer = QVBoxLayout(self)
@@ -57,7 +57,7 @@ class AboutDialog(QDialog):
         title.setProperty("role", "title")
         v.addWidget(title)
 
-        sub = QLabel(f"versão {__version__}")
+        sub = QLabel(f"version {__version__}")
         sub.setProperty("role", "muted")
         v.addWidget(sub)
 
@@ -67,17 +67,17 @@ class AboutDialog(QDialog):
         return box
 
     def _build_matrix(self) -> QGroupBox:
-        box = QGroupBox("DIFERENCIAIS vs. ALTERNATIVAS")
+        box = QGroupBox("DIFFERENTIATORS vs. ALTERNATIVES")
         v = QVBoxLayout(box)
         v.setContentsMargins(8, 12, 8, 8)
 
-        legend = QLabel("✓ tem · ≈ parcial · ✗ não tem · — não se aplica")
+        legend = QLabel("✓ has · ≈ partial · ✗ missing · — not applicable")
         legend.setProperty("role", "muted")
         v.addWidget(legend)
 
         n_competitors = len(COMPETITORS)
-        # Columns: differential title + "Nós" + each competitor short name
-        headers = ["Diferencial", "Nós"] + [c.short for c in COMPETITORS]
+        # Columns: differentiator title + "Us" + each competitor short name
+        headers = ["Differentiator", "Us"] + [c.short for c in COMPETITORS]
         tbl = QTableWidget(len(DIFFERENTIALS), 1 + 1 + n_competitors)
         tbl.setHorizontalHeaderLabels(headers)
         tbl.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
@@ -122,7 +122,7 @@ class AboutDialog(QDialog):
         return box
 
     def _build_competitors(self) -> QGroupBox:
-        box = QGroupBox("LINKS DOS PROJETOS COMPARADOS")
+        box = QGroupBox("LINKS TO COMPARED PROJECTS")
         h = QHBoxLayout(box)
         h.setContentsMargins(8, 12, 8, 8)
         h.setSpacing(6)
@@ -140,10 +140,10 @@ class AboutDialog(QDialog):
     def _build_buttons(self) -> QHBoxLayout:
         h = QHBoxLayout()
         h.addStretch(1)
-        btn_docs = QPushButton("Abrir docs/POSITIONING.md")
+        btn_docs = QPushButton("Open docs/POSITIONING.md")
         btn_docs.clicked.connect(self._open_positioning_doc)
         h.addWidget(btn_docs)
-        btn_close = QPushButton("Fechar")
+        btn_close = QPushButton("Close")
         btn_close.setProperty("primary", "true")
         btn_close.clicked.connect(self.accept)
         h.addWidget(btn_close)

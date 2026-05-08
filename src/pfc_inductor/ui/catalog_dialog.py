@@ -82,7 +82,7 @@ class CatalogUpdateDialog(QDialog):
         self, source_dir: Optional[Path] = None, parent=None,
     ):
         super().__init__(parent)
-        self.setWindowTitle("Atualizar catálogo de componentes")
+        self.setWindowTitle("Update component catalog")
         self.resize(640, 420)
         self._source = source_dir or _REPO_ROOT / "vendor" / "openmagnetics-catalog"
         self._thread: Optional[QThread] = None
@@ -90,14 +90,14 @@ class CatalogUpdateDialog(QDialog):
         v = QVBoxLayout(self)
 
         intro = QLabel(
-            "<b>Catálogo OpenMagnetics MAS</b><br>"
-            "Importa materiais e fios do catálogo OpenMagnetics para a sua "
-            "biblioteca local. Não substitui dados curados nem suas edições."
+            "<b>OpenMagnetics MAS catalog</b><br>"
+            "Imports materials and wires from the OpenMagnetics catalog into "
+            "your local library. Does not replace curated data or your edits."
         )
         intro.setWordWrap(True)
         v.addWidget(intro)
 
-        self.lbl_source = QLabel(f"<i>Origem:</i> {self._source}")
+        self.lbl_source = QLabel(f"<i>Source:</i> {self._source}")
         self.lbl_source.setWordWrap(True)
         self.lbl_source.setProperty("role", "muted")
         v.addWidget(self.lbl_source)
@@ -118,10 +118,10 @@ class CatalogUpdateDialog(QDialog):
 
         h = QHBoxLayout()
         h.addStretch(1)
-        self.btn_run = QPushButton("Atualizar catálogo")
+        self.btn_run = QPushButton("Update catalog")
         self.btn_run.clicked.connect(self._run)
         h.addWidget(self.btn_run)
-        self.btn_close = QPushButton("Fechar")
+        self.btn_close = QPushButton("Close")
         self.btn_close.clicked.connect(self.reject)
         h.addWidget(self.btn_close)
         v.addLayout(h)
@@ -131,14 +131,14 @@ class CatalogUpdateDialog(QDialog):
             return
         if not self._source.exists():
             self.lbl_result.setText(
-                f"<span style='color:#a01818'>Diretório não existe: "
+                f"<span style='color:#a01818'>Directory does not exist: "
                 f"{self._source}</span>"
             )
             return
         self.btn_run.setEnabled(False)
         self.progress.show()
         self.txt_log.clear()
-        self.txt_log.appendPlainText(f"Importando de: {self._source}")
+        self.txt_log.appendPlainText(f"Importing from: {self._source}")
 
         self._worker = _ImportWorker(self._source)
         self._thread = QThread(self)
@@ -154,13 +154,13 @@ class CatalogUpdateDialog(QDialog):
         self.btn_run.setEnabled(True)
         if code != 0:
             self.lbl_result.setText(
-                f"<span style='color:#a01818'>Falhou (código {code}). "
-                f"Veja o log acima.</span>"
+                f"<span style='color:#a01818'>Failed (code {code}). "
+                f"See the log above.</span>"
             )
             return
         self.lbl_result.setText(
             "<span style='color:#1c7c3b'>"
-            "Catálogo atualizado. Os novos itens já aparecem nas listas."
+            "Catalog updated. The new items already appear in the lists."
             "</span>"
         )
         self.completed.emit()

@@ -94,9 +94,9 @@ class _ListJsonEditor(QWidget):
         # users don't fear breaking things. The banner is dismissable
         # in the future; for now it's always-on.
         warn = QLabel(
-            "⚠ Edição avançada em JSON. Validamos no <b>Aplicar "
-            "alteração</b> antes de salvar — JSON inválido fica preso "
-            "no campo até ser corrigido.",
+            "⚠ Advanced JSON editing. We validate on <b>Apply "
+            "change</b> before saving — invalid JSON stays in the "
+            "field until corrected.",
         )
         warn.setObjectName("DbEditorWarning")
         warn.setWordWrap(True)
@@ -111,7 +111,7 @@ class _ListJsonEditor(QWidget):
         rv.addWidget(self.editor, 1)
 
         bb = QHBoxLayout()
-        self.btn_apply = QPushButton("Aplicar alteração")
+        self.btn_apply = QPushButton("Apply change")
         self.btn_apply.clicked.connect(self._on_apply)
         bb.addWidget(self.btn_apply)
         bb.addStretch(1)
@@ -154,7 +154,7 @@ class _ListJsonEditor(QWidget):
     def _on_select(self, current: QListWidgetItem, _prev):
         if current is None:
             self.editor.clear()
-            self._summary.setText("Nenhum registro selecionado.")
+            self._summary.setText("No record selected.")
             return
         eid = current.data(Qt.ItemDataRole.UserRole)
         for e in self.entries:
@@ -220,19 +220,19 @@ class _ListJsonEditor(QWidget):
 
     def _on_add(self):
         new_id, ok = QInputDialog.getText(
-            self, "Novo registro", "ID único do novo registro:",
+            self, "New record", "Unique ID for the new record:",
         )
         if not ok or not new_id:
             return
         new_id = new_id.strip()
         if any(e.id == new_id for e in self.entries):
-            QMessageBox.warning(self, "ID em uso", f"Já existe um registro com id '{new_id}'.")
+            QMessageBox.warning(self, "ID in use", f"A record with id '{new_id}' already exists.")
             return
         # Build minimal stub from the model class
         try:
             stub = self._stub_for_new(new_id)
         except Exception as e:
-            QMessageBox.warning(self, "Erro", f"Não consegui criar stub: {e}")
+            QMessageBox.warning(self, "Error", f"Could not create stub: {e}")
             return
         self.entries.append(stub)
         self._dirty = True
@@ -267,19 +267,19 @@ class _ListJsonEditor(QWidget):
         if original is None:
             return
         new_id, ok = QInputDialog.getText(
-            self, "Duplicar registro", "ID do novo registro:", text=eid + "-copy"
+            self, "Duplicate record", "ID for the new record:", text=eid + "-copy"
         )
         if not ok or not new_id:
             return
         if any(e.id == new_id for e in self.entries):
-            QMessageBox.warning(self, "ID em uso", f"Já existe '{new_id}'.")
+            QMessageBox.warning(self, "ID in use", f"'{new_id}' already exists.")
             return
         data = original.model_dump(mode="json")
         data["id"] = new_id
         try:
             new_e = self.model_cls(**data)
         except Exception as e:
-            QMessageBox.warning(self, "Erro", f"Falha ao duplicar: {e}")
+            QMessageBox.warning(self, "Error", f"Duplication failed: {e}")
             return
         self.entries.append(new_e)
         self._dirty = True
@@ -292,8 +292,8 @@ class _ListJsonEditor(QWidget):
             return
         eid = cur.data(Qt.ItemDataRole.UserRole)
         if QMessageBox.question(
-            self, "Confirmar remoção",
-            f"Remover '{eid}'? Esta ação será gravada ao salvar.",
+            self, "Confirm removal",
+            f"Remove '{eid}'? This action is committed on save.",
         ) != QMessageBox.StandardButton.Yes:
             return
         self.entries = [e for e in self.entries if e.id != eid]
@@ -310,10 +310,10 @@ class _ListJsonEditor(QWidget):
             data = json.loads(self.editor.toPlainText())
             new_e = self.model_cls(**data)
         except json.JSONDecodeError as e:
-            QMessageBox.warning(self, "JSON inválido", f"Erro de sintaxe: {e}")
+            QMessageBox.warning(self, "Invalid JSON", f"Syntax error: {e}")
             return
         except Exception as e:
-            QMessageBox.warning(self, "Validação falhou", str(e))
+            QMessageBox.warning(self, "Validation failed", str(e))
             return
         # Replace entry preserving order
         for i, e in enumerate(self.entries):
@@ -329,10 +329,10 @@ class DbEditorEmbed(QWidget):
     """Embeddable variant of the DB editor.
 
     Same body as :class:`DbEditorDialog` but lives as a ``QWidget`` so
-    it can be mounted directly inside a workspace page (the v3
-    Catálogo page does this). Emits ``saved`` whenever the user
-    successfully writes the catalog to disk; the host listens and
-    triggers a recompute.
+    it can be mounted directly inside a workspace page (the v3 Catalog
+    page does this). Emits ``saved`` whenever the user successfully
+    writes the catalog to disk; the host listens and triggers a
+    recompute.
     """
 
     saved = Signal()
@@ -344,8 +344,8 @@ class DbEditorEmbed(QWidget):
         layout.setSpacing(8)
 
         info = QLabel(
-            "Edite materiais, núcleos e fios. Alterações são gravadas no "
-            "diretório de dados do usuário (não afeta o pacote instalado)."
+            "Edit materials, cores and wires. Changes are written to "
+            "the user data directory (does not affect the installed package)."
         )
         info.setWordWrap(True)
         info.setProperty("role", "muted")
@@ -358,15 +358,15 @@ class DbEditorEmbed(QWidget):
         self.tab_core = _ListJsonEditor("core", Core, load_cores())
         self.tab_wire = _ListJsonEditor("wire", Wire, load_wires())
 
-        self.tabs.addTab(self.tab_mat, f"Materiais ({len(self.tab_mat.entries)})")
-        self.tabs.addTab(self.tab_core, f"Núcleos ({len(self.tab_core.entries)})")
-        self.tabs.addTab(self.tab_wire, f"Fios ({len(self.tab_wire.entries)})")
+        self.tabs.addTab(self.tab_mat, f"Materials ({len(self.tab_mat.entries)})")
+        self.tabs.addTab(self.tab_core, f"Cores ({len(self.tab_core.entries)})")
+        self.tabs.addTab(self.tab_wire, f"Wires ({len(self.tab_wire.entries)})")
 
         for t in (self.tab_mat, self.tab_core, self.tab_wire):
             t.changed.connect(self._refresh_titles)
 
         bb = QHBoxLayout()
-        self.btn_save = QPushButton("Salvar tudo")
+        self.btn_save = QPushButton("Save all")
         self.btn_save.setProperty("class", "Primary")
         self.btn_save.clicked.connect(self._on_save)
         bb.addStretch(1)
@@ -375,9 +375,9 @@ class DbEditorEmbed(QWidget):
 
     def _refresh_titles(self):
         for tab, name in (
-            (self.tab_mat, "Materiais"),
-            (self.tab_core, "Núcleos"),
-            (self.tab_wire, "Fios"),
+            (self.tab_mat, "Materials"),
+            (self.tab_core, "Cores"),
+            (self.tab_wire, "Wires"),
         ):
             idx = self.tabs.indexOf(tab)
             mark = " *" if tab.dirty else ""
@@ -392,23 +392,23 @@ class DbEditorEmbed(QWidget):
             if self.tab_wire.dirty:
                 save_wires(self.tab_wire.entries)
         except (OSError, ValueError) as e:
-            QMessageBox.critical(self, "Erro ao salvar", str(e))
+            QMessageBox.critical(self, "Save error", str(e))
             return
         self.saved.emit()
-        QMessageBox.information(self, "Salvo", "Base de dados atualizada.")
+        QMessageBox.information(self, "Saved", "Database updated.")
 
 
 class DbEditorDialog(QDialog):
     """Modal wrapper around :class:`DbEditorEmbed`.
 
     Kept for back-compat with callers that expect a dialog (e.g. the
-    Catálogo overflow path). New code should prefer the embed."""
+    Catalog overflow path). New code should prefer the embed."""
 
     saved = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Editor da base de dados")
+        self.setWindowTitle("Database editor")
         self.resize(1200, 700)
 
         layout = QVBoxLayout(self)
@@ -420,7 +420,7 @@ class DbEditorDialog(QDialog):
         # row at the bottom that the embed itself doesn't render.
         close_row = QHBoxLayout()
         close_row.addStretch(1)
-        btn_close = QPushButton("Fechar")
+        btn_close = QPushButton("Close")
         btn_close.clicked.connect(self.reject)
         close_row.addWidget(btn_close)
         layout.addLayout(close_row)
