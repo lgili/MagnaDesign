@@ -547,6 +547,14 @@ class MainWindow(QMainWindow):
         self.projeto_page.name_changed.connect(
             self._workflow_state.set_project_name,
         )
+        # Mark the project dirty whenever the engineer touches a spec
+        # field — without this hook the "● Salvo" pill never flips
+        # back to "● Não salvo" after the first save, and the File →
+        # Save shortcut had no signal to act on. Spec panel emits
+        # ``changed`` on every spinbox / topology change.
+        self.projeto_page.spec_panel.changed.connect(
+            self._workflow_state.mark_dirty,
+        )
         self.projeto_page.topology_change_requested.connect(
             self._open_topology_picker,
         )
@@ -914,9 +922,18 @@ class MainWindow(QMainWindow):
 
     def _apply_optimizer_choice(self, material_id: str, core_id: str,
                                 wire_id: str) -> None:
+        # Selection swap is a spec-level change as far as the user is
+        # concerned — flip the save pill so File → Save has a meaning.
+        changed = (
+            material_id != self._current_material_id
+            or core_id != self._current_core_id
+            or wire_id != self._current_wire_id
+        )
         self._current_material_id = material_id
         self._current_core_id = core_id
         self._current_wire_id = wire_id
+        if changed:
+            self._workflow_state.mark_dirty()
         self._on_calculate()
 
     def _apply_cascade_candidate(self, candidate_key: str) -> None:
