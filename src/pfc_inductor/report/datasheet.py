@@ -207,6 +207,219 @@ def _harmonic_plot(spec: Spec, result: DesignResult) -> Optional[str]:
 
 
 # ---------------------------------------------------------------------------
+# B–H operating-point trajectory — same plot the dashboard's BHLoopCard
+# already builds, rendered to PNG so the printed datasheet carries it.
+# ---------------------------------------------------------------------------
+def _bh_trajectory_plot(result: DesignResult, core: Core,
+                         material: Material) -> Optional[str]:
+    try:
+        from pfc_inductor.visual import compute_bh_trajectory
+        tr = compute_bh_trajectory(result, core, material)
+    except Exception:
+        return None
+    fig, ax = plt.subplots(figsize=(7.0, 3.6), dpi=110)
+    ax.plot(tr["H_static_Oe"], tr["B_static_T"] * 1000.0,
+            color="#bbb", linewidth=1.2, label="Static B–H curve")
+    Bsat_mT = float(tr["Bsat_T"]) * 1000.0
+    ax.axhline(Bsat_mT, color="#a01818", linestyle="--", alpha=0.7,
+               linewidth=1.0, label=f"Bsat (100°C) = {Bsat_mT:.0f} mT")
+    ax.plot(tr["H_envelope_Oe"], tr["B_envelope_T"] * 1000.0,
+            color="#3a78b5", linewidth=1.8, alpha=0.9,
+            label="Line-cycle envelope")
+    if tr["H_ripple_Oe"] is not None and tr["B_ripple_T"] is not None:
+        ax.plot(tr["H_ripple_Oe"], tr["B_ripple_T"] * 1000.0,
+                color="#a06700", linewidth=1.4, alpha=0.9,
+                label="HF ripple at peak")
+    ax.plot([tr["H_pk_Oe"]], [tr["B_pk_T"] * 1000.0],
+             "o", color="#a01818", markersize=6,
+             label=f"Operating peak ({tr['H_pk_Oe']:.0f} Oe / "
+                   f"{tr['B_pk_T']*1000.0:.0f} mT)")
+    ax.set_xlabel("H [Oe]")
+    ax.set_ylabel("B [mT]")
+    ax.set_title("B–H trajectory at operating point", fontsize=10)
+    ax.set_xlim(left=0)
+    ax.set_ylim(bottom=0)
+    ax.grid(True, alpha=0.35)
+    ax.legend(loc="lower right", fontsize=8)
+    return _b64(fig)
+
+
+# ---------------------------------------------------------------------------
+# Tolerance bands — datasheets need these. The engine doesn't compute
+# manufacturing variance natively, so the report layer applies industry-
+# standard tolerance buckets keyed off the material family.
+# ---------------------------------------------------------------------------
+def _tolerance_band_pct(material_type: str) -> float:
+    """Return the typical inductance tolerance for a given material
+    family (in %, ±). These mirror the bands published by Magnetics,
+    Würth, TDK and ATM Magnetics for production-grade parts.
+    """
+    return {
+        "powder":           15.0,
+        "ferrite":          20.0,
+        "nanocrystalline":  12.0,
+        "amorphous":        12.0,
+        "silicon-steel":    25.0,   # gapped silicon-steel is the worst
+    }.get(material_type, 20.0)
+
+
+def _tolerance_rows(result: DesignResult, material: Material) -> str:
+    """Per-parameter tolerance table.
+
+    Inductance band is keyed off material family; Rdc and turn count
+    inherit the canonical magnetics-industry numbers (Vishay,
+    Magnetics, Würth datasheets).
+    """
+    L_pct = _tolerance_band_pct(material.type)
+    L_act = float(result.L_actual_uH)
+    L_lo = L_act * (1.0 - L_pct / 100.0)
+    L_hi = L_act * (1.0 + L_pct / 100.0)
+    rdc_act_mohm = float(result.R_dc_ohm) * 1000.0
+    rdc_lo = rdc_act_mohm * 0.90
+    rdc_hi = rdc_act_mohm * 1.10
+    rows = {
+        "Inductance L (typ ± tol)":
+            f"{L_act:.1f} µH (± {L_pct:.0f} %), range {L_lo:.1f} – {L_hi:.1f} µH",
+        "DC resistance Rdc (typ ± 10 %)":
+            f"{rdc_act_mohm:.1f} mΩ, range {rdc_lo:.1f} – {rdc_hi:.1f} mΩ",
+        "Turn count N":
+            f"{result.N_turns} (exact, no tolerance)",
+        "Mass":
+            "± 10 % around the BOM estimate",
+        "Mechanical envelope":
+            "± 0.5 mm on linear dimensions, ± 1° on angular",
+        "Dielectric strength":
+            "Pass criterion: no flashover during the hi-pot test",
+    }
+    return _kv_table(rows, extra_class="dim")
+
+
+# ---------------------------------------------------------------------------
+# Build instructions — quick reference for the bobbin / wind room.
+# ---------------------------------------------------------------------------
+def _build_instructions_rows(core: Core, wire: Wire,
+                              result: DesignResult) -> str:
+    wire_len_m = result.N_turns * core.MLT_mm * 1e-3
+    # Estimate layer count: turns_per_layer ≈ Wa_mm² ÷ (d_outer · h_window).
+    # Without a dedicated window-height field on Core we fall back to
+    # a conservative √Wa as the layer height — close enough for the
+    # build-room hand-off, which is approximate by definition.
+    d_outer_mm = (wire.d_iso_mm or wire.d_cu_mm or 0.5)
+    layer_height = math.sqrt(max(core.Wa_mm2, 1.0))
+    turns_per_layer = max(1, int(layer_height / max(d_outer_mm, 0.01)))
+    n_layers = max(1, math.ceil(result.N_turns / turns_per_layer))
+    air_gap = (
+        f"{core.lgap_mm:.2f} mm" if core.lgap_mm > 0 else "no air gap"
+    )
+    rows = {
+        "Bobbin / former":
+            f"{core.shape.upper()} compatible — single-section",
+        "Wire":
+            f"{wire.id} ({wire.type}, A_cu = {wire.A_cu_mm2:.3f} mm²)",
+        "Total turns N":
+            f"{result.N_turns} (single layer if window allows)",
+        "Estimated turns per layer":
+            f"{turns_per_layer}",
+        "Estimated layer count":
+            f"{n_layers}",
+        "Wire length (with 5 % margin)":
+            f"{wire_len_m * 1.05:.2f} m (cut length)",
+        "Air gap (centre leg)":
+            air_gap,
+        "Inter-layer insulation":
+            "1 layer of polyester tape (35 µm) between layers",
+        "Outer wrap":
+            "2 layers of polyester tape, overlapped 50 %",
+        "Impregnation":
+            "Vacuum-impregnated with class-F (155 °C) varnish",
+        "Lead termination":
+            "Tinned 30 mm leads, dressed at the bobbin's start/end pads",
+    }
+    return _kv_table(rows, extra_class="dim")
+
+
+# ---------------------------------------------------------------------------
+# Test plan / FAT — the parameters QA must check before shipping.
+# ---------------------------------------------------------------------------
+def _test_plan_rows(spec: Spec, result: DesignResult,
+                     material: Material) -> str:
+    """Factory acceptance-test table.
+
+    Each row: parameter, target spec, instrument, pass/fail band.
+    Bands are derived from ``_tolerance_band_pct`` so the wind-room
+    and the datasheet agree on what "in spec" means.
+    """
+    L_pct = _tolerance_band_pct(material.type)
+    L_act = float(result.L_actual_uH)
+    rdc_mohm = float(result.R_dc_ohm) * 1000.0
+    rows: list[tuple[str, str, str, str]] = [
+        ("L @ 1 kHz, low signal",
+         f"{L_act:.1f} µH",
+         "LCR meter (4 kHz, 0.5 V)",
+         f"± {L_pct:.0f} %"),
+        ("Rdc @ 25 °C",
+         f"{rdc_mohm:.1f} mΩ",
+         "4-wire micro-Ω meter",
+         "± 10 %"),
+        ("Turn count N",
+         f"{result.N_turns}",
+         "Visual inspection of bobbin",
+         "Exact"),
+        ("Hi-pot (winding-to-core)",
+         "1 min",
+         "5 kV hi-pot tester",
+         "No flashover, leakage ≤ 5 mA"),
+        ("Insulation resistance",
+         "≥ 100 MΩ",
+         "500 V megohmmeter",
+         "≥ 100 MΩ"),
+    ]
+    if spec.topology == "boost_ccm":
+        rows.append((
+            "Saturation current Isat",
+            f"≥ {result.I_pk_max_A:.2f} A",
+            "Curve tracer (DC bias sweep)",
+            "L drops ≤ 30 % at Isat",
+        ))
+    elif spec.topology == "line_reactor":
+        rows.append((
+            "Voltage drop @ rated I",
+            f"{(result.voltage_drop_pct or 0):.2f} %",
+            "AC source + true-RMS voltmeter",
+            "± 15 %",
+        ))
+    elif spec.topology == "passive_choke":
+        rows.append((
+            "Saturation onset",
+            f"≥ {result.I_pk_max_A:.2f} A",
+            "Curve tracer (DC bias)",
+            "L drops ≤ 30 %",
+        ))
+    rows.append((
+        "Visual / mechanical",
+        "—",
+        "Calliper, bobbin gauge",
+        "± 0.5 mm",
+    ))
+    head = (
+        '<thead><tr>'
+        '<th class="lbl">Parameter</th>'
+        '<th>Target</th>'
+        '<th>Instrument</th>'
+        '<th>Pass band</th>'
+        '</tr></thead>'
+    )
+    body = "".join(
+        f'<tr><td class="lbl">{escape(p)}</td>'
+        f'<td>{escape(t)}</td>'
+        f'<td>{escape(inst)}</td>'
+        f'<td>{escape(b)}</td></tr>'
+        for (p, t, inst, b) in rows
+    )
+    return f'<table class="dim">{head}<tbody>{body}</tbody></table>'
+
+
+# ---------------------------------------------------------------------------
 # Boost-CCM switching-period zoom — the line-cycle envelope hides the
 # Δi pp ripple; this plot synthesises a few switching periods at the
 # worst-case operating point so the user actually sees the parameter
@@ -960,6 +1173,14 @@ def generate_datasheet(
     environment_table = _kv_table(_ENV_RATINGS, extra_class="dim")
     safety_table = _kv_table(_safety_table_for(spec.topology),
                               extra_class="dim")
+    tolerance_table = _tolerance_rows(result, material)
+    build_table = _build_instructions_rows(core, wire, result)
+    test_plan_table = _test_plan_rows(spec, result, material)
+    bh_plot = _bh_trajectory_plot(result, core, material)
+    bh_section = (
+        '<h3>B–H trajectory at operating point</h3>'
+        f'<img src="data:image/png;base64,{bh_plot}" />'
+    ) if bh_plot else ""
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -1021,6 +1242,8 @@ def generate_datasheet(
   <h2>Performance Curves</h2>
   {perf_section}
 
+  {bh_section}
+
   {warnings_html}
 </div>
 
@@ -1036,6 +1259,24 @@ def generate_datasheet(
 
   <h2>Bill of Materials</h2>
   <table>{bom_rows}</table>
+
+  <h2>Tolerance Bands</h2>
+  <p class="note" style="margin-top:0;">Acceptance bands for incoming
+  inspection. Inductance band is keyed off the material family —
+  silicon-steel gapped designs run wider, powder cores tighter.</p>
+  {tolerance_table}
+
+  <h2>Build Instructions</h2>
+  <p class="note" style="margin-top:0;">Wind-room hand-off.
+  Layer counts are estimated from the window envelope; verify
+  against the actual bobbin before committing.</p>
+  {build_table}
+
+  <h2>Test Plan / Factory Acceptance Test</h2>
+  <p class="note" style="margin-top:0;">Every parameter QA must
+  measure before signing off the batch. Pass bands inherit from the
+  Tolerance section above so the wind-room and the QA bench agree.</p>
+  {test_plan_table}
 
   <h2>Environmental Ratings</h2>
   {environment_table}
