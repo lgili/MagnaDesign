@@ -46,3 +46,40 @@ def flux_swing_T(N: int, Ipk_A: float, Ae_mm2: float, AL_nH: float, mu_pct: floa
     if N == 0 or Ae_m2 == 0:
         return 0.0
     return L_H * Ipk_A / (N * Ae_m2)
+
+
+# ---------------------------------------------------------------------------
+# Line-side THD — design-quality metric for the Análise card
+# ---------------------------------------------------------------------------
+
+def voltage_drop_pct(L_mH: float, Vin_Vrms: float, Pout_W: float,
+                     f_line_Hz: float) -> float:
+    """``%Z = ωL · I_in / V_in · 100`` — fraction of line voltage
+    dropped across the choke at rated load."""
+    if Vin_Vrms <= 0 or Pout_W <= 0:
+        return 0.0
+    L_H = max(L_mH * 1e-3, 0.0)
+    omega = 2.0 * math.pi * max(f_line_Hz, 1.0)
+    Vbus = 0.9 * math.sqrt(2.0) * Vin_Vrms
+    I_dc = Pout_W / max(Vbus, 1.0)
+    V_drop = omega * L_H * I_dc
+    return V_drop / Vin_Vrms * 100.0
+
+
+def estimate_thd_pct(spec: Spec, L_actual_uH: float) -> float:
+    """Estimated line-current THD for a passive PFC choke.
+
+    The series-L + diode-bridge + bulk-cap topology is electrically
+    identical to a 1-φ line reactor: the choke widens the rectifier's
+    conduction angle; THD drops as the choke gets "stiffer" against
+    the cap. We reuse the IEEE-519-fit formula
+    :func:`pfc_inductor.topology.line_reactor.estimate_thd_pct`
+    directly — same physics, different application.
+    """
+    from pfc_inductor.topology import line_reactor
+
+    L_mH = max(L_actual_uH, 0.0) / 1000.0
+    pct_Z = voltage_drop_pct(
+        L_mH, spec.Vin_min_Vrms, spec.Pout_W, spec.f_line_Hz,
+    )
+    return line_reactor.estimate_thd_pct(pct_Z, n_phases=1)

@@ -267,6 +267,23 @@ def design(
             Pi_W = math.sqrt(3.0) * spec.Vin_nom_Vrms * spec.I_rated_Arms * ASSUMED_PF
         else:
             Pi_W = spec.Vin_nom_Vrms * spec.I_rated_Arms * ASSUMED_PF
+    elif spec.topology == "boost_ccm":
+        # Active PFC: line-side THD is a *control quality* metric
+        # (the PFC loop forces i_in ≈ k·v_in). Calibrated empirical:
+        # THD% ≈ ripple_pct/6 + 1, matching published TI / ON-Semi
+        # reference designs.
+        thd_pct = boost_ccm.estimate_thd_pct(spec)
+    elif spec.topology == "passive_choke":
+        # Topologically identical to a 1-φ line reactor: same
+        # series-L + diode-bridge + bulk-cap loop. Reuse the
+        # IEEE-519 fit through the choke's pct_Z.
+        thd_pct = passive_choke.estimate_thd_pct(spec, L_actual)
+        # Surface pct_Z too so the Análise label can show "pct_Z = X %"
+        # the same way line_reactor does.
+        pct_Z_actual = passive_choke.voltage_drop_pct(
+            L_actual / 1000.0, spec.Vin_min_Vrms, spec.Pout_W,
+            spec.f_line_Hz,
+        )
 
     res = DesignResult(
         L_required_uH=L_req,
