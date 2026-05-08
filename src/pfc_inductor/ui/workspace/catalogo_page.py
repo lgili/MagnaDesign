@@ -1,4 +1,4 @@
-"""Catálogo workspace page — DB editor inline + MAS catalog import.
+"""Catalog workspace page — DB editor inline + MAS catalog import.
 
 Hosts the :class:`DbEditorEmbed
 <pfc_inductor.ui.db_editor.DbEditorEmbed>` directly (no modal) so the
@@ -38,9 +38,9 @@ class CatalogoPage(QWidget):
         changes — the host (``MainWindow``) reloads catalogs and
         triggers a recompute.
     mas_import_requested
-        Emitted when the user clicks "Atualizar do MAS".
+        Emitted when the user clicks "Update from MAS".
     similar_requested
-        Emitted when the user clicks "Buscar similares".
+        Emitted when the user clicks "Find similar".
     """
 
     saved = Signal()
@@ -59,9 +59,9 @@ class CatalogoPage(QWidget):
 
         from pfc_inductor.ui.shell.page_header import WorkspacePageHeader
         outer.addWidget(WorkspacePageHeader(
-            "Catálogo",
-            "Materiais, núcleos e fios — vendors brasileiros + ~4 760 entradas "
-            "do catálogo aberto OpenMagnetics MAS.",
+            "Catalog",
+            "Materials, cores and wires — Brazilian vendors + ~4,760 "
+            "entries from the open OpenMagnetics MAS catalog.",
         ))
 
         body = QFrame()
@@ -81,7 +81,7 @@ class CatalogoPage(QWidget):
         eb.setContentsMargins(0, 0, 0, 0)
         eb.setSpacing(0)
         eb.addWidget(self._db_editor)
-        body_v.addWidget(Card("Editor da base de dados", editor_body), 1)
+        body_v.addWidget(Card("Database editor", editor_body), 1)
 
     # ------------------------------------------------------------------
     def _build_actions_card(self) -> Card:
@@ -90,14 +90,14 @@ class CatalogoPage(QWidget):
         v.setContentsMargins(0, 0, 0, 0)
         v.setSpacing(10)
 
-        btn_mas = QPushButton("Atualizar do MAS")
+        btn_mas = QPushButton("Update from MAS")
         btn_mas.setProperty("class", "Secondary")
         btn_mas.setIcon(ui_icon("download-cloud",
                                 color=get_theme().palette.text, size=14))
         btn_mas.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_mas.clicked.connect(self.mas_import_requested.emit)
 
-        btn_similar = QPushButton("Buscar similares")
+        btn_similar = QPushButton("Find similar")
         btn_similar.setProperty("class", "Secondary")
         btn_similar.setIcon(ui_icon("search",
                                      color=get_theme().palette.text, size=14))
@@ -105,8 +105,8 @@ class CatalogoPage(QWidget):
         btn_similar.clicked.connect(self.similar_requested.emit)
 
         desc = QLabel(
-            "Funções rápidas — importar do catálogo aberto OpenMagnetics "
-            "ou buscar substitutos drop-in para o núcleo selecionado.",
+            "Quick actions — import from the open OpenMagnetics "
+            "catalog or find drop-in substitutes for the selected core.",
         )
         desc.setProperty("role", "muted")
         desc.setWordWrap(True)
@@ -121,4 +121,4 @@ class CatalogoPage(QWidget):
         wv.setSpacing(8)
         wv.addWidget(desc)
         wv.addWidget(body)
-        return Card("Ferramentas rápidas", wrap)
+        return Card("Quick tools", wrap)

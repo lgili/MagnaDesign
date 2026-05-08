@@ -49,9 +49,9 @@ class OtimizadorPage(QWidget):
 
         from pfc_inductor.ui.shell.page_header import WorkspacePageHeader
         outer.addWidget(WorkspacePageHeader(
-            "Otimizador",
-            "Pareto sweep — varredura multi-objetivo de núcleo × material × "
-            "fio (perdas, volume, custo).",
+            "Optimizer",
+            "Pareto sweep — multi-objective core × material × wire "
+            "exploration (loss, volume, cost).",
         ))
 
         body = QFrame()

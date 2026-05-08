@@ -1,7 +1,7 @@
-"""Configurações workspace page.
+"""Settings workspace page.
 
-Theme toggle, FEA installer, Litz optimizer, About. The "Modo
-clássico" toggle (which used to live here) is removed in v3 — the
+Theme toggle, FEA installer, Litz optimizer, About. The "Classic
+mode" toggle (which used to live here) is removed in v3 — the
 legacy splitter is no longer reachable.
 """
 from __future__ import annotations
@@ -41,8 +41,8 @@ class ConfiguracoesPage(QWidget):
 
         from pfc_inductor.ui.shell.page_header import WorkspacePageHeader
         outer.addWidget(WorkspacePageHeader(
-            "Configurações",
-            "Tema, FEA (FEMMT + ONELAB), Litz wire e informações do projeto.",
+            "Settings",
+            "Theme, FEA (FEMMT + ONELAB), Litz wire and project info.",
         ))
 
         body = QFrame()
@@ -70,12 +70,12 @@ class ConfiguracoesPage(QWidget):
         v.setContentsMargins(0, 0, 0, 0)
         v.setSpacing(8)
         desc = QLabel(
-            "Alterna entre tema claro e escuro. A barra lateral "
-            "permanece sempre na cor de marca (navy).",
+            "Toggles between light and dark themes. The sidebar always "
+            "stays in the brand colour (navy).",
         )
         desc.setProperty("role", "muted")
         desc.setWordWrap(True)
-        btn = QPushButton("Alternar tema")
+        btn = QPushButton("Toggle theme")
         btn.setProperty("class", "Secondary")
         icon_name = "sun" if is_dark() else "moon"
         btn.setIcon(ui_icon(icon_name,
@@ -87,7 +87,7 @@ class ConfiguracoesPage(QWidget):
         row.addStretch(1)
         v.addWidget(desc)
         v.addLayout(row)
-        return Card("Tema", body)
+        return Card("Theme", body)
 
     def _build_fea_card(self) -> Card:
         body = QFrame()
@@ -95,13 +95,12 @@ class ConfiguracoesPage(QWidget):
         v.setContentsMargins(0, 0, 0, 0)
         v.setSpacing(8)
         desc = QLabel(
-            "Verifica e instala dependências FEM (ONELAB + FEMMT). "
-            "Necessário para rodar a Validação FEM com geometria "
-            "EE/ETD/PQ.",
+            "Checks and installs FEM dependencies (ONELAB + FEMMT). "
+            "Required to run FEM Validation with EE/ETD/PQ geometry.",
         )
         desc.setProperty("role", "muted")
         desc.setWordWrap(True)
-        btn = QPushButton("Verificar / instalar FEA")
+        btn = QPushButton("Check / install FEA")
         btn.setProperty("class", "Secondary")
         btn.setIcon(ui_icon("cog", color=get_theme().palette.text, size=14))
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -111,7 +110,7 @@ class ConfiguracoesPage(QWidget):
         row.addStretch(1)
         v.addWidget(desc)
         v.addLayout(row)
-        return Card("Dependências FEM", body)
+        return Card("FEM dependencies", body)
 
     def _build_litz_card(self) -> Card:
         body = QFrame()
@@ -119,12 +118,12 @@ class ConfiguracoesPage(QWidget):
         v.setContentsMargins(0, 0, 0, 0)
         v.setSpacing(8)
         desc = QLabel(
-            "Recomenda diâmetro de strand e número de strands para "
-            "atingir um ratio AC/DC alvo via critério Sullivan.",
+            "Recommends strand diameter and strand count to hit a "
+            "target AC/DC ratio via the Sullivan criterion.",
         )
         desc.setProperty("role", "muted")
         desc.setWordWrap(True)
-        btn = QPushButton("Otimizador Litz")
+        btn = QPushButton("Litz optimizer")
         btn.setProperty("class", "Secondary")
         btn.setIcon(ui_icon("braid", color=get_theme().palette.text, size=14))
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -142,12 +141,12 @@ class ConfiguracoesPage(QWidget):
         v.setContentsMargins(0, 0, 0, 0)
         v.setSpacing(8)
         desc = QLabel(
-            "Posicionamento competitivo do projeto contra FEMMT, MAS, "
-            "AI-mag, Frenetic, MagInc e Coilcraft.",
+            "Competitive positioning of the project against FEMMT, "
+            "MAS, AI-mag, Frenetic, MagInc and Coilcraft.",
         )
         desc.setProperty("role", "muted")
         desc.setWordWrap(True)
-        btn = QPushButton("Sobre")
+        btn = QPushButton("About")
         btn.setProperty("class", "Secondary")
         btn.setIcon(ui_icon("info", color=get_theme().palette.text, size=14))
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -157,4 +156,4 @@ class ConfiguracoesPage(QWidget):
         row.addStretch(1)
         v.addWidget(desc)
         v.addLayout(row)
-        return Card("Sobre o projeto", body)
+        return Card("About the project", body)

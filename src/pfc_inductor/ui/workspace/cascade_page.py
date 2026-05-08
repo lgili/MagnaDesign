@@ -22,7 +22,7 @@ Layout, top to bottom:
 - **Selection actions**: Apply / Open in design view, both
   enabled only when a row is selected. Apply emits the same
   `selection_applied(material_id, core_id, wire_id)` signal the
-  Otimizador and Núcleo card use, so MainWindow's existing
+  Optimizer and Core card use, so MainWindow's existing
   `_apply_optimizer_choice` handler picks it up unchanged.
 
 Phase B / Phase C wiring lives in `optimize.cascade.orchestrator`;
@@ -196,10 +196,10 @@ class _RunConfigCard(QWidget):
         """Probe FEMMT/FEMM at runtime and update the badge."""
         ok = supports_tier3()
         if ok:
-            self.fea_badge.setText("Backend FEA: configurado")
+            self.fea_badge.setText("FEA backend: configured")
             self.fea_badge.setProperty("pill", "ok")
         else:
-            self.fea_badge.setText("Backend FEA: indisponível")
+            self.fea_badge.setText("FEA backend: unavailable")
             self.fea_badge.setProperty("pill", "warn")
         self.fea_badge.style().unpolish(self.fea_badge)
         self.fea_badge.style().polish(self.fea_badge)
@@ -225,10 +225,10 @@ class _TierProgressGrid(QWidget):
 
     TIERS: tuple[tuple[int, str], ...] = (
         (0, "Tier 0  Feasibility"),
-        (1, "Tier 1  Analítico"),
-        (2, "Tier 2  Transitório"),
-        (3, "Tier 3  FEA estática"),
-        (4, "Tier 4  FEA varrida"),
+        (1, "Tier 1  Analytical"),
+        (2, "Tier 2  Transient"),
+        (3, "Tier 3  Static FEA"),
+        (4, "Tier 4  Swept FEA"),
     )
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
@@ -500,8 +500,8 @@ class _ParetoChart(QWidget):
         self._ax.clear()
         self._ax.text(
             0.5, 0.5,
-            "Sem resultados Tier 1 ainda.\n"
-            "Rode uma cascade para popular o gráfico.",
+            "No Tier 1 results yet.\n"
+            "Run a cascade to populate the chart.",
             transform=self._ax.transAxes, ha="center", va="center",
             color="#7c8696", fontsize=10,
         )
@@ -656,7 +656,7 @@ class _RunHistoryDialog(QDialog):
         parent: Optional[QWidget] = None,
     ) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Histórico de runs")
+        self.setWindowTitle("Run history")
         self.setMinimumSize(640, 360)
         self._store = store
         self._selected_run_id: Optional[str] = None
@@ -666,8 +666,8 @@ class _RunHistoryDialog(QDialog):
         layout.setSpacing(10)
 
         intro = QLabel(
-            "Selecione uma run anterior para carregar seus resultados "
-            "(top-N + estatísticas). Nenhum candidate é re-avaliado.",
+            "Pick a previous run to load its results "
+            "(top-N + stats). No candidate is re-evaluated.",
         )
         intro.setProperty("role", "muted")
         intro.setWordWrap(True)
@@ -853,17 +853,17 @@ class CascadePage(QWidget):
         inner.setContentsMargins(24, 24, 24, 24)
         inner.setSpacing(12)
 
-        title = QLabel("Otimizador profundo")
+        title = QLabel("Full optimizer")
         title.setProperty("role", "title")
         inner.addWidget(title)
 
         intro = QLabel(
-            "Sweep multi-tier sobre todas as combinações viáveis. "
-            "Tier 0 elimina inviáveis (geometria + saturação), "
-            "Tier 1 calcula o operating-point analítico, "
-            "Tier 2 (transitório) refina L_avg e flags de saturação "
-            "via curva anhisterética, e Tier 3 (FEA) cross-check "
-            "numérico em FEMMT / FEMM nos top-K."
+            "Multi-tier sweep over every feasible combination. "
+            "Tier 0 prunes infeasible candidates (geometry + saturation), "
+            "Tier 1 computes the analytical operating point, "
+            "Tier 2 (transient) refines L_avg and saturation flags via "
+            "the anhysteretic curve, and Tier 3 (FEA) cross-checks "
+            "numerically in FEMMT / FEMM on the top-K."
         )
         intro.setProperty("role", "muted")
         intro.setWordWrap(True)
@@ -871,21 +871,21 @@ class CascadePage(QWidget):
 
         # Spec strip (compact, read-only).
         self._spec_strip = _SpecStrip()
-        inner.addWidget(Card("Spec ativo", self._spec_strip))
+        inner.addWidget(Card("Active spec", self._spec_strip))
 
         # Eligible-catalogue summary. Reports how many materials made
         # it past the per-topology filter (see
         # ``topology.material_filter``) so the engineer can see at a
         # glance whether the cascade is iterating over the right
         # families. Updated on every ``set_inputs`` call.
-        self._catalog_summary = QLabel("Catálogo elegível: —")
+        self._catalog_summary = QLabel("Eligible catalog: —")
         self._catalog_summary.setProperty("role", "muted")
         self._catalog_summary.setContentsMargins(0, 0, 0, 4)
         inner.addWidget(self._catalog_summary)
 
         # Run config + actions row, side by side.
         self._cfg = _RunConfigCard()
-        inner.addWidget(Card("Configuração do run", self._cfg))
+        inner.addWidget(Card("Run configuration", self._cfg))
 
         action_row = QHBoxLayout()
         action_row.setSpacing(8)
@@ -895,10 +895,10 @@ class CascadePage(QWidget):
         self._btn_cancel = QPushButton("■  Cancel")
         self._btn_cancel.setEnabled(False)
         self._btn_cancel.setMinimumHeight(32)
-        self._btn_history = QPushButton("Histórico")
+        self._btn_history = QPushButton("History")
         self._btn_history.setMinimumHeight(32)
         self._btn_history.setToolTip(
-            "Carrega resultados de uma run anterior do store (sem re-avaliar)",
+            "Load results from a previous store run (no re-evaluation)",
         )
         self._btn_run.clicked.connect(self.run)
         self._btn_cancel.clicked.connect(self.cancel)
@@ -919,11 +919,11 @@ class CascadePage(QWidget):
 
         # Tier progress.
         self._tiers = _TierProgressGrid()
-        inner.addWidget(Card("Progresso por tier", self._tiers))
+        inner.addWidget(Card("Progress per tier", self._tiers))
 
         # Stats.
         self._stats = _StatsCard()
-        inner.addWidget(Card("Estatísticas do run", self._stats))
+        inner.addWidget(Card("Run statistics", self._stats))
 
         # Top-N — table + Pareto chart in a tab widget.
         self._table = _TopNTable()
@@ -932,9 +932,9 @@ class CascadePage(QWidget):
         self._chart = _ParetoChart()
         self._chart.selection_changed.connect(self._on_chart_pick)
         self._results_tabs = QTabWidget()
-        self._results_tabs.addTab(self._table, "Lista")
+        self._results_tabs.addTab(self._table, "List")
         self._results_tabs.addTab(self._chart, "Pareto")
-        inner.addWidget(Card(f"Top {self.TOP_N} por loss", self._results_tabs), 1)
+        inner.addWidget(Card(f"Top {self.TOP_N} by loss", self._results_tabs), 1)
 
         # Selection actions.
         sel_row = QHBoxLayout()
@@ -980,21 +980,21 @@ class CascadePage(QWidget):
         self._cfg.refresh_fea_status()
 
     def _update_catalog_summary(self) -> None:
-        """Refresh the small "Catálogo elegível" line under the spec
+        """Refresh the small "Eligible catalog" line under the spec
         strip. Materials handed in here have already been filtered by
         :func:`pfc_inductor.topology.material_filter.materials_for_topology`
         upstream in MainWindow; we just summarise what arrived."""
         if not self._materials:
             self._catalog_summary.setText(
-                "Catálogo elegível: 0 materiais",
+                "Eligible catalog: 0 materials",
             )
             return
         n = len(self._materials)
         types = sorted({m.type for m in self._materials})
         topology = self._spec.topology if self._spec is not None else "—"
         self._catalog_summary.setText(
-            f"Catálogo elegível: {n} materiais "
-            f"({', '.join(types)}) · topologia: {topology}",
+            f"Eligible catalog: {n} materials "
+            f"({', '.join(types)}) · topology: {topology}",
         )
 
     def run(self) -> None:

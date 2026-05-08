@@ -1,11 +1,11 @@
-"""Núcleo selection workspace tab.
+"""Core selection workspace tab.
 
-The first tab of the Projeto workspace, dedicated entirely to choosing
+The first tab of the Project workspace, dedicated entirely to choosing
 material + core + wire. Two equally-weighted modes share the tab:
 
-- **Tabela**: ``NucleoCard`` (60% L, scored Material/Núcleo/Fio tabs)
+- **Table**: ``NucleoCard`` (60% L, scored Material/Core/Wire tabs)
   next to ``Viz3DCard`` (40% R, live preview of the active selection).
-- **Otimizador**: ``OptimizerEmbed`` taking the full tab width — its
+- **Optimizer**: ``OptimizerEmbed`` taking the full tab width — its
   three-pane layout (controls + ranked table + Pareto plot) needs the
   whole 1140 px to read clearly.
 
@@ -59,8 +59,8 @@ class NucleoSelectionPage(QWidget):
 
     selection_applied = Signal(str, str, str)
     # Emitted when the user applied a selection from the inline
-    # OptimizerEmbed. The host (ProjetoPage) listens and switches the
-    # workspace tab to "Análise" so the new design's waveforms are
+    # OptimizerEmbed. The host (ProjectPage) listens and switches the
+    # workspace tab to "Analysis" so the new design's waveforms are
     # visible immediately. Manual table-driven applies don't fire this
     # — those keep the user in context (table + 3D preview).
     suggest_analise_navigation = Signal()
@@ -96,7 +96,7 @@ class NucleoSelectionPage(QWidget):
         toolbar.setContentsMargins(0, 0, 0, 0)
         toolbar.setSpacing(8)
 
-        self._caption = QLabel("Seleção do projeto")
+        self._caption = QLabel("Project selection")
         # Use a strong-secondary colour: text (8.8:1) and semibold so it
         # reads as a section heading, not as muted copy.
         p = get_theme().palette
@@ -192,7 +192,7 @@ class NucleoSelectionPage(QWidget):
         )
         # Route the inline-optimizer apply through ``_on_optimizer_applied``
         # so we can both bubble the signal up AND nudge the user toward
-        # the Análise tab where the waveforms of the new selection live.
+        # the Analysis tab where the waveforms of the new selection live.
         self.optimizer.selection_applied.connect(self._on_optimizer_applied)
         v.addWidget(self.optimizer, 1)
         return page
@@ -210,11 +210,11 @@ class NucleoSelectionPage(QWidget):
         h.setContentsMargins(14, 10, 8, 10)
         h.setSpacing(10)
 
-        # Body text — Rich text so we can bold "Otimizador" inline.
+        # Body text — Rich text so we can bold "Optimizer" inline.
         body = QLabel(
-            "Escolha o material, núcleo e fio na <b>Tabela</b>, ou use "
-            "o <b>Otimizador</b> para ranquear todas as combinações por "
-            "perda, volume, temperatura ou custo."
+            "Pick the material, core and wire in the <b>Table</b>, or "
+            "use the <b>Optimizer</b> to rank every combination by "
+            "loss, volume, temperature or cost."
         )
         body.setTextFormat(Qt.TextFormat.RichText)
         body.setWordWrap(True)
@@ -228,7 +228,7 @@ class NucleoSelectionPage(QWidget):
         dismiss.setFixedSize(24, 24)
         dismiss.setCursor(Qt.CursorShape.PointingHandCursor)
         dismiss.setObjectName("HintBannerDismiss")
-        dismiss.setToolTip("Não mostrar novamente")
+        dismiss.setToolTip("Don't show again")
         dismiss.clicked.connect(self._dismiss_hint)
         h.addWidget(dismiss, 0, Qt.AlignmentFlag.AlignTop)
 
@@ -236,11 +236,11 @@ class NucleoSelectionPage(QWidget):
         return banner
 
     def _build_nudge_banner(self) -> QFrame:
-        """Transient post-apply banner suggesting Análise navigation.
+        """Transient post-apply banner suggesting Analysis navigation.
 
         Appears for ANIMATION.nudge_ms after the inline OptimizerEmbed
-        emits ``selection_applied``. The "Ver Análise →" button bubbles
-        a :attr:`suggest_analise_navigation` signal that ProjetoPage
+        emits ``selection_applied``. The "View Analysis →" button bubbles
+        a :attr:`suggest_analise_navigation` signal that ProjectPage
         catches and uses to ``switch_to("analise")``.
         """
         banner = QFrame()
@@ -250,12 +250,12 @@ class NucleoSelectionPage(QWidget):
         h.setSpacing(10)
 
         body = QLabel(
-            "Seleção aplicada. Veja as formas de onda do novo design."
+            "Selection applied. Take a look at the new design's waveforms."
         )
         body.setObjectName("NudgeBannerBody")
         h.addWidget(body, 1)
 
-        btn = QPushButton("Ver Análise →")
+        btn = QPushButton("View Analysis →")
         btn.setObjectName("NudgeBannerCta")
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.setProperty("class", "Tertiary")
@@ -266,7 +266,7 @@ class NucleoSelectionPage(QWidget):
         return banner
 
     # ------------------------------------------------------------------
-    # Public API — called by ProjetoPage / MainWindow on each recalc
+    # Public API — called by ProjectPage / MainWindow on each recalc
     # ------------------------------------------------------------------
     def update_from_design(self, result: DesignResult, spec: Spec,
                            core: Core, wire: Wire,
@@ -315,7 +315,7 @@ class NucleoSelectionPage(QWidget):
         self, mat_id: str, core_id: str, wire_id: str,
     ) -> None:
         """Bubble the optimizer's selection upward AND surface a nudge
-        toward the Análise tab so the user sees the new waveforms.
+        toward the Analysis tab so the user sees the new waveforms.
 
         We don't auto-navigate — that strips the user of agency and
         also breaks the otimizador-then-tweak-then-otimizador-again

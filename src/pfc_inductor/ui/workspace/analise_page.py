@@ -1,6 +1,6 @@
-"""Análise workspace tab — waveforms + flux + thermal + losses + detail.
+"""Analysis workspace tab — waveforms + flux + thermal + losses + detail.
 
-The second tab of the Projeto workspace, focused on understanding how
+The second tab of the Project workspace, focused on understanding how
 the chosen design behaves. Layout (top → bottom on a 12-column grid):
 
     +--------------------------------------------------+
@@ -22,8 +22,8 @@ the chosen design behaves. Layout (top → bottom on a 12-column grid):
 Why the v2 redesign
 -------------------
 v1 surfaced *one* waveform (iL or B via toggle), no flux trajectory,
-and buried the temperature deep in the Detalhes datasheet. The user
-called it "muito fraco". v2 adds:
+and buried the temperature deep in the Details datasheet. The user
+called it "very weak". v2 adds:
 
 - **Multi-trace topology-aware waveforms** — iL · source-voltage ·
   B(t) stacked on a shared time axis, with the source and 3-phase
@@ -31,12 +31,12 @@ called it "muito fraco". v2 adds:
   doesn't sample them. Boost / passive / 1ph / 3ph reactors each
   render the right trace set.
 - **B–H loop card** — the existing ``BHLoopChart`` (previously only
-  in the Validar tab) now shows the operating trajectory next to
-  the saturation curve in Análise too. Reads "where on the knee
+  in the Validate tab) now shows the operating trajectory next to
+  the saturation curve in Analysis too. Reads "where on the knee
   are we?" in one glance.
 - **Thermal gauge card** — gradient bar from T_amb → T_max with a
   needle at T_winding, three numeric pills, and a Cu-vs-core
-  origin split. Replaces the scalar T buried in Detalhes.
+  origin split. Replaces the scalar T buried in Details.
 
 Cards that previously lived in the bento dashboard but don't belong
 here:
@@ -44,7 +44,8 @@ here:
 - ``NucleoCard`` / ``Viz3DCard`` → moved to :class:`NucleoSelectionPage
   <pfc_inductor.ui.workspace.nucleo_selection_page.NucleoSelectionPage>`.
 - ``ResumoStrip`` → mounted persistently above the tab widget by
-  :class:`ProjetoPage <pfc_inductor.ui.workspace.projeto_page.ProjetoPage>`.
+  :class:`ProjetoPage <pfc_inductor.ui.workspace.projeto_page.ProjetoPage>`
+  (the Project workspace page).
 - ``ResumoCard`` (2×3 metric grid) → dropped; replaced by ResumoStrip.
 - ``ProximosPassosCard`` → dropped; the 5 actions are reachable via
   the workspace header CTAs and the sidebar overflow menu.
@@ -79,13 +80,13 @@ from pfc_inductor.ui.theme import CARD_MIN, get_theme, on_theme_changed
 
 
 class AnalisePage(QWidget):
-    """Análise tab body — waveforms + losses + winding/gap detail.
+    """Analysis tab body — waveforms + losses + winding/gap detail.
 
     Signals
     -------
     No outbound signals — the page is purely display. Recompute is
     triggered from the spec drawer (left column) or the
-    ``Recalcular`` CTA in the workspace header.
+    ``Recalculate`` CTA in the workspace header.
     """
 
     # No public signals — this tab is read-only display.
@@ -93,7 +94,7 @@ class AnalisePage(QWidget):
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
-        # The Análise tab has to honour whatever vertical room the
+        # The Analysis tab has to honour whatever vertical room the
         # parent QTabWidget gives it — without an Expanding policy on
         # the page itself, Qt grows the page to its preferred height
         # (= grid's minimum sum, ~700 px) and pushes the surrounding
@@ -175,7 +176,7 @@ class AnalisePage(QWidget):
         grid.addWidget(self.card_formas, 0, 0, 1, 12)
         grid.setRowStretch(0, 2)
 
-        # Row 1 — Fluxo (B–H) lado a lado com o gauge térmico. Both
+        # Row 1 — Flux (B–H) side by side with the thermal gauge. Both
         # cards earn similar vertical room so the engineer reads
         # "magnetic margin" and "thermal margin" with the same
         # mental gesture.
@@ -204,7 +205,7 @@ class AnalisePage(QWidget):
         grid.addWidget(self.card_entreferro, 3, 6, 1, 6)
         grid.setRowStretch(3, 1)
 
-        # Row 4 — Detalhes Técnicos full-width, default collapsed.
+        # Row 4 — Technical Details full-width, default collapsed.
         # Datasheet-style card with every DesignResult field grouped
         # by domain. Default collapsed so it doesn't crowd the
         # at-a-glance rows above — one click expands it for the
@@ -257,14 +258,14 @@ class AnalisePage(QWidget):
         v.setSpacing(12)
         v.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        title = QLabel("Aguardando o primeiro cálculo")
+        title = QLabel("Waiting for the first calculation")
         title.setObjectName("AnaliseEmptyTitle")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         body = QLabel(
-            "Ajuste a especificação na coluna esquerda e clique em "
-            "<b>Recalcular</b> no topo. As formas de onda, perdas e "
-            "detalhes do enrolamento aparecem aqui."
+            "Adjust the specification in the left column and click "
+            "<b>Recalculate</b> at the top. Waveforms, losses and "
+            "winding details show up here."
         )
         body.setObjectName("AnaliseEmptyBody")
         body.setTextFormat(Qt.TextFormat.RichText)

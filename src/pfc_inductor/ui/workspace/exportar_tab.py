@@ -1,4 +1,4 @@
-"""Exportar tab — datasheet preview + export CTAs."""
+"""Export tab — datasheet preview + export CTAs."""
 from __future__ import annotations
 
 from typing import Optional
@@ -21,7 +21,7 @@ from pfc_inductor.ui.widgets import Card
 
 
 class ExportarTab(QWidget):
-    """Exportar workspace tab."""
+    """Export workspace tab."""
 
     export_html_requested = Signal()
     export_compare_requested = Signal()
@@ -34,9 +34,9 @@ class ExportarTab(QWidget):
         outer.setSpacing(16)
 
         intro = QLabel(
-            "Gera o datasheet HTML auto-contido (3 páginas) com vistas "
-            "ortográficas, especificações e BOM. Pode também exportar a "
-            "matriz comparativa em HTML/CSV."
+            "Generates the self-contained HTML datasheet (3 pages) "
+            "with orthographic views, specifications and BOM. Can "
+            "also export the comparison matrix as HTML/CSV."
         )
         intro.setProperty("role", "muted")
         intro.setWordWrap(True)
@@ -59,7 +59,7 @@ class ExportarTab(QWidget):
         )
 
     def clear(self) -> None:
-        self._summary.setText("Aguardando cálculo…")
+        self._summary.setText("Waiting for calculation…")
 
     # ------------------------------------------------------------------
     def _build_datasheet_card(self) -> Card:
@@ -68,16 +68,16 @@ class ExportarTab(QWidget):
         v.setContentsMargins(0, 0, 0, 0)
         v.setSpacing(8)
         desc = QLabel(
-            "Datasheet de fabricante — 3 páginas em HTML auto-contido "
-            "(imagens base64). Imprima como PDF a partir do navegador.",
+            "Manufacturer-grade datasheet — 3 pages of self-contained "
+            "HTML (base64 images). Print to PDF from the browser.",
         )
         desc.setProperty("role", "muted")
         desc.setWordWrap(True)
 
-        self._summary = QLabel("Aguardando cálculo…")
+        self._summary = QLabel("Waiting for calculation…")
         self._summary.setStyleSheet(self._summary_qss())
 
-        btn = QPushButton("Gerar datasheet (HTML)")
+        btn = QPushButton("Generate datasheet (HTML)")
         btn.setProperty("class", "Primary")
         btn.setIcon(ui_icon("file-text",
                             color=get_theme().palette.text_inverse, size=14))
@@ -90,7 +90,7 @@ class ExportarTab(QWidget):
         v.addWidget(desc)
         v.addWidget(self._summary)
         v.addLayout(row)
-        return Card("Datasheet do design", body)
+        return Card("Design datasheet", body)
 
     def _build_compare_export_card(self) -> Card:
         body = QFrame()
@@ -98,12 +98,12 @@ class ExportarTab(QWidget):
         v.setContentsMargins(0, 0, 0, 0)
         v.setSpacing(8)
         desc = QLabel(
-            "Exporta a matriz de comparação atual (até 4 designs) em "
-            "HTML auto-contido ou CSV.",
+            "Exports the current comparison matrix (up to 4 designs) "
+            "as self-contained HTML or CSV.",
         )
         desc.setProperty("role", "muted")
         desc.setWordWrap(True)
-        btn = QPushButton("Exportar comparativo")
+        btn = QPushButton("Export comparison")
         btn.setProperty("class", "Secondary")
         btn.setIcon(ui_icon("compare", color=get_theme().palette.text, size=14))
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -113,7 +113,7 @@ class ExportarTab(QWidget):
         row.addStretch(1)
         v.addWidget(desc)
         v.addLayout(row)
-        return Card("Comparativo (HTML/CSV)", body)
+        return Card("Comparison (HTML/CSV)", body)
 
     @staticmethod
     def _summary_qss() -> str:

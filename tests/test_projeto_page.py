@@ -1,7 +1,7 @@
 """Smoke tests for the v3.1 ProjetoPage 4-tab structure.
 
-ProjetoPage now mounts four tabs (Núcleo / Análise / Validar /
-Exportar) with a persistent ResumoStrip above the QTabWidget. These
+ProjetoPage now mounts four tabs (Core / Analysis / Validate /
+Export) with a persistent ResumoStrip above the QTabWidget. These
 tests guard the wiring at the page boundary — internal card
 behaviour is exercised in test_nucleo_selection_page and
 test_analise_page.
@@ -51,10 +51,10 @@ def test_projeto_page_has_four_tabs(app, design_bundle):
     *_, materials, cores, wires = design_bundle
     p = ProjetoPage(materials, cores, wires)
     assert p.tabs.count() == 4
-    assert p.tabs.tabText(0) == "Núcleo"
-    assert p.tabs.tabText(1) == "Análise"
-    assert p.tabs.tabText(2) == "Validar"
-    assert p.tabs.tabText(3) == "Exportar"
+    assert p.tabs.tabText(0) == "Core"
+    assert p.tabs.tabText(1) == "Analysis"
+    assert p.tabs.tabText(2) == "Validate"
+    assert p.tabs.tabText(3) == "Export"
 
 
 def test_projeto_page_kpi_strip_persistent(app, design_bundle):
@@ -85,14 +85,14 @@ def test_projeto_page_update_from_design_fans_out(app, design_bundle):
     p.update_from_design(result, spec, core, wire, material)
     # KPI strip got the L value.
     assert p.kpi_strip.m_L._val.text() == f"{result.L_actual_uH:.0f}"
-    # Análise's PerdasCard got the loss total.
+    # Analysis's PerdasCard got the loss total.
     assert abs(
         p.analise_tab.card_perdas._pbody._bar.total() - result.losses.P_total_W
     ) < 1e-6
 
 
 def test_projeto_page_selection_applied_bubbles_up(app, design_bundle):
-    """Selection from the Núcleo tab (table or inline optimizer) must
+    """Selection from the Core tab (table or inline optimizer) must
     bubble up via ``ProjetoPage.selection_applied`` so MainWindow can
     re-run design()."""
     from pfc_inductor.ui.workspace.projeto_page import ProjetoPage

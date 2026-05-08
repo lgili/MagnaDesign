@@ -1,4 +1,4 @@
-"""Validar tab — FEA + BH-loop + Compare quick-look.
+"""Validate tab — FEA + BH-loop + Compare quick-look.
 
 Three cards stacked. Each card is a thin façade over an existing
 dialog/feature so the inner-loop is "everything I need to *trust* the
@@ -26,16 +26,16 @@ from pfc_inductor.ui.widgets import BHLoopChart, Card
 
 
 class ValidarTab(QWidget):
-    """Validar workspace tab.
+    """Validate workspace tab.
 
     Signals
     -------
     fea_requested
-        Emitted when the user clicks "Rodar validação FEM".
+        Emitted when the user clicks "Run FEM validation".
     bh_loop_requested
-        Emitted when the user clicks "Mostrar B-H loop".
+        Emitted when the user clicks "Show B-H loop".
     compare_requested
-        Emitted when the user clicks "Abrir comparativo".
+        Emitted when the user clicks "Open comparator".
     """
 
     fea_requested = Signal()
@@ -49,9 +49,10 @@ class ValidarTab(QWidget):
         outer.setSpacing(16)
 
         intro = QLabel(
-            "Compare o projeto analítico contra simuladores de campo "
-            "(FEMM/FEMMT) e veja a trajetória B–H no operating point. "
-            "Use Comparativo para checar contra alternativas."
+            "Compare the analytical design against field simulators "
+            "(FEMM/FEMMT) and look at the B–H trajectory at the "
+            "operating point. Use Comparator to check against "
+            "alternatives."
         )
         intro.setProperty("role", "muted")
         intro.setWordWrap(True)
@@ -72,12 +73,12 @@ class ValidarTab(QWidget):
         self._last_result = result
         # Refresh the FEA summary line.
         self._fea_summary.setText(
-            f"Spec atual: {spec.topology} · {spec.Pout_W:.0f} W · "
+            f"Current spec: {spec.topology} · {spec.Pout_W:.0f} W · "
             f"L = {result.L_actual_uH:.0f} µH · ΔT = {result.T_rise_C:.0f} °C"
         )
         self._bh_summary.setText(
             f"H_pk = {result.H_dc_peak_Oe:.1f} Oe · B_pk = "
-            f"{result.B_pk_T * 1000:.0f} mT · margem saturação = "
+            f"{result.B_pk_T * 1000:.0f} mT · saturation margin = "
             f"{result.sat_margin_pct:.0f} %"
         )
         # Live B-H trajectory plot.
@@ -86,17 +87,17 @@ class ValidarTab(QWidget):
         self._set_fea_enabled(True)
 
     def clear(self) -> None:
-        self._fea_summary.setText("Aguardando cálculo…")
-        self._bh_summary.setText("Aguardando cálculo…")
+        self._fea_summary.setText("Waiting for calculation…")
+        self._bh_summary.setText("Waiting for calculation…")
         self._bh_chart.clear()
         self._last_result = None
         self._set_fea_enabled(False)
 
     def _set_fea_enabled(self, enabled: bool) -> None:
-        """Gate the "Rodar validação FEM" button on whether there's a
+        """Gate the "Run FEM validation" button on whether there's a
         design to validate.
 
-        Without this, a user clicking Validar before any Recalcular
+        Without this, a user clicking Validate before any Recalculate
         would press the FEM button and watch FEMMT crunch on a default
         / inconsistent spec — confusing wall-clock cost for no useful
         output. Disabled state shows a tooltip explaining the
@@ -107,11 +108,10 @@ class ValidarTab(QWidget):
             return
         btn.setEnabled(enabled)
         btn.setToolTip(
-            "Resolve o problema magnético no operating point — leva "
-            "alguns minutos. Bloqueia a UI até terminar."
+            "Solves the magnetic problem at the operating point — "
+            "takes a few minutes. Blocks the UI until done."
             if enabled else
-            "Calcule um design primeiro (Ctrl+R) para habilitar a "
-            "validação FEM."
+            "Calculate a design first (Ctrl+R) to enable FEM validation."
         )
 
     # ------------------------------------------------------------------
@@ -121,33 +121,32 @@ class ValidarTab(QWidget):
         v.setContentsMargins(0, 0, 0, 0)
         v.setSpacing(8)
         desc = QLabel(
-            "Roda FEMM (toroide axissimétrico) ou FEMMT (EE/ETD/PQ) "
-            "no design atual e devolve L_FEA, B_pk e perdas para "
-            "comparar com a estimativa analítica.",
+            "Runs FEMM (axisymmetric toroid) or FEMMT (EE/ETD/PQ) on "
+            "the current design and returns L_FEA, B_pk and losses to "
+            "compare against the analytical estimate.",
         )
         desc.setProperty("role", "muted")
         desc.setWordWrap(True)
-        self._fea_summary = QLabel("Aguardando cálculo…")
+        self._fea_summary = QLabel("Waiting for calculation…")
         self._fea_summary.setStyleSheet(self._summary_qss())
         # Stored on ``self`` so ``_set_fea_enabled`` can toggle it
         # later — disabled until ``update_from_design`` runs at least
         # once.
-        self._btn_fea = QPushButton("Rodar validação FEM")
+        self._btn_fea = QPushButton("Run FEM validation")
         btn = self._btn_fea
         btn.setProperty("class", "Secondary")
         btn.setIcon(ui_icon("cube", color=get_theme().palette.text, size=14))
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.setEnabled(False)         # gated until first design lands
         btn.setToolTip(
-            "Calcule um design primeiro (Ctrl+R) para habilitar a "
-            "validação FEM."
+            "Calculate a design first (Ctrl+R) to enable FEM validation."
         )
         btn.clicked.connect(self.fea_requested.emit)
         # Inline time estimate so the engineer doesn't click expecting
         # a sub-second response and then think the app froze. Kept as
         # a separate caption-styled label so it doesn't add a CTA-
         # weight competitor next to the button.
-        time_hint = QLabel("≈ 2–5 min  ·  bloqueia a interface")
+        time_hint = QLabel("≈ 2–5 min  ·  blocks the UI")
         time_hint.setStyleSheet(self._hint_qss())
         row = QHBoxLayout()
         row.addWidget(btn)
@@ -157,7 +156,7 @@ class ValidarTab(QWidget):
         v.addWidget(desc)
         v.addWidget(self._fea_summary)
         v.addLayout(row)
-        return Card("Validação FEM", body)
+        return Card("FEM validation", body)
 
     @staticmethod
     def _hint_qss() -> str:
@@ -174,14 +173,14 @@ class ValidarTab(QWidget):
         v.setContentsMargins(0, 0, 0, 0)
         v.setSpacing(8)
         desc = QLabel(
-            "Trajetória do operating point sobre a curva B–H estática "
-            "do material — envelope de rede, ripple no pico (quando "
-            "presente) e linha de Bsat. Atualiza automaticamente após "
-            "cada Recalcular.",
+            "Operating-point trajectory over the static B–H curve of "
+            "the material — line envelope, ripple at the peak (when "
+            "present) and Bsat line. Refreshes automatically after "
+            "each Recalculate.",
         )
         desc.setProperty("role", "muted")
         desc.setWordWrap(True)
-        self._bh_summary = QLabel("Aguardando cálculo…")
+        self._bh_summary = QLabel("Waiting for calculation…")
         self._bh_summary.setStyleSheet(self._summary_qss())
         # Live chart embedded inline — no separate dialog.
         self._bh_chart = BHLoopChart()
@@ -189,7 +188,7 @@ class ValidarTab(QWidget):
         v.addWidget(desc)
         v.addWidget(self._bh_summary)
         v.addWidget(self._bh_chart, 1)
-        return Card("B–H loop no operating point", body)
+        return Card("B–H loop at the operating point", body)
 
     def _build_compare_card(self) -> Card:
         body = QFrame()
@@ -197,14 +196,14 @@ class ValidarTab(QWidget):
         v.setContentsMargins(0, 0, 0, 0)
         v.setSpacing(8)
         desc = QLabel(
-            "Compara este design lado a lado com até 3 alternativas. "
-            "Diff colorido por métrica (verde melhor, vermelho pior). "
-            "Útil quando você está em dúvida entre duas escolhas de "
-            "material/núcleo/fio.",
+            "Compares this design side by side with up to 3 "
+            "alternatives. Per-metric coloured diff (green = better, "
+            "red = worse). Useful when you're torn between two "
+            "material / core / wire choices.",
         )
         desc.setProperty("role", "muted")
         desc.setWordWrap(True)
-        btn = QPushButton("Abrir comparativo")
+        btn = QPushButton("Open comparator")
         btn.setProperty("class", "Secondary")
         btn.setIcon(ui_icon("compare", color=get_theme().palette.text, size=14))
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -214,7 +213,7 @@ class ValidarTab(QWidget):
         row.addStretch(1)
         v.addWidget(desc)
         v.addLayout(row)
-        return Card("Comparativo de designs", body)
+        return Card("Design comparator", body)
 
     @staticmethod
     def _summary_qss() -> str:

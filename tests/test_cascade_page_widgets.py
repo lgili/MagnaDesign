@@ -108,7 +108,7 @@ def test_run_config_card_set_busy_disables_spinboxes(app):
 
 
 def test_run_config_card_fea_badge_reflects_backend(app):
-    """The badge text changes between `configurado` and `indisponível`
+    """The badge text changes between `configured` and `unavailable`
     based on what `supports_tier3()` returns."""
     from unittest.mock import patch
 
@@ -118,11 +118,11 @@ def test_run_config_card_fea_badge_reflects_backend(app):
     with patch("pfc_inductor.ui.workspace.cascade_page.supports_tier3",
                return_value=True):
         cfg.refresh_fea_status()
-        assert "configurado" in cfg.fea_badge.text().lower()
+        assert "configured" in cfg.fea_badge.text().lower()
     with patch("pfc_inductor.ui.workspace.cascade_page.supports_tier3",
                return_value=False):
         cfg.refresh_fea_status()
-        assert "indisponível" in cfg.fea_badge.text().lower()
+        assert "unavailable" in cfg.fea_badge.text().lower()
 
 
 # ─── _TierProgressGrid ────────────────────────────────────────────
@@ -306,7 +306,7 @@ def test_cascade_page_catalog_summary_initial_state(app, tmp_path: Path):
 
     page = CascadePage(store_path=tmp_path / "cascade.db")
     # No spec set yet → placeholder.
-    assert "—" in page._catalog_summary.text() or "0 materiais" in page._catalog_summary.text()
+    assert "—" in page._catalog_summary.text() or "0 materials" in page._catalog_summary.text()
 
 
 def test_cascade_page_catalog_summary_reflects_filtered_materials(
@@ -350,7 +350,7 @@ def test_cascade_page_catalog_summary_reflects_filtered_materials(
     page.set_inputs(_spec(), materials, cores, wires)
 
     text = page._catalog_summary.text()
-    assert "2 materiais" in text
+    assert "2 materials" in text
     # Both types must be listed; alphabetic sort is the implementation
     # contract so the engineer sees a stable string.
     assert "amorphous" in text and "silicon-steel" in text

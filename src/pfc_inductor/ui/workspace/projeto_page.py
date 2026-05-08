@@ -1,4 +1,4 @@
-"""Projeto workspace page — SpecDrawer + persistent KPI + 4 tabs.
+"""Project workspace page — SpecDrawer + persistent KPI + 4 tabs.
 
 Layout:
 
@@ -9,7 +9,7 @@ Layout:
     |          |          +-----------------------------+
     |          |          | ResumoStrip (always visible)|
     |          |          +-----------------------------+
-    |          |          | [Núcleo][Análise][Validar][Exportar]
+    |          |          | [Core][Analysis][Validate][Export]
     |          |          +-----------------------------+
     |          |          | tab content                 |
     |          |          +-----------------------------+
@@ -18,13 +18,13 @@ Layout:
 
 v3.1 redesign (replaces the v3 ``Design`` super-tab):
 
-- **Tab 0 ``Núcleo``**: dedicated material/core/wire selection.
+- **Tab 0 ``Core``**: dedicated material/core/wire selection.
   Hosts both manual table-driven choice and the inline optimizer (the
-  ``OtimizadorDialog`` modal is now a back-compat wrapper).
-- **Tab 1 ``Análise``**: waveforms, losses, winding/gap detail. No
+  ``OptimizerDialog`` modal is now a back-compat wrapper).
+- **Tab 1 ``Analysis``**: waveforms, losses, winding/gap detail. No
   selection UI — purely "how does the chosen design behave?".
-- **Tab 2 ``Validar``**: FEA validation (unchanged).
-- **Tab 3 ``Exportar``**: datasheet / report export (unchanged).
+- **Tab 2 ``Validate``**: FEA validation (unchanged).
+- **Tab 3 ``Export``**: datasheet / report export (unchanged).
 
 The ``ResumoStrip`` (6-tile KPI bar + aggregate badge) is mounted
 above the tab widget so the engineer never loses sight of L, ΔT,
@@ -105,7 +105,7 @@ class ProjetoPage(QWidget):
 
         # ---- Workspace column ------------------------------------------
         column = QFrame()
-        column.setObjectName("ProjetoColumn")
+        column.setObjectName("ProjectColumn")
         col_v = QVBoxLayout(column)
         col_v.setContentsMargins(0, 0, 0, 0)
         col_v.setSpacing(0)
@@ -132,14 +132,14 @@ class ProjetoPage(QWidget):
         kh.setSpacing(0)
         self.kpi_strip = ResumoStrip()
         # Empty-state CTA on the badge → opens the SpecDrawer. Until
-        # the first successful recalc the badge reads "Preencha a
-        # especificação" and clicking it wakes the drawer.
+        # the first successful recalc the badge reads "Fill in the
+        # specification" and clicking it wakes the drawer.
         self.kpi_strip.spec_drawer_requested.connect(
             lambda: self.drawer.set_collapsed(False),
         )
         # Failure path (P1.H): when the badge shows
-        # Reprovado / Verificar and the user clicks it, switch to
-        # the Análise tab so the failing card is in front of them.
+        # Failed / Check and the user clicks it, switch to the
+        # Analysis tab so the failing card is in front of them.
         # Future iteration can route to the specific metric tile.
         self.kpi_strip.failed_metric_clicked.connect(
             self._on_failed_metric_clicked,
@@ -156,31 +156,31 @@ class ProjetoPage(QWidget):
         from pfc_inductor.ui.workspace.exportar_tab import ExportarTab
         from pfc_inductor.ui.workspace.validar_tab import ValidarTab
 
-        # Tab 0 — Núcleo (selection + inline optimizer)
+        # Tab 0 — Core (selection + inline optimizer)
         self.nucleo_tab = NucleoSelectionPage(materials, cores, wires)
         self.nucleo_tab.selection_applied.connect(self.selection_applied.emit)
         # When the inline optimizer signals "I just applied — go look
-        # at the waveforms", switch to the Análise tab so the new
+        # at the waveforms", switch to the Analysis tab so the new
         # design's effects are immediately visible.
         self.nucleo_tab.suggest_analise_navigation.connect(
             lambda: self.switch_to("analise"),
         )
-        self.tabs.addTab(self.nucleo_tab, "Núcleo")
+        self.tabs.addTab(self.nucleo_tab, "Core")
 
-        # Tab 1 — Análise (waveforms + losses + winding/gap)
+        # Tab 1 — Analysis (waveforms + losses + winding/gap)
         self.analise_tab = AnalisePage()
-        self.tabs.addTab(self.analise_tab, "Análise")
+        self.tabs.addTab(self.analise_tab, "Analysis")
 
-        # Tab 2 — Validar
+        # Tab 2 — Validate
         # Wrap in a QScrollArea so the tab's tall content (≈ 800 px
         # min from the FEA panes) doesn't push the whole window past
         # the screen on 1366×768 laptops.
         self.validar_tab = ValidarTab()
         self.validar_tab.fea_requested.connect(self.fea_requested.emit)
         self.validar_tab.compare_requested.connect(self.compare_requested.emit)
-        self.tabs.addTab(self._wrap_scrollable(self.validar_tab), "Validar")
+        self.tabs.addTab(self._wrap_scrollable(self.validar_tab), "Validate")
 
-        # Tab 3 — Exportar (wrap for the same reason).
+        # Tab 3 — Export (wrap for the same reason).
         self.exportar_tab = ExportarTab()
         self.exportar_tab.export_html_requested.connect(
             self.export_html_requested.emit,
@@ -188,7 +188,7 @@ class ProjetoPage(QWidget):
         self.exportar_tab.export_compare_requested.connect(
             self.export_compare_requested.emit,
         )
-        self.tabs.addTab(self._wrap_scrollable(self.exportar_tab), "Exportar")
+        self.tabs.addTab(self._wrap_scrollable(self.exportar_tab), "Export")
 
         self.tabs.currentChanged.connect(self._on_tab_changed)
 
@@ -261,11 +261,11 @@ class ProjetoPage(QWidget):
         self.tabs.setCurrentIndex(idx)
 
     def _on_failed_metric_clicked(self, metric_name: str) -> None:
-        """Handle a click on the ResumoStrip's "Reprovado" badge.
+        """Handle a click on the ResumoStrip's "Failed" badge.
 
-        Today's behaviour: switch to the Análise tab so the failing
+        Today's behaviour: switch to the Analysis tab so the failing
         card is in front of the user. Future iteration can scroll to
-        the specific metric tile within Análise based on
+        the specific metric tile within Analysis based on
         ``metric_name`` (e.g. "ΔT" → flash the EntreferroCard's
         margin tile). The signal payload is plumbed through so the
         next pass doesn't need to re-architect.
@@ -292,7 +292,7 @@ class ProjetoPage(QWidget):
         return
 
     def _on_report_pressed(self) -> None:
-        # Header / Análise "Gerar Relatório" button: switch to Exportar
+        # Header / Analysis "Generate report" button: switch to Export
         # so the user sees the export options before writing to disk.
         self.switch_to("exportar")
         self.report_requested.emit()
@@ -314,8 +314,8 @@ class ProjetoPage(QWidget):
     def _wrap_scrollable(widget: QWidget) -> QScrollArea:
         """Wrap a tab body in a vertical-only QScrollArea.
 
-        The Projeto page mounts four tabs of varying density —
-        Validar in particular (FEA + supporting plots) reports a
+        The Project page mounts four tabs of varying density —
+        Validate in particular (FEA + supporting plots) reports a
         minimumSizeHint of ~810 px tall, which on a 1366×768 laptop
         forces Qt to grow the window past the screen edge and hides
         the bottom Scoreboard. Wrapping each tab body in a scroll
@@ -324,7 +324,7 @@ class ProjetoPage(QWidget):
 
         Thin alias around :func:`wrap_scrollable
         <pfc_inductor.ui.widgets.scroll.wrap_scrollable>` so the
-        Projeto page keeps its long-standing static-method API while
+        Project page keeps its long-standing static-method API while
         the shared helper drives the actual configuration.
         """
         from pfc_inductor.ui.widgets import wrap_scrollable
