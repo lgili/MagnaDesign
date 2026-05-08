@@ -296,3 +296,62 @@ def test_cascade_page_apply_open_disabled_until_selection(app, tmp_path: Path):
     page = CascadePage(store_path=tmp_path / "cascade.db")
     assert not page._btn_apply.isEnabled()
     assert not page._btn_open.isEnabled()
+
+
+# ─── Catalog summary (per-topology filter visibility) ─────────────
+
+
+def test_cascade_page_catalog_summary_initial_state(app, tmp_path: Path):
+    from pfc_inductor.ui.workspace import CascadePage
+
+    page = CascadePage(store_path=tmp_path / "cascade.db")
+    # No spec set yet → placeholder.
+    assert "—" in page._catalog_summary.text() or "0 materiais" in page._catalog_summary.text()
+
+
+def test_cascade_page_catalog_summary_reflects_filtered_materials(
+    app, tmp_path: Path,
+):
+    """`set_inputs` is the seam where MainWindow hands the page a
+    pre-filtered material list. The summary must show that count
+    plus the unique types and the active topology so the engineer
+    can verify the filter is doing what they expect."""
+    from pfc_inductor.models import Core, Wire
+    from pfc_inductor.models.material import Material, SteinmetzParams
+    from pfc_inductor.ui.workspace import CascadePage
+
+    page = CascadePage(store_path=tmp_path / "cascade.db")
+    materials = [
+        Material(
+            id="ss-1", vendor="v", family="f", name="ss",
+            type="silicon-steel", mu_initial=7000.0,
+            Bsat_25C_T=1.7, Bsat_100C_T=1.6,
+            steinmetz=SteinmetzParams(
+                Pv_ref_mWcm3=10.0, alpha=1.5, beta=2.0,
+            ),
+        ),
+        Material(
+            id="amorph-1", vendor="v", family="f", name="amorph",
+            type="amorphous", mu_initial=30000.0,
+            Bsat_25C_T=1.6, Bsat_100C_T=1.5,
+            steinmetz=SteinmetzParams(
+                Pv_ref_mWcm3=20.0, alpha=1.5, beta=2.0,
+            ),
+        ),
+    ]
+    cores = [
+        Core(
+            id="c1", vendor="v", shape="Toroid", part_number="P1",
+            default_material_id="ss-1", Ae_mm2=100.0, le_mm=80.0,
+            Ve_mm3=8000.0, Wa_mm2=200.0, MLT_mm=80.0, AL_nH=200.0,
+        ),
+    ]
+    wires = [Wire(id="AWG14", type="round", awg=14, d_cu_mm=1.628, A_cu_mm2=2.08)]
+    page.set_inputs(_spec(), materials, cores, wires)
+
+    text = page._catalog_summary.text()
+    assert "2 materiais" in text
+    # Both types must be listed; alphabetic sort is the implementation
+    # contract so the engineer sees a stable string.
+    assert "amorphous" in text and "silicon-steel" in text
+    assert "boost_ccm" in text

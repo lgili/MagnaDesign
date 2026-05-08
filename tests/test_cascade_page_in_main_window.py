@@ -32,11 +32,17 @@ def app():
 # ─── Sidebar registration ──────────────────────────────────────
 
 def test_sidebar_lists_cascade_entry():
+    """Sidebar entries are 4-tuples ``(id, label, icon, tooltip)`` —
+    we only need the id+label here, so unpack defensively to stay
+    forward-compatible with shape tweaks."""
     from pfc_inductor.ui.shell.sidebar import SIDEBAR_AREAS
-    ids = {area_id for area_id, _label, _icon in SIDEBAR_AREAS}
+    ids = {entry[0] for entry in SIDEBAR_AREAS}
     assert "cascade" in ids
     cascade_entry = next(e for e in SIDEBAR_AREAS if e[0] == "cascade")
-    assert "profundo" in cascade_entry[1].lower()
+    # Label has read "Otimizador profundo" / "Otimizador completo"
+    # across UI revs — we just need *some* "otimizador" wording so
+    # the user recognises the destination from the sidebar.
+    assert "otimizador" in cascade_entry[1].lower()
 
 
 # ─── MainWindow mount ──────────────────────────────────────────

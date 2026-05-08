@@ -873,6 +873,16 @@ class CascadePage(QWidget):
         self._spec_strip = _SpecStrip()
         inner.addWidget(Card("Spec ativo", self._spec_strip))
 
+        # Eligible-catalogue summary. Reports how many materials made
+        # it past the per-topology filter (see
+        # ``topology.material_filter``) so the engineer can see at a
+        # glance whether the cascade is iterating over the right
+        # families. Updated on every ``set_inputs`` call.
+        self._catalog_summary = QLabel("Catálogo elegível: —")
+        self._catalog_summary.setProperty("role", "muted")
+        self._catalog_summary.setContentsMargins(0, 0, 0, 4)
+        inner.addWidget(self._catalog_summary)
+
         # Run config + actions row, side by side.
         self._cfg = _RunConfigCard()
         inner.addWidget(Card("Configuração do run", self._cfg))
@@ -964,9 +974,28 @@ class CascadePage(QWidget):
         self._cores = list(cores)
         self._wires = list(wires)
         self._spec_strip.update_from_spec(spec)
+        self._update_catalog_summary()
         # Refresh the FEA badge so the user sees if FEMMT got
         # provisioned between sessions.
         self._cfg.refresh_fea_status()
+
+    def _update_catalog_summary(self) -> None:
+        """Refresh the small "Catálogo elegível" line under the spec
+        strip. Materials handed in here have already been filtered by
+        :func:`pfc_inductor.topology.material_filter.materials_for_topology`
+        upstream in MainWindow; we just summarise what arrived."""
+        if not self._materials:
+            self._catalog_summary.setText(
+                "Catálogo elegível: 0 materiais",
+            )
+            return
+        n = len(self._materials)
+        types = sorted({m.type for m in self._materials})
+        topology = self._spec.topology if self._spec is not None else "—"
+        self._catalog_summary.setText(
+            f"Catálogo elegível: {n} materiais "
+            f"({', '.join(types)}) · topologia: {topology}",
+        )
 
     def run(self) -> None:
         if self._spec is None:
