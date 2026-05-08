@@ -126,11 +126,11 @@ class _SpecStrip(QFrame):
         self._fields["Vin"].setText(
             f"{spec.Vin_min_Vrms:.0f}–{spec.Vin_max_Vrms:.0f} V",
         )
-        if spec.topology == "boost_ccm":
+        if spec.topology in ("boost_ccm", "interleaved_boost_pfc"):
             self._fields["Vout"].setText(f"{spec.Vout_V:.0f} V")
         else:
             self._fields["Vout"].setText("—")
-        if spec.f_sw_kHz > 0 and spec.topology == "boost_ccm":
+        if spec.f_sw_kHz > 0 and spec.topology in ("boost_ccm", "interleaved_boost_pfc"):
             self._fields["fsw"].setText(f"{spec.f_sw_kHz:.0f} kHz")
         else:
             self._fields["fsw"].setText(f"{spec.f_line_Hz:.0f} Hz")

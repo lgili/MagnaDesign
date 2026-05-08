@@ -176,6 +176,29 @@ power-magnetics design.
   do README + POSITIONING. Visual-regression baseline e
   README screenshot refresh deferidos.
 
+**v7 (perf + interleaved — May 2026)**
+- `perf: numba kernels` (não-openspec, shipped via
+  `543342c` → `c7ce6b5`) — 8 kernels Numba (`@njit
+  fastmath=True, cache=True, nogil=True`): iGSE iGSE
+  time-average, Steinmetz scalar, Dowell round + Litz,
+  ``_solve_N`` binary-search, fused thermal-converge,
+  boost_ccm waveforms + RMS. **3.60× full-pipeline speedup**
+  no boost-CCM (4 831 → 17 217 cand/s); ~2.57× nas demais
+  topologias via fused kernel topology-agnostic. Documentado
+  em ``docs/PERFORMANCE.md``. Tests: 12 parity em
+  ``test_performance_kernels.py``.
+- `add-interleaved-boost-pfc` — Boost PFC interleaved 2φ /
+  3φ para 1.5–10 kW (server PSU, EV charger PFC, AC
+  residencial). Per-phase delegation reusa a math do
+  `boost_ccm` × N; Hwu-Yau analytical ripple cancellation
+  (~12 dB @ 2φ, ~14.5 dB @ 3φ). DesignResult.input_ripple_
+  cancellation_dB; Spec.n_interleave (∈ {1,2,3}); aggregate
+  vs per-unit BOM accounting. Examples shipped: 3 kW 2-phase
+  + 11 kW 3-phase. Integração end-to-end (registry,
+  feasibility, scoring, report layer, schematic, topology
+  picker, formas_onda card). 18 testes + 73 cross-module
+  green. Phase 4 (FEA pre-validation lab data) deferido.
+
 ## Convenção de status
 
 Quando uma change termina, mover a pasta inteira para

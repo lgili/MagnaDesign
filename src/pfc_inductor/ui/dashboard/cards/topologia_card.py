@@ -32,6 +32,9 @@ from pfc_inductor.ui.widgets import Card, TopologySchematicWidget
 
 _TOPOLOGY_LABELS = {
     "boost_ccm": "Boost CCM Active",
+    "interleaved_boost_pfc": "Interleaved Boost PFC",
+    "buck_ccm": "Buck CCM (sync DC-DC)",
+    "flyback": "Flyback (DCM/CCM)",
     "passive_choke": "Passive PFC Choke",
     "line_reactor": "Line Reactor",
 }
@@ -89,12 +92,19 @@ class _TopologyBody(QWidget):
             sch_key = (
                 "line_reactor_3ph" if getattr(spec, "n_phases", 1) == 3 else "line_reactor_1ph"
             )
+        elif spec.topology == "interleaved_boost_pfc":
+            # Disambiguate the 2- vs 3-phase schematic variant.
+            sch_key = (
+                "interleaved_boost_pfc_3ph"
+                if int(getattr(spec, "n_interleave", 2)) == 3
+                else "interleaved_boost_pfc_2ph"
+            )
         try:
             self._schematic.set_topology(sch_key)
         except ValueError:
             pass
 
-        if spec.topology == "boost_ccm":
+        if spec.topology in ("boost_ccm", "interleaved_boost_pfc"):
             f_label = f"{spec.f_sw_kHz:.0f} kHz"
         else:
             f_label = f"{spec.f_line_Hz:.0f} Hz"

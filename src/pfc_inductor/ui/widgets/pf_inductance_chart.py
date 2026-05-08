@@ -105,9 +105,10 @@ class PFInductanceChart(QWidget):
             return
         spec, result = self._last
 
-        # Boost-PFC: PF ≈ 1 by active-control design, plot is
-        # uninformative. Show a friendly note.
-        if spec.topology == "boost_ccm":
+        # Boost-PFC (and interleaved boost-PFC): PF ≈ 1 by
+        # active-control design, plot is uninformative. Show a
+        # friendly note.
+        if spec.topology in ("boost_ccm", "interleaved_boost_pfc"):
             self._render_empty(
                 "Active boost-PFC sets PF ≈ 1 by design.\n"
                 "PF vs L is uninformative for this topology."

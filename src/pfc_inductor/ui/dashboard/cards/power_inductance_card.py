@@ -89,7 +89,11 @@ class _PowerInductanceBody(QWidget):
             wire,
             material,
         )
-        if spec.topology == "boost_ccm" or result.L_actual_uH <= 0 or result.I_pk_max_A <= 0:
+        if (
+            spec.topology in ("boost_ccm", "interleaved_boost_pfc")
+            or result.L_actual_uH <= 0
+            or result.I_pk_max_A <= 0
+        ):
             self._lbl_lop.setText("L_op  —")
             self._lbl_pop.setText("P_op  —")
             self._lbl_ratio.setText("P / S  —")

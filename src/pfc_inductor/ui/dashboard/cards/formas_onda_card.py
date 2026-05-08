@@ -189,6 +189,11 @@ class _FormasOndaBody(QWidget):
         prefix = ""
         if topology == "boost_ccm":
             prefix = "Topologia: PFC ativo (boost CCM) — iL · v_in · FFT"
+        elif topology == "interleaved_boost_pfc":
+            prefix = (
+                "Topologia: interleaved boost PFC (per-phase iL, "
+                "aggregate input ripple at N · f_sw) — iL · v_in · FFT"
+            )
         elif topology == "passive_choke":
             prefix = "Topologia: choke passivo — iL · v_in · FFT"
         elif topology == "line_reactor":

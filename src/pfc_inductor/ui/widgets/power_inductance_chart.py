@@ -105,7 +105,7 @@ class PowerInductanceChart(QWidget):
             return
         spec, core, material, result, I_pk = self._last
 
-        if spec.topology == "boost_ccm":
+        if spec.topology in ("boost_ccm", "interleaved_boost_pfc"):
             self._render_empty(
                 "Active boost-PFC sets PF ≈ 1 by design.\n"
                 "P scales linearly with I — saturation tapering\n"
