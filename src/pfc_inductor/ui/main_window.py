@@ -27,12 +27,16 @@ importable for tests but do not appear on screen.
 """
 from __future__ import annotations
 
+from typing import Optional
+
 from PySide6.QtCore import QSettings, QTimer
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtGui import QAction, QGuiApplication, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
+    QFileDialog,
     QHBoxLayout,
     QMainWindow,
+    QMenu,
     QMessageBox,
     QStackedWidget,
     QWidget,
@@ -48,9 +52,19 @@ from pfc_inductor.data_loader import (
 from pfc_inductor.design import design
 from pfc_inductor.errors import DesignError, ReportGenerationError
 from pfc_inductor.models import Core, Material, Spec, Wire
+from pfc_inductor.project import (
+    PROJECT_FILE_EXTENSION,
+    ProjectFile,
+    empty_state,
+    filter_existing,
+    load_project,
+    push_recent,
+    save_project,
+)
 from pfc_inductor.report import generate_datasheet
 from pfc_inductor.settings import SETTINGS_APP, SETTINGS_ORG
 from pfc_inductor.setup_deps import check_fea_setup
+from pfc_inductor.topology.material_filter import materials_for_topology
 from pfc_inductor.ui.about_dialog import AboutDialog
 from pfc_inductor.ui.catalog_dialog import CatalogUpdateDialog
 from pfc_inductor.ui.compare_dialog import CompareDialog
@@ -172,6 +186,12 @@ class MainWindow(QMainWindow):
 
         self._build_shell()
         self._wire_signals()
+        self._build_menu_bar()
+
+        # Project file state — track current path + dirtiness so File →
+        # Save knows whether to prompt for a path or write in place.
+        # ``None`` path means the session has never been saved yet.
+        self._project_path: Optional[str] = None
 
         # Cached compare dialog (kept open between invocations so the
         # accumulated slots survive).
@@ -180,6 +200,213 @@ class MainWindow(QMainWindow):
         # Initial calculation + FEA setup probe.
         self._on_calculate()
         self._maybe_offer_fea_setup()
+
+    # ==================================================================
+    # File menu — project save / load / recent (P0.A)
+    # ==================================================================
+    _RECENTS_KEY = "project/recents"
+
+    def _build_menu_bar(self) -> None:
+        """Mount a native menu bar with the File menu.
+
+        On macOS Qt promotes the QMainWindow's menu bar to the system
+        bar at the top of the screen automatically — same actions are
+        reachable via the standard ``⌘N / ⌘O / ⌘S`` shortcuts on every
+        platform.
+
+        Five entries cover the project lifecycle:
+        New / Open / Save / Save As + a recent-projects submenu. We
+        deliberately skip "Close" — the app is single-document, so
+        closing a project is what File → New does.
+        """
+        bar = self.menuBar()
+        file_menu = bar.addMenu("&Arquivo")
+
+        act_new = QAction("Novo projeto", self)
+        act_new.setShortcut(QKeySequence.StandardKey.New)
+        act_new.triggered.connect(self._on_project_new)
+        file_menu.addAction(act_new)
+
+        act_open = QAction("Abrir...", self)
+        act_open.setShortcut(QKeySequence.StandardKey.Open)
+        act_open.triggered.connect(self._on_project_open)
+        file_menu.addAction(act_open)
+
+        file_menu.addSeparator()
+
+        act_save = QAction("Salvar", self)
+        act_save.setShortcut(QKeySequence.StandardKey.Save)
+        act_save.triggered.connect(self._on_project_save)
+        file_menu.addAction(act_save)
+
+        act_save_as = QAction("Salvar como...", self)
+        act_save_as.setShortcut(QKeySequence.StandardKey.SaveAs)
+        act_save_as.triggered.connect(self._on_project_save_as)
+        file_menu.addAction(act_save_as)
+
+        file_menu.addSeparator()
+
+        # Recent submenu — populated on ``aboutToShow`` so the list
+        # reflects on-disk reality each time the menu opens (entries
+        # whose files were deleted off-disk are filtered out).
+        self._recents_menu: QMenu = file_menu.addMenu("Projetos recentes")
+        self._recents_menu.aboutToShow.connect(self._populate_recents_menu)
+
+        file_menu.addSeparator()
+
+        act_quit = QAction("Sair", self)
+        act_quit.setShortcut(QKeySequence.StandardKey.Quit)
+        act_quit.triggered.connect(QApplication.quit)
+        file_menu.addAction(act_quit)
+
+    def _populate_recents_menu(self) -> None:
+        self._recents_menu.clear()
+        recents = self._get_recents()
+        if not recents:
+            empty = self._recents_menu.addAction("(vazio)")
+            empty.setEnabled(False)
+            return
+        for path in recents:
+            label = self._shorten_path(path)
+            act = self._recents_menu.addAction(label)
+            act.setToolTip(path)
+            act.triggered.connect(
+                lambda _checked=False, p=path: self._open_project_path(p),
+            )
+        self._recents_menu.addSeparator()
+        clear_act = self._recents_menu.addAction("Limpar lista")
+        clear_act.triggered.connect(self._clear_recents)
+
+    @staticmethod
+    def _shorten_path(path: str) -> str:
+        from pathlib import Path
+        p = Path(path)
+        try:
+            home = Path.home()
+            rel = p.relative_to(home)
+            return f"~/{rel}"
+        except ValueError:
+            return str(p)
+
+    # ------------------------------------------------------------------
+    def _capture_project(self) -> ProjectFile:
+        spec = self.projeto_page.spec_panel.get_spec()
+        return ProjectFile.from_session(
+            name=self._workflow_state.snapshot().project_name,
+            spec=spec,
+            material_id=self._current_material_id,
+            core_id=self._current_core_id,
+            wire_id=self._current_wire_id,
+        )
+
+    def _apply_project(self, state: ProjectFile) -> None:
+        self.projeto_page.spec_panel.set_spec(state.spec)
+        self._workflow_state.set_project_name(state.name)
+        if state.selection.material_id:
+            self._current_material_id = state.selection.material_id
+        if state.selection.core_id:
+            self._current_core_id = state.selection.core_id
+        if state.selection.wire_id:
+            self._current_wire_id = state.selection.wire_id
+        self._on_calculate()
+        self._workflow_state.mark_saved()
+
+    def _on_project_new(self) -> None:
+        if not self._confirm_discard("Novo projeto"):
+            return
+        self._apply_project(empty_state())
+        self._project_path = None
+
+    def _on_project_open(self) -> None:
+        if not self._confirm_discard("Abrir projeto"):
+            return
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Abrir projeto", "",
+            f"Projeto PFC (*{PROJECT_FILE_EXTENSION});;Todos (*.*)",
+        )
+        if not path:
+            return
+        self._open_project_path(path)
+
+    def _open_project_path(self, path: str) -> None:
+        try:
+            state = load_project(path)
+        except (OSError, ValueError) as exc:
+            QMessageBox.warning(
+                self, "Falha ao abrir projeto",
+                f"Não foi possível ler {path}:\n\n{exc}",
+            )
+            return
+        self._apply_project(state)
+        self._project_path = path
+        self._push_recent(path)
+
+    def _on_project_save(self) -> None:
+        if self._project_path is None:
+            self._on_project_save_as()
+            return
+        self._save_to(self._project_path)
+
+    def _on_project_save_as(self) -> None:
+        suggested = (
+            self._project_path
+            or f"{self._workflow_state.snapshot().project_name}{PROJECT_FILE_EXTENSION}"
+        )
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Salvar projeto como", suggested,
+            f"Projeto PFC (*{PROJECT_FILE_EXTENSION})",
+        )
+        if not path:
+            return
+        self._save_to(path)
+
+    def _save_to(self, path: str) -> None:
+        try:
+            final = save_project(path, self._capture_project())
+        except OSError as exc:
+            QMessageBox.warning(
+                self, "Falha ao salvar",
+                f"Não foi possível gravar {path}:\n\n{exc}",
+            )
+            return
+        self._project_path = str(final)
+        self._push_recent(self._project_path)
+        self._workflow_state.mark_saved()
+
+    def _confirm_discard(self, title: str) -> bool:
+        if not self._workflow_state.snapshot().unsaved:
+            return True
+        reply = QMessageBox.question(
+            self, title,
+            "O projeto atual tem alterações não salvas. Continuar mesmo assim?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        return reply == QMessageBox.StandardButton.Yes
+
+    def _get_recents(self) -> list[str]:
+        import json
+        qs = QSettings(SETTINGS_ORG, SETTINGS_APP)
+        raw = qs.value(self._RECENTS_KEY, "[]", type=str)
+        try:
+            paths = json.loads(raw)
+        except (ValueError, TypeError):
+            return []
+        if not isinstance(paths, list):
+            return []
+        return filter_existing([str(p) for p in paths])
+
+    def _push_recent(self, path: str) -> None:
+        import json
+        recents = push_recent(self._get_recents(), path)
+        QSettings(SETTINGS_ORG, SETTINGS_APP).setValue(
+            self._RECENTS_KEY, json.dumps(recents),
+        )
+
+    def _clear_recents(self) -> None:
+        QSettings(SETTINGS_ORG, SETTINGS_APP).setValue(
+            self._RECENTS_KEY, "[]",
+        )
 
     # ==================================================================
     # Shell construction
@@ -325,11 +552,11 @@ class MainWindow(QMainWindow):
     # Action handlers
     # ==================================================================
     def _open_topology_picker(self) -> None:
+        sp = self.projeto_page.spec_panel
         try:
-            spec = self.projeto_page.spec_panel.get_spec()
-            current = spec.topology
-            n_phases = getattr(spec, "n_phases", 1)
-        except (ValueError, TypeError):
+            current = sp.topology()
+            n_phases = sp.n_phases()
+        except (ValueError, TypeError, AttributeError):
             current = "boost_ccm"
             n_phases = 1
         dlg = TopologyPickerDialog(
@@ -339,16 +566,11 @@ class MainWindow(QMainWindow):
             return
         new_key = dlg.selected_key()
         new_phases = dlg.selected_n_phases()
-        sp = self.projeto_page.spec_panel
-        for i in range(sp.cmb_topology.count()):
-            if sp.cmb_topology.itemData(i) == new_key:
-                sp.cmb_topology.setCurrentIndex(i)
-                break
-        if new_key == "line_reactor":
-            for i in range(sp.cmb_phases.count()):
-                if int(sp.cmb_phases.itemData(i) or 0) == new_phases:
-                    sp.cmb_phases.setCurrentIndex(i)
-                    break
+        # ``set_topology`` is the single SpecPanel-side setter — it
+        # toggles the line-reactor block visibility and emits
+        # ``changed`` / ``topology_changed`` (the drawer button label
+        # listens to the latter).
+        sp.set_topology(new_key, n_phases=new_phases)
         self._on_calculate()
 
     def _open_optimizer(self) -> None:
@@ -357,8 +579,14 @@ class MainWindow(QMainWindow):
         except DesignError as e:
             QMessageBox.warning(self, "Spec inválido", e.user_message())
             return
+        # Same per-topology filter the inline pages use — the modal
+        # optimizer should not surface line-frequency reactor candidates
+        # built on switching-frequency powder cores (or vice-versa).
+        eligible_materials = materials_for_topology(
+            self._materials, spec.topology,
+        )
         dlg = OptimizerDialog(
-            spec, self._materials, self._cores, self._wires,
+            spec, eligible_materials, self._cores, self._wires,
             current_material_id=self._current_material_id,
             parent=self,
         )
@@ -612,17 +840,27 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Erro no cálculo", e.user_message())
             return
 
+        # Filter the material catalogue by the current topology so
+        # downstream pages (núcleo selection, otimizador, cascade)
+        # don't waste time evaluating materials that make no
+        # engineering sense for the chosen converter — e.g. a line
+        # reactor at 60 Hz has no business iterating over 241 powder
+        # cores designed for 20–200 kHz switching.
+        eligible_materials = materials_for_topology(
+            self._materials, spec.topology,
+        )
+
         # Update the project workspace with the new result.
         self.projeto_page.update_from_design(
             result, spec, core, wire, material,
         )
         self.projeto_page.populate_nucleo(
-            spec, self._materials, self._cores, self._wires,
+            spec, eligible_materials, self._cores, self._wires,
             material, core, wire,
         )
         self.projeto_page.set_current_selection(material, core, wire)
         self.otimizador_page.set_inputs(
-            spec, self._materials, self._cores, self._wires,
+            spec, eligible_materials, self._cores, self._wires,
             material.id,
         )
         # Cascade page mirrors the same DB + spec; running a deep
@@ -630,7 +868,7 @@ class MainWindow(QMainWindow):
         # wire / material selection — the cascade explores the
         # whole catalogue.
         self.cascade_page.set_inputs(
-            spec, self._materials, self._cores, self._wires,
+            spec, eligible_materials, self._cores, self._wires,
         )
 
         # Emit for subscribers (tests, future plug-ins).
