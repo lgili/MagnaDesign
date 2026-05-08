@@ -62,19 +62,31 @@ class WorkspaceHeader(QFrame):
         self._name_edit.setMinimumWidth(220)
         self._name_edit.editingFinished.connect(self._on_name_edited)
 
+        # Pencil icon was 14 px with no tooltip — invisible at first
+        # glance. Bumped to 16 px and added a tooltip + accessible
+        # name so screen readers + hover users discover the
+        # "rename project" action.
         self._btn_pencil = QToolButton()
         self._btn_pencil.setObjectName("ProjectNamePencil")
         self._btn_pencil.setIcon(
-            ui_icon("pencil", color=get_theme().palette.text_muted, size=14)
+            ui_icon("pencil", color=get_theme().palette.text_secondary, size=16)
         )
-        self._btn_pencil.setIconSize(QSize(14, 14))
+        self._btn_pencil.setIconSize(QSize(16, 16))
+        self._btn_pencil.setFixedSize(28, 28)
         self._btn_pencil.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_pencil.setToolTip("Renomear projeto")
+        self._btn_pencil.setAccessibleName("Renomear projeto")
         self._btn_pencil.setStyleSheet(
-            "QToolButton { background: transparent; border: 0; padding: 4px; }"
-            "QToolButton:hover { background: "
-            f"{get_theme().palette.bg}; border-radius: 6px; }}"
+            "QToolButton { background: transparent; border: 0;"
+            " border-radius: 6px; padding: 4px; }"
+            f"QToolButton:hover {{ background: {get_theme().palette.bg}; }}"
+            f"QToolButton:focus {{ outline: 2px solid {get_theme().palette.focus_ring};"
+            "  outline-offset: 1px; }"
         )
         self._btn_pencil.clicked.connect(self._name_edit.setFocus)
+        # Double-click on the project-name field also opens edit mode —
+        # makes the affordance discoverable without finding the pencil.
+        self._name_edit.mouseDoubleClickEvent = self._on_name_double_click
 
         # ---- save-status pill ------------------------------------------
         self._status_pill = QLabel("● Salvo")
@@ -178,6 +190,17 @@ class WorkspaceHeader(QFrame):
     # ------------------------------------------------------------------
     def _on_name_edited(self) -> None:
         self.name_changed.emit(self._name_edit.text())
+
+    def _on_name_double_click(self, event) -> None:
+        """Double-click on the project-name field selects all text +
+        focuses it for quick rename — alt path to the pencil button.
+        Forwards the event to the original handler so cursor placement
+        still works for users who genuinely meant to position the
+        caret rather than rename.
+        """
+        from PySide6.QtWidgets import QLineEdit
+        QLineEdit.mouseDoubleClickEvent(self._name_edit, event)
+        self._name_edit.selectAll()
 
     @staticmethod
     def _apply_dynamic_property_refresh(w: QWidget) -> None:

@@ -13,6 +13,9 @@ Public API
   footer's sun/moon icon is clicked, and ``overflow_action_requested(name)``
   when the footer's "…" menu fires.
 """
+# All user-visible labels and tooltips are English. Internal IDs
+# (``area_id`` keys, ``QSettings`` slots, signal payloads) keep their
+# legacy names so saved geometry and routing logic survive the rewrite.
 from __future__ import annotations
 
 from typing import Optional
@@ -124,23 +127,27 @@ class Sidebar(QFrame):
             "border: 0; padding: 0; }"
         )
         h = QHBoxLayout(header)
-        h.setContentsMargins(20, 18, 20, 14)
+        # Slimmed top/bottom 18/14 → 12/10 (-10 px) and dropped the
+        # "Inductor Design Suite" caption below the wordmark — the
+        # wordmark itself already says what the app is, the tagline
+        # was eating ~12 px without informing anyone past the first
+        # session. Net: brand mark went from ~80 px → ~52 px tall,
+        # giving the nav items more room above the fold on smaller
+        # laptop screens. Tooltip on the wordmark preserves the
+        # tagline for anyone who hovers.
+        h.setContentsMargins(20, 12, 20, 10)
         h.setSpacing(10)
 
         logo = QLabel()
         logo.setPixmap(
-            ui_icon("cube", color=SIDEBAR.accent, size=22).pixmap(22, 22)
+            ui_icon("cube", color=SIDEBAR.accent, size=20).pixmap(20, 20)
         )
         logo.setStyleSheet("background: transparent; border: 0;")
 
-        text_col = QVBoxLayout()
-        text_col.setContentsMargins(0, 0, 0, 0)
-        text_col.setSpacing(0)
         t = get_theme().type
         title = QLabel("MagnaDesign")
         title.setObjectName("SidebarLogoText")
-        # Inline stylesheet — bypass any QSS cascade that might leak
-        # the workspace text colour into the sidebar.
+        title.setToolTip("MagnaDesign — Inductor Design Suite")
         title.setStyleSheet(
             f"color: {SIDEBAR.text_active}; "
             f"font-family: {t.ui_family_brand}; "
@@ -149,19 +156,9 @@ class Sidebar(QFrame):
             f"background: transparent; border: 0;"
             f"letter-spacing: -0.01em;"
         )
-        caption = QLabel("Inductor Design Suite")
-        caption.setObjectName("SidebarLogoCaption")
-        caption.setStyleSheet(
-            f"color: {SIDEBAR.text_muted}; "
-            f"font-family: {t.ui_family_brand}; "
-            f"font-size: {t.caption}px; "
-            f"background: transparent; border: 0;"
-        )
-        text_col.addWidget(title)
-        text_col.addWidget(caption)
 
         h.addWidget(logo)
-        h.addLayout(text_col, 1)
+        h.addWidget(title, 1)
         return header
 
     def _build_nav(self) -> QWidget:
