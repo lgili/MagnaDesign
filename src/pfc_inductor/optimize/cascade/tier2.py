@@ -63,7 +63,11 @@ def evaluate_candidate(
     Errors during integration propagate as exceptions; the orchestrator
     is responsible for catching them and writing a `notes` entry.
     """
-    if not supports_tier2(model):
+    # The ``isinstance`` form (rather than the ``supports_tier2`` helper)
+    # is intentional — it gives mypy a type-narrowing hook so the call to
+    # ``simulate_to_steady_state(model, ...)`` typechecks against the
+    # Tier-2 protocol below. Behaviour is identical to ``supports_tier2``.
+    if not isinstance(model, Tier2ConverterModel):
         return None
 
     # We need the engine's N to know what inductor to simulate. If the

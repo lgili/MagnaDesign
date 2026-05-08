@@ -224,7 +224,6 @@ class _StandardCardBody(QFrame):
     def populate(self, std: StandardResult) -> None:
         self.verdict.show_verdict(std.conclusion, std.summary)
         self.table.setRowCount(len(std.rows))
-        p = get_theme().palette
         for r, (label, value, limit, margin, passed) in enumerate(std.rows):
             self.table.setItem(r, 0, QTableWidgetItem(label))
             self.table.setItem(r, 1, QTableWidgetItem(value))

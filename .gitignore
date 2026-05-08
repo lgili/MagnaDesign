@@ -13,3 +13,5 @@ htmlcov/
 *.swp
 .vscode/
 .idea/
+_build/
+reference/

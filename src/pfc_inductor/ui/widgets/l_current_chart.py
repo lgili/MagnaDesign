@@ -132,25 +132,31 @@ class LCurrentChart(QWidget):
             L_lin_uH = rf.inductance_uH(N, core.AL_nH, 1.0)
             B_at_Ipk = (L_lin_uH * 1e-6) * I_pk / max(N * Ae_m2, 1e-12)
             I_max = (
-                I_pk * min(
-                    max(3.0 * material.Bsat_100C_T / max(B_at_Ipk, 1e-9),
-                         2.0),
+                I_pk
+                * min(
+                    max(3.0 * material.Bsat_100C_T / max(B_at_Ipk, 1e-9), 2.0),
                     20.0,
                 )
-                if B_at_Ipk > 0 else I_pk * 5.0
+                if B_at_Ipk > 0
+                else I_pk * 5.0
             )
         else:
             I_max = I_pk * 2.0
 
         I = np.linspace(0.01, I_max, 300)
-        L_uH = np.array([
-            rf.L_at_current_uH(
-                material, N=N, I_A=float(Ii),
-                AL_nH=core.AL_nH, le_mm=core.le_mm,
-                Ae_mm2=core.Ae_mm2,
-            )
-            for Ii in I
-        ])
+        L_uH = np.array(
+            [
+                rf.L_at_current_uH(
+                    material,
+                    N=N,
+                    I_A=float(Ii),
+                    AL_nH=core.AL_nH,
+                    le_mm=core.le_mm,
+                    Ae_mm2=core.Ae_mm2,
+                )
+                for Ii in I
+            ]
+        )
 
         L0 = float(L_uH[0])
         L_op = float(result.L_actual_uH)
@@ -166,14 +172,9 @@ class LCurrentChart(QWidget):
         # Surface the model used so an engineer reading the chart
         # knows whether the curve is from a vendor table or from
         # the analytical Bsat-driven fallback.
-        model_label = (
-            "rolloff table"
-            if material.rolloff is not None
-            else "sech² (Bsat fallback)"
-        )
+        model_label = "rolloff table" if material.rolloff is not None else "sech² (Bsat fallback)"
 
-        ax.plot(I, L_uH, color=p.accent, linewidth=1.6,
-                 label=f"L(I) at N = {N} ({model_label})")
+        ax.plot(I, L_uH, color=p.accent, linewidth=1.6, label=f"L(I) at N = {N} ({model_label})")
         ax.axhline(
             L0,
             color=p.text_muted,

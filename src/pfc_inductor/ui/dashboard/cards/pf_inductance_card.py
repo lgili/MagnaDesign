@@ -15,6 +15,7 @@ active control loop sets PF ≈ 1 regardless of L. The card stays
 mounted but harmlessly empty so the Analysis tab's row layout is
 deterministic across topologies.
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -72,18 +73,19 @@ class _PFvsLBody(QWidget):
         on_theme_changed(self._refresh_qss)
 
     # ------------------------------------------------------------------
-    def update_from_design(self, result: DesignResult, spec: Spec,
-                            core: Core, wire: Wire,
-                            material: Material) -> None:
+    def update_from_design(
+        self, result: DesignResult, spec: Spec, core: Core, wire: Wire, material: Material
+    ) -> None:
         self._chart.update_from_design(
-            result, spec, core, wire, material,
+            result,
+            spec,
+            core,
+            wire,
+            material,
         )
         # Boost-PFC keeps the strip deliberately blank — PF ≈ 1 is
         # not meaningful as a "design metric" the user is choosing.
-        if (
-            spec.topology == "boost_ccm"
-            or result.L_actual_uH <= 0
-        ):
+        if spec.topology == "boost_ccm" or result.L_actual_uH <= 0:
             self._lbl_pf.setText("PF  —")
             self._lbl_S.setText("S  —")
             self._lbl_thd.setText("THD  —")
@@ -141,8 +143,7 @@ class PFvsLCard(Card):
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         body = _PFvsLBody()
-        super().__init__("Power factor vs inductance", body,
-                          parent=parent)
+        super().__init__("Power factor vs inductance", body, parent=parent)
         self._wbody = body
 
     def update_from_design(self, *args, **kwargs) -> None:

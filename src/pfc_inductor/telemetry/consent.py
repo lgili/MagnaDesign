@@ -180,9 +180,7 @@ def _coerce(payload: dict) -> ConsentState:
     return ConsentState(
         crashes=_coerce_bool(payload.get("crashes")),
         analytics=_coerce_bool(payload.get("analytics")),
-        asked_at=str(payload["asked_at"])
-        if payload.get("asked_at")
-        else None,
+        asked_at=str(payload["asked_at"]) if payload.get("asked_at") else None,
     )
 
 

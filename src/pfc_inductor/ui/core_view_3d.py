@@ -177,8 +177,9 @@ class CoreView3D(QWidget):
         """Create the four overlay panels and stack them on top of the
         QtInteractor. They're parented to ``self`` so they can be
         repositioned in :meth:`resizeEvent`."""
-        host = self.plotter.interactor if self.plotter is not None else self
-
+        # Overlay widgets are parented to ``self`` (not the interactor)
+        # so they can be repositioned in resizeEvent without fighting
+        # the QtInteractor's child layout.
         self.chips = ViewChips(parent=self)
         self.chips.view_changed.connect(self.set_view)
 

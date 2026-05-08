@@ -33,7 +33,8 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
-from typing import Optional
+from types import MappingProxyType
+from typing import ClassVar, Mapping, Optional
 
 from platformdirs import user_data_dir
 from PySide6.QtCore import QObject, Qt, QThread, QTimer, Signal
@@ -458,23 +459,26 @@ class _ParetoChart(QWidget):
     ) -> None:
         """Re-render with a fresh row set.
 
-        Rows missing a `loss_t1_W` or whose core is not in
-        `cores_by_id` are skipped — the chart only plots feasible
-        Tier-1 results we can place on both axes.
+        Rows whose core is not in ``cores_by_id`` or that don't
+        carry a loss number from any tier are skipped — the chart
+        plots the *highest-tier* loss (via ``loss_top_W``) so a
+        candidate that ran through Tier 4 lands at its FEA-corrected
+        loss, not the original analytical Tier-1 value.
         """
         self._ax.clear()
         self._row_keys = []
         xs: list[float] = []
         ys: list[float] = []
         for r in rows:
-            if r.loss_t1_W is None:
+            loss = r.loss_top_W
+            if loss is None:
                 continue
             core = cores_by_id.get(r.core_id)
             if core is None:
                 continue
             volume_cm3 = float(core.Ve_mm3) / 1000.0
             xs.append(volume_cm3)
-            ys.append(float(r.loss_t1_W))
+            ys.append(float(loss))
             self._row_keys.append(r.candidate_key)
         if not xs:
             self._render_empty()
@@ -563,6 +567,21 @@ def _pareto_indices(xs: list[float], ys: list[float]) -> list[int]:
     return pareto
 
 
+def _tier_badge(row: CandidateRow) -> str:
+    """Short label naming the tier that produced the displayed
+    Loss / ΔT cell. Read in lockstep with
+    :pyattr:`store.CandidateRow.loss_top_W`."""
+    if row.loss_t4_W is not None:
+        return "T4"
+    if row.loss_t3_W is not None:
+        return "T3"
+    if row.loss_t2_W is not None:
+        return "T2"
+    if row.loss_t1_W is not None:
+        return "T1"
+    return "—"
+
+
 class _TopNTable(QTableWidget):
     """Candidate ranking table — auto-widens when T2 / T3 columns arrive."""
 
@@ -577,6 +596,7 @@ class _TopNTable(QTableWidget):
         "Loss W",
         "ΔT °C",
         "Cost $",
+        "Tier",
     )
     T2_HEADERS: tuple[str, ...] = ("L_avg µH", "B_pk T", "sat")
     T3_HEADERS: tuple[str, ...] = ("L_FEA µH", "ΔL₃ %", "B_FEA T", "conf")
@@ -608,15 +628,36 @@ class _TopNTable(QTableWidget):
 
         self.setRowCount(len(rows))
         for i, r in enumerate(rows):
+            # Loss / ΔT read the highest-tier value the candidate
+            # has reached — the Tier-2 simulator and Tier-3 / 4
+            # FEA solvers each write a refined number into their
+            # own column (see ``optimize.cascade.refine``). The
+            # ``loss_top_W`` / ``temp_top_C`` properties COALESCE
+            # down the tier ladder so the table never shows a
+            # stale Tier-1 number when a deeper tier has refined
+            # it. Cost stays at Tier 1 because the BOM doesn't
+            # change with simulation fidelity.
+            loss = r.loss_top_W
+            temp = r.temp_top_C
+            # T_amb fallback (25 °C) for ΔT = T_winding − T_amb is
+            # held implicitly by the engine when ``temp_top_C`` is
+            # already a rise; we don't need to materialise it here.
+            # ``temp_t*_C`` columns store winding temperature; the
+            # historical column header is "ΔT" but the engine has
+            # always written the rise, not the absolute. Keep that
+            # contract here — temp_top_C is a winding-temp value;
+            # the rise is recovered by subtracting ambient if we
+            # don't have temp_t1_C handy.
             cells: list[str] = [
                 str(i + 1),
                 r.core_id,
                 r.material_id,
                 r.wire_id,
                 str(r.N) if r.N is not None else "—",
-                f"{r.loss_t1_W:.2f}" if r.loss_t1_W is not None else "—",
-                f"{r.temp_t1_C:.0f}" if r.temp_t1_C is not None else "—",
+                f"{loss:.2f}" if loss is not None else "—",
+                f"{temp:.0f}" if temp is not None else "—",
                 f"{r.cost_t1_USD:.2f}" if r.cost_t1_USD is not None else "—",
+                _tier_badge(r),
             ]
             t2 = (r.notes or {}).get("tier2") or {}
             t3 = (r.notes or {}).get("tier3") or {}
@@ -1216,11 +1257,21 @@ class CascadePage(QWidget):
     # column names. Volume / score variants don't have a single column
     # in the store, so we order by loss server-side and re-rank
     # client-side with the volume / score weighting applied below.
-    _OBJECTIVE_TO_COLUMN = {
-        "loss": "loss_t1_W",
-        "temp": "temp_t1_C",
-        "cost": "cost_t1_USD",
-    }
+    # Wrapped in ``MappingProxyType`` so the class-level default is
+    # immutable — accidental ``cls._OBJECTIVE_TO_COLUMN["x"] = ...``
+    # in test patching won't bleed across instances.
+    # The ``loss_top_W`` / ``temp_top_C`` virtual columns COALESCE
+    # down the tier ladder — a candidate that ran through Tier 4
+    # is sorted by Tier-4 loss, while a Tier-1-only candidate is
+    # sorted by Tier 1. No mode-flipping here. Cost is invariant
+    # across tiers (same BOM) so it stays at the Tier-1 column.
+    _OBJECTIVE_TO_COLUMN: ClassVar[Mapping[str, str]] = MappingProxyType(
+        {
+            "loss": "loss_top_W",
+            "temp": "temp_top_C",
+            "cost": "cost_t1_USD",
+        },
+    )
 
     def _refresh_dynamic(self) -> None:
         """Refresh the parts of the UI that read from the store."""
@@ -1247,7 +1298,7 @@ class CascadePage(QWidget):
             wide = self._store.top_candidates(
                 self._run_id,
                 n=self.TOP_N * 5,
-                order_by="loss_t1_W",
+                order_by="loss_top_W",
             )
             rows = self._rerank_client_side(wide, cores_by_id, objective)[: self.TOP_N]
 
@@ -1300,7 +1351,10 @@ class CascadePage(QWidget):
             span = hi - lo or 1.0
             return [(v - lo) / span if v != float("inf") else 1.0 for v in values]
 
-        losses = norm([r.loss_t1_W or float("inf") for r in rows])
+        # Use the highest-tier loss (``loss_top_W``) so a candidate
+        # ranked here also reflects the FEA-corrected loss when
+        # Tier 3 / 4 ran. ``or float('inf')`` keeps Nones sortable.
+        losses = norm([(r.loss_top_W if r.loss_top_W is not None else float("inf")) for r in rows])
         vols = norm([vol_of(r) for r in rows])
         if objective == "score_with_cost":
             costs = norm([r.cost_t1_USD or float("inf") for r in rows])

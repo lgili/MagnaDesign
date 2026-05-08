@@ -144,7 +144,7 @@ class Spec(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def _convert_legacy_pct_impedance(cls, data):
+    def _convert_legacy_pct_impedance(cls, data: object) -> object:
         """Back-compat shim: callers (and tests) that still pass
         ``pct_impedance=X`` get it auto-converted to the equivalent
         ``L_req_mH`` from base impedance and rated current. The

@@ -37,9 +37,16 @@ from pfc_inductor.models import (
     Spec,
     Tier0Result,
     Tier1Result,
+    Tier2Result,
+    Tier3Result,
+    Tier4Result,
     Wire,
 )
 from pfc_inductor.optimize.cascade.generators import cartesian
+from pfc_inductor.optimize.cascade.refine import (
+    RefinedDesign,
+    recompute_with_overrides,
+)
 from pfc_inductor.optimize.cascade.store import CandidateRow, RunStore
 from pfc_inductor.optimize.cascade.tier0 import filter_candidates
 from pfc_inductor.optimize.cascade.tier1 import (
@@ -192,15 +199,20 @@ def _row_from_tier0(t0: Tier0Result) -> CandidateRow:
 
 def _row_with_tier4(
     base: CandidateRow,
-    tier4,  # Tier4Result | None
+    tier4: Optional[Tier4Result],
     error: Optional[str],
+    *,
+    refined: Optional[RefinedDesign] = None,
 ) -> CandidateRow:
-    """Return a copy of `base` with Tier 4 columns + notes filled.
+    """Return a copy of ``base`` with Tier 4 columns + notes filled.
 
-    `L_t4_uH` (the existing schema column) holds `L_avg_FEA_uH` from
-    the multi-point sweep — Tier 4's headline number. The full sweep
-    payload (per-point currents / L / B, saturation flag, backend,
-    cost) goes into `notes['tier4']` for the CLI / UI to surface.
+    ``L_t4_uH`` carries Tier-4's cycle-averaged FEA inductance.
+    ``loss_t4_W`` and ``temp_t4_C`` come from
+    :func:`...refine.recompute_with_overrides` fed with
+    ``L_t4_uH`` + the FEA peak ``B_pk_T`` — **not** copied from
+    Tier 1 / 2 / 3. The full sweep payload (per-point currents
+    / L / B, saturation flag, backend, cost) goes into
+    ``notes['tier4']``.
     """
     notes_in = dict(base.notes) if base.notes else {}
     if tier4 is None:
@@ -208,25 +220,7 @@ def _row_with_tier4(
             notes_in["tier4_error"] = error
         else:
             notes_in["tier4_skipped"] = True
-        return CandidateRow(
-            candidate_key=base.candidate_key,
-            core_id=base.core_id,
-            material_id=base.material_id,
-            wire_id=base.wire_id,
-            N=base.N,
-            gap_mm=base.gap_mm,
-            highest_tier=base.highest_tier,
-            feasible_t0=base.feasible_t0,
-            loss_t1_W=base.loss_t1_W,
-            temp_t1_C=base.temp_t1_C,
-            cost_t1_USD=base.cost_t1_USD,
-            loss_t2_W=base.loss_t2_W,
-            saturation_t2=base.saturation_t2,
-            L_t3_uH=base.L_t3_uH,
-            Bpk_t3_T=base.Bpk_t3_T,
-            L_t4_uH=base.L_t4_uH,
-            notes=notes_in or None,
-        )
+        return _copy_row(base, notes=notes_in)
     notes_in["tier4"] = {
         "backend": tier4.backend,
         "L_min_FEA_uH": tier4.L_min_FEA_uH,
@@ -240,6 +234,8 @@ def _row_with_tier4(
         "sample_L_uH": list(tier4.sample_L_uH),
         "sample_B_T": list(tier4.sample_B_T),
     }
+    loss_t4 = refined.loss_W if refined is not None else None
+    temp_t4 = refined.temp_C if refined is not None else None
     return CandidateRow(
         candidate_key=base.candidate_key,
         core_id=base.core_id,
@@ -253,26 +249,34 @@ def _row_with_tier4(
         temp_t1_C=base.temp_t1_C,
         cost_t1_USD=base.cost_t1_USD,
         loss_t2_W=base.loss_t2_W,
+        temp_t2_C=base.temp_t2_C,
         saturation_t2=base.saturation_t2,
         L_t3_uH=base.L_t3_uH,
         Bpk_t3_T=base.Bpk_t3_T,
+        loss_t3_W=base.loss_t3_W,
+        temp_t3_C=base.temp_t3_C,
         L_t4_uH=tier4.L_avg_FEA_uH,
+        loss_t4_W=loss_t4,
+        temp_t4_C=temp_t4,
         notes=notes_in or None,
     )
 
 
 def _row_with_tier3(
     base: CandidateRow,
-    tier3,  # Tier3Result | None
+    tier3: Optional[Tier3Result],
     error: Optional[str],
+    *,
+    refined: Optional[RefinedDesign] = None,
 ) -> CandidateRow:
-    """Return a copy of `base` with Tier 3 columns + notes filled.
+    """Return a copy of ``base`` with Tier 3 columns + notes filled.
 
-    `L_t3_uH` / `Bpk_t3_T` go into their dedicated SQLite columns
-    (the schema has reserved space for them since Phase A); the
-    extra Tier-3 metadata (backend, confidence, disagreement flag,
-    error string) packs into `notes['tier3']` for CLI inspection
-    and UI badges.
+    ``L_t3_uH`` / ``Bpk_t3_T`` go into their dedicated SQLite
+    columns. ``loss_t3_W`` and ``temp_t3_C`` come from
+    :func:`...refine.recompute_with_overrides` fed with the FEA
+    inductance + flux — **not** copied from Tier 1 / 2. The
+    extra metadata (backend, confidence, disagreement flag,
+    error string) packs into ``notes['tier3']``.
     """
     notes_in = dict(base.notes) if base.notes else {}
     if tier3 is None:
@@ -280,25 +284,7 @@ def _row_with_tier3(
             notes_in["tier3_error"] = error
         else:
             notes_in["tier3_skipped"] = True
-        return CandidateRow(
-            candidate_key=base.candidate_key,
-            core_id=base.core_id,
-            material_id=base.material_id,
-            wire_id=base.wire_id,
-            N=base.N,
-            gap_mm=base.gap_mm,
-            highest_tier=base.highest_tier,
-            feasible_t0=base.feasible_t0,
-            loss_t1_W=base.loss_t1_W,
-            temp_t1_C=base.temp_t1_C,
-            cost_t1_USD=base.cost_t1_USD,
-            loss_t2_W=base.loss_t2_W,
-            saturation_t2=base.saturation_t2,
-            L_t3_uH=base.L_t3_uH,
-            Bpk_t3_T=base.Bpk_t3_T,
-            L_t4_uH=base.L_t4_uH,
-            notes=notes_in or None,
-        )
+        return _copy_row(base, notes=notes_in)
     notes_in["tier3"] = {
         "backend": tier3.backend,
         "confidence": tier3.confidence,
@@ -307,6 +293,8 @@ def _row_with_tier3(
         "disagrees_with_tier1": tier3.disagrees_with_tier1,
         "solve_time_s": tier3.solve_time_s,
     }
+    loss_t3 = refined.loss_W if refined is not None else None
+    temp_t3 = refined.temp_C if refined is not None else None
     return CandidateRow(
         candidate_key=base.candidate_key,
         core_id=base.core_id,
@@ -320,26 +308,38 @@ def _row_with_tier3(
         temp_t1_C=base.temp_t1_C,
         cost_t1_USD=base.cost_t1_USD,
         loss_t2_W=base.loss_t2_W,
+        temp_t2_C=base.temp_t2_C,
         saturation_t2=base.saturation_t2,
         L_t3_uH=tier3.L_FEA_uH,
         Bpk_t3_T=tier3.B_pk_FEA_T,
+        loss_t3_W=loss_t3,
+        temp_t3_C=temp_t3,
         L_t4_uH=base.L_t4_uH,
+        loss_t4_W=base.loss_t4_W,
+        temp_t4_C=base.temp_t4_C,
         notes=notes_in or None,
     )
 
 
 def _row_with_tier2(
     base: CandidateRow,
-    tier2,  # Tier2Result | None
+    tier2: Optional[Tier2Result],
     error: Optional[str],
+    *,
+    refined: Optional[RefinedDesign] = None,
 ) -> CandidateRow:
-    """Return a copy of `base` with Tier 2 columns + notes filled.
+    """Return a copy of ``base`` with Tier 2 columns + notes filled.
 
-    `loss_t2_W` is left at the Tier-1 value because Tier 2 doesn't
-    recompute losses — it refines L and B. `saturation_t2` always
-    reflects the latest verdict (anhysteretic-curve check). The
-    full Tier-2 metric pack lands in `notes['tier2']` so the CLI
-    can surface them without a schema change.
+    The refined ``loss_t2_W`` and ``temp_t2_C`` come from the
+    recompute pipeline (:func:`...refine.recompute_with_overrides`)
+    fed with the simulator's measured ``B_pk_T``, ``i_rms_A`` and
+    ``L_avg_uH`` — **not** copied from Tier 1. ``saturation_t2``
+    reflects the anhysteretic-curve check at the simulated peak.
+
+    When the recompute fails or Tier 2 was skipped, ``loss_t2_W``
+    / ``temp_t2_C`` stay ``None`` — the
+    ``COALESCE(t4, t3, t2, t1)`` virtual sort then falls through
+    to the Tier-1 numbers automatically.
     """
     notes_in = dict(base.notes) if base.notes else {}
     if tier2 is None:
@@ -347,25 +347,7 @@ def _row_with_tier2(
             notes_in["tier2_error"] = error
         else:
             notes_in["tier2_skipped"] = True
-        return CandidateRow(
-            candidate_key=base.candidate_key,
-            core_id=base.core_id,
-            material_id=base.material_id,
-            wire_id=base.wire_id,
-            N=base.N,
-            gap_mm=base.gap_mm,
-            highest_tier=base.highest_tier,
-            feasible_t0=base.feasible_t0,
-            loss_t1_W=base.loss_t1_W,
-            temp_t1_C=base.temp_t1_C,
-            cost_t1_USD=base.cost_t1_USD,
-            loss_t2_W=base.loss_t2_W,
-            saturation_t2=base.saturation_t2,
-            L_t3_uH=base.L_t3_uH,
-            Bpk_t3_T=base.Bpk_t3_T,
-            L_t4_uH=base.L_t4_uH,
-            notes=notes_in or None,
-        )
+        return _copy_row(base, notes=notes_in)
     notes_in["tier2"] = {
         "L_min_uH": tier2.L_min_uH,
         "L_avg_uH": tier2.L_avg_uH,
@@ -378,6 +360,8 @@ def _row_with_tier2(
         "converged": tier2.converged,
         "sim_wall_time_s": tier2.sim_wall_time_s,
     }
+    loss_t2 = refined.loss_W if refined is not None else None
+    temp_t2 = refined.temp_C if refined is not None else None
     return CandidateRow(
         candidate_key=base.candidate_key,
         core_id=base.core_id,
@@ -390,15 +374,47 @@ def _row_with_tier2(
         loss_t1_W=base.loss_t1_W,
         temp_t1_C=base.temp_t1_C,
         cost_t1_USD=base.cost_t1_USD,
-        # Carry Tier-1 loss into the t2 column so downstream rankers
-        # that order on `loss_t2_W` work transparently. If a future
-        # tier recomputes loss, it overwrites this.
-        loss_t2_W=base.loss_t1_W,
+        loss_t2_W=loss_t2,
+        temp_t2_C=temp_t2,
         saturation_t2=tier2.saturation_t2,
         L_t3_uH=base.L_t3_uH,
         Bpk_t3_T=base.Bpk_t3_T,
+        loss_t3_W=base.loss_t3_W,
+        temp_t3_C=base.temp_t3_C,
         L_t4_uH=base.L_t4_uH,
+        loss_t4_W=base.loss_t4_W,
+        temp_t4_C=base.temp_t4_C,
         notes=notes_in or None,
+    )
+
+
+def _copy_row(base: CandidateRow, *, notes: dict) -> CandidateRow:
+    """Return a shallow copy of ``base`` with the supplied notes
+    dict — used by the tier-skip / tier-error paths to keep every
+    other field untouched."""
+    return CandidateRow(
+        candidate_key=base.candidate_key,
+        core_id=base.core_id,
+        material_id=base.material_id,
+        wire_id=base.wire_id,
+        N=base.N,
+        gap_mm=base.gap_mm,
+        highest_tier=base.highest_tier,
+        feasible_t0=base.feasible_t0,
+        loss_t1_W=base.loss_t1_W,
+        temp_t1_C=base.temp_t1_C,
+        cost_t1_USD=base.cost_t1_USD,
+        loss_t2_W=base.loss_t2_W,
+        temp_t2_C=base.temp_t2_C,
+        saturation_t2=base.saturation_t2,
+        L_t3_uH=base.L_t3_uH,
+        Bpk_t3_T=base.Bpk_t3_T,
+        loss_t3_W=base.loss_t3_W,
+        temp_t3_C=base.temp_t3_C,
+        L_t4_uH=base.L_t4_uH,
+        loss_t4_W=base.loss_t4_W,
+        temp_t4_C=base.temp_t4_C,
+        notes=notes or None,
     )
 
 
@@ -826,9 +842,10 @@ class CascadeOrchestrator:
                 gap_mm=row.gap_mm,
             )
             t2, err = evaluate_tier2_safe(model, cand, core, mat, wire)
+            refined = _refine_tier2(spec, core, wire, mat, t2)
             self.store.write_candidate(
                 run_id,
-                _row_with_tier2(row, t2, err),
+                _row_with_tier2(row, t2, err, refined=refined),
             )
             if progress_cb is not None:
                 progress_cb(TierProgress(tier=2, done=i + 1, total=total))
@@ -920,9 +937,10 @@ class CascadeOrchestrator:
                 timeout_s=cfg.tier3_timeout_s,
                 disagree_pct=cfg.tier3_disagree_pct,
             )
+            refined = _refine_tier3(spec, core, wire, mat, t3)
             self.store.write_candidate(
                 run_id,
-                _row_with_tier3(row, t3, err),
+                _row_with_tier3(row, t3, err, refined=refined),
             )
             if progress_cb is not None:
                 progress_cb(TierProgress(tier=3, done=i + 1, total=total))
@@ -1013,9 +1031,10 @@ class CascadeOrchestrator:
                 sweep_fractions=sweep_fractions,
                 timeout_s=cfg.tier4_timeout_s,
             )
+            refined = _refine_tier4(spec, core, wire, mat, t4)
             self.store.write_candidate(
                 run_id,
-                _row_with_tier4(row, t4, err),
+                _row_with_tier4(row, t4, err, refined=refined),
             )
             if progress_cb is not None:
                 progress_cb(TierProgress(tier=4, done=i + 1, total=total))
@@ -1023,23 +1042,145 @@ class CascadeOrchestrator:
             progress_cb(TierProgress(tier=4, done=total, total=total))
 
 
+# ─── Per-tier refinement adapters ─────────────────────────────────
+#
+# These wrap :func:`recompute_with_overrides` with the right knobs
+# for each tier. Kept as module-level helpers so the orchestrator's
+# tier-execution methods stay short + the recompute logic is
+# independently testable.
+
+
+def _refine_tier2(
+    spec: Spec,
+    core: Core,
+    wire: Wire,
+    material: Material,
+    t2: Optional[Tier2Result],
+) -> Optional[RefinedDesign]:
+    """Recompute losses + temp using Tier-2 simulator measurements.
+
+    Override knobs from the transient waveform:
+    - ``L_avg_uH`` (cycle-averaged) → flux scaling for iGSE.
+    - ``B_pk_T`` → Steinmetz line-band peak.
+    - ``i_rms_A`` → Rdc · I² + Rac · ΔI_ac².
+
+    Returns ``None`` when Tier 2 was skipped, when the analytical
+    engine didn't produce a baseline ``Tier1Result``, or when the
+    recompute itself raises — the caller logs ``None`` in
+    ``loss_t2_W`` and the COALESCE sort falls through to Tier 1.
+    """
+    if t2 is None:
+        return None
+    try:
+        from pfc_inductor.optimize.cascade.tier1 import evaluate_candidate as t1_eval
+
+        cand = t2.candidate
+        t1 = t1_eval(model_for(spec), cand, core, material, wire)
+        if t1 is None:
+            return None
+        return recompute_with_overrides(
+            spec=spec,
+            core=core,
+            wire=wire,
+            material=material,
+            base=t1.design,
+            L_actual_uH=float(t2.L_avg_uH) if t2.L_avg_uH > 0 else None,
+            B_pk_T=float(t2.B_pk_T),
+            I_rms_total_A=float(t2.i_rms_A),
+            I_pk_max_A=float(t2.i_pk_A),
+        )
+    except Exception:
+        return None
+
+
+def _refine_tier3(
+    spec: Spec,
+    core: Core,
+    wire: Wire,
+    material: Material,
+    t3: Optional[Tier3Result],
+) -> Optional[RefinedDesign]:
+    """Recompute losses + temp using Tier-3 magnetostatic FEA.
+
+    Override knobs:
+    - ``L_FEA_uH`` → flux + ripple scaling.
+    - ``B_pk_FEA_T`` → Steinmetz line-band peak.
+
+    The ripple-RMS and DC-RMS currents are kept at the Tier-1
+    analytical values (Tier 3 is a snapshot at the design peak,
+    not a waveform).
+    """
+    if t3 is None:
+        return None
+    try:
+        from pfc_inductor.optimize.cascade.tier1 import evaluate_candidate as t1_eval
+
+        cand = t3.candidate
+        t1 = t1_eval(model_for(spec), cand, core, material, wire)
+        if t1 is None:
+            return None
+        return recompute_with_overrides(
+            spec=spec,
+            core=core,
+            wire=wire,
+            material=material,
+            base=t1.design,
+            L_actual_uH=float(t3.L_FEA_uH) if t3.L_FEA_uH > 0 else None,
+            B_pk_T=float(t3.B_pk_FEA_T),
+        )
+    except Exception:
+        return None
+
+
+def _refine_tier4(
+    spec: Spec,
+    core: Core,
+    wire: Wire,
+    material: Material,
+    t4: Optional[Tier4Result],
+) -> Optional[RefinedDesign]:
+    """Recompute losses + temp using Tier-4 swept FEA.
+
+    Tier 4's headline number is the *cycle-averaged* L
+    (``L_avg_FEA_uH``), so the override is the cycle average plus
+    the swept-peak ``B_pk_FEA_T``. This is the most accurate
+    answer we can produce without a coupled-electromagnetic
+    transient solve (deferred — out of scope today).
+    """
+    if t4 is None:
+        return None
+    try:
+        from pfc_inductor.optimize.cascade.tier1 import evaluate_candidate as t1_eval
+
+        cand = t4.candidate
+        t1 = t1_eval(model_for(spec), cand, core, material, wire)
+        if t1 is None:
+            return None
+        return recompute_with_overrides(
+            spec=spec,
+            core=core,
+            wire=wire,
+            material=material,
+            base=t1.design,
+            L_actual_uH=float(t4.L_avg_FEA_uH) if t4.L_avg_FEA_uH > 0 else None,
+            B_pk_T=float(t4.B_pk_FEA_T),
+        )
+    except Exception:
+        return None
+
+
 def _tier3_order_column(cfg: CascadeConfig) -> str:
-    """Pick the Tier-3 ranking source: prefer Tier 2's loss when
-    Tier 2 was scheduled (it's the better filter), otherwise the
-    analytical Tier 1 loss."""
-    return "loss_t2_W" if cfg.tier2_top_k > 0 else "loss_t1_W"
+    """Pick the Tier-3 ranking source. We use the COALESCE virtual
+    column ``loss_top_W`` so a candidate is always sorted by the
+    highest-fidelity loss it has reached — Tier-1 designs that
+    were skipped by Tier 2 still rank correctly via fallback."""
+    return "loss_top_W"
 
 
 def _tier4_order_column(cfg: CascadeConfig) -> str:
-    """Tier-4 ranking source: Tier 3's `L_t3_uH` (FEA-corrected) is
-    the most accurate column we have; fall back through Tier 2 and
-    Tier 1 when those weren't scheduled."""
-    if cfg.tier3_top_k > 0:
-        # Order on the Tier-3 inductance is fine — the FEA-corrected
-        # designs that landed at the top by analytical loss almost
-        # always also have valid `L_t3_uH`. If a row has `L_t3_uH = NULL`
-        # it's pushed to the end by `top_candidates`'s NOT NULL filter.
-        return "loss_t2_W" if cfg.tier2_top_k > 0 else "loss_t1_W"
-    if cfg.tier2_top_k > 0:
-        return "loss_t2_W"
-    return "loss_t1_W"
+    """Tier-4 ranking source: ``loss_top_W`` is the cleanest
+    single-column sort because it COALESCEs down the tier ladder
+    automatically. Earlier tiers (3 / 2) and the analytical Tier 1
+    all get ranked together without flag-flipping logic at the
+    call site."""
+    return "loss_top_W"

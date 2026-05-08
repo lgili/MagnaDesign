@@ -14,7 +14,8 @@ face *labels* and *colours* swap so the cube keeps reading correctly.
 
 from __future__ import annotations
 
-from typing import Optional
+from types import MappingProxyType
+from typing import ClassVar, Mapping, Optional
 
 from PySide6.QtCore import QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import QBrush, QColor, QPainter, QPen, QPolygonF
@@ -49,11 +50,11 @@ class OrientationCube(QWidget):
 
     # Polygon slot → which face is currently rendered there.
     # Default: iso view sees +Z (top), +X (right), +Y (front-left).
-    _DEFAULT_SLOT_TO_FACE = {
-        "top": "+z",
-        "right": "+x",
-        "front": "+y",
-    }
+    # Wrapped via ``MappingProxyType`` so the class-level default is
+    # immutable (no risk of one instance mutating another's mapping).
+    _DEFAULT_SLOT_TO_FACE: ClassVar[Mapping[str, str]] = MappingProxyType(
+        {"top": "+z", "right": "+x", "front": "+y"},
+    )
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)

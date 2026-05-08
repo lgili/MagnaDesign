@@ -50,7 +50,8 @@ import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Iterator, Literal, Optional
+from types import MappingProxyType
+from typing import Any, ClassVar, Iterable, Iterator, Literal, Mapping, Optional
 
 from pfc_inductor.models import Spec
 
@@ -77,7 +78,16 @@ class RunRecord:
 
 @dataclass(frozen=True)
 class CandidateRow:
-    """A single candidate's persisted state across all tiers."""
+    """A single candidate's persisted state across all tiers.
+
+    Tier-2/3/4 each refine the analytical Tier-1 numbers and
+    write their refined ``loss_t{N}_W`` / ``temp_t{N}_C`` columns
+    so the Top-N table can rank on the highest-fidelity numbers
+    a candidate has reached. The ``loss_top_W`` / ``temp_top_C``
+    properties COALESCE down the tier ladder so a downstream
+    surface that doesn't care about *which* tier produced the
+    number can read one column.
+    """
 
     candidate_key: str
     core_id: str
@@ -91,11 +101,48 @@ class CandidateRow:
     temp_t1_C: Optional[float] = None
     cost_t1_USD: Optional[float] = None
     loss_t2_W: Optional[float] = None
+    temp_t2_C: Optional[float] = None
     saturation_t2: Optional[bool] = None
     L_t3_uH: Optional[float] = None
     Bpk_t3_T: Optional[float] = None
+    loss_t3_W: Optional[float] = None
+    temp_t3_C: Optional[float] = None
     L_t4_uH: Optional[float] = None
+    loss_t4_W: Optional[float] = None
+    temp_t4_C: Optional[float] = None
     notes: Optional[dict[str, Any]] = None
+
+    # ─── Highest-fidelity reads ─────────────────────────────────
+    @property
+    def loss_top_W(self) -> Optional[float]:
+        """The most-refined loss available — Tier 4 wins over
+        Tier 3 wins over Tier 2 wins over Tier 1. ``None`` when
+        no tier has produced a loss number yet."""
+        for v in (self.loss_t4_W, self.loss_t3_W, self.loss_t2_W, self.loss_t1_W):
+            if v is not None:
+                return v
+        return None
+
+    @property
+    def temp_top_C(self) -> Optional[float]:
+        """Same COALESCE behaviour for winding temperature."""
+        for v in (self.temp_t4_C, self.temp_t3_C, self.temp_t2_C, self.temp_t1_C):
+            if v is not None:
+                return v
+        return None
+
+    @property
+    def L_FEA_uH(self) -> Optional[float]:
+        """Most-refined FEA inductance: Tier 4 cycle-averaged
+        beats Tier 3 magnetostatic. Returns ``None`` when no FEA
+        ran (Tier 1 / 2 only). The analytical L lives on the
+        engine's ``DesignResult`` and is recovered by the caller
+        re-resolving the candidate; we don't surface a
+        Tier-1 L_uH column on the row to keep the schema lean."""
+        for v in (self.L_t4_uH, self.L_t3_uH):
+            if v is not None and v > 0:
+                return v
+        return None
 
 
 _SCHEMA = """
@@ -127,10 +174,15 @@ CREATE TABLE IF NOT EXISTS candidates (
     temp_t1_C      REAL,
     cost_t1_USD    REAL,
     loss_t2_W      REAL,
+    temp_t2_C      REAL,
     saturation_t2  INTEGER,
     L_t3_uH        REAL,
     Bpk_t3_T       REAL,
+    loss_t3_W      REAL,
+    temp_t3_C      REAL,
     L_t4_uH        REAL,
+    loss_t4_W      REAL,
+    temp_t4_C      REAL,
     notes          TEXT,
     PRIMARY KEY (run_id, candidate_key)
 );
@@ -138,6 +190,18 @@ CREATE TABLE IF NOT EXISTS candidates (
 CREATE INDEX IF NOT EXISTS idx_candidates_run  ON candidates(run_id);
 CREATE INDEX IF NOT EXISTS idx_candidates_loss ON candidates(run_id, loss_t1_W);
 """
+
+# Columns added after Phase A — applied in-place via ``ALTER TABLE``
+# on existing stores so older `.cascade.db` files keep working.
+# Order matters: SQLite ALTER TABLE only appends columns. Any new
+# entry here is "safe to add, nullable, default NULL".
+_TIER_REFINEMENT_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("temp_t2_C", "REAL"),
+    ("loss_t3_W", "REAL"),
+    ("temp_t3_C", "REAL"),
+    ("loss_t4_W", "REAL"),
+    ("temp_t4_C", "REAL"),
+)
 
 
 class RunStore:
@@ -155,6 +219,24 @@ class RunStore:
             conn.executescript(_SCHEMA)
             conn.execute("PRAGMA journal_mode=WAL")
             conn.execute("PRAGMA synchronous=NORMAL")
+            self._apply_migrations(conn)
+
+    @staticmethod
+    def _apply_migrations(conn: sqlite3.Connection) -> None:
+        """Add per-tier refinement columns to legacy stores.
+
+        SQLite's ``ALTER TABLE ... ADD COLUMN`` is a fast metadata
+        update (no row rewrite), so re-running on every open is
+        cheap. We probe ``PRAGMA table_info`` instead of catching
+        the duplicate-column exception — explicit + fast.
+        """
+        existing = {
+            row[1]  # column name
+            for row in conn.execute("PRAGMA table_info(candidates)")
+        }
+        for name, sql_type in _TIER_REFINEMENT_COLUMNS:
+            if name not in existing:
+                conn.execute(f"ALTER TABLE candidates ADD COLUMN {name} {sql_type}")
 
     # ─── Connection management ────────────────────────────────────────
 
@@ -245,13 +327,18 @@ class RunStore:
     # ─── Candidates ───────────────────────────────────────────────────
 
     # Candidate-row INSERT shared by `write_candidate` and the batched
-    # variant. Defined once so the column ordering stays in sync.
+    # variant. Defined once so the column ordering stays in sync. Column
+    # order matches the schema; new tier-refinement columns appended
+    # at the end so legacy migrations (ALTER TABLE ADD COLUMN) keep the
+    # same physical layout.
     _INSERT_CANDIDATE_SQL = (
         "INSERT OR REPLACE INTO candidates "
         "(run_id, candidate_key, core_id, material_id, wire_id, N, gap_mm, "
         " highest_tier, feasible_t0, loss_t1_W, temp_t1_C, cost_t1_USD, "
-        " loss_t2_W, saturation_t2, L_t3_uH, Bpk_t3_T, L_t4_uH, notes) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        " loss_t2_W, temp_t2_C, saturation_t2, L_t3_uH, Bpk_t3_T, "
+        " loss_t3_W, temp_t3_C, L_t4_uH, loss_t4_W, temp_t4_C, notes) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "
+        " ?, ?, ?, ?)"
     )
 
     @staticmethod
@@ -270,10 +357,15 @@ class RunStore:
             row.temp_t1_C,
             row.cost_t1_USD,
             row.loss_t2_W,
+            row.temp_t2_C,
             _bool_to_int(row.saturation_t2),
             row.L_t3_uH,
             row.Bpk_t3_T,
+            row.loss_t3_W,
+            row.temp_t3_C,
             row.L_t4_uH,
+            row.loss_t4_W,
+            row.temp_t4_C,
             json.dumps(row.notes) if row.notes else None,
         )
 
@@ -360,26 +452,78 @@ class RunStore:
             ).fetchone()
         return int(row["n"]) if row else 0
 
+    # Real columns that are safe to ORDER BY directly. Whitelisted
+    # so the format-string in the SELECT below can't be a SQL-injection
+    # vector.
+    _ORDER_BY_REAL_COLUMNS: frozenset[str] = frozenset(
+        {
+            "loss_t1_W",
+            "temp_t1_C",
+            "cost_t1_USD",
+            "loss_t2_W",
+            "temp_t2_C",
+            "loss_t3_W",
+            "temp_t3_C",
+            "L_t3_uH",
+            "loss_t4_W",
+            "temp_t4_C",
+            "L_t4_uH",
+        }
+    )
+    # Virtual columns: COALESCE expressions that pick the highest-
+    # fidelity number a candidate has reached. The Top-N table
+    # consumers (UI + CLI) read these so a candidate that ran
+    # through Tier 4 is sorted by Tier-4 loss, while a Tier-1-only
+    # candidate sorts by Tier-1 loss without mode-flipping logic
+    # at the call site.
+    _ORDER_BY_VIRTUAL_EXPRESSIONS: ClassVar[Mapping[str, str]] = MappingProxyType(
+        {
+            "loss_top_W": "COALESCE(loss_t4_W, loss_t3_W, loss_t2_W, loss_t1_W)",
+            "temp_top_C": "COALESCE(temp_t4_C, temp_t3_C, temp_t2_C, temp_t1_C)",
+        },
+    )
+
     def top_candidates(
         self,
         run_id: str,
         *,
         n: int = 50,
-        order_by: str = "loss_t1_W",
+        order_by: str = "loss_top_W",
     ) -> list[CandidateRow]:
-        """Top-`n` candidates ordered by the given column (ascending).
+        """Top-``n`` candidates ordered by the given column (ascending).
 
-        Only `loss_t1_W`, `temp_t1_C`, `cost_t1_USD`, `loss_t2_W` are
-        accepted as `order_by` — anything else raises to prevent SQL
+        ``order_by`` accepts:
+
+        - **Real columns** — any of
+          :attr:`_ORDER_BY_REAL_COLUMNS` (per-tier loss / temp /
+          cost / L). Use these when you want to rank on a specific
+          tier's number (e.g. ``"loss_t1_W"`` to keep Tier-1's
+          analytical ranking even after deeper tiers ran).
+        - **Virtual columns** —
+          ``"loss_top_W"`` / ``"temp_top_C"`` COALESCE down the
+          tier ladder so a candidate that reached Tier 4 sorts by
+          its Tier-4 number, while a Tier-1-only candidate sorts by
+          Tier 1 — single sort, no mode-flipping logic at the call
+          site. **This is the right default for surfacing the
+          "best" Top-N to the user**: the table never shows a
+          stale Tier-1 number when a deeper tier has refined it.
+
+        Anything else raises ``ValueError`` to prevent SQL
         injection.
         """
-        if order_by not in {"loss_t1_W", "temp_t1_C", "cost_t1_USD", "loss_t2_W"}:
+        if order_by in self._ORDER_BY_REAL_COLUMNS:
+            order_expr = order_by
+            null_filter = order_by
+        elif order_by in self._ORDER_BY_VIRTUAL_EXPRESSIONS:
+            order_expr = self._ORDER_BY_VIRTUAL_EXPRESSIONS[order_by]
+            null_filter = order_expr
+        else:
             raise ValueError(f"Unsupported order_by column: {order_by!r}")
         with self._connect() as conn:
             rows = conn.execute(
                 f"SELECT * FROM candidates WHERE run_id = ? "
-                f"AND {order_by} IS NOT NULL "
-                f"ORDER BY {order_by} ASC LIMIT ?",
+                f"AND {null_filter} IS NOT NULL "
+                f"ORDER BY {order_expr} ASC LIMIT ?",
                 (run_id, n),
             ).fetchall()
         return [_row_to_candidate(r) for r in rows]
@@ -415,12 +559,27 @@ def _row_to_candidate(row: sqlite3.Row) -> CandidateRow:
         temp_t1_C=row["temp_t1_C"],
         cost_t1_USD=row["cost_t1_USD"],
         loss_t2_W=row["loss_t2_W"],
+        temp_t2_C=_safe_get(row, "temp_t2_C"),
         saturation_t2=_int_to_bool(row["saturation_t2"]),
         L_t3_uH=row["L_t3_uH"],
         Bpk_t3_T=row["Bpk_t3_T"],
+        loss_t3_W=_safe_get(row, "loss_t3_W"),
+        temp_t3_C=_safe_get(row, "temp_t3_C"),
         L_t4_uH=row["L_t4_uH"],
+        loss_t4_W=_safe_get(row, "loss_t4_W"),
+        temp_t4_C=_safe_get(row, "temp_t4_C"),
         notes=json.loads(row["notes"]) if row["notes"] else None,
     )
+
+
+def _safe_get(row: sqlite3.Row, key: str) -> Any:
+    """Defensive column read — returns ``None`` when the column
+    is absent from the row (older stores that haven't seen the
+    migration yet on this connection)."""
+    try:
+        return row[key]
+    except (IndexError, KeyError):
+        return None
 
 
 def _bool_to_int(value: Optional[bool]) -> Optional[int]:

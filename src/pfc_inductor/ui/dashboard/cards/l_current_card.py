@@ -94,10 +94,7 @@ class _LCurrentBody(QWidget):
         if result.N_turns > 0:
             L0 = rf.inductance_uH(int(result.N_turns), core.AL_nH, 1.0)
             L_op = float(result.L_actual_uH)
-            rolloff_pct = (
-                max(0.0, (1.0 - L_op / L0) * 100.0)
-                if L0 > 0 else 0.0
-            )
+            rolloff_pct = max(0.0, (1.0 - L_op / L0) * 100.0) if L0 > 0 else 0.0
             self._lbl_l0.setText(f"L₀  {L0:.0f} µH")
             self._lbl_lop.setText(f"L_op  {L_op:.0f} µH")
             self._lbl_rolloff.setText(f"Rolloff  {rolloff_pct:.0f} %")

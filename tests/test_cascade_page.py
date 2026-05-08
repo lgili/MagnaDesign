@@ -153,7 +153,20 @@ def test_cascade_page_cancel_button_aborts_run(app, tmp_path: Path, db):
     # case the page must end up with the buttons reset and a recorded
     # status.
     page.cancel()
-    assert _wait_until(lambda: len(finished_status) > 0, app=app, timeout=60.0)
+    # Wait for the run to finish AND the page's own ``_on_finished``
+    # slot to have re-enabled ``_btn_run``. Pre-fix the test waited
+    # only for the test-local lambda to fire on ``_worker.finished``,
+    # but Qt's queued-connection delivery doesn't guarantee that
+    # ``_on_finished`` (also connected to that signal) has finished
+    # running by the time another slot on the same signal returns;
+    # the assertion would race against the page's button-state reset.
+    # Waiting on the button state directly is what the user actually
+    # observes and the cleanest synchronization point for the test.
+    assert _wait_until(
+        lambda: bool(finished_status) and page._btn_run.isEnabled(),
+        app=app,
+        timeout=60.0,
+    )
     assert finished_status[0] in {"done", "cancelled"}
     assert page._btn_run.isEnabled()
     assert not page._btn_cancel.isEnabled()

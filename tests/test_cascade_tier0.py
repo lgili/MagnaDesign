@@ -133,7 +133,7 @@ def test_tier0_filter_yields_one_result_per_input(db):
 
     assert len(results) == len(candidates)
     # And the order matches.
-    for cand, res in zip(candidates, results):
+    for cand, res in zip(candidates, results, strict=False):
         assert res.candidate.key() == cand.key()
 
 

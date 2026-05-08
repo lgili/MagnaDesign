@@ -7,6 +7,7 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
 
@@ -158,7 +159,7 @@ def test_pareto_chart_emits_selection_changed_on_pick(app):
     chart.selection_changed.connect(lambda key: received.append(key))
 
     class _PickEvent:
-        ind = [1]
+        ind: ClassVar[list[int]] = [1]
 
     chart._on_pick(_PickEvent())
     assert received == ["k2|m|w"]

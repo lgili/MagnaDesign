@@ -60,7 +60,7 @@ def test_fsw_modulation_rejects_inverted_band() -> None:
 
 
 def test_fsw_modulation_rpm_band_requires_extra_fields() -> None:
-    with pytest.raises(ValueError, match="rpm_band.*requires"):
+    with pytest.raises(ValueError, match=r"rpm_band.*requires"):
         FswModulation(
             fsw_min_kHz=4,
             fsw_max_kHz=25,

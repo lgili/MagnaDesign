@@ -23,6 +23,7 @@ References
 - IEC 61000-3-12 Tabel 4 (industrial harmonic limits) — for the
   THD / PF cross-validation.
 """
+
 from __future__ import annotations
 
 import math
@@ -30,8 +31,8 @@ import math
 from pfc_inductor.models import Spec
 
 # Industry-standard constants.
-_PF_BASELINE_NO_CHOKE = 0.55     # capacitor-input rectifier baseline
-_PF_ASYMPTOTIC = 0.95            # passive choke practical ceiling
+_PF_BASELINE_NO_CHOKE = 0.55  # capacitor-input rectifier baseline
+_PF_ASYMPTOTIC = 0.95  # passive choke practical ceiling
 # Displacement PF for a 6-pulse rectifier with line reactor (small
 # commutation-notch loss; nearly unity).
 _DPF_LINE_REACTOR = 0.99
@@ -96,6 +97,40 @@ def apparent_power_VA(spec: Spec, L_uH: float) -> float:
     return P_active / max(pf, 0.05)
 
 
+def active_power_at_inst_current_W(
+    spec: Spec, L_uH: float, I_pk_inst_A: float,
+) -> float:
+    """Active input power that the source delivers when the inductor
+    carries an instantaneous peak current ``I_pk_inst_A`` and the
+    effective inductance at that operating point is ``L_uH``.
+
+    Used by the "Power vs inductance" parametric chart. As the
+    inductor saturates (L drops past the operating point) the input
+    PF degrades, so even though the current keeps rising, the
+    real power tapers off — exactly the failure mode the engineer
+    wants to see.
+
+    Per-topology mapping from ``I_pk_inst`` to source-side RMS:
+
+    - **boost_ccm / passive_choke**: peak inductor current is the
+      peak of the rectified line current, so ``I_rms = I_pk / √2``;
+      single-phase, ``P = V_in · I_rms · PF``.
+    - **line_reactor**: peak phase current = ``√2 · I_rated``, so
+      ``I_rms_per_phase = I_pk / √2``. For 3-phase loads multiply
+      by 3 phases (or equivalently use ``√3 · V_LL``).
+    """
+    if I_pk_inst_A <= 0:
+        return 0.0
+    pf = pf_at_L(spec, L_uH)
+    I_rms = I_pk_inst_A / math.sqrt(2.0)
+    if spec.topology == "line_reactor":
+        Vphase = spec.phase_voltage_Vrms
+        n = max(spec.n_phases, 1)
+        return n * Vphase * I_rms * pf
+    # Single-phase topologies (boost_ccm, passive_choke).
+    return spec.Vin_nom_Vrms * I_rms * pf
+
+
 # ---------------------------------------------------------------------------
 # Per-topology fits.
 # ---------------------------------------------------------------------------
@@ -123,10 +158,7 @@ def _pf_passive_choke(spec: Spec, L_uH: float) -> float:
     z_react = omega * L_H
     natural_Z = max(0.4 * Vpk / max(Ipk_load, 1e-6), 1e-6)
     x = z_react / natural_Z
-    pf = (
-        _PF_BASELINE_NO_CHOKE
-        + (_PF_ASYMPTOTIC - _PF_BASELINE_NO_CHOKE) * (1.0 - math.exp(-x))
-    )
+    pf = _PF_BASELINE_NO_CHOKE + (_PF_ASYMPTOTIC - _PF_BASELINE_NO_CHOKE) * (1.0 - math.exp(-x))
     return max(_PF_BASELINE_NO_CHOKE, min(_PF_ASYMPTOTIC, pf))
 
 
@@ -145,5 +177,5 @@ def _pf_line_reactor(spec: Spec, L_uH: float) -> float:
     pct_Z = 100.0 * omega * L_H / max(Z_base, 1e-9)
     pct_Z = max(0.1, pct_Z)
     THD_frac = 0.75 / math.sqrt(pct_Z)  # 75/√%Z, in fraction
-    pf_total = _DPF_LINE_REACTOR / math.sqrt(1.0 + THD_frac ** 2)
+    pf_total = _DPF_LINE_REACTOR / math.sqrt(1.0 + THD_frac**2)
     return max(_PF_BASELINE_NO_CHOKE, min(0.99, pf_total))

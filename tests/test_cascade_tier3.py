@@ -236,8 +236,14 @@ def test_orchestrator_runs_tier3_when_top_k_set(tmp_path, db):
     assert seen_t3[-1].done == seen_t3[-1].total
     assert seen_t3[-1].total == 3
 
-    # Top rows now carry Tier-3 columns + notes.
-    rows = store.top_candidates(run_id, n=3, order_by="loss_t1_W")
+    # Top rows now carry Tier-3 columns + notes. Query by
+    # ``loss_top_W`` (the COALESCE virtual column) because that
+    # is the same column the orchestrator's
+    # ``_tier3_order_column`` uses to pick which rows Tier 3
+    # actually evaluates — guarantees the test queries the same
+    # rows Tier 3 hit, instead of relying on the pre-refinement
+    # assumption that Tier-1 ranking == Tier-2 ranking.
+    rows = store.top_candidates(run_id, n=3, order_by="loss_top_W")
     n_with_tier3 = 0
     for row in rows:
         if row.notes and "tier3" in row.notes:

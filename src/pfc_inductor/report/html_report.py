@@ -163,7 +163,17 @@ def generate_html_report(
         else ("Ripple target (pp)", f"{spec.ripple_pct:.0f}", "%")
     )
     spec_rows = "".join(
-        [*spec_rows_input, _row("Pout", f"{spec.Pout_W:.0f}", "W"), _row("η assumed", f"{spec.eta:.2f}", ""), _row("fsw", f"{spec.f_sw_kHz:.0f}", "kHz"), _row(ripple_label, ripple_value, ripple_unit), _row("T ambient", f"{spec.T_amb_C:.0f}", "°C"), _row("T max winding", f"{spec.T_max_C:.0f}", "°C"), _row("Ku max", f"{spec.Ku_max * 100:.0f}", "%"), _row("Bsat margin", f"{spec.Bsat_margin * 100:.0f}", "%")]
+        [
+            *spec_rows_input,
+            _row("Pout", f"{spec.Pout_W:.0f}", "W"),
+            _row("η assumed", f"{spec.eta:.2f}", ""),
+            _row("fsw", f"{spec.f_sw_kHz:.0f}", "kHz"),
+            _row(ripple_label, ripple_value, ripple_unit),
+            _row("T ambient", f"{spec.T_amb_C:.0f}", "°C"),
+            _row("T max winding", f"{spec.T_max_C:.0f}", "°C"),
+            _row("Ku max", f"{spec.Ku_max * 100:.0f}", "%"),
+            _row("Bsat margin", f"{spec.Bsat_margin * 100:.0f}", "%"),
+        ]
     )
 
     sel_rows = "".join(

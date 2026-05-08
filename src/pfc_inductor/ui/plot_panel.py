@@ -355,7 +355,7 @@ class PlotPanel(QWidget):
         ax_bot.grid(True, axis="y", alpha=0.4)
         ax_bot.legend(loc="upper right", fontsize=8)
         # Annotate the dominant harmonics with their value
-        for b, h, v_mA in zip(bars, plot_orders, plot_amps_mA, strict=False):
+        for b, _h, v_mA in zip(bars, plot_orders, plot_amps_mA, strict=False):
             if v_mA < 5:
                 continue  # skip negligible bars
             ax_bot.text(

@@ -33,8 +33,6 @@ class BottomActions(QFrame):
         h.setContentsMargins(6, 6, 6, 6)
         h.setSpacing(4)
 
-        p = get_theme().palette
-
         self.btn_explode = self._make_button("Explodir", "share")
         self.btn_explode.setCheckable(True)
         self.btn_explode.toggled.connect(self.explode_toggled.emit)

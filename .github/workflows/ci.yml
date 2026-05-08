@@ -61,8 +61,19 @@ jobs:
       - name: Mypy (domain layer only)
         # The override in pyproject.toml enforces strict typing on
         # ``models``, ``physics``, ``topology``, ``design``, ``optimize``,
-        # ``standards``, and ``errors`` — UI is intentionally relaxed.
-        run: mypy src/pfc_inductor
+        # ``standards``, and ``errors`` — UI / CLI / report rendering
+        # are intentionally relaxed. We pass those packages explicitly
+        # so the type-checker doesn't trip on UI lazy-import patterns
+        # we have no plan to gate on.
+        run: |
+          mypy \
+            src/pfc_inductor/models \
+            src/pfc_inductor/physics \
+            src/pfc_inductor/topology \
+            src/pfc_inductor/design \
+            src/pfc_inductor/optimize \
+            src/pfc_inductor/standards \
+            src/pfc_inductor/errors.py
 
       - name: Pytest
         env:

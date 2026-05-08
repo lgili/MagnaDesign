@@ -495,17 +495,19 @@ def _fig_inductance_vs_current(material: Material, core: Core, result: DesignRes
     else:
         I_max = I_pk_A * 2.0
     I = np.linspace(0.01, I_max, 300)
-    L_uH = np.array([
-        rf.L_at_current_uH(
-            material,
-            N=N,
-            I_A=float(Ii),
-            AL_nH=core.AL_nH,
-            le_mm=core.le_mm,
-            Ae_mm2=core.Ae_mm2,
-        )
-        for Ii in I
-    ])
+    L_uH = np.array(
+        [
+            rf.L_at_current_uH(
+                material,
+                N=N,
+                I_A=float(Ii),
+                AL_nH=core.AL_nH,
+                le_mm=core.le_mm,
+                Ae_mm2=core.Ae_mm2,
+            )
+            for Ii in I
+        ]
+    )
     L0 = float(L_uH[0])
     L_op = float(result.L_actual_uH)
     # ``rolloff_pct`` is positive when L_op < L0 (the usual case).
@@ -522,10 +524,7 @@ def _fig_inductance_vs_current(material: Material, core: Core, result: DesignRes
     # Surface a hint when we're using the analytical fallback so the
     # engineer knows the curve shape comes from a Bsat-driven model
     # rather than a vendor table.
-    suffix = (
-        " — sech² model (no published rolloff)"
-        if material.rolloff is None else ""
-    )
+    suffix = " — sech² model (no published rolloff)" if material.rolloff is None else ""
     fig, ax = plt.subplots(figsize=(7.0, 3.2), dpi=110)
     ax.plot(I, L_uH, color="#3a78b5", linewidth=1.6, label=f"L(I) at N = {N}")
     ax.axhline(
@@ -617,8 +616,9 @@ def _fig_pf_vs_inductance(spec: Spec, result: DesignResult):
     L_unit = "mH" if use_mH else "µH"
 
     fig, ax_pf = plt.subplots(figsize=(7.0, 3.4), dpi=110)
-    ax_pf.plot(L_plot, PF_arr, color="#3a78b5", linewidth=1.8,
-                label=f"PF (predicted, {spec.topology})")
+    ax_pf.plot(
+        L_plot, PF_arr, color="#3a78b5", linewidth=1.8, label=f"PF (predicted, {spec.topology})"
+    )
     ax_pf.set_xlabel(f"Inductance L [{L_unit}]")
     ax_pf.set_ylabel("Power factor [—]", color="#3a78b5")
     ax_pf.tick_params(axis="y", labelcolor="#3a78b5")
@@ -626,28 +626,35 @@ def _fig_pf_vs_inductance(spec: Spec, result: DesignResult):
     ax_pf.grid(True, alpha=0.35)
 
     ax_S = ax_pf.twinx()
-    ax_S.plot(L_plot, S_arr_VA / 1000.0, color="#a01818",
-                linewidth=1.4, linestyle="--",
-                label="Apparent power S")
+    ax_S.plot(
+        L_plot,
+        S_arr_VA / 1000.0,
+        color="#a01818",
+        linewidth=1.4,
+        linestyle="--",
+        label="Apparent power S",
+    )
     ax_S.set_ylabel("Apparent power S [kVA]", color="#a01818")
     ax_S.tick_params(axis="y", labelcolor="#a01818")
     # Comfortable headroom on the right axis so the dashed S line
     # never bumps against the upper edge.
-    ax_S.set_ylim(bottom=0,
-                    top=max(S_arr_VA / 1000.0) * 1.15 if S_arr_VA.size else 1)
+    ax_S.set_ylim(bottom=0, top=max(S_arr_VA / 1000.0) * 1.15 if S_arr_VA.size else 1)
 
     # Mark design point.
-    ax_pf.axvline(L_design_plot, color="#1c7c3b", linestyle=":",
-                    linewidth=1.4, alpha=0.85,
-                    label=f"Design L = {L_design_plot:.2f} {L_unit}")
-    ax_pf.plot([L_design_plot], [PF_design], "o",
-                color="#1c7c3b", markersize=7, zorder=6)
+    ax_pf.axvline(
+        L_design_plot,
+        color="#1c7c3b",
+        linestyle=":",
+        linewidth=1.4,
+        alpha=0.85,
+        label=f"Design L = {L_design_plot:.2f} {L_unit}",
+    )
+    ax_pf.plot([L_design_plot], [PF_design], "o", color="#1c7c3b", markersize=7, zorder=6)
 
     # Build a single combined legend.
     h_pf, l_pf = ax_pf.get_legend_handles_labels()
     h_S, l_S = ax_S.get_legend_handles_labels()
-    ax_pf.legend(h_pf + h_S, l_pf + l_S,
-                   loc="lower right", fontsize=8, framealpha=0.9)
+    ax_pf.legend(h_pf + h_S, l_pf + l_S, loc="lower right", fontsize=8, framealpha=0.9)
 
     fig.suptitle(
         f"Power factor vs inductance — design: PF = {PF_design:.2f}, "
@@ -656,6 +663,95 @@ def _fig_pf_vs_inductance(spec: Spec, result: DesignResult):
         fontsize=10,
     )
     fig.tight_layout()
+    return fig
+
+
+def _fig_power_vs_inductance(spec: Spec, core: Core, material: Material,
+                                result: DesignResult, I_pk_A: float):
+    """Active power vs effective inductance, traced parametrically as
+    the bias current sweeps from zero past I_pk into deep saturation.
+
+    Companion to ``_fig_inductance_vs_current``: that one shows the
+    saturation phenomenon as L(I); this one re-plots the same sweep
+    in ``P → L`` coordinates so the engineer reads "as the choke
+    saturates, real power throughput plateaus" — the actual failure
+    mode the choke is protecting against.
+
+    The parametric map: at each instantaneous peak current I in the
+    sweep, the inductor's effective L is read from the saturation
+    model (``rolloff table`` for powder cores, ``sech²`` for
+    silicon-steel), and the active power follows from
+    ``P = V_eff · (I/√2) · PF(L) · n_phases``. Plotted as
+    (X = L, Y = P) so the curve runs upper-right → lower-left
+    matching the L vs I convention the user already reads — high L
+    on the left, low L (deep saturation) on the right.
+    """
+    if I_pk_A <= 0 or result.N_turns <= 0:
+        return None
+    from pfc_inductor.physics import power_factor as pfm
+
+    N = result.N_turns
+    # Use the same sweep range as the L(I) curve so the two plots
+    # are visually consistent. Silicon-steel needs a wider sweep so
+    # the saturation knee is fully visible.
+    if material.rolloff is None:
+        Ae_m2 = max(core.Ae_mm2 * 1e-6, 1e-12)
+        L_lin_uH = rf.inductance_uH(N, core.AL_nH, 1.0)
+        B_at_Ipk = (L_lin_uH * 1e-6) * I_pk_A / max(N * Ae_m2, 1e-12)
+        I_max = (
+            I_pk_A * min(
+                max(3.0 * material.Bsat_100C_T / max(B_at_Ipk, 1e-9),
+                     2.0),
+                20.0,
+            )
+            if B_at_Ipk > 0 else I_pk_A * 5.0
+        )
+    else:
+        I_max = I_pk_A * 2.0
+    I = np.linspace(0.01, I_max, 300)
+    L_uH = np.array([
+        rf.L_at_current_uH(
+            material, N=N, I_A=float(Ii),
+            AL_nH=core.AL_nH, le_mm=core.le_mm,
+            Ae_mm2=core.Ae_mm2,
+        )
+        for Ii in I
+    ])
+    P_W = np.array([
+        pfm.active_power_at_inst_current_W(
+            spec, float(L_uH[k]), float(I[k]),
+        )
+        for k in range(I.size)
+    ])
+    # Operating point: the design's actual peak current and L_actual.
+    L_op = float(result.L_actual_uH)
+    P_op = pfm.active_power_at_inst_current_W(spec, L_op, I_pk_A)
+
+    fig, ax = plt.subplots(figsize=(7.0, 3.2), dpi=110)
+    ax.plot(L_uH, P_W / 1000.0, color="#3a78b5", linewidth=1.6,
+             label=f"P(L) parametrised by I (N = {N})")
+    ax.axvline(L_op, color="#888", linestyle=":", alpha=0.7,
+                linewidth=1.0, label=f"L_op = {L_op:.0f} µH")
+    ax.axhline(P_op / 1000.0, color="#a06700", linestyle=":",
+                alpha=0.7, linewidth=1.0,
+                label=f"P_op = {P_op / 1000.0:.1f} kW")
+    ax.plot([L_op], [P_op / 1000.0], "o", color="#1c7c3b",
+             markersize=7, zorder=5,
+             label="Operating point (I = I_pk)")
+    ax.set_xlabel("Inductance L [µH]")
+    ax.set_ylabel("Active power P [kW]")
+    ax.set_title(
+        "Power vs inductance — saturation impact on throughput",
+        fontsize=10,
+    )
+    # Invert X so high-L sits on the left (matches L(I) convention
+    # where the curve starts at L₀ on the left-hand side); the
+    # parametric trace reads "I rising → moving right-and-up along
+    # the curve" toward the saturation cliff.
+    ax.set_xlim(left=max(L_uH.max() * 1.05, L_op * 1.1), right=0)
+    ax.set_ylim(bottom=0)
+    ax.grid(True, alpha=0.35)
+    ax.legend(loc="upper right", fontsize=8, framealpha=0.9)
     return fig
 
 
@@ -1648,6 +1744,26 @@ def _page2_story(
                 fig_LI,
             )
         )
+
+    # ---------- P vs L (parametric, same I sweep as L(I)) ----------
+    # Mirrors the L(I) view in the same I-sweep, but plotted as
+    # P → L coordinates so the engineer reads "the choke saturates
+    # → real power throughput plateaus" — the actual customer-
+    # facing failure mode. Skipped for boost_ccm where PF ≈ 1 by
+    # active control (P scales linearly with I, plot is a straight
+    # line and adds little).
+    if spec.topology in ("passive_choke", "line_reactor"):
+        fig_PL = _fig_power_vs_inductance(
+            spec, core, material, result,
+            I_pk_A=result.I_pk_max_A,
+        )
+        if fig_PL is not None:
+            curve_blocks.append(
+                _section(
+                    "Active power vs inductance — saturation impact",
+                    fig_PL,
+                )
+            )
 
     # ---------- PF vs L (passive_choke / line_reactor only) ----------
     # Pairs with the L vs I curve directly above: L vs I says "given

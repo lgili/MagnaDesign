@@ -44,12 +44,30 @@ from pfc_inductor.topology.material_filter import materials_for_topology
 # Server-side ORDER BY columns the SQLite store accepts. Anything
 # off this list trips a ValueError; we narrow it here so the CLI's
 # ``--rank`` choice gives the user the same defence.
-_RANK_COLUMNS = ("loss", "temp", "cost", "loss_t2")
+#
+# ``loss`` and ``temp`` map to the COALESCE virtual columns so the
+# printed top-N reflects whichever tier produced each candidate's
+# refined number — Tier-4 candidates rank by Tier-4 loss, Tier-2
+# candidates by Tier-2 loss, Tier-1-only candidates by Tier 1, no
+# mode-flipping. Per-tier explicit columns (``loss_t1`` ... ``loss_t4``)
+# are kept for power users who want a specific tier's ranking.
+_RANK_COLUMNS = (
+    "loss",
+    "temp",
+    "cost",
+    "loss_t1",
+    "loss_t2",
+    "loss_t3",
+    "loss_t4",
+)
 _RANK_TO_COLUMN = {
-    "loss": "loss_t1_W",
-    "temp": "temp_t1_C",
+    "loss": "loss_top_W",
+    "temp": "temp_top_C",
     "cost": "cost_t1_USD",
+    "loss_t1": "loss_t1_W",
     "loss_t2": "loss_t2_W",
+    "loss_t3": "loss_t3_W",
+    "loss_t4": "loss_t4_W",
 }
 
 
@@ -336,6 +354,14 @@ def _cascade_cmd(
 # Helpers
 # ---------------------------------------------------------------------------
 def _row_to_dict(row) -> dict:
+    """Serialise a candidate row for JSON / CSV consumers.
+
+    Carries every per-tier loss + temp column so a downstream
+    consumer can pick the tier they care about. The ``loss_W`` /
+    ``temp_C`` keys hold the COALESCE'd highest-tier values so a
+    quick top-N scanner doesn't need to know the cascade
+    structure.
+    """
     return {
         "candidate_key": row.candidate_key,
         "core_id": row.core_id,
@@ -344,16 +370,33 @@ def _row_to_dict(row) -> dict:
         "N": row.N,
         "gap_mm": row.gap_mm,
         "highest_tier": row.highest_tier,
+        # Highest-tier COALESCE — the canonical answer.
+        "loss_W": row.loss_top_W,
+        "temp_C": row.temp_top_C,
+        # Per-tier breakdown, useful for auditing how much
+        # refinement each tier introduced.
         "loss_t1_W": row.loss_t1_W,
         "temp_t1_C": row.temp_t1_C,
         "cost_t1_USD": row.cost_t1_USD,
         "loss_t2_W": row.loss_t2_W,
+        "temp_t2_C": row.temp_t2_C,
+        "loss_t3_W": row.loss_t3_W,
+        "temp_t3_C": row.temp_t3_C,
+        "L_t3_uH": row.L_t3_uH,
+        "Bpk_t3_T": row.Bpk_t3_T,
+        "loss_t4_W": row.loss_t4_W,
+        "temp_t4_C": row.temp_t4_C,
+        "L_t4_uH": row.L_t4_uH,
     }
 
 
 def _write_csv(path: Path, rows) -> None:
     import csv
 
+    # Column order mirrors ``_row_to_dict``. The ``loss_W`` /
+    # ``temp_C`` columns come right after the identity fields so a
+    # quick eyeball of the CSV in a spreadsheet shows the canonical
+    # answer in the leftmost numeric columns.
     fieldnames = [
         "candidate_key",
         "core_id",
@@ -362,10 +405,20 @@ def _write_csv(path: Path, rows) -> None:
         "N",
         "gap_mm",
         "highest_tier",
+        "loss_W",
+        "temp_C",
         "loss_t1_W",
         "temp_t1_C",
         "cost_t1_USD",
         "loss_t2_W",
+        "temp_t2_C",
+        "loss_t3_W",
+        "temp_t3_C",
+        "L_t3_uH",
+        "Bpk_t3_T",
+        "loss_t4_W",
+        "temp_t4_C",
+        "L_t4_uH",
     ]
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="") as fp:
@@ -382,18 +435,38 @@ def _emit_pretty(payload: dict) -> None:
     click.echo(f"workers     {payload['config']['workers']}")
     click.echo(f"top-N       {payload['n_top']} candidates")
     click.echo("")
+    # The "tier" column shows which tier the loss / temp number
+    # came from so the user knows whether they're reading a
+    # Tier-1 analytical answer or a Tier-4 FEA-corrected one.
     click.echo(
-        "rank  core                       material              wire   N    loss W   temp °C"
+        "rank  core                       material              wire   N    loss W   temp °C  tier"
     )
-    click.echo("-" * 92)
+    click.echo("-" * 99)
     for i, r in enumerate(payload["top"], start=1):
-        loss = r["loss_t1_W"]
-        temp = r["temp_t1_C"]
+        loss = r.get("loss_W") if r.get("loss_W") is not None else r["loss_t1_W"]
+        temp = r.get("temp_C") if r.get("temp_C") is not None else r["temp_t1_C"]
+        tier_badge = _tier_badge_for_row(r)
         click.echo(
             f"{i:4d}  {(r['core_id'] or '')[:24]:24s}  "
             f"{(r['material_id'] or '')[:20]:20s}  "
             f"{(r['wire_id'] or '')[:6]:6s}  "
             f"{r['N']:>3}  "
             f"{(f'{loss:.2f}' if loss is not None else '—'):>7}  "
-            f"{(f'{temp:.0f}' if temp is not None else '—'):>7}"
+            f"{(f'{temp:.0f}' if temp is not None else '—'):>7}  "
+            f"{tier_badge:>4}"
         )
+
+
+def _tier_badge_for_row(row: dict) -> str:
+    """Mirror of :func:`...ui.workspace.cascade_page._tier_badge`
+    over a JSON row dict — names the tier that produced the
+    displayed Loss W / temp °C cell."""
+    if row.get("loss_t4_W") is not None:
+        return "T4"
+    if row.get("loss_t3_W") is not None:
+        return "T3"
+    if row.get("loss_t2_W") is not None:
+        return "T2"
+    if row.get("loss_t1_W") is not None:
+        return "T1"
+    return "—"

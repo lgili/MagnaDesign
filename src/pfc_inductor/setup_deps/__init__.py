@@ -18,14 +18,18 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from pfc_inductor.setup_deps.femmt_config import (
-    read_configured_onelab,
+    read_configured_onelab as read_configured_onelab,
+)
+from pfc_inductor.setup_deps.femmt_config import (
     write_femmt_config,
 )
 from pfc_inductor.setup_deps.onelab import (
     codesign_macos,
     default_onelab_dir,
     download_onelab,
-    is_onelab_installed,
+)
+from pfc_inductor.setup_deps.onelab import (
+    is_onelab_installed as is_onelab_installed,
 )
 from pfc_inductor.setup_deps.platform_info import (
     PlatformInfo,

@@ -14,6 +14,7 @@ be a flat line at 0.99.
 
 Theme-aware via ``on_theme_changed``.
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -29,6 +30,7 @@ from pfc_inductor.ui.theme import get_theme, on_theme_changed
 def _figure_imports():
     from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as Canvas
     from matplotlib.figure import Figure
+
     return Canvas, Figure
 
 
@@ -39,13 +41,11 @@ class PFInductanceChart(QWidget):
         super().__init__(parent)
         Canvas, Figure = _figure_imports()
         p = get_theme().palette
-        self._fig = Figure(figsize=(5.4, 2.8), dpi=100,
-                            facecolor=p.surface, tight_layout=True)
+        self._fig = Figure(figsize=(5.4, 2.8), dpi=100, facecolor=p.surface, tight_layout=True)
         self._ax_pf = self._fig.add_subplot(1, 1, 1)
         self._ax_S = self._ax_pf.twinx()
         self._canvas = Canvas(self._fig)
-        self.setSizePolicy(QSizePolicy.Policy.Expanding,
-                            QSizePolicy.Policy.Expanding)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
         v = QVBoxLayout(self)
         v.setContentsMargins(0, 0, 0, 0)
@@ -59,9 +59,9 @@ class PFInductanceChart(QWidget):
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
-    def update_from_design(self, result: DesignResult, spec: Spec,
-                            core: Core, wire: Wire,
-                            material: Material) -> None:
+    def update_from_design(
+        self, result: DesignResult, spec: Spec, core: Core, wire: Wire, material: Material
+    ) -> None:
         self._last = (spec, result)
         self._render()
 
@@ -88,9 +88,13 @@ class PFInductanceChart(QWidget):
             ax.set_xticks([])
             ax.set_yticks([])
         self._ax_pf.text(
-            0.5, 0.5, message,
-            ha="center", va="center",
-            color=p.text_muted, fontsize=10,
+            0.5,
+            0.5,
+            message,
+            ha="center",
+            va="center",
+            color=p.text_muted,
+            fontsize=10,
             transform=self._ax_pf.transAxes,
         )
         self._canvas.draw_idle()
@@ -141,8 +145,7 @@ class PFInductanceChart(QWidget):
                 spine.set_visible(True)
                 spine.set_color(p.border)
 
-        ax_pf.plot(L_plot, PF_arr, color=p.accent, linewidth=1.8,
-                    label=f"PF ({spec.topology})")
+        ax_pf.plot(L_plot, PF_arr, color=p.accent, linewidth=1.8, label=f"PF ({spec.topology})")
         ax_pf.set_xlabel(f"Inductance L [{L_unit}]", color=p.text)
         ax_pf.set_ylabel("Power factor [—]", color=p.accent)
         ax_pf.set_ylim(0.5, 1.02)
@@ -150,20 +153,29 @@ class PFInductanceChart(QWidget):
         ax_pf.tick_params(axis="y", colors=p.accent)
         ax_pf.grid(True, alpha=0.25, color=p.border)
 
-        ax_S.plot(L_plot, S_arr / 1000.0, color=p.danger,
-                    linewidth=1.4, linestyle="--",
-                    label="Apparent power S")
+        ax_S.plot(
+            L_plot,
+            S_arr / 1000.0,
+            color=p.danger,
+            linewidth=1.4,
+            linestyle="--",
+            label="Apparent power S",
+        )
         ax_S.set_ylabel("Apparent power S [kVA]", color=p.danger)
         ax_S.tick_params(axis="y", colors=p.danger)
         if S_arr.size:
             ax_S.set_ylim(bottom=0, top=float(S_arr.max() / 1000.0) * 1.15)
 
         # Mark the design point.
-        ax_pf.axvline(L_design_plot, color=p.success, linestyle=":",
-                       linewidth=1.4, alpha=0.85,
-                       label=f"Design L = {L_design_plot:.2f} {L_unit}")
-        ax_pf.plot([L_design_plot], [PF_design], "o",
-                     color=p.success, markersize=7, zorder=6)
+        ax_pf.axvline(
+            L_design_plot,
+            color=p.success,
+            linestyle=":",
+            linewidth=1.4,
+            alpha=0.85,
+            label=f"Design L = {L_design_plot:.2f} {L_unit}",
+        )
+        ax_pf.plot([L_design_plot], [PF_design], "o", color=p.success, markersize=7, zorder=6)
 
         # Combined legend so the PF and S traces share one box —
         # placed in the upper-left so it sits opposite the design
@@ -172,8 +184,11 @@ class PFInductanceChart(QWidget):
         h_pf, l_pf = ax_pf.get_legend_handles_labels()
         h_S, l_S = ax_S.get_legend_handles_labels()
         leg = ax_pf.legend(
-            h_pf + h_S, l_pf + l_S,
-            loc="lower right", fontsize=8, framealpha=0.9,
+            h_pf + h_S,
+            l_pf + l_S,
+            loc="lower right",
+            fontsize=8,
+            framealpha=0.9,
         )
         leg.get_frame().set_facecolor(p.surface)
         leg.get_frame().set_edgecolor(p.border)
@@ -182,6 +197,7 @@ class PFInductanceChart(QWidget):
 
         self._fig.suptitle(
             f"PF = {PF_design:.2f}  ·  S = {S_design / 1000.0:.1f} kVA",
-            fontsize=10, color=p.text,
+            fontsize=10,
+            color=p.text,
         )
         self._canvas.draw_idle()

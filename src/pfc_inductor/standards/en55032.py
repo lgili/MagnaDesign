@@ -93,7 +93,6 @@ def limit_dbuv(
         return float("inf")
 
     rows = _LIMIT_TABLE[class_]
-    qp_idx = 2 if detector == "QP" else 3
 
     for f_lo, f_hi, qp_dbuv, av_dbuv in rows:
         if f_lo <= frequency_Hz <= f_hi:

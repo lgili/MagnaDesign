@@ -307,12 +307,8 @@ def compare(d: DatasheetReactor) -> dict:
     r = design(spec, core, wire, mat)
 
     print(f"=== {d.model}  ({d.core_label}, silicon {d.silicon_grade}) ===")
-    print(
-        f"  spec:  V=220 Vrms · I={d.I_rated_A} A · L=10 mH · %Z = {spec.pct_impedance:.2f}"
-    )
-    print(
-        f"  core:  Ae={d.Ae_mm2} mm²  le={d.le_mm} mm  Wa={d.Wa_mm2} mm²  MLT={d.MLT_mm} mm"
-    )
+    print(f"  spec:  V=220 Vrms · I={d.I_rated_A} A · L=10 mH · %Z = {spec.pct_impedance:.2f}")
+    print(f"  core:  Ae={d.Ae_mm2} mm²  le={d.le_mm} mm  Wa={d.Wa_mm2} mm²  MLT={d.MLT_mm} mm")
 
     # Engine Rdc at 25 °C (the comparable basis to datasheet's "max").
     # The engine itself reports Rdc at T_winding, which is hotter — so
