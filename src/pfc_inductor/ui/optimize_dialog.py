@@ -146,15 +146,24 @@ class OptimizerEmbed(QWidget):
         self._cores = list(cores)
         self._wires = list(wires)
         # Hand the topology-filtered catalogue to the filter bar.
-        # ``current_material_id`` is *not* preselected on the chip —
-        # the engineer's intent is "consider this material now", not
-        # "exclude every other material from the sweep". Single-select
-        # behaviour can still be reproduced by manually checking only
-        # one row in the popup.
         self.filters_bar.set_catalogs(
             self._materials, self._cores, self._wires,
         )
+        # Pre-select the project's current material so the default
+        # sweep is narrow (~1 material × its compatible cores × all
+        # wires). Without this seed the chip would default to the
+        # wildcard "All N materials" and hitting Run would launch a
+        # full N×M×K combinatorial sweep — with the current 470
+        # material / 10 k core / 1 k wire catalogue that's billions
+        # of evaluations and locks the worker thread for hours. Users
+        # who genuinely want a wide search can clear the chip and add
+        # whatever subset they like.
+        if current_material_id:
+            self.filters_bar.chip_materials.set_selected(
+                [current_material_id],
+            )
         self.btn_run.setEnabled(True)
+        self._refresh_estimate()
         if not self._results:
             self.lbl_count.setText(
                 "Ready — pick filters and an objective, then click "
@@ -177,6 +186,10 @@ class OptimizerEmbed(QWidget):
         self.filters_bar.objective_changed.connect(
             lambda _key: self._refresh_table(),
         )
+        # The estimate label tracks chip selection too — refresh on
+        # any filter change so the user always sees what they're
+        # about to run before they click.
+        self.filters_bar.filters_changed.connect(self._refresh_estimate)
         v.addWidget(self.filters_bar)
 
         # ---- Secondary toggles + run button -----------------------
@@ -198,10 +211,25 @@ class OptimizerEmbed(QWidget):
             "the OpenMagnetics catalog — avoids rankings dominated by "
             "entries without Steinmetz/rolloff calibration.",
         )
+        self.chk_compat.stateChanged.connect(self._refresh_estimate)
         h.addWidget(self.chk_compat)
         h.addWidget(self.chk_feasible)
         h.addWidget(self.chk_curated_only)
         h.addStretch(1)
+
+        # Cardinality estimate — surfaces the "this run will evaluate
+        # ~N combinations" reality before the user clicks Run, so
+        # they don't kick off a 6-billion-combo sweep by accident.
+        # Refreshed on any filter / compat-toggle change.
+        self.lbl_estimate = QLabel("")
+        self.lbl_estimate.setProperty("role", "muted")
+        self.lbl_estimate.setToolTip(
+            "Approximate number of (material × core × wire) "
+            "combinations the sweep will evaluate. Sweeping the full "
+            "catalogue can take many minutes and tens of GB of RAM —\n"
+            "narrow the chips above to keep runtime sane.",
+        )
+        h.addWidget(self.lbl_estimate)
 
         self.btn_run = QPushButton("Run sweep")
         self.btn_run.setStyleSheet("font-weight: bold; padding: 4px 10px;")
@@ -292,9 +320,82 @@ class OptimizerEmbed(QWidget):
         h.addWidget(self.btn_apply)
         return h
 
+    # Above this many evaluations the sweep stops being interactive
+    # (minutes of CPU + GBs of RAM). We confirm with the user before
+    # launching so they don't lock up the app by accident. The
+    # baseline single-material run is ~65 k combinations
+    # (1 material × ~45 compatible cores × ~1.4 k wires) so we set
+    # the threshold above that — multi-material sweeps cross the
+    # bar and trigger the dialog.
+    _SWEEP_CONFIRM_THRESHOLD = 250_000
+
+    def _estimate_combinations(self) -> int:
+        """Best-effort estimate of (material × core × wire) cardinality.
+
+        Used by both the inline label and the run-time confirmation
+        dialog. Honours the ``Restrict to compatible cores`` toggle:
+        when on we count only the cores whose ``default_material_id``
+        matches at least one selected material, which is the same
+        rule ``sweep()`` applies internally.
+        """
+        try:
+            mats = self.filters_bar.selected_materials()
+            cores = self.filters_bar.selected_cores()
+            wires = self.filters_bar.selected_wires()
+        except AttributeError:
+            return 0
+
+        n_wires = len(wires)
+        if not mats or not cores or not n_wires:
+            return 0
+
+        if self.chk_compat.isChecked():
+            mat_ids = {m.id for m in mats}
+            compat_cores = sum(
+                1 for c in cores
+                if getattr(c, "default_material_id", None) in mat_ids
+            )
+            return compat_cores * n_wires
+        return len(mats) * len(cores) * n_wires
+
+    def _refresh_estimate(self) -> None:
+        n = self._estimate_combinations()
+        if n == 0:
+            self.lbl_estimate.setText("Filters reject every candidate.")
+            return
+        if n >= self._SWEEP_CONFIRM_THRESHOLD:
+            self.lbl_estimate.setText(
+                f"≈ {n:,} combinations · <b>large run</b>",
+            )
+        else:
+            self.lbl_estimate.setText(f"≈ {n:,} combinations")
+
     def _run_sweep(self):
         if self._thread is not None and self._thread.isRunning():
             return
+
+        # Confirm before launching anything that will take minutes /
+        # GBs. The threshold is conservative (≈50 k combos = a few
+        # seconds on a modern CPU); above it the worker thread blocks
+        # interactivity and the process pool can leak semaphores if
+        # the user hits Cancel.
+        n_estimate = self._estimate_combinations()
+        if n_estimate >= self._SWEEP_CONFIRM_THRESHOLD:
+            from PySide6.QtWidgets import QMessageBox
+            reply = QMessageBox.question(
+                self, "Large sweep",
+                f"This will evaluate roughly <b>{n_estimate:,}</b> "
+                f"combinations.\n\n"
+                f"That can take several minutes and noticeable RAM. "
+                f"Narrow the Materials / Cores / Wires chips above "
+                f"to keep things interactive.\n\n"
+                f"Continue anyway?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+
         self.btn_run.setEnabled(False)
         self.progress.setValue(0)
         only_compat = self.chk_compat.isChecked()
