@@ -198,6 +198,21 @@ def _resolve_verbosity(ft, prefer: tuple[str, ...]) -> object:
     return next(iter(members.values()))
 
 
+# How high N has to be before we expect gmsh to choke on the
+# winding-conductor primitives. The user hit a hard crash at
+# N = 121 (each turn becomes a separate geometric loop, so a
+# 121-turn coil generates 100+ subloops in a single curve loop and
+# overwhelms gmsh's mesher). Designs above this threshold get a
+# clean "skipped" message instead of a native crash.
+_FEMMT_MAX_TURNS_FOR_FEA = 80
+
+# Default time budget for a FEMMT validation run. The cascade tier 4
+# spawns one validation per top candidate, so a generous timeout
+# (4 min) avoids killing healthy runs on slower laptops while
+# still bounding pathological cases.
+_FEMMT_DEFAULT_TIMEOUT_S = 240
+
+
 def validate_design_femmt(
     spec: Spec,
     core: Core,
@@ -205,9 +220,37 @@ def validate_design_femmt(
     material: Material,
     result: DesignResult,
     output_dir: Optional[Path] = None,
-    timeout_s: int = 300,
+    timeout_s: int = _FEMMT_DEFAULT_TIMEOUT_S,
 ) -> FEAValidation:
-    """End-to-end FEMMT validation. Raises FEMMNotAvailable / FEMMSolveError."""
+    """End-to-end FEMMT validation, isolated in a subprocess.
+
+    Why subprocess: gmsh + getdp can hard-crash (SIGSEGV) on complex
+    geometries — high turn counts, ill-conditioned meshes — and a
+    crash inside FEMMT's C extensions takes the whole Python process
+    down with it. Running the actual validation in a subprocess
+    confines the blast radius: a segfault dies in the child, the
+    parent recovers and raises a clean ``FEMMSolveError`` instead of
+    closing the GUI / crashing the cascade optimiser.
+
+    Three early-bail paths happen *before* spawning the subprocess
+    (cheap):
+
+    - ``setuptools ≥ 70`` (no ``pkg_resources``) → ``FEMMNotAvailable``.
+    - FEMMT importable but ``MagneticComponent`` missing → ``FEMMNotAvailable``.
+    - ONELAB folder + ``getdp`` / ``gmsh`` binaries not configured
+      → ``FEMMSolveError``.
+    - ``N > _FEMMT_MAX_TURNS_FOR_FEA`` → ``FEMMSolveError`` with a
+      polite "FEA skipped" note. We don't even try; gmsh will
+      crash on the geometry, and the cascade should mark the
+      candidate as FEA-skipped rather than burning seconds on a
+      doomed run.
+
+    The actual FEMMT call (the slow, crash-prone part) runs in
+    ``_validate_design_femmt_inproc`` inside a ``multiprocessing``
+    spawn-context subprocess.
+
+    Raises ``FEMMNotAvailable`` / ``FEMMSolveError``.
+    """
     _install_no_space_femmt_shim()
     # FEMMT 0.5.x imports ``pkg_resources`` from its top-level
     # ``functions.py``, but recent setuptools (≥ 70) removed
@@ -268,6 +311,165 @@ def validate_design_femmt(
             f"correctly configured.\n\n{diag['message']}\n\n"
             f"{config_hint}"
         )
+
+    # Bail before spawning the subprocess if the design is past
+    # gmsh's safe geometric-complexity ceiling. Each winding turn
+    # becomes a separate geometric primitive (curve loop), and gmsh
+    # crashes hard on coils above ~80–100 turns.
+    if result.N_turns > _FEMMT_MAX_TURNS_FOR_FEA:
+        raise FEMMSolveError(
+            f"FEA skipped: N = {result.N_turns} turns exceeds the "
+            f"safe gmsh ceiling of {_FEMMT_MAX_TURNS_FOR_FEA} turns "
+            "(each turn is a separate curve loop in the FE geometry; "
+            "gmsh segfaults on dense coils). The analytic engine's "
+            "results stand on their own — FEA cross-check is "
+            "unavailable for this design.\n\n"
+            "Workarounds: reduce N (target a higher-AL core), or "
+            "switch to the legacy FEMM backend (toroid only) which "
+            "models the winding as a bulk current region."
+        )
+
+    return _run_validation_in_subprocess(
+        spec, core, wire, material, result,
+        output_dir=output_dir, timeout_s=timeout_s,
+    )
+
+
+def _run_validation_in_subprocess(
+    spec: Spec, core: Core, wire: Wire, material: Material,
+    result: DesignResult, *,
+    output_dir: Optional[Path] = None,
+    timeout_s: int = _FEMMT_DEFAULT_TIMEOUT_S,
+) -> FEAValidation:
+    """Spawn a subprocess that runs ``_validate_design_femmt_inproc``
+    and stream the result back through a queue.
+
+    The subprocess uses the ``spawn`` start method explicitly:
+
+    - macOS prohibits ``fork`` after the Qt event loop has started
+      (the user runs FEA from a Qt worker thread; ``fork`` here
+      either deadlocks or crashes with ``ObjC[…]: +initialized``
+      errors).
+    - ``spawn`` re-imports ``femmt`` cleanly, which means every
+      validation gets a fresh native state — no carry-over of
+      gmsh's internal mesh tables across runs.
+
+    A native segfault inside the subprocess surfaces as a non-zero
+    ``exitcode``; a hung gmsh hits the timeout and gets terminated.
+    Either way the parent catches it and raises ``FEMMSolveError``
+    instead of crashing.
+    """
+    import multiprocessing as mp
+
+    ctx = mp.get_context("spawn")
+    queue: "mp.Queue" = ctx.Queue()
+    proc = ctx.Process(
+        target=_validation_subprocess_entry,
+        args=(spec, core, wire, material, result, output_dir, queue),
+        daemon=False,
+    )
+    proc.start()
+    proc.join(timeout=timeout_s)
+    if proc.is_alive():
+        proc.terminate()
+        proc.join(timeout=10)
+        if proc.is_alive():
+            proc.kill()
+            proc.join()
+        raise FEMMSolveError(
+            f"FEMMT validation timed out after {timeout_s} s. "
+            "gmsh / getdp probably got stuck on a complex mesh "
+            "(high turn count or unusual aspect ratios). "
+            "The cascade optimiser keeps the analytic result; "
+            "FEA cross-check is not available for this candidate."
+        )
+    if proc.exitcode != 0:
+        raise FEMMSolveError(
+            "FEMMT validation crashed natively in the subprocess "
+            f"(exit code {proc.exitcode}). This is almost always a "
+            "gmsh / getdp segfault on complex geometry — high turn "
+            "counts, very small air gaps, or window aspect ratios "
+            "the mesher can't tessellate. The parent process "
+            "recovered; you can keep using the app. The cascade "
+            "optimiser will mark this candidate as FEA-skipped."
+        )
+    if queue.empty():
+        raise FEMMSolveError(
+            "FEMMT validation produced no result and no error — "
+            "the subprocess died silently. Re-run; if it persists "
+            "switch to the legacy FEMM backend (toroid only)."
+        )
+    kind, payload = queue.get(timeout=1.0)
+    if kind == "ok":
+        return payload
+    # Subprocess raised a Python exception; surface it as the
+    # appropriate runner exception type.
+    exc_name, exc_message = payload
+    if exc_name == "FEMMNotAvailable":
+        raise FEMMNotAvailable(exc_message)
+    raise FEMMSolveError(
+        f"FEMMT subprocess error: {exc_name}: {exc_message}"
+    )
+
+
+def _validation_subprocess_entry(
+    spec, core, wire, material, result, output_dir, queue,
+):
+    """Subprocess target — runs the in-proc FEMMT validation and
+    sends the result (or exception) back through the queue.
+
+    Lives at module top-level (not nested) so ``spawn`` can pickle
+    it. We catch every exception, never let one propagate — the
+    parent process reads the result via the queue, and an
+    unhandled exception in the child would just silently drop the
+    result.
+    """
+    try:
+        v = _validate_design_femmt_inproc(
+            spec, core, wire, material, result,
+            output_dir=output_dir,
+        )
+        queue.put(("ok", v))
+    except Exception as e:  # noqa: BLE001 — bridge to parent.
+        queue.put(("error", (type(e).__name__, str(e))))
+
+
+def _validate_design_femmt_inproc(
+    spec: Spec,
+    core: Core,
+    wire: Wire,
+    material: Material,
+    result: DesignResult,
+    output_dir: Optional[Path] = None,
+    timeout_s: int = _FEMMT_DEFAULT_TIMEOUT_S,
+) -> FEAValidation:
+    """In-process FEMMT validation. Use ``validate_design_femmt``
+    instead — that wraps this in a subprocess to survive gmsh
+    segfaults.
+
+    Re-runs the import / integrity prechecks (cheap; idempotent) so
+    the subprocess sees the same FEMMT module state as the parent.
+    """
+    _install_no_space_femmt_shim()
+    try:
+        import pkg_resources  # noqa: F401 — probe import only
+    except ImportError as e:
+        raise FEMMNotAvailable(
+            "FEMMT depends on `pkg_resources`, which was removed "
+            "from setuptools ≥ 70. Pin setuptools with: "
+            '`uv pip install "setuptools<70"`.\n\n'
+            f"Underlying error: {type(e).__name__}: {e}"
+        ) from e
+    try:
+        import femmt as ft
+    except Exception as e:
+        raise FEMMNotAvailable(
+            f"FEMMT could not be imported in subprocess: "
+            f"{type(e).__name__}: {e}"
+        ) from e
+    integrity = _femmt_integrity_check(ft)
+    if not integrity["ok"]:
+        raise FEMMNotAvailable(integrity["message"])
 
     kind = infer_shape(core)
     with _silence_signal_in_worker_thread():
