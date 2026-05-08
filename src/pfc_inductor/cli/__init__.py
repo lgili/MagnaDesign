@@ -37,6 +37,7 @@ from pfc_inductor.cli.exit_codes import EXIT_CODES, ExitCode
 # adding a new subcommand is "drop the file + import here".
 from pfc_inductor.cli import design as _design_cmd
 from pfc_inductor.cli import sweep as _sweep_cmd
+from pfc_inductor.cli import worst_case as _worst_case_cmd
 
 __all__ = [
     "cli",
@@ -80,6 +81,7 @@ def cli() -> None:
 # Register every subcommand module on the group.
 _design_cmd.register(cli)
 _sweep_cmd.register(cli)
+_worst_case_cmd.register(cli)
 
 
 # Names of registered subcommands. Used by ``__main__.main`` to

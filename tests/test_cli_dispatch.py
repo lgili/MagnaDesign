@@ -140,7 +140,10 @@ def test_design_runs_engine_on_valid_project(
     result = cli_runner.invoke(cli, ["design", str(project_path)])
     assert result.exit_code == 0, result.output
 
-    payload = json.loads(result.output)
+    # ``result.stdout`` (not ``output``) gives just the stdout
+    # bytes; ``output`` mixes any stderr that the subcommand
+    # printed for progress reporting.
+    payload = json.loads(result.stdout)
     # Schema check: every headline key is present.
     expected_keys = {
         "project", "topology", "selection",

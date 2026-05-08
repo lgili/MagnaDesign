@@ -52,8 +52,11 @@
       on `add-manufacturing-spec-export`).
 - [ ] `magnadesign compliance PROJECT.pfc --region EU --out FILE.pdf`
       (depends on `add-compliance-report-pdf`).
-- [ ] `magnadesign worst-case PROJECT.pfc --tolerances FILE
-       --out summary.csv` (depends on `add-worst-case-tolerance-doe`).
+- [x] `magnadesign worst-case PROJECT.pfc [--tolerances FILE]
+       [--samples N --seed S --yield-threshold PCT --csv OUT
+        --pretty/--json]` — runs the corner DOE + Monte-Carlo,
+       prints the per-metric worst corner + yield + verdict.
+       Exit codes: ``0`` PASS, ``3`` WORST_CASE_FAIL.
 - [ ] `magnadesign report PROJECT.pfc --out DIR/` — convenience:
       datasheet + mfg-spec + compliance into one directory.
 
