@@ -111,6 +111,17 @@ def register(group: click.Group) -> None:
     help="Write the top-N as CSV (one row per candidate).",
 )
 @click.option(
+    "--band-aware/--nominal-only",
+    default=False,
+    show_default=True,
+    help="When set AND the project's spec carries an "
+         "``fsw_modulation`` band, re-rank the printed top-N by "
+         "worst-case loss across the band. Substitutes "
+         "loss_t1_W / temp_t1_C with the band-worst value. "
+         "Adds ~5× the engine time per candidate (band points + 1 "
+         "lookup), affordable for top-N=25 typical.",
+)
+@click.option(
     "--pretty/--json",
     default=False,
     help="Render summary as a key-value table (--pretty) or as "
@@ -129,6 +140,7 @@ def _cascade_cmd(
     top: int,
     rank_key: str,
     csv_path: Optional[Path],
+    band_aware: bool,
     pretty: bool,
 ) -> int:
     """Run the multi-tier cascade on PROJECT_FILE.
@@ -243,6 +255,27 @@ def _cascade_cmd(
         run_id, n=top,
         order_by=_RANK_TO_COLUMN[rank_key],
     )
+
+    # Band-aware re-rank — opt-in + only meaningful when the
+    # spec carries an ``fsw_modulation`` field. The helper is
+    # a no-op when the spec is single-point, so the flag is
+    # safe to leave on in CI scripts.
+    if band_aware and loaded.spec.fsw_modulation is not None:
+        from pfc_inductor.optimize.cascade.band_aware import (
+            band_aware_rerank,
+        )
+        click.echo(
+            f"band-aware re-rank: re-evaluating top-{len(rows)} "
+            f"across {loaded.spec.fsw_modulation.n_eval_points} "
+            f"fsw points...",
+            err=True,
+        )
+        rows = band_aware_rerank(
+            rows, loaded.spec,
+            cores_by_id={c.id: c for c in loaded.cores},
+            wires_by_id={w.id: w for w in loaded.wires},
+            materials_by_id={m.id: m for m in eligible_materials},
+        )
 
     payload = {
         "run_id":     run_id,
