@@ -207,6 +207,60 @@ def _harmonic_plot(spec: Spec, result: DesignResult) -> Optional[str]:
 
 
 # ---------------------------------------------------------------------------
+# Revision history — even when only the current rev exists, a labelled
+# slot for it sets the expectation that future revs will append. The
+# datasheet keeps the same P/N across revs (P/N hashes spec + core +
+# material; identical inputs produce the same hash) so any change
+# the engineer makes is obvious in the history table.
+# ---------------------------------------------------------------------------
+def _revision_history_rows(revision: str, designer: str,
+                            now: str) -> str:
+    head = (
+        '<thead><tr>'
+        '<th class="lbl">Rev</th>'
+        '<th>Date</th>'
+        '<th>Author</th>'
+        '<th>Change</th>'
+        '</tr></thead>'
+    )
+    rows: list[tuple[str, str, str, str]] = [
+        (revision, now, designer, "Initial release of this design"),
+    ]
+    body = "".join(
+        f'<tr><td class="lbl">{escape(rv)}</td>'
+        f'<td>{escape(d)}</td>'
+        f'<td>{escape(a)}</td>'
+        f'<td>{escape(ch)}</td></tr>'
+        for (rv, d, a, ch) in rows
+    )
+    return f'<table class="dim">{head}<tbody>{body}</tbody></table>'
+
+
+# ---------------------------------------------------------------------------
+# Project metadata footer — the engineer needs to be able to re-open
+# the design six months later. Without QR code support (would add a
+# new dep), we emit a structured metadata block: P/N hash, source file
+# format, exact spec/core/material keys. Anyone wanting to reproduce
+# the design feeds those four ids back into MagnaDesign.
+# ---------------------------------------------------------------------------
+def _project_metadata_rows(spec: Spec, core: Core, material: Material,
+                            wire: Wire, pn: str) -> str:
+    rows = {
+        "Project P/N (this design)":  f"<code>{pn}</code>",
+        "Topology key":               f"<code>{escape(spec.topology)}</code>",
+        "Material id":                f"<code>{escape(material.id)}</code>",
+        "Core id":                    f"<code>{escape(core.id)}</code>",
+        "Wire id":                    f"<code>{escape(wire.id)}</code>",
+        "Source format":              ".pfc (JSON, MagnaDesign)",
+        "Reproduce in MagnaDesign":
+            "Open the .pfc file or recreate the spec with the four "
+            "ids above; the engine is deterministic given the same "
+            "spec + core + material + wire.",
+    }
+    return _kv_table(rows, extra_class="dim")
+
+
+# ---------------------------------------------------------------------------
 # B–H operating-point trajectory — same plot the dashboard's BHLoopCard
 # already builds, rendered to PNG so the printed datasheet carries it.
 # ---------------------------------------------------------------------------
@@ -1181,6 +1235,8 @@ def generate_datasheet(
         '<h3>B–H trajectory at operating point</h3>'
         f'<img src="data:image/png;base64,{bh_plot}" />'
     ) if bh_plot else ""
+    revision_table = _revision_history_rows(revision, designer, now)
+    metadata_table = _project_metadata_rows(spec, core, material, wire, pn)
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -1292,6 +1348,16 @@ def generate_datasheet(
 
   <h2>Engineering Notes</h2>
   <div class="note">{escape(result.notes or '—')}</div>
+
+  <h2>Revision History</h2>
+  {revision_table}
+
+  <h2>Project Metadata</h2>
+  <p class="note" style="margin-top:0;">Identifiers needed to
+  reproduce this design in MagnaDesign. The engine is
+  deterministic — feeding the four ids below back into the same
+  topology recovers an identical result.</p>
+  {metadata_table}
 
   <h2>Disclaimer</h2>
   <div class="note">
