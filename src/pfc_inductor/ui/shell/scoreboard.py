@@ -2,11 +2,11 @@
 
 Layout (left → right):
 
-    ● Salvo · v0.2 Pro     L=376 µH · B=360 mT · ΔT=60 °C · η=97 %     [Recalcular ⌘R]
+    ● Saved · v0.2 Pro     L=376 µH · B=360 mT · ΔT=60 °C · η=97 %     [Recalculate ⌘R]
 
 The KPI strip in the centre is the user's *constant scoreboard* —
 they always know whether the design is sane without switching tabs.
-The Recalcular icon button on the right is bound to ``Ctrl+R`` so the
+The Recalculate icon button on the right is bound to ``Ctrl+R`` so the
 inner-loop action is one chord away from anywhere in the workspace.
 """
 from __future__ import annotations
@@ -72,7 +72,7 @@ class Scoreboard(QFrame):
         h.setSpacing(12)
 
         # ---- left: save status -----------------------------------------
-        self._save_label = QLabel("● Pronto")
+        self._save_label = QLabel("● Ready")
         h.addWidget(self._save_label, 0, Qt.AlignmentFlag.AlignVCenter)
 
         self._selection_label = QLabel("")
@@ -84,7 +84,7 @@ class Scoreboard(QFrame):
         self._kpi.setAlignment(Qt.AlignmentFlag.AlignCenter)
         h.addWidget(self._kpi, 1, Qt.AlignmentFlag.AlignVCenter)
 
-        # The visible Recalcular button on the scoreboard was the
+        # The visible Recalculate button on the scoreboard was the
         # third instance of the same action (header CTA + drawer CTA +
         # this one). Hidden in the P1 cleanup pass — the header's
         # Primary button and the Ctrl+R shortcut below cover the
@@ -180,21 +180,21 @@ class Scoreboard(QFrame):
     # ------------------------------------------------------------------
     def _refresh_save_text(self) -> None:
         if self._unsaved:
-            self._save_label.setText("● Alterações não salvas")
+            self._save_label.setText("● Unsaved changes")
         elif self._last_saved_at is None:
-            self._save_label.setText("● Pronto")
+            self._save_label.setText("● Ready")
         else:
             delta = datetime.now() - self._last_saved_at
             seconds = int(delta.total_seconds())
             if seconds < 60:
-                self._save_label.setText("● Salvo agora")
+                self._save_label.setText("● Saved just now")
             elif seconds < 3600:
-                self._save_label.setText(f"● Salvo há {seconds // 60} min")
+                self._save_label.setText(f"● Saved {seconds // 60} min ago")
             elif seconds < 86_400:
-                self._save_label.setText(f"● Salvo há {seconds // 3600} h")
+                self._save_label.setText(f"● Saved {seconds // 3600} h ago")
             else:
                 self._save_label.setText(
-                    f"● Salvo em {self._last_saved_at:%d/%m %H:%M}",
+                    f"● Saved on {self._last_saved_at:%Y-%m-%d %H:%M}",
                 )
         self._refresh_save_label_qss()
 

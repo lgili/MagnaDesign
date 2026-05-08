@@ -1,11 +1,11 @@
 """Bottom application status bar.
 
 Layout (left → right):
-- Save-status indicator: green dot + "Projeto salvo há N min"
-  (or amber + "Alterações não salvas").
+- Save-status indicator: green dot + "Project saved N min ago"
+  (or amber + "Unsaved changes").
 - Spacer.
-- Three pill counters: ``N Avisos`` (warning), ``N Erros`` (danger),
-  ``N Validações`` (success). Zero counts switch to the neutral pill so
+- Three pill counters: ``N Warnings`` (warning), ``N Errors`` (danger),
+  ``N Validations`` (success). Zero counts switch to the neutral pill so
   a fresh design does not scream colour.
 
 The widget is a ``QFrame`` (not a ``QStatusBar``) so it can host pill
@@ -93,9 +93,9 @@ class BottomStatusBar(QFrame):
         h.addStretch(1)
 
         # ---- right: 3 pills --------------------------------------------
-        self._pill_warnings = _PillCounter("{n} Avisos", "warning")
-        self._pill_errors = _PillCounter("{n} Erros", "danger")
-        self._pill_validations = _PillCounter("{n} Validações", "success")
+        self._pill_warnings = _PillCounter("{n} Warnings", "warning")
+        self._pill_errors = _PillCounter("{n} Errors", "danger")
+        self._pill_validations = _PillCounter("{n} Validations", "success")
         for p in (self._pill_warnings, self._pill_errors, self._pill_validations):
             h.addWidget(p, 0, Qt.AlignmentFlag.AlignVCenter)
 
@@ -141,7 +141,7 @@ class BottomStatusBar(QFrame):
         self._last_saved_at = last_saved_at
         self._unsaved_state = unsaved
         if unsaved:
-            self._save_label.setText("● Alterações não salvas")
+            self._save_label.setText("● Unsaved changes")
             self._save_label.setStyleSheet(self._save_label_qss(saved=False))
         else:
             self._save_label.setStyleSheet(self._save_label_qss(saved=True))
@@ -184,20 +184,20 @@ class BottomStatusBar(QFrame):
 
     def _refresh_save_text(self) -> None:
         if self._last_saved_at is None:
-            self._save_label.setText("● Pronto")
+            self._save_label.setText("● Ready")
             return
         delta = datetime.now() - self._last_saved_at
         seconds = int(delta.total_seconds())
         if seconds < 60:
-            txt = "● Projeto salvo agora"
+            txt = "● Project saved just now"
         elif seconds < 3600:
             mins = seconds // 60
-            txt = f"● Projeto salvo há {mins} min"
+            txt = f"● Project saved {mins} min ago"
         elif seconds < 86_400:
             hours = seconds // 3600
-            txt = f"● Projeto salvo há {hours} h"
+            txt = f"● Project saved {hours} h ago"
         else:
-            txt = f"● Salvo em {self._last_saved_at:%d/%m %H:%M}"
+            txt = f"● Saved on {self._last_saved_at:%Y-%m-%d %H:%M}"
         self._save_label.setText(txt)
 
     @staticmethod

@@ -20,9 +20,9 @@ def app():
 def test_status_bar_initial_zero_counts_use_neutral_pill(app):
     from pfc_inductor.ui.shell import BottomStatusBar
     sb = BottomStatusBar()
-    assert sb.warnings_text() == "0 Avisos"
-    assert sb.errors_text() == "0 Erros"
-    assert sb.validations_text() == "0 Validações"
+    assert sb.warnings_text() == "0 Warnings"
+    assert sb.errors_text() == "0 Errors"
+    assert sb.validations_text() == "0 Validations"
     assert sb.warnings_variant() == "neutral"
     assert sb.errors_variant() == "neutral"
     assert sb.validations_variant() == "neutral"
@@ -32,7 +32,7 @@ def test_status_bar_warnings_pill_switches_to_warning_when_above_zero(app):
     from pfc_inductor.ui.shell import BottomStatusBar
     sb = BottomStatusBar()
     sb.set_warnings(2)
-    assert sb.warnings_text() == "2 Avisos"
+    assert sb.warnings_text() == "2 Warnings"
     assert sb.warnings_variant() == "warning"
 
 
@@ -40,7 +40,7 @@ def test_status_bar_errors_pill_uses_danger_when_above_zero(app):
     from pfc_inductor.ui.shell import BottomStatusBar
     sb = BottomStatusBar()
     sb.set_errors(1)
-    assert sb.errors_text() == "1 Erros"
+    assert sb.errors_text() == "1 Errors"
     assert sb.errors_variant() == "danger"
 
 
@@ -48,7 +48,7 @@ def test_status_bar_validations_pill_uses_success_when_above_zero(app):
     from pfc_inductor.ui.shell import BottomStatusBar
     sb = BottomStatusBar()
     sb.set_validations(12)
-    assert sb.validations_text() == "12 Validações"
+    assert sb.validations_text() == "12 Validations"
     assert sb.validations_variant() == "success"
 
 
@@ -64,4 +64,4 @@ def test_status_bar_save_label_unsaved(app):
     from pfc_inductor.ui.shell import BottomStatusBar
     sb = BottomStatusBar()
     sb.set_save_status(unsaved=True)
-    assert "não salvas" in sb._save_label.text().lower()
+    assert "unsaved" in sb._save_label.text().lower()

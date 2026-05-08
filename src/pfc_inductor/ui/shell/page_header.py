@@ -1,23 +1,23 @@
 """Generic header for non-workspace pages.
 
-Three of the four sidebar destinations — Otimizador, Catálogo,
-Configurações — are read/edit pages, not the rich workspace that
-Projeto is. They each rolled their own ``QLabel(title) + QLabel(intro)``
+Three of the four sidebar destinations — Optimizer, Catalog,
+Settings — are read/edit pages, not the rich workspace that
+Project is. They each rolled their own ``QLabel(title) + QLabel(intro)``
 pair, with subtly different paddings and weights, and that
 inconsistency was visible when navigating between them.
 
 ``WorkspacePageHeader`` standardises the chrome so all three look
 like siblings:
 
-- Fixed 56 px height (matches ``WorkspaceHeader.HEIGHT`` on Projeto
+- Fixed 56 px height (matches ``WorkspaceHeader.HEIGHT`` on Project
   so the top edge lines up across areas).
 - Title (``title_md`` semibold) + subtitle (``caption`` muted)
   stacked at the left.
 - Right-side stretch hosts an optional CTA list.
-- Border-bottom separator from the body, same as Projeto's header.
+- Border-bottom separator from the body, same as Project's header.
 
 The original ``WorkspaceHeader`` (with editable project name + 3 CTAs
-+ save pill) stays distinct on Projeto — Projeto **is** a workspace,
++ save pill) stays distinct on Project — Project **is** a workspace,
 not a page, and earns the richer chrome.
 """
 from __future__ import annotations

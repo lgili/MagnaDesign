@@ -39,10 +39,10 @@ def test_sidebar_lists_cascade_entry():
     ids = {entry[0] for entry in SIDEBAR_AREAS}
     assert "cascade" in ids
     cascade_entry = next(e for e in SIDEBAR_AREAS if e[0] == "cascade")
-    # Label has read "Otimizador profundo" / "Otimizador completo"
-    # across UI revs — we just need *some* "otimizador" wording so
-    # the user recognises the destination from the sidebar.
-    assert "otimizador" in cascade_entry[1].lower()
+    # Label is "Full optimizer" — we just need *some* "optimizer"
+    # wording so the user recognises the destination from the
+    # sidebar, regardless of the modifier ("full"/"complete"/etc).
+    assert "optimizer" in cascade_entry[1].lower()
 
 
 # ─── MainWindow mount ──────────────────────────────────────────

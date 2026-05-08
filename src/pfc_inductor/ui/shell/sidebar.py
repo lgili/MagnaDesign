@@ -42,39 +42,39 @@ from pfc_inductor.ui.theme import SIDEBAR, get_theme
 # Canonical nav definition
 # ---------------------------------------------------------------------------
 
-# (area_id, label, lucide_icon_name)
+# (area_id, label, lucide_icon_name, tooltip)
 #
 # v3: 4 real destinations. The legacy 8-area split was just navigating
 # back to subsets of the dashboard — extra clicks for less information.
-# The Projeto area now hosts the entire design workspace (SpecDrawer +
-# Design/Validar/Exportar tabs); the other three areas are first-class
+# The Project area now hosts the entire design workspace (SpecDrawer +
+# Design/Validate/Export tabs); the other three areas are first-class
 # tools that used to be hidden in the overflow menu.
 #
 # ``area_id`` keys are kept stable for ``QSettings`` compatibility:
-# - ``dashboard`` → display label "Projeto" (ID preserved so saved
+# - ``dashboard`` → display label "Project" (ID preserved so saved
 #   geometry / state survives the rename)
 # 4-tuple: (area_id, label, icon, tooltip). Tooltips disambiguate the
-# two optimizer entries — without them, "Otimizador profundo" is
-# internal jargon that pushes a casual user toward the wrong choice.
+# two optimizer entries — without them, "Full optimizer" is internal
+# jargon that pushes a casual user toward the wrong choice.
 SIDEBAR_AREAS: tuple[tuple[str, str, str, str], ...] = (
-    ("dashboard",     "Projeto",     "layout-dashboard",
-     "Workspace principal — spec, seleção, análise, validação e exportação."),
-    ("otimizador",    "Otimizador",  "sliders",
-     "Sweep Pareto rápido (≈ 30 s) — perdas × volume × custo."),
-    ("cascade",       "Otimizador completo", "layers",
-     "Otimização multi-tier com transitório RK4 e validação FEM "
-     "(≈ 5–15 min). Use quando precisar do design final defensável."),
-    ("catalogo",      "Catálogo",    "database",
-     "Edite materiais, núcleos e fios. Importa do OpenMagnetics MAS."),
-    ("configuracoes", "Configurações", "cog",
-     "Tema, FEA, Litz e informações do projeto."),
+    ("dashboard",     "Project",     "layout-dashboard",
+     "Main workspace — spec, selection, analysis, validation and export."),
+    ("otimizador",    "Optimizer",   "sliders",
+     "Fast Pareto sweep (≈ 30 s) — losses × volume × cost."),
+    ("cascade",       "Full optimizer", "layers",
+     "Multi-tier optimization with RK4 transient and FEM validation "
+     "(≈ 5–15 min). Use when you need the defensible final design."),
+    ("catalogo",      "Catalog",     "database",
+     "Edit materials, cores and wires. Imports from OpenMagnetics MAS."),
+    ("configuracoes", "Settings",    "cog",
+     "Theme, FEA, Litz and project information."),
 )
 
 # Overflow menu — kept lean for the few tools that don't deserve a
 # sidebar slot but need a discoverable home anyway.
 OVERFLOW_ACTIONS: tuple[tuple[str, str, str], ...] = (
-    ("compare", "Comparar designs", "compare"),
-    ("about",   "Sobre",            "info"),
+    ("compare", "Compare designs", "compare"),
+    ("about",   "About",            "info"),
 )
 
 
@@ -87,7 +87,7 @@ class Sidebar(QFrame):
 
     Width was 250 px; trimmed to 220 to give the workspace ~30 px of
     extra horizontal real estate on laptop viewports without the nav
-    labels truncating (longest is "Configurações" at ~98 px @ 13 px).
+    labels truncating (longest is "Full optimizer" at ~110 px @ 13 px).
     """
 
     navigation_requested = Signal(str)        # area_id
@@ -316,5 +316,5 @@ class Sidebar(QFrame):
             ui_icon(name, color=SIDEBAR.text, size=16)
         )
         self._btn_theme.setToolTip(
-            "Tema claro" if self._dark_theme else "Tema escuro"
+            "Light theme" if self._dark_theme else "Dark theme"
         )

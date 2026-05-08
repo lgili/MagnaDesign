@@ -2,11 +2,11 @@
 
 Contents (left → right):
 - Editable project-name field with a pencil edit affordance.
-- "Salvo" / "Não salvo" pill that reflects ``WorkflowState.unsaved``.
+- "Saved" / "Unsaved" pill that reflects ``WorkflowState.unsaved``.
 - Spacer.
-- Secondary CTA: "Comparar soluções".
-- Secondary CTA: "Gerar Relatório".
-- Primary CTA: "Recalcular" — main loop action; users hit it after
+- Secondary CTA: "Compare solutions".
+- Secondary CTA: "Generate report".
+- Primary CTA: "Recalculate" — main loop action; users hit it after
   any spec change because auto-recalc is intentionally off (see
   ``MainWindow._auto_calc``). One primary per surface, by design.
 """
@@ -74,8 +74,8 @@ class WorkspaceHeader(QFrame):
         self._btn_pencil.setIconSize(QSize(16, 16))
         self._btn_pencil.setFixedSize(28, 28)
         self._btn_pencil.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._btn_pencil.setToolTip("Renomear projeto")
-        self._btn_pencil.setAccessibleName("Renomear projeto")
+        self._btn_pencil.setToolTip("Rename project")
+        self._btn_pencil.setAccessibleName("Rename project")
         self._btn_pencil.setStyleSheet(
             "QToolButton { background: transparent; border: 0;"
             " border-radius: 6px; padding: 4px; }"
@@ -89,13 +89,13 @@ class WorkspaceHeader(QFrame):
         self._name_edit.mouseDoubleClickEvent = self._on_name_double_click
 
         # ---- save-status pill ------------------------------------------
-        self._status_pill = QLabel("● Salvo")
+        self._status_pill = QLabel("● Saved")
         self._status_pill.setProperty("class", "Pill")
         self._status_pill.setProperty("pill", "success")
         self._apply_dynamic_property_refresh(self._status_pill)
 
         # ---- right: CTA buttons ----------------------------------------
-        self._btn_compare = QPushButton("Comparar soluções")
+        self._btn_compare = QPushButton("Compare solutions")
         self._btn_compare.setProperty("class", "Secondary")
         self._btn_compare.setIcon(
             ui_icon("compare", color=get_theme().palette.text, size=16)
@@ -105,10 +105,10 @@ class WorkspaceHeader(QFrame):
         self._btn_compare.clicked.connect(self.compare_requested.emit)
         self._apply_dynamic_property_refresh(self._btn_compare)
 
-        self._btn_report = QPushButton("Gerar Relatório")
-        # Demoted from Primary → Secondary so "Recalcular" can hold the
+        self._btn_report = QPushButton("Generate report")
+        # Demoted from Primary → Secondary so "Recalculate" can hold the
         # single Primary slot. Report is a one-shot end-of-flow action;
-        # Recalcular is the inner-loop action the engineer hits dozens
+        # Recalculate is the inner-loop action the engineer hits dozens
         # of times per session.
         self._btn_report.setProperty("class", "Secondary")
         self._btn_report.setIcon(
@@ -119,7 +119,7 @@ class WorkspaceHeader(QFrame):
         self._btn_report.clicked.connect(self.report_requested.emit)
         self._apply_dynamic_property_refresh(self._btn_report)
 
-        self._btn_recalc = QPushButton("Recalcular")
+        self._btn_recalc = QPushButton("Recalculate")
         self._btn_recalc.setProperty("class", "Primary")
         self._btn_recalc.setIcon(
             ui_icon("refresh", color=get_theme().palette.text_inverse, size=16)
@@ -127,7 +127,7 @@ class WorkspaceHeader(QFrame):
         self._btn_recalc.setIconSize(QSize(16, 16))
         self._btn_recalc.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_recalc.setShortcut("Ctrl+R")
-        self._btn_recalc.setToolTip("Recalcular o design (Ctrl+R)")
+        self._btn_recalc.setToolTip("Recalculate the design (Ctrl+R)")
         self._btn_recalc.clicked.connect(self.recalculate_requested.emit)
         self._apply_dynamic_property_refresh(self._btn_recalc)
 
@@ -173,15 +173,15 @@ class WorkspaceHeader(QFrame):
         self._unsaved_state = unsaved
         self._last_saved_at = last_saved_at
         if unsaved:
-            self._status_pill.setText("● Não salvo")
+            self._status_pill.setText("● Unsaved")
             self._status_pill.setProperty("pill", "warning")
-            self._status_pill.setToolTip("Há alterações não salvas")
+            self._status_pill.setToolTip("There are unsaved changes")
         else:
-            self._status_pill.setText("● Salvo")
+            self._status_pill.setText("● Saved")
             self._status_pill.setProperty("pill", "success")
-            tip = "Projeto salvo"
+            tip = "Project saved"
             if last_saved_at is not None:
-                tip += f" em {last_saved_at:%H:%M}"
+                tip += f" at {last_saved_at:%H:%M}"
             self._status_pill.setToolTip(tip)
         self._apply_dynamic_property_refresh(self._status_pill)
 

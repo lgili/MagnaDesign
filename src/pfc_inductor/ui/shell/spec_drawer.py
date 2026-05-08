@@ -44,7 +44,7 @@ _EXPANDED_WIDTH = 360
 # Collapsed width trimmed 44 → 24 — when the drawer is folded the only
 # affordance the user needs is the chevron to expand it again. The
 # previous 44 px column doubled as a rail of 5 shortcut icons (topology
-# / entrada AC / conversor / térmico / seleção) which duplicated
+# / AC input / converter / thermal / selection) which duplicated
 # functions already in the spec form *and* visually competed with the
 # 220 px sidebar one column to its left, creating a "two-sidebars" look.
 _COLLAPSED_WIDTH = 24
@@ -79,7 +79,7 @@ class SpecDrawer(QFrame):
         h.setContentsMargins(14, 10, 8, 10)
         h.setSpacing(8)
 
-        self._title = QLabel("Especificação")
+        self._title = QLabel("Specification")
         self._title.setProperty("role", "title")
         self._toggle_btn = QToolButton()
         self._toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -110,8 +110,8 @@ class SpecDrawer(QFrame):
             ui_icon("git-branch", color=get_theme().palette.text, size=14)
         )
         self._btn_change_topo.setToolTip(
-            "Topologia atual — clique para alterar (abre o seletor "
-            "com pré-visualização do esquemático).",
+            "Current topology — click to change (opens the picker "
+            "with schematic preview).",
         )
         self._btn_change_topo.clicked.connect(self.topology_change_requested.emit)
         tr.addWidget(self._btn_change_topo, 1)
@@ -150,20 +150,20 @@ class SpecDrawer(QFrame):
     # ------------------------------------------------------------------
     @staticmethod
     def _topology_button_label(topology: str, n_phases: int = 1) -> str:
-        """Pretty label for the Alterar-Topologia button.
+        """Pretty label for the Change-Topology button.
 
         Centralised so the picker dialog's options and this row read
         the same set of names — see ``topology_picker_choices()`` for
         the canonical English labels.
         """
         if topology == "boost_ccm":
-            return "Topologia: PFC ativo (boost CCM)"
+            return "Topology: Active PFC (boost CCM)"
         if topology == "passive_choke":
-            return "Topologia: Choke passivo"
+            return "Topology: Passive choke"
         if topology == "line_reactor":
             phase_label = "3φ" if n_phases == 3 else "1φ"
-            return f"Topologia: Reator de linha {phase_label}"
-        return f"Topologia: {topology}"
+            return f"Topology: Line reactor {phase_label}"
+        return f"Topology: {topology}"
 
     def _on_spec_topology_changed(self, topology: str, n_phases: int) -> None:
         self._btn_change_topo.setText(
