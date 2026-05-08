@@ -88,12 +88,13 @@ Drop-in `@numba.njit` decorator on the hot functions. **Real
 benchmark on the 600 W boost-PFC reference, MacBook M1:**
 
 ```text
-(0) ALL Numba OFF (pure numpy):      0.185 ms/call  →  5 401 cand/s
+(0) ALL Numba OFF (pure numpy):     0.207 ms/call  →  4 831 cand/s
 (1) 5 per-leaf kernels:              0.098 ms/call  → 10 203 cand/s   (1.89×)
-(2) Fused thermal-converge kernel:   0.072 ms/call  → 13 858 cand/s   (2.57×)
+(2) Fused thermal-converge:          0.072 ms/call  → 13 858 cand/s   (2.57×)
+(3) + boost_ccm waveforms + RMS:     0.058 ms/call  → 17 217 cand/s   (3.56×)
 ```
 
-The 6 kernels live in:
+The 8 kernels live in:
 
 - `physics/core_loss.py` — iGSE time-average + Steinmetz scalar
 - `physics/dowell.py` — Rac_over_Rdc_round + Rac_over_Rdc_litz
@@ -102,12 +103,17 @@ The 6 kernels live in:
   thermal-converge block (6 iterations × 5 leaf calls) into one
   Numba kernel that runs in compiled native code without ever
   returning to Python
+- `topology/boost_ccm.py` — waveforms() builder (200-pt
+  trig-and-multiply array) + rms_inductor_current_A() mean
+  reduction. Replaces 6 numpy ufunc dispatches per design with
+  a single compiled loop, recovering the ~36 % of time the
+  fused kernel didn't reach.
 
 For a typical cascade sweep (1 M candidates × 4-core parallel
 pool):
 
-- Before Numba: 1 M / (5 401 × 4) = **~46 s**
-- After Numba:  1 M / (13 858 × 4) = **~18 s**
+- Before Numba: 1 M / (4 831 × 4) = **~52 s**
+- After Numba:  1 M / (17 217 × 4) = **~14 s**
 
 Saved 28 s per million candidates per run. The per-leaf kernels
 alone (1.89×) are the conservative win; the fused kernel (1.36×
@@ -115,8 +121,8 @@ on top of that) is the cherry.
 
 Cost:
 
-- 6 `@njit(fastmath=True, cache=True)` decorators (~150 LOC of
-  factory + kernel code total).
+- 8 `@njit(fastmath=True, cache=True, nogil=True)` decorators
+  (~250 LOC of factory + kernel code total).
 - ~50 MB Numba+LLVM in the PyInstaller bundle (+8 % on the
   current 620 MB), gated behind the `[performance]` extra so
   users on disk-constrained PCs can opt out.

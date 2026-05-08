@@ -256,6 +256,86 @@ def test_fused_kernel_matches_per_leaf_path() -> None:
     assert abs(res_fused.T_winding_C - res_leaf.T_winding_C) < 0.5
 
 
+def test_boost_ccm_waveforms_kernel_loads() -> None:
+    from pfc_inductor.topology import boost_ccm
+
+    assert boost_ccm._WAVEFORMS_KERNEL is not None
+    assert boost_ccm._RMS_KERNEL is not None
+
+
+def test_boost_ccm_waveforms_kernel_matches_numpy() -> None:
+    """The Numba waveforms kernel must produce arrays
+    bit-equivalent to the original numpy path. Tests every
+    output array (t, iL_avg, delta_iL, iL_pk, iL_min, vin_inst,
+    duty) at < 1e-9 absolute tolerance — no fastmath reorder
+    can introduce more than that on a 200-pt array of
+    elementary trig + multiplications."""
+    import numpy as np
+
+    from pfc_inductor.models import Spec
+    from pfc_inductor.topology import boost_ccm
+
+    spec = Spec(
+        topology="boost_ccm",
+        Pout_W=600,
+        Vin_min_Vrms=85,
+        Vin_max_Vrms=265,
+        Vout_V=400,
+        f_sw_kHz=65,
+        ripple_pct=20,
+        T_amb_C=40,
+    )
+    L_uH = 763.0  # representative for the 600 W reference design
+    Vin = 85.0
+
+    # Numba path.
+    wf_nb = boost_ccm.waveforms(spec, Vin, L_uH)
+    # Pure-numpy path.
+    saved_w = boost_ccm._WAVEFORMS_KERNEL
+    boost_ccm._WAVEFORMS_KERNEL = None
+    try:
+        wf_py = boost_ccm.waveforms(spec, Vin, L_uH)
+    finally:
+        boost_ccm._WAVEFORMS_KERNEL = saved_w
+
+    for key in ("t_s", "iL_avg_A", "delta_iL_pp_A", "iL_pk_A",
+                "iL_min_A", "vin_inst_V", "duty"):
+        diff = np.max(np.abs(np.asarray(wf_nb[key]) - np.asarray(wf_py[key])))
+        assert diff < 1e-9, (
+            f"waveforms kernel parity broken on {key!r}: max Δ = {diff:.3e}"
+        )
+
+
+def test_boost_ccm_rms_kernel_matches_numpy() -> None:
+    """The hand-rolled mean in the RMS kernel must match
+    ``np.mean`` exactly on the same arrays."""
+    from pfc_inductor.models import Spec
+    from pfc_inductor.topology import boost_ccm
+
+    spec = Spec(
+        topology="boost_ccm",
+        Pout_W=600,
+        Vin_min_Vrms=85,
+        Vin_max_Vrms=265,
+        Vout_V=400,
+        f_sw_kHz=65,
+        ripple_pct=20,
+        T_amb_C=40,
+    )
+    wf = boost_ccm.waveforms(spec, 85.0, 763.0)
+    rms_nb = boost_ccm.rms_inductor_current_A(wf)
+    saved_r = boost_ccm._RMS_KERNEL
+    boost_ccm._RMS_KERNEL = None
+    try:
+        rms_py = boost_ccm.rms_inductor_current_A(wf)
+    finally:
+        boost_ccm._RMS_KERNEL = saved_r
+    assert abs(rms_nb - rms_py) < 1e-9, (
+        f"RMS kernel parity broken: {rms_nb} vs {rms_py} (Δ = "
+        f"{abs(rms_nb - rms_py):.3e})"
+    )
+
+
 def test_solve_n_kernel_returns_n_max_when_unsolvable() -> None:
     """If the requested L can't be reached even at N = N_max, the
     kernel returns N_max with the corresponding L (the engine's

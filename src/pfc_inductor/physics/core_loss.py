@@ -79,7 +79,7 @@ def _build_steinmetz_kernel():
     except ImportError:
         return None
 
-    @njit(fastmath=True, cache=True)
+    @njit(fastmath=True, cache=True, nogil=True)
     def _kernel(f_kHz, B_pk_mT, Pv_ref, f_ref_kHz, B_ref_mT, alpha, beta):
         f = f_kHz if f_kHz > 1e-3 else 1e-3
         B = B_pk_mT if B_pk_mT > 1e-6 else 1e-6
@@ -162,7 +162,7 @@ def _build_numba_kernel():
 
     from numba import njit
 
-    @njit(fastmath=True, cache=True)
+    @njit(fastmath=True, cache=True, nogil=True)
     def _kernel(arr, Pv_ref, f_factor, B_ref_mT, beta):
         n = arr.shape[0]
         if n == 0:

@@ -126,7 +126,7 @@ def _build_solve_n_kernel():
     except ImportError:
         return None
 
-    @njit(fastmath=True, cache=True)
+    @njit(fastmath=True, cache=True, nogil=True)
     def _kernel(
         L_required_uH,
         AL_nH,

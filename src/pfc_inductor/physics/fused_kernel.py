@@ -66,7 +66,7 @@ def _build_fused_kernel():
     except ImportError:
         return None
 
-    @njit(fastmath=True, cache=True)
+    @njit(fastmath=True, cache=True, nogil=True)
     def _kernel(
         # Thermal solver setup
         T_amb_C,

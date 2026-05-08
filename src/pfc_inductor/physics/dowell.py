@@ -135,7 +135,7 @@ def _build_round_kernel():
     except ImportError:
         return None
 
-    @njit(fastmath=True, cache=True)
+    @njit(fastmath=True, cache=True, nogil=True)
     def _round(d_cu_m, f_Hz, layers, T_C):
         if f_Hz <= 0.0 or d_cu_m <= 0.0:
             return 1.0
@@ -179,7 +179,7 @@ def _build_litz_kernel():
     except ImportError:
         return None
 
-    @njit(fastmath=True, cache=True)
+    @njit(fastmath=True, cache=True, nogil=True)
     def _litz(d_strand_m, n_strands, f_Hz, layers_bundle, T_C):
         if d_strand_m <= 0.0 or f_Hz <= 0.0:
             return 1.0

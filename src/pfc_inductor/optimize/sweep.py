@@ -7,6 +7,27 @@ Two modes:
 
 Returns SweepResult objects sorted by user-chosen score (default: P_total).
 Computes Pareto front across (volume, total loss) for visualization.
+
+Performance
+-----------
+
+The per-candidate ``engine.design()`` call runs at
+~17 000 cand/s on a single core thanks to the Numba kernel
+stack (see ``docs/PERFORMANCE.md``). For typical UI sweeps
+(500-2 500 candidates) a sequential pass finishes in 30-150 ms,
+so the OptimizerDialog stays responsive without process-pool
+parallelism overhead.
+
+For very large sweeps (≥ 50 000 candidates) use the cascade
+orchestrator instead — it already parallelises Tier 1 across a
+process pool and persists results to SQLite for resume.
+
+Threading was investigated and **does not help** here: even
+though the Numba kernels are decorated with ``nogil=True``,
+the surrounding ``engine.design()`` body is GIL-bound (Pydantic
+validation, dict lookups, attribute access on Spec / Core /
+Wire / Material), so a ``ThreadPoolExecutor`` over candidates
+produces no measurable speedup.
 """
 
 from __future__ import annotations
@@ -102,6 +123,16 @@ def sweep(
     If `material_id` is given, only that material is considered.
     `only_compatible_cores=True` filters to cores whose default_material_id
     matches the candidate material.
+
+    Sequential by design. The Numba kernel stack pushes
+    ``engine.design()`` to ~17 000 cand/s on a single core, so a
+    typical 2 500-candidate sweep finishes in 150 ms — fast
+    enough that adding a process pool's 500 ms-per-worker spawn
+    cost would be a net regression. Threads don't help either:
+    ``engine.design()`` is GIL-bound outside the Numba kernels
+    (Pydantic + dict lookups). For very large sweeps (≥ 50 000
+    candidates) use the cascade orchestrator instead — it
+    parallelises Tier 1 across a process pool by design.
     """
     cores_list = list(cores)
     wires_list = [w for w in wires if not only_round_wires or w.type == "round"]
@@ -129,10 +160,10 @@ def sweep(
                 done += 1
                 if r is None:
                     continue
-                # Drop unsolved designs (engine couldn't fit L within
-                # N_max) — they always look catastrophically infeasible
-                # because B is huge and Ku >> 100 %. Reporting them as
-                # "infeasible candidates" misleads the user.
+                # Drop unsolved designs (engine couldn't fit L
+                # within N_max). They always look catastrophically
+                # infeasible (B huge, Ku >> 100 %); reporting them
+                # as "infeasible candidates" misleads the user.
                 if not _is_solvable(r):
                     continue
                 sr = SweepResult(core, wire, material, r)
