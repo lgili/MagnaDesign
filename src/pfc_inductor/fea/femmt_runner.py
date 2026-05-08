@@ -161,7 +161,7 @@ def _equivalent_air_gap_m(core, material) -> float:
     import math
 
     mu_0 = 4.0 * math.pi * 1e-7
-    AL_H = max(core.AL_nH, 1e-3) * 1e-9        # nH → H per N²
+    AL_H = max(core.AL_nH, 1e-3) * 1e-9  # nH → H per N²
     Ae_m2 = max(core.Ae_mm2, 1e-6) * 1e-6
     le_m = max(core.le_mm, 1e-3) * 1e-3
     mu_r = max(material.mu_initial, 1.0)
