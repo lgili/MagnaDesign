@@ -227,7 +227,16 @@ class SpecPanel(QWidget):
         self._n_phases = int(n_phases) if n_phases in (1, 3) else 1
         self._n_interleave = int(n_interleave) if n_interleave in (2, 3) else 2
         self._apply_topology_visibility()
-        self.topology_changed.emit(self._topology, self._n_phases)
+        # The signal carries a single "count" int that is interpreted
+        # per-topology by listeners: ``n_phases`` for line_reactor and
+        # ``n_interleave`` for interleaved_boost_pfc; 1 otherwise.
+        if self._topology == "line_reactor":
+            count_for_label = self._n_phases
+        elif self._topology == "interleaved_boost_pfc":
+            count_for_label = self._n_interleave
+        else:
+            count_for_label = 1
+        self.topology_changed.emit(self._topology, count_for_label)
         self.changed.emit()
 
     def _apply_topology_visibility(self) -> None:

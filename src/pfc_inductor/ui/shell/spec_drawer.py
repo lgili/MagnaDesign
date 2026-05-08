@@ -160,6 +160,13 @@ class SpecDrawer(QFrame):
         """
         if topology == "boost_ccm":
             return "Topology: Active PFC (boost CCM)"
+        if topology == "interleaved_boost_pfc":
+            n_il = int(n_phases) if n_phases in (2, 3) else 2
+            return f"Topology: Interleaved boost PFC ({n_il}φ)"
+        if topology == "buck_ccm":
+            return "Topology: Buck CCM (sync DC-DC)"
+        if topology == "flyback":
+            return "Topology: Flyback (DCM/CCM)"
         if topology == "passive_choke":
             return "Topology: Passive choke"
         if topology == "line_reactor":
