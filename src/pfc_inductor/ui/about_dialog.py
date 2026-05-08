@@ -36,7 +36,7 @@ class AboutDialog(QDialog):
 
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
-        self.setWindowTitle("About PFC Inductor Designer")
+        self.setWindowTitle("About MagnaDesign")
         self.resize(960, 620)
 
         outer = QVBoxLayout(self)
@@ -53,9 +53,13 @@ class AboutDialog(QDialog):
         v.setContentsMargins(12, 8, 12, 12)
         v.setSpacing(6)
 
-        title = QLabel("PFC Inductor Designer")
+        title = QLabel("MagnaDesign")
         title.setProperty("role", "title")
         v.addWidget(title)
+
+        tagline = QLabel("Topology-aware desktop suite for inductor design")
+        tagline.setProperty("role", "muted")
+        v.addWidget(tagline)
 
         sub = QLabel(f"version {__version__}")
         sub.setProperty("role", "muted")

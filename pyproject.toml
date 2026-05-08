@@ -1,7 +1,13 @@
 [project]
-name = "pfc-inductor-designer"
+# Distribution name renamed from ``pfc-inductor-designer`` to
+# ``magnadesign`` as the app outgrew its original PFC-only scope and
+# now covers active boost-CCM, passive chokes, and 1φ/3φ line
+# reactors. The Python package name remains ``pfc_inductor`` to avoid
+# a mass-rename of import sites; the ``magnadesign`` CLI entry point
+# below is the new public name.
+name = "magnadesign"
 version = "0.1.0"
-description = "Desktop tool for designing PFC inductors (active boost CCM and passive line choke) for refrigerator-compressor inverters"
+description = "MagnaDesign — topology-aware desktop suite for inductor design across PFC, passive chokes, and line reactors"
 readme = "README.md"
 requires-python = ">=3.11,<3.13"  # FEMMT 0.5.x bounds upper end at 3.12
 dependencies = [
@@ -35,6 +41,13 @@ fea = [
 ]
 
 [project.scripts]
+# New canonical entry points — match the MagnaDesign brand.
+magnadesign = "pfc_inductor.__main__:main"
+magnadesign-setup = "pfc_inductor.setup_deps.cli:main"
+# Back-compat aliases — kept so muscle-memory and any external
+# wrapper scripts (Windows shortcuts, makefiles) keep working
+# during the rename. Safe to drop in a future release once
+# downstream callers have migrated.
 pfc-inductor = "pfc_inductor.__main__:main"
 pfc-inductor-setup = "pfc_inductor.setup_deps.cli:main"
 

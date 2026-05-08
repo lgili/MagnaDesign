@@ -1,8 +1,8 @@
 # UI guide — MagnaDesign v3
 
-This document is the working reference for the Qt-side of the
-PFC Inductor Designer. Read it before adding a card, a workspace
-page, or a 3D viewer overlay.
+This document is the working reference for the Qt side of
+MagnaDesign. Read it before adding a card, a workspace page, or a
+3D viewer overlay.
 
 The companion module-level docstrings stay authoritative for fine
 details; this file ties them together.

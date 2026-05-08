@@ -1,4 +1,4 @@
-# Positioning — PFC Inductor Designer
+# Positioning — MagnaDesign
 
 > Sumário humano da matriz de diferenciais. A versão executável vive em
 > `src/pfc_inductor/positioning.py` e o `tests/test_positioning.py`

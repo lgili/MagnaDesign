@@ -207,7 +207,7 @@ def generate_html_report(
 <body>
 
 <h1>{escape(title)}</h1>
-<p class="meta">Generated on {now} by PFC Inductor Designer · Status: {feasible_html}</p>
+<p class="meta">Generated on {now} by MagnaDesign · Status: {feasible_html}</p>
 
 {warnings_html}
 

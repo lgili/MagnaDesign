@@ -1,4 +1,4 @@
-"""Design tokens for the PFC Inductor Designer UI.
+"""Design tokens for the MagnaDesign UI.
 
 Two themes (light/dark) sharing the same semantic structure. Every UI module
 imports from here — no hard-coded colours elsewhere.

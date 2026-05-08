@@ -1,14 +1,14 @@
 <p align="center">
-  <img src="img/logo.png" alt="Inductor Designer" width="220" />
+  <img src="img/logo.png" alt="MagnaDesign" width="220" />
 </p>
 
-# Inductor Designer
+# MagnaDesign
 
 > Topology-aware desktop application for inductor design in power-electronics
 > converters — calibrated physics, multi-objective optimization, and FEA
 > validation in a single workflow.
 
-Inductor Designer takes a converter specification and produces a
+MagnaDesign takes a converter specification and produces a
 manufacturable inductor design. It selects turns, picks a feasible
 material/core/wire combination, evaluates the operating point against
 real physics (DC-bias permeability rolloff, iGSE core loss, Dowell AC
@@ -99,15 +99,17 @@ capabilities. Items marked *Planned* live on the roadmap.
 ```bash
 uv venv --python 3.12
 uv pip install -e ".[dev,fea]"
-pfc-inductor-setup        # downloads ONELAB and configures the FEA backend
-uv run pfc-inductor       # launches the application
+magnadesign-setup        # downloads ONELAB and configures the FEA backend
+uv run magnadesign       # launches the application
 ```
 
-`pfc-inductor-setup` is idempotent and platform-aware. On the first
+`magnadesign-setup` is idempotent and platform-aware. On the first
 launch the application detects a missing FEA backend and offers the
-same dialog. Run `pfc-inductor-setup --check` to verify the
-environment without writing anything. Manual install steps are in
-[`docs/fea-install.md`](docs/fea-install.md).
+same dialog. Run `magnadesign-setup --check` to verify the environment
+without writing anything. Manual install steps are in
+[`docs/fea-install.md`](docs/fea-install.md). The legacy
+`pfc-inductor` / `pfc-inductor-setup` aliases are kept as back-compat
+shims for existing scripts.
 
 > Python 3.12 is required because the FEMMT 0.5.x solver does not yet
 > support 3.13. The optional `[fea]` extra pins compatible scipy and
@@ -163,7 +165,7 @@ prediction.
 Backends:
 
 - **FEMMT** (default, cross-platform) — Python wrapper around ONELAB /
-  GetDP, configured by `pfc-inductor-setup`. Native support for
+  GetDP, configured by `magnadesign-setup`. Native support for
   EE / ETD / PQ; toroids are mapped to a PQ-equivalent.
 - **FEMM / xfemm** (auto-detected when present) — preferred for
   toroids on platforms where it is installed (`brew install xfemm` on

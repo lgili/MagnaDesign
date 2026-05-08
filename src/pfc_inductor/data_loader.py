@@ -378,7 +378,7 @@ def save_materials(materials: list[Material], *, as_mas: bool = False) -> Path:
     else:
         items = [m.model_dump(mode="json") for m in materials]
     payload = {
-        "_comment": "Edited via PFC Inductor Designer DB editor.",
+        "_comment": "Edited via MagnaDesign DB editor.",
         "materials": items,
     }
     p.write_text(json.dumps(payload, indent=2, ensure_ascii=False),
@@ -398,7 +398,7 @@ def save_cores(cores: list[Core], *, as_mas: bool = False) -> Path:
     else:
         items = [c.model_dump(mode="json") for c in cores]
     payload = {
-        "_comment": "Edited via PFC Inductor Designer DB editor.",
+        "_comment": "Edited via MagnaDesign DB editor.",
         "cores": items,
     }
     p.write_text(json.dumps(payload, indent=2, ensure_ascii=False),
@@ -418,7 +418,7 @@ def save_wires(wires: list[Wire], *, as_mas: bool = False) -> Path:
     else:
         items = [w.model_dump(mode="json") for w in wires]
     payload = {
-        "_comment": "Edited via PFC Inductor Designer DB editor.",
+        "_comment": "Edited via MagnaDesign DB editor.",
         "wires": items,
     }
     p.write_text(json.dumps(payload, indent=2, ensure_ascii=False),

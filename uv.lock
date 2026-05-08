@@ -483,6 +483,60 @@ wheels = [
 ]
 
 [[package]]
+name = "magnadesign"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "matplotlib" },
+    { name = "numpy" },
+    { name = "openpyxl" },
+    { name = "pandas" },
+    { name = "platformdirs" },
+    { name = "pydantic" },
+    { name = "pyside6" },
+    { name = "pyvista" },
+    { name = "pyvistaqt" },
+    { name = "scipy" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "black" },
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "pytest-cov" },
+    { name = "ruff" },
+]
+fea = [
+    { name = "femmt" },
+    { name = "scipy" },
+    { name = "setuptools" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "black", marker = "extra == 'dev'", specifier = ">=24.0" },
+    { name = "femmt", marker = "extra == 'fea'", specifier = ">=0.5,<0.6" },
+    { name = "matplotlib", specifier = ">=3.9" },
+    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.10" },
+    { name = "numpy", specifier = ">=1.26" },
+    { name = "openpyxl", specifier = ">=3.1" },
+    { name = "pandas", specifier = ">=2.2" },
+    { name = "platformdirs", specifier = ">=4.2" },
+    { name = "pydantic", specifier = ">=2.7" },
+    { name = "pyside6", specifier = ">=6.7" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
+    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=5.0" },
+    { name = "pyvista", specifier = ">=0.47" },
+    { name = "pyvistaqt", specifier = ">=0.11" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.6" },
+    { name = "scipy", specifier = ">=1.13" },
+    { name = "scipy", marker = "extra == 'fea'", specifier = ">=1.12,<1.14" },
+    { name = "setuptools", marker = "extra == 'fea'", specifier = "<70" },
+]
+provides-extras = ["dev", "fea"]
+
+[[package]]
 name = "mako"
 version = "1.3.12"
 source = { registry = "https://pypi.org/simple" }
@@ -780,60 +834,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/5a/82/42f767fc1c1143d6f
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f1/d9/7fb5aa316bc299258e68c73ba3bddbc499654a07f151cba08f6153988714/pathspec-1.1.1-py3-none-any.whl", hash = "sha256:a00ce642f577bf7f473932318056212bc4f8bfdf53128c78bbd5af0b9b20b189", size = 57328, upload-time = "2026-04-27T01:46:07.06Z" },
 ]
-
-[[package]]
-name = "pfc-inductor-designer"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "matplotlib" },
-    { name = "numpy" },
-    { name = "openpyxl" },
-    { name = "pandas" },
-    { name = "platformdirs" },
-    { name = "pydantic" },
-    { name = "pyside6" },
-    { name = "pyvista" },
-    { name = "pyvistaqt" },
-    { name = "scipy" },
-]
-
-[package.optional-dependencies]
-dev = [
-    { name = "black" },
-    { name = "mypy" },
-    { name = "pytest" },
-    { name = "pytest-cov" },
-    { name = "ruff" },
-]
-fea = [
-    { name = "femmt" },
-    { name = "scipy" },
-    { name = "setuptools" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "black", marker = "extra == 'dev'", specifier = ">=24.0" },
-    { name = "femmt", marker = "extra == 'fea'", specifier = ">=0.5,<0.6" },
-    { name = "matplotlib", specifier = ">=3.9" },
-    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.10" },
-    { name = "numpy", specifier = ">=1.26" },
-    { name = "openpyxl", specifier = ">=3.1" },
-    { name = "pandas", specifier = ">=2.2" },
-    { name = "platformdirs", specifier = ">=4.2" },
-    { name = "pydantic", specifier = ">=2.7" },
-    { name = "pyside6", specifier = ">=6.7" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=5.0" },
-    { name = "pyvista", specifier = ">=0.47" },
-    { name = "pyvistaqt", specifier = ">=0.11" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.6" },
-    { name = "scipy", specifier = ">=1.13" },
-    { name = "scipy", marker = "extra == 'fea'", specifier = ">=1.12,<1.14" },
-    { name = "setuptools", marker = "extra == 'fea'", specifier = "<70" },
-]
-provides-extras = ["dev", "fea"]
 
 [[package]]
 name = "pillow"
