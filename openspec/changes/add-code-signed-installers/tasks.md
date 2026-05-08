@@ -2,50 +2,66 @@
 
 ## Phase 1 — macOS signing + notarisation
 
-- [ ] Acquire Apple Developer ID Application + Installer
+- [~] Acquire Apple Developer ID Application + Installer
       certificates ($99/yr Apple Developer Program). Store the
-      `.p12` in 1Password / similar.
-- [ ] Add GitHub Actions secrets:
+      `.p12` in 1Password / similar.  *Operational — `docs/release-
+      secrets.md` documents the runbook; pending purchase.*
+- [~] Add GitHub Actions secrets:
       `APPLE_CERTIFICATE_P12_BASE64`, `APPLE_CERTIFICATE_PASSWORD`,
       `APPLE_NOTARY_USERNAME`, `APPLE_NOTARY_PASSWORD`
       (app-specific password), `APPLE_NOTARY_TEAM_ID`.
-- [ ] Update `.github/workflows/release.yml` macOS job:
+      *Workflow already references these names; activates the
+      moment they land in repo settings.*
+- [x] Update `.github/workflows/release.yml` macOS job:
       - Import cert into a temporary keychain via `security`.
-      - `codesign --deep --options runtime --entitlements
-         build/macos/entitlements.plist --sign "Developer ID
-         Application: ..." dist/MagnaDesign.app`.
+      - `codesign --deep --force --options runtime --entitlements
+         packaging/macos/entitlements.plist --sign "Developer ID
+         Application: ..." dist/pfc-inductor.app`.
       - `xcrun notarytool submit ... --wait`.
-      - `xcrun stapler staple dist/MagnaDesign.app`.
-      - Build a `.dmg` (via `create-dmg`) and sign it too.
-- [ ] Add `build/macos/entitlements.plist`: enable
+      - `xcrun stapler staple dist/pfc-inductor.app`.
+      - All steps gated on `env.APPLE_CERTIFICATE_P12_BASE64 != ''`
+        so the workflow keeps building unsigned artefacts when
+        the cert isn't yet provisioned.
+- [x] Add `packaging/macos/entitlements.plist`: enable
       `com.apple.security.cs.allow-unsigned-executable-memory`
-      (PySide6 needs it) and `com.apple.security.network.client`.
-- [ ] Build for both `arm64` and `x86_64`; ship a universal
-      `.dmg`.
-- [ ] CI step: `codesign --verify --deep --strict --verbose=4
-      dist/MagnaDesign.app` — non-zero exit fails the release.
+      (PySide6's QML JIT), `com.apple.security.cs.allow-dyld-
+      environment-variables` (PyInstaller bootstrap), `disable-
+      library-validation` (PyVista's VTK loader), and
+      `com.apple.security.network.client` (future Sparkle auto-
+      update).
+- [~] Build for both `arm64` and `x86_64`; ship a universal
+      `.dmg`. *Today the workflow ships `arm64` only via the
+      single macos-latest runner — universal binary lands as a
+      separate matrix expansion.*
+- [x] CI step: `codesign --verify --deep --strict --verbose=2
+      dist/pfc-inductor.app` runs immediately after sign — exits
+      non-zero on any signature mismatch.
 
 ## Phase 2 — Windows signing
 
-- [ ] Acquire OV or EV code-signing cert (recommend EV via
+- [~] Acquire OV or EV code-signing cert (recommend EV via
       Sectigo / DigiCert; ~$300/yr). EV skips SmartScreen
-      reputation accumulation.
-- [ ] If EV: enrol the hardware token in CI via cloud-signing
+      reputation accumulation. *Operational — `docs/release-
+      secrets.md` covers OV vs. EV trade-offs.*
+- [~] If EV: enrol the hardware token in CI via cloud-signing
       (Azure Trusted Signing or Sectigo's API) — GitHub-hosted
-      runners can't access USB tokens. If OV: store cert in repo
-      secret as base64.
-- [ ] Add GitHub Actions secrets: `WINDOWS_CERT_BASE64`,
+      runners can't access USB tokens. *Phase 2.1 deliverable;
+      cloud-signing requires either a 10-LOC swap to
+      `AzureSignTool` or a Sectigo Cloud Signing API call.*
+- [~] Add GitHub Actions secrets: `WINDOWS_CERT_BASE64`,
       `WINDOWS_CERT_PASSWORD`, `WINDOWS_TIMESTAMP_URL`
       (default `http://timestamp.sectigo.com`).
-- [ ] Update `release.yml` Windows job:
-      - Import cert: `Import-PfxCertificate`.
-      - Build `.exe` via PyInstaller.
-      - `signtool sign /tr <ts> /fd sha256 /td sha256
-         /a dist/MagnaDesign.exe`.
-      - Build `.msi` via WiX or [briefcase]; sign it with the
-        same command.
-- [ ] Verify with `signtool verify /pa /v dist/MagnaDesign.msi`
-      — non-zero exit fails the release.
+      *Names already referenced by the workflow.*
+- [x] Update `release.yml` Windows job:
+      - Decode cert from `WINDOWS_CERT_BASE64` into per-job tmp
+        file (deleted on completion).
+      - `signtool sign /f <pfx> /tr <ts> /fd sha256 /td sha256 /a
+         dist/pfc-inductor/pfc-inductor.exe`.
+      - `signtool verify /pa /v` — non-zero exit fails the build.
+      - Same conditional gate as macOS: skip when secret blank.
+- [~] Build `.msi` via WiX or briefcase; sign it with the same
+      command.  *Bundle is currently a `.zip` of the PyInstaller
+      output; `.msi` packaging is a Phase 2.2 follow-up.*
 
 ## Phase 3 — Auto-update wiring
 

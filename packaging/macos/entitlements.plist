@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+      Hardened runtime entitlements for the MagnaDesign macOS .app.
+
+      The ``codesign --options runtime`` flag enables the hardened
+      runtime, which by default forbids JIT, unsigned executable
+      memory, and library validation overrides. PySide6 + PyVista +
+      matplotlib all need a few of those rights:
+
+      - ``allow-unsigned-executable-memory``: PySide6's QML engine
+        can JIT script when the app uses Qt Quick. We don't ship any
+        Qt Quick today, but the entitlement is harmless and avoids
+        a future surprise the day someone adds a QML preview.
+      - ``allow-dyld-environment-variables``: PyInstaller bootstraps
+        with DYLD_LIBRARY_PATH set; the hardened runtime would
+        otherwise strip it and the bundle's own dylibs would fail
+        to load.
+      - ``disable-library-validation``: PyVista loads VTK dylibs
+        via its own loader; without this flag the hardened runtime
+        rejects any unsigned dylib.
+      - ``network.client``: required so the in-app "Check for
+        updates" feature (Sparkle, when add-code-signed-installers
+        Phase 3 lands) can fetch the appcast.
+
+      Keep this file minimal — Apple notarisation accepts only
+      entitlements that are actually used; superfluous ones earn
+      a warning in the notarytool log.
+    -->
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+    <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+    <true/>
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+    <key>com.apple.security.network.client</key>
+    <true/>
+</dict>
+</plist>

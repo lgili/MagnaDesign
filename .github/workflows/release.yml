@@ -90,6 +90,132 @@ jobs:
         # interactive "overwrite dist/" prompt.
         run: pyinstaller --clean --noconfirm packaging/pfc-inductor.spec
 
+      # ---------- macOS: code-sign + notarise -------------------------
+      # Gated on the certificate secrets being present so a fresh
+      # checkout (without the credentials yet provisioned) still
+      # builds — the binaries just ship unsigned, exactly the
+      # current state. As soon as the four ``APPLE_*`` secrets are
+      # configured, the same tag push produces notarised artefacts
+      # without any further changes to this workflow.
+      - name: Import Apple Developer ID certificate
+        if: runner.os == 'macOS' && env.APPLE_CERTIFICATE_P12_BASE64 != ''
+        env:
+          APPLE_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD:   ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          set -e
+          # Build a throw-away keychain so the cert lives only for
+          # this job — never persisted across runs / runners.
+          KEYCHAIN_PASSWORD=$(openssl rand -hex 32)
+          KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security default-keychain -s "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 7200 "$KEYCHAIN_PATH"
+
+          CERT_PATH=$RUNNER_TEMP/devid.p12
+          echo "$APPLE_CERTIFICATE_P12_BASE64" | base64 --decode > "$CERT_PATH"
+          security import "$CERT_PATH" \
+            -k "$KEYCHAIN_PATH" \
+            -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -T /usr/bin/codesign
+
+          # Allow codesign to use the cert without prompting.
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          # Echo only the SHA1 of the imported identity, never any
+          # secret material — and only when at least one Developer
+          # ID identity is found.
+          IDENTITY_FOUND=$(security find-identity -v "$KEYCHAIN_PATH" \
+            | grep -c "Developer ID Application" || true)
+          echo "::notice::Imported $IDENTITY_FOUND Developer ID identities"
+
+      - name: Codesign macOS .app
+        if: runner.os == 'macOS' && env.APPLE_CERTIFICATE_P12_BASE64 != ''
+        env:
+          APPLE_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
+        run: |
+          set -e
+          IDENTITY=$(security find-identity -v -p codesigning \
+            | grep "Developer ID Application" \
+            | head -n 1 | awk -F\" '{print $2}')
+          if [[ -z "$IDENTITY" ]]; then
+            echo "::error::No Developer ID Application identity found"
+            exit 1
+          fi
+          codesign --deep --force \
+            --options runtime \
+            --entitlements packaging/macos/entitlements.plist \
+            --sign "$IDENTITY" \
+            --timestamp \
+            "dist/pfc-inductor.app"
+          codesign --verify --deep --strict --verbose=2 \
+            "dist/pfc-inductor.app"
+
+      - name: Notarise macOS .app
+        if: runner.os == 'macOS' && env.APPLE_NOTARY_USERNAME != ''
+        env:
+          APPLE_NOTARY_USERNAME: ${{ secrets.APPLE_NOTARY_USERNAME }}
+          APPLE_NOTARY_PASSWORD: ${{ secrets.APPLE_NOTARY_PASSWORD }}
+          APPLE_NOTARY_TEAM_ID:  ${{ secrets.APPLE_NOTARY_TEAM_ID }}
+        run: |
+          set -e
+          NOTARY_ZIP=$RUNNER_TEMP/notary.zip
+          ditto -c -k --keepParent --sequesterRsrc \
+            "dist/pfc-inductor.app" "$NOTARY_ZIP"
+          # ``--wait`` blocks until Apple finishes (typically <5 min).
+          # Fail the build if Apple rejects — better than shipping
+          # an unverifiable artefact.
+          xcrun notarytool submit "$NOTARY_ZIP" \
+            --apple-id "$APPLE_NOTARY_USERNAME" \
+            --password "$APPLE_NOTARY_PASSWORD" \
+            --team-id "$APPLE_NOTARY_TEAM_ID" \
+            --wait
+          # Staple the ticket so Gatekeeper accepts the .app
+          # offline (no network round-trip on first launch).
+          xcrun stapler staple "dist/pfc-inductor.app"
+
+      # ---------- Windows: Authenticode signing -----------------------
+      - name: Sign Windows executable
+        if: runner.os == 'Windows' && env.WINDOWS_CERT_BASE64 != ''
+        shell: pwsh
+        env:
+          WINDOWS_CERT_BASE64:    ${{ secrets.WINDOWS_CERT_BASE64 }}
+          WINDOWS_CERT_PASSWORD:  ${{ secrets.WINDOWS_CERT_PASSWORD }}
+          WINDOWS_TIMESTAMP_URL:  ${{ secrets.WINDOWS_TIMESTAMP_URL }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          # Decode the cert into a per-job tmp file; deleted on job
+          # cleanup since RUNNER_TEMP is volatile.
+          $certPath = Join-Path $env:RUNNER_TEMP "codesign.pfx"
+          [IO.File]::WriteAllBytes($certPath,
+            [Convert]::FromBase64String($env:WINDOWS_CERT_BASE64))
+
+          $tsUrl = if ($env:WINDOWS_TIMESTAMP_URL) {
+            $env:WINDOWS_TIMESTAMP_URL
+          } else {
+            "http://timestamp.sectigo.com"
+          }
+
+          # signtool is on PATH inside windows-latest; falling back
+          # to the SDK location protects against PATH drift.
+          $signtool = (Get-Command signtool.exe -ErrorAction SilentlyContinue).Path
+          if (-not $signtool) {
+            $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe"
+          }
+
+          & $signtool sign `
+            /f $certPath `
+            /p $env:WINDOWS_CERT_PASSWORD `
+            /tr $tsUrl /td sha256 /fd sha256 `
+            /a `
+            "dist\pfc-inductor\pfc-inductor.exe"
+
+          & $signtool verify /pa /v "dist\pfc-inductor\pfc-inductor.exe"
+
+          Remove-Item $certPath -Force
+
       # ---------- Smoke check: binary at least starts up --------------
       # On macOS/Windows the GUI app would block waiting for events;
       # we only test the import graph by invoking with --version-style
