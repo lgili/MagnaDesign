@@ -89,7 +89,7 @@ from pfc_inductor.ui.workspace import (
 )
 
 # Sidebar area_ids in stack order. ``dashboard`` is kept as the first
-# id for QSettings back-compat (the displayed label is "Projeto").
+# id for QSettings back-compat (the displayed label is "Project").
 AREA_PAGES: tuple[str, ...] = (
     "dashboard",
     "otimizador",
@@ -233,57 +233,57 @@ class MainWindow(QMainWindow):
         self._cmd_palette = CommandPalette(self)
         self._cmd_palette.register_many([
             # Project lifecycle
-            Command("project.new",     "Novo projeto",         "Ctrl+N",
+            Command("project.new",     "New project",          "Ctrl+N",
                     self._on_project_new,
-                    hint="Limpa a sessão atual após confirmação."),
-            Command("project.open",    "Abrir projeto…",       "Ctrl+O",
+                    hint="Clears the current session after confirmation."),
+            Command("project.open",    "Open project…",        "Ctrl+O",
                     self._on_project_open,
-                    hint="Lê um arquivo .pfc do disco."),
-            Command("project.save",    "Salvar projeto",       "Ctrl+S",
+                    hint="Reads a .pfc file from disk."),
+            Command("project.save",    "Save project",         "Ctrl+S",
                     self._on_project_save),
-            Command("project.save_as", "Salvar projeto como…", "Ctrl+Shift+S",
+            Command("project.save_as", "Save project as…",     "Ctrl+Shift+S",
                     self._on_project_save_as),
 
             # Inner-loop actions
-            Command("calc",            "Recalcular",           "Ctrl+R",
+            Command("calc",            "Recalculate",          "Ctrl+R",
                     self._on_calculate,
-                    hint="Roda o engine com a spec + seleção atuais."),
-            Command("export.report",   "Exportar datasheet",   "",
+                    hint="Runs the engine with the current spec + selection."),
+            Command("export.report",   "Export datasheet",     "",
                     self._export_report,
-                    hint="Gera datasheet HTML (3 páginas, base64)."),
-            Command("export.compare",  "Exportar comparativo", "",
+                    hint="Generates a 3-page HTML datasheet (base64-embedded)."),
+            Command("export.compare",  "Export comparison",    "",
                     self._export_compare,
-                    hint="Salva tabela comparativa em HTML/CSV."),
-            Command("compare.open",    "Abrir comparativo",    "",
+                    hint="Saves the comparison table as HTML or CSV."),
+            Command("compare.open",    "Open comparison",      "",
                     self._open_compare,
-                    hint="Acumule até 4 designs lado a lado."),
+                    hint="Stack up to 4 designs side by side."),
 
             # Validation / dialogs
-            Command("validate.fea",    "Rodar validação FEM",  "",
+            Command("validate.fea",    "Run FEM validation",   "",
                     self._open_fea,
-                    hint="FEMM/FEMMT no operating point — leva minutos."),
-            Command("similar",         "Buscar componentes similares", "",
+                    hint="FEMM / FEMMT on the operating point — takes minutes."),
+            Command("similar",         "Find similar components", "",
                     self._open_similar_parts),
-            Command("litz",            "Otimizar Litz",        "",
+            Command("litz",            "Optimize Litz",        "",
                     self._open_litz),
 
             # Shell
-            Command("theme.toggle",    "Alternar tema (claro / escuro)", "",
+            Command("theme.toggle",    "Toggle theme (light / dark)", "",
                     self._toggle_theme),
-            Command("about",           "Sobre o aplicativo",   "",
+            Command("about",           "About the application", "",
                     self._open_about),
 
             # Navigation — quick jumps so users don't reach for the
             # mouse mid-flow.
-            Command("nav.projeto",     "Ir para Projeto",      "",
+            Command("nav.projeto",     "Go to Project",        "",
                     lambda: self._goto_area("dashboard")),
-            Command("nav.otimizador",  "Ir para Otimizador",   "",
+            Command("nav.otimizador",  "Go to Optimizer",      "",
                     lambda: self._goto_area("otimizador")),
-            Command("nav.cascade",     "Ir para Otimizador completo", "",
+            Command("nav.cascade",     "Go to Full optimizer", "",
                     lambda: self._goto_area("cascade")),
-            Command("nav.catalogo",    "Ir para Catálogo",     "",
+            Command("nav.catalogo",    "Go to Catalog",        "",
                     lambda: self._goto_area("catalogo")),
-            Command("nav.config",      "Ir para Configurações", "",
+            Command("nav.config",      "Go to Settings",       "",
                     lambda: self._goto_area("configuracoes")),
         ])
         # Bind the activator. Standard ``QKeySequence.StandardKey.Find``
@@ -297,9 +297,9 @@ class MainWindow(QMainWindow):
     def _goto_area(self, area_id: str) -> None:
         """Navigate to a sidebar area programmatically.
 
-        Used by the command palette so "Ir para …" entries land on
-        the same tab the sidebar would, including updating the
-        sidebar's checked state.
+        Used by the command palette so the "Go to …" entries land on
+        the same page the sidebar / Navigate menu would, including
+        updating the sidebar helper's checked state.
         """
         try:
             self.sidebar.set_active_area(area_id)
@@ -328,41 +328,40 @@ class MainWindow(QMainWindow):
 
         Sections (left → right):
 
-        - **Arquivo** — project lifecycle (New / Open / Save / Recents).
-        - **Navegar** — page switch (Ctrl+1…5), mirrors what used to
+        - **File** — project lifecycle (New / Open / Save / Recents).
+        - **Navigate** — page switch (Ctrl+1…5), mirrors what used to
           be the sidebar nav.
-        - **Ferramentas** — cross-area dialogs (compare, FEM,
-          similars, Litz, MAS import, FEA setup).
-        - **Exibir** — theme toggle + command palette.
-        - **Ajuda** — About.
+        - **Tools** — cross-area dialogs (compare, FEM, similar parts,
+          Litz, MAS import, FEA setup).
+        - **View** — theme toggle + command palette.
+        - **Help** — About.
         """
         bar = self.menuBar()
-        # macOS hides the in-window menu bar by default; keep it
-        # in-window on every platform so the entries are visible
-        # right next to "Arquivo".
+        # macOS promotes this to the system bar; on Windows/Linux it
+        # sits at the top of the window.
         bar.setNativeMenuBar(True)
 
         # ---- File ------------------------------------------------------
-        file_menu = bar.addMenu("&Arquivo")
+        file_menu = bar.addMenu("&File")
 
-        act_new = QAction("Novo projeto", self)
+        act_new = QAction("New project", self)
         act_new.setShortcut(QKeySequence.StandardKey.New)
         act_new.triggered.connect(self._on_project_new)
         file_menu.addAction(act_new)
 
-        act_open = QAction("Abrir...", self)
+        act_open = QAction("Open...", self)
         act_open.setShortcut(QKeySequence.StandardKey.Open)
         act_open.triggered.connect(self._on_project_open)
         file_menu.addAction(act_open)
 
         file_menu.addSeparator()
 
-        act_save = QAction("Salvar", self)
+        act_save = QAction("Save", self)
         act_save.setShortcut(QKeySequence.StandardKey.Save)
         act_save.triggered.connect(self._on_project_save)
         file_menu.addAction(act_save)
 
-        act_save_as = QAction("Salvar como...", self)
+        act_save_as = QAction("Save as...", self)
         act_save_as.setShortcut(QKeySequence.StandardKey.SaveAs)
         act_save_as.triggered.connect(self._on_project_save_as)
         file_menu.addAction(act_save_as)
@@ -372,12 +371,12 @@ class MainWindow(QMainWindow):
         # Recent submenu — populated on ``aboutToShow`` so the list
         # reflects on-disk reality each time the menu opens (entries
         # whose files were deleted off-disk are filtered out).
-        self._recents_menu: QMenu = file_menu.addMenu("Projetos recentes")
+        self._recents_menu: QMenu = file_menu.addMenu("Recent projects")
         self._recents_menu.aboutToShow.connect(self._populate_recents_menu)
 
         file_menu.addSeparator()
 
-        act_quit = QAction("Sair", self)
+        act_quit = QAction("Quit", self)
         act_quit.setShortcut(QKeySequence.StandardKey.Quit)
         act_quit.triggered.connect(QApplication.quit)
         file_menu.addAction(act_quit)
@@ -385,21 +384,21 @@ class MainWindow(QMainWindow):
         # ---- Navigate --------------------------------------------------
         # Same five destinations the old sidebar carried, but addressable
         # via Ctrl+1..5 so the engineer never has to leave the keyboard
-        # to switch surfaces. The labels match the sidebar tooltips so
-        # the disambiguation between "Otimizador" (fast) and "Otimizador
-        # completo" (cascade) carries over.
-        nav_menu = bar.addMenu("&Navegar")
+        # to switch surfaces. The tooltips disambiguate the two
+        # optimizer entries — "Optimizer" is the fast Pareto sweep,
+        # "Full optimizer" is the deep cascade.
+        nav_menu = bar.addMenu("&Navigate")
         nav_entries = (
-            ("dashboard",     "Projeto",              "Ctrl+1",
-             "Workspace principal — spec, núcleo, análise, validação, exportação."),
-            ("otimizador",    "Otimizador",           "Ctrl+2",
-             "Pareto rápido (≈30 s) — perdas × volume × custo."),
-            ("cascade",       "Otimizador completo",  "Ctrl+3",
-             "Cascade multi-tier com RK4 + FEM (≈5–15 min)."),
-            ("catalogo",      "Catálogo",             "Ctrl+4",
-             "Editar materiais, núcleos e fios. Importação MAS."),
-            ("configuracoes", "Configurações",        "Ctrl+5",
-             "Tema, FEA, Litz, informações do projeto."),
+            ("dashboard",     "Project",          "Ctrl+1",
+             "Main workspace — spec, core, analysis, validation, export."),
+            ("otimizador",    "Optimizer",        "Ctrl+2",
+             "Fast Pareto sweep (≈30 s) — losses × volume × cost."),
+            ("cascade",       "Full optimizer",   "Ctrl+3",
+             "Multi-tier cascade with RK4 + FEM (≈5–15 min)."),
+            ("catalogo",      "Catalog",          "Ctrl+4",
+             "Edit materials, cores and wires. MAS import."),
+            ("configuracoes", "Settings",         "Ctrl+5",
+             "Theme, FEA, Litz, project information."),
         )
         for area_id, label, sc, tip in nav_entries:
             act = QAction(label, self)
@@ -416,58 +415,64 @@ class MainWindow(QMainWindow):
         # the workspace header CTAs, or the dashboard cards. Surfacing
         # them here gives users a single discoverable home — the
         # workspace-header CTAs remain for the inner-loop actions
-        # (Recalcular / Comparar / Relatório) but everything else
-        # is reachable from this menu.
-        tools_menu = bar.addMenu("&Ferramentas")
+        # (Recalculate / Compare / Report) but everything else is
+        # reachable from this menu.
+        tools_menu = bar.addMenu("&Tools")
 
-        act_compare = QAction("Comparar designs", self)
+        act_compare = QAction("Compare designs", self)
         act_compare.setShortcut(QKeySequence("Ctrl+D"))
-        act_compare.setStatusTip("Empilhar até 4 designs lado a lado.")
+        act_compare.setStatusTip("Stack up to 4 designs side by side.")
         act_compare.triggered.connect(self._open_compare)
         tools_menu.addAction(act_compare)
 
-        act_fea = QAction("Validar com FEM...", self)
-        act_fea.setStatusTip("FEMM / FEMMT no operating point — leva minutos.")
+        act_fea = QAction("Run FEM validation...", self)
+        act_fea.setStatusTip(
+            "FEMM / FEMMT on the operating point — takes minutes.",
+        )
         act_fea.triggered.connect(self._open_fea)
         tools_menu.addAction(act_fea)
 
-        act_similar = QAction("Buscar componentes similares...", self)
-        act_similar.setStatusTip("Encontra cores/materiais equivalentes ao atual.")
+        act_similar = QAction("Find similar components...", self)
+        act_similar.setStatusTip(
+            "Find cores / materials equivalent to the current selection.",
+        )
         act_similar.triggered.connect(self._open_similar_parts)
         tools_menu.addAction(act_similar)
 
-        act_litz = QAction("Otimizar Litz...", self)
-        act_litz.setStatusTip("Sweep de strands × diâmetro para minimizar AC loss.")
+        act_litz = QAction("Optimize Litz...", self)
+        act_litz.setStatusTip(
+            "Sweep strands × diameter to minimize AC loss.",
+        )
         act_litz.triggered.connect(self._open_litz)
         tools_menu.addAction(act_litz)
 
         tools_menu.addSeparator()
 
-        act_mas = QAction("Atualizar catálogo (MAS)...", self)
-        act_mas.setStatusTip("Importa cores e materiais do OpenMagnetics MAS.")
+        act_mas = QAction("Update catalog (MAS)...", self)
+        act_mas.setStatusTip("Import cores and materials from OpenMagnetics MAS.")
         act_mas.triggered.connect(self._open_catalog_update)
         tools_menu.addAction(act_mas)
 
-        act_setup = QAction("Configurar FEA...", self)
-        act_setup.setStatusTip("Verificar / instalar FEMM e FEMMT.")
+        act_setup = QAction("Configure FEA...", self)
+        act_setup.setStatusTip("Check or install FEMM and FEMMT.")
         act_setup.triggered.connect(self._open_setup_deps)
         tools_menu.addAction(act_setup)
 
         # ---- View ------------------------------------------------------
-        view_menu = bar.addMenu("&Exibir")
+        view_menu = bar.addMenu("&View")
 
-        act_theme = QAction("Alternar tema (claro / escuro)", self)
+        act_theme = QAction("Toggle theme (light / dark)", self)
         act_theme.setShortcut(QKeySequence("Ctrl+Shift+T"))
-        act_theme.setStatusTip("Troca entre tema claro e escuro.")
+        act_theme.setStatusTip("Switch between light and dark themes.")
         act_theme.triggered.connect(self._toggle_theme)
         view_menu.addAction(act_theme)
 
         view_menu.addSeparator()
 
-        act_palette = QAction("Paleta de comandos", self)
+        act_palette = QAction("Command palette", self)
         act_palette.setShortcut(QKeySequence("Ctrl+K"))
         act_palette.setStatusTip(
-            "Busca difusa por qualquer ação do app (Ctrl+K).",
+            "Fuzzy-search every action in the app (Ctrl+K).",
         )
         # The palette is also bound to Ctrl+K via QShortcut in
         # ``_build_command_palette``; this menu entry just makes the
@@ -476,9 +481,9 @@ class MainWindow(QMainWindow):
         view_menu.addAction(act_palette)
 
         # ---- Help ------------------------------------------------------
-        help_menu = bar.addMenu("&Ajuda")
+        help_menu = bar.addMenu("&Help")
 
-        act_about = QAction("Sobre o MagnaDesign", self)
+        act_about = QAction("About MagnaDesign", self)
         act_about.triggered.connect(self._open_about)
         help_menu.addAction(act_about)
 
@@ -502,7 +507,7 @@ class MainWindow(QMainWindow):
         self._recents_menu.clear()
         recents = self._get_recents()
         if not recents:
-            empty = self._recents_menu.addAction("(vazio)")
+            empty = self._recents_menu.addAction("(empty)")
             empty.setEnabled(False)
             return
         for path in recents:
@@ -513,7 +518,7 @@ class MainWindow(QMainWindow):
                 lambda _checked=False, p=path: self._open_project_path(p),
             )
         self._recents_menu.addSeparator()
-        clear_act = self._recents_menu.addAction("Limpar lista")
+        clear_act = self._recents_menu.addAction("Clear list")
         clear_act.triggered.connect(self._clear_recents)
 
     @staticmethod
@@ -551,17 +556,17 @@ class MainWindow(QMainWindow):
         self._workflow_state.mark_saved()
 
     def _on_project_new(self) -> None:
-        if not self._confirm_discard("Novo projeto"):
+        if not self._confirm_discard("New project"):
             return
         self._apply_project(empty_state())
         self._project_path = None
 
     def _on_project_open(self) -> None:
-        if not self._confirm_discard("Abrir projeto"):
+        if not self._confirm_discard("Open project"):
             return
         path, _ = QFileDialog.getOpenFileName(
-            self, "Abrir projeto", "",
-            f"Projeto PFC (*{PROJECT_FILE_EXTENSION});;Todos (*.*)",
+            self, "Open project", "",
+            f"PFC project (*{PROJECT_FILE_EXTENSION});;All files (*.*)",
         )
         if not path:
             return
@@ -572,8 +577,8 @@ class MainWindow(QMainWindow):
             state = load_project(path)
         except (OSError, ValueError) as exc:
             QMessageBox.warning(
-                self, "Falha ao abrir projeto",
-                f"Não foi possível ler {path}:\n\n{exc}",
+                self, "Failed to open project",
+                f"Could not read {path}:\n\n{exc}",
             )
             return
         self._apply_project(state)
@@ -592,8 +597,8 @@ class MainWindow(QMainWindow):
             or f"{self._workflow_state.snapshot().project_name}{PROJECT_FILE_EXTENSION}"
         )
         path, _ = QFileDialog.getSaveFileName(
-            self, "Salvar projeto como", suggested,
-            f"Projeto PFC (*{PROJECT_FILE_EXTENSION})",
+            self, "Save project as", suggested,
+            f"PFC project (*{PROJECT_FILE_EXTENSION})",
         )
         if not path:
             return
@@ -604,8 +609,8 @@ class MainWindow(QMainWindow):
             final = save_project(path, self._capture_project())
         except OSError as exc:
             QMessageBox.warning(
-                self, "Falha ao salvar",
-                f"Não foi possível gravar {path}:\n\n{exc}",
+                self, "Failed to save",
+                f"Could not write {path}:\n\n{exc}",
             )
             return
         self._project_path = str(final)
@@ -617,7 +622,7 @@ class MainWindow(QMainWindow):
             return True
         reply = QMessageBox.question(
             self, title,
-            "O projeto atual tem alterações não salvas. Continuar mesmo assim?",
+            "The current project has unsaved changes. Continue anyway?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )
@@ -756,7 +761,7 @@ class MainWindow(QMainWindow):
 
         # ---- Catalogo page --------------------------------------------
         # The DB editor is now embedded directly in the page; ``saved``
-        # fires when the user clicks "Salvar tudo" inside the embed.
+        # fires when the user clicks "Save all" inside the embed.
         self.catalogo_page.saved.connect(self._reload_databases)
         self.catalogo_page.mas_import_requested.connect(
             self._open_catalog_update,
@@ -845,7 +850,7 @@ class MainWindow(QMainWindow):
         try:
             spec, _core, _wire, _material = self._collect_inputs()
         except DesignError as e:
-            QMessageBox.warning(self, "Spec inválido", e.user_message())
+            QMessageBox.warning(self, "Invalid spec", e.user_message())
             return
         # Same per-topology filter the inline pages use — the modal
         # optimizer should not surface line-frequency reactor candidates
@@ -867,7 +872,7 @@ class MainWindow(QMainWindow):
             spec, core, wire, material = self._collect_inputs()
             result = design(spec, core, wire, material)
         except DesignError as e:
-            QMessageBox.warning(self, "Erro", e.user_message())
+            QMessageBox.warning(self, "Error", e.user_message())
             return
         default_name = (
             f"datasheet_{core.part_number}_{material.name}.html"
@@ -881,26 +886,26 @@ class MainWindow(QMainWindow):
             out = generate_datasheet(spec, core, material, wire, result, path)
         except (OSError, ValueError, KeyError) as e:
             err = ReportGenerationError(
-                f"Falha ao gerar o datasheet: {e}",
-                hint=f"Verifique permissão de escrita em\n{path}",
+                f"Failed to generate the datasheet: {e}",
+                hint=f"Check write permission for\n{path}",
             )
             QMessageBox.critical(
                 self, "Datasheet generation failed", err.user_message(),
             )
             return
-        # Mark saved + flip Próximos Passos.
+        # Mark saved + flip Next Steps.
         self._workflow_state.mark_saved()
         self.projeto_page.mark_action_done("report")
         # Replace the modal "Datasheet saved / OK" dialog with a
-        # transient toast pinned bottom-right + an "Abrir" action that
+        # transient toast pinned bottom-right + an "Open" action that
         # opens the HTML in the user's default browser. Engineers
         # generate a datasheet many times per session — the modal was
         # a friction point that demanded a click for every confirmation.
         from pfc_inductor.ui.widgets.toast import Toast
         Toast.show_message(
             self,
-            f"Datasheet salvo em {out}",
-            action_label="Abrir",
+            f"Datasheet saved to {out}",
+            action_label="Open",
             action=lambda p=str(out): self._open_path_externally(p),
         )
 
@@ -908,7 +913,7 @@ class MainWindow(QMainWindow):
     def _open_path_externally(path: str) -> None:
         """Open ``path`` with the OS default handler.
 
-        Used by the post-export Toast's "Abrir" action. ``QDesktopServices``
+        Used by the post-export Toast's "Open" action. ``QDesktopServices``
         picks the right protocol per OS (``open`` on macOS, ``xdg-open``
         on Linux, ``ShellExecute`` on Windows).
         """
@@ -938,17 +943,17 @@ class MainWindow(QMainWindow):
 
         if dlg is None or len(slots) < 2:
             QMessageBox.information(
-                self, "Comparativo vazio",
-                "Adicione ao menos 2 designs ao comparativo antes de "
-                "exportar. Vou abrir a janela agora — use \"Adicionar "
-                "atual\" para popular.",
+                self, "Comparison empty",
+                "Add at least 2 designs to the comparison before "
+                "exporting. I'll open the window now — use \"Add "
+                "current\" to populate it.",
             )
             self._open_compare()
             return
 
         path, _ = QFileDialog.getSaveFileName(
-            self, "Exportar comparativo",
-            "comparacao.html", "HTML (*.html);;CSV (*.csv)",
+            self, "Export comparison",
+            "comparison.html", "HTML (*.html);;CSV (*.csv)",
         )
         if not path:
             return
@@ -958,10 +963,10 @@ class MainWindow(QMainWindow):
             else:
                 out = dlg.export_html_to(path)
         except (OSError, ValueError, KeyError) as e:
-            QMessageBox.critical(self, "Erro ao exportar", str(e))
+            QMessageBox.critical(self, "Export failed", str(e))
             return
         QMessageBox.information(
-            self, "Exportado", f"Comparativo salvo em:\n{out}",
+            self, "Exported", f"Comparison saved to:\n{out}",
         )
 
     def _open_db_editor(self) -> None:
@@ -1031,7 +1036,7 @@ class MainWindow(QMainWindow):
         try:
             spec, core, _wire, material = self._collect_inputs()
         except DesignError as e:
-            QMessageBox.warning(self, "Seleção inválida", e.user_message())
+            QMessageBox.warning(self, "Invalid selection", e.user_message())
             return
         dlg = LitzOptimizerDialog(spec, core, material, self._wires, parent=self)
         dlg.wire_saved.connect(lambda _wid: self._reload_databases())
@@ -1041,7 +1046,7 @@ class MainWindow(QMainWindow):
         try:
             slot = self.current_compare_slot()
         except DesignError as e:
-            QMessageBox.warning(self, "Seleção inválida", e.user_message())
+            QMessageBox.warning(self, "Invalid selection", e.user_message())
             return
         dlg = FEAValidationDialog(
             slot.spec, slot.core, slot.wire, slot.material, slot.result,
@@ -1054,7 +1059,7 @@ class MainWindow(QMainWindow):
             target_core = self._calc.find_core(self._current_core_id)
             target_material = self._calc.find_material(self._current_material_id)
         except DesignError as e:
-            QMessageBox.warning(self, "Seleção inválida", e.user_message())
+            QMessageBox.warning(self, "Invalid selection", e.user_message())
             return
         dlg = SimilarPartsDialog(
             target_core, target_material, self._cores, self._materials,
@@ -1134,7 +1139,7 @@ class MainWindow(QMainWindow):
             spec, core, wire, material = self._collect_inputs()
             result = design(spec, core, wire, material)
         except DesignError as e:
-            QMessageBox.warning(self, "Erro no cálculo", e.user_message())
+            QMessageBox.warning(self, "Calculation error", e.user_message())
             return
 
         # Filter the material catalogue by the current topology so

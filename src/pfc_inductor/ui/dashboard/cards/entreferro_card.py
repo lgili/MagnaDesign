@@ -1,9 +1,9 @@
-"""Entreferro card — 4 metrics in 2×2: A_L · B/B_sat · H_peak · Margem.
+"""Air-gap card — 4 metrics in 2×2: A_L · B/B_sat · H_peak · Margin.
 
-The previous layout exposed A_L / μ_eff / H_peak in a single row. ``μ_eff``
-moved to the Detalhes Técnicos card (it's diagnostic for rolloff but
-not a primary status signal); the freed slot now shows the
-**saturation margin** as both an absolute B/B_sat ratio and a
+The previous layout exposed A_L / μ_eff / H_peak in a single row.
+``μ_eff`` moved to the Technical Details card (it's diagnostic for
+rolloff but not a primary status signal); the freed slot now shows
+the **saturation margin** as both an absolute B/B_sat ratio and a
 percentage — the two numbers an engineer reads first to confirm a
 design isn't sitting on the saturation knee.
 """
@@ -28,7 +28,7 @@ class _EntreferroBody(QWidget):
         self.m_BBs = MetricCard("B / B_sat", "—", "T", compact=True)
         self.m_H = MetricCard("H_peak", "—", "Oe",
                               trend_better="lower", compact=True)
-        self.m_margin = MetricCard("Margem sat.", "—", "%",
+        self.m_margin = MetricCard("Sat. margin", "—", "%",
                                    trend_better="higher", compact=True)
         # 2×2 grid keeps the card squarish and exposes 4 facts at a
         # glance — was 1×3 with ``μ_eff`` in the middle slot.
@@ -45,8 +45,9 @@ class _EntreferroBody(QWidget):
         A_L = L_nH / max(result.N_turns ** 2, 1)
         self.m_AL.set_value(f"{A_L:.0f}")
 
-        # B / B_sat — pico de fluxo vs limite (mostra os dois números
-        # juntos para o usuário ver "0.36 / 0.49" e julgar a folga).
+        # B / B_sat — peak flux vs limit (shows both numbers
+        # together so the user reads "0.36 / 0.49" and judges the
+        # margin in one glance).
         B = result.B_pk_T
         Bsat = result.B_sat_limit_T
         self.m_BBs.set_value(f"{B:.2f} / {Bsat:.2f}")
@@ -78,7 +79,7 @@ class _EntreferroBody(QWidget):
 class EntreferroCard(Card):
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         body = _EntreferroBody()
-        super().__init__("Entreferro", body, parent=parent)
+        super().__init__("Air gap", body, parent=parent)
         self._ebody = body
 
     def update_from_design(self, *args, **kwargs) -> None:

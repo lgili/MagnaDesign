@@ -400,7 +400,7 @@ class _FormasOndaBody(QWidget):
         if synth is None or synth.harmonic_pct is None:
             ax.text(
                 0.5, 0.5,
-                "Espectro indisponível — recompute para gerar a FFT",
+                "Spectrum unavailable — recompute to generate the FFT",
                 ha="center", va="center",
                 color=p.text_muted, fontsize=10,
                 transform=ax.transAxes,
@@ -422,10 +422,10 @@ class _FormasOndaBody(QWidget):
                edgecolor=p.surface, linewidth=0.4)
 
         ax.set_xlabel(
-            f"Harmônico · fundamental = {synth.fundamental_Hz:.0f} Hz",
+            f"Harmonic · fundamental = {synth.fundamental_Hz:.0f} Hz",
             fontsize=10, color=p.text_secondary,
         )
-        ax.set_ylabel("% do fundamental", fontsize=10,
+        ax.set_ylabel("% of fundamental", fontsize=10,
                       color=p.text_secondary)
         ax.set_xticks(list(h))
         ax.set_xticklabels(

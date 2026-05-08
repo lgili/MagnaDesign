@@ -1,4 +1,4 @@
-"""Bobinamento card — compact data table of winding facts."""
+"""Winding card — compact data table of winding facts."""
 from __future__ import annotations
 
 from typing import Optional
@@ -45,18 +45,18 @@ class _BobinamentoBody(QWidget):
         # ordering for back-compat, and turn count is the single fact
         # users ask for first when scanning a winding card.
         rows = [
-            Row("Espiras (N)", f"{result.N_turns}"),
-            Row("L atual / alvo", l_label, l_unit),
-            Row("Preenchimento", f"{result.Ku_actual * 100:.1f}", "%"),
+            Row("Turns (N)", f"{result.N_turns}"),
+            Row("L actual / target", l_label, l_unit),
+            Row("Fill factor", f"{result.Ku_actual * 100:.1f}", "%"),
             Row("AWG", str(awg)),
-            Row("Diâmetro fio",
+            Row("Wire diameter",
                 f"{d_mm:.3f}" if isinstance(d_mm, (int, float)) else str(d_mm),
                 "mm"),
-            Row("Estrandes", f"{strands}"),
+            Row("Strands", f"{strands}"),
             Row("R_DC", f"{result.R_dc_ohm * 1000:.1f}", "mΩ"),
             Row("R_AC@fsw", f"{result.R_ac_ohm * 1000:.1f}", "mΩ"),
             Row("R_AC / R_DC", f"{r_ratio:.2f}×"),
-            Row("Comprimento fio", f"{wire_len_m:.2f}", "m"),
+            Row("Wire length", f"{wire_len_m:.2f}", "m"),
         ]
         self._table.set_rows(rows)
 
@@ -67,7 +67,7 @@ class _BobinamentoBody(QWidget):
 class BobinamentoCard(Card):
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         body = _BobinamentoBody()
-        super().__init__("Bobinamento", body, parent=parent)
+        super().__init__("Winding", body, parent=parent)
         self._bbody = body
 
     def update_from_design(self, *args, **kwargs) -> None:

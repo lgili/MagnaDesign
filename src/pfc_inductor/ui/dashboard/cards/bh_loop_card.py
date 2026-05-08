@@ -1,7 +1,7 @@
 """``BHLoopCard`` — operating-point trajectory on the saturation curve.
 
 Wraps :class:`BHLoopChart <pfc_inductor.ui.widgets.bh_loop_chart.BHLoopChart>`
-in a dashboard ``Card`` so the Análise tab can show flux behaviour as a
+in a dashboard ``Card`` so the Analysis tab can show flux behaviour as a
 2-D B-H trajectory rather than just a 1-D B(t) line. The picture is
 much more informative for an inductor designer:
 
@@ -42,9 +42,9 @@ class _BHLoopBody(QWidget):
         v.setSpacing(8)
 
         caption = QLabel(
-            "Trajetória do operating point sobre a curva B–H estática "
-            "do material — envelope de rede + ripple no pico (quando "
-            "presente). A linha tracejada é Bsat a 100 °C.",
+            "Operating-point trajectory over the material's static "
+            "B–H curve — line envelope + peak ripple (when present). "
+            "The dashed line is Bsat at 100 °C.",
         )
         caption.setProperty("role", "muted")
         caption.setWordWrap(True)
@@ -148,7 +148,7 @@ class BHLoopCard(Card):
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         body = _BHLoopBody()
-        super().__init__("Fluxo magnético (B–H)", body, parent=parent)
+        super().__init__("Magnetic flux (B–H)", body, parent=parent)
         self._wbody = body
 
     def update_from_design(self, *args, **kwargs) -> None:
