@@ -1,19 +1,42 @@
-"""Análise workspace tab — waveforms + losses + winding/gap details.
+"""Análise workspace tab — waveforms + flux + thermal + losses + detail.
 
 The second tab of the Projeto workspace, focused on understanding how
-the chosen design behaves. Layout (top to bottom on a 12-column grid):
+the chosen design behaves. Layout (top → bottom on a 12-column grid):
 
     +--------------------------------------------------+
     |  FormasOndaCard (col 1-12)                       |
-    |    panoramic iL(t) plot + 4 metric tiles below   |
-    +--------------------------------------------------+
+    |    multi-trace stacked: iL · v_source · B        |
+    +-------------------------+------------------------+
+    |  BHLoopCard (1-7)       |  ThermalGaugeCard (7-12)|
+    |   trajectory on B–H     |  gradient gauge + pills |
+    +-------------------------+------------------------+
     |  PerdasCard (col 1-12)                           |
     |    horizontal stacked bar + legend               |
     +-------------------------+------------------------+
     |  BobinamentoCard (1-6)  |  EntreferroCard (7-12) |
     |    table of winding     |   gap chart + tiles    |
-    |    detail values        |                        |
     +-------------------------+------------------------+
+    |  DetalhesTecnicosCard (1-12, collapsed default)  |
+    +--------------------------------------------------+
+
+Why the v2 redesign
+-------------------
+v1 surfaced *one* waveform (iL or B via toggle), no flux trajectory,
+and buried the temperature deep in the Detalhes datasheet. The user
+called it "muito fraco". v2 adds:
+
+- **Multi-trace topology-aware waveforms** — iL · source-voltage ·
+  B(t) stacked on a shared time axis, with the source and 3-phase
+  rotations synthesised analytically from the spec when the engine
+  doesn't sample them. Boost / passive / 1ph / 3ph reactors each
+  render the right trace set.
+- **B–H loop card** — the existing ``BHLoopChart`` (previously only
+  in the Validar tab) now shows the operating trajectory next to
+  the saturation curve in Análise too. Reads "where on the knee
+  are we?" in one glance.
+- **Thermal gauge card** — gradient bar from T_amb → T_max with a
+  needle at T_winding, three numeric pills, and a Cu-vs-core
+  origin split. Replaces the scalar T buried in Detalhes.
 
 Cards that previously lived in the bento dashboard but don't belong
 here:
@@ -44,11 +67,13 @@ from PySide6.QtWidgets import (
 
 from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
 from pfc_inductor.ui.dashboard.cards import (
+    BHLoopCard,
     BobinamentoCard,
     DetalhesTecnicosCard,
     EntreferroCard,
     FormasOndaCard,
     PerdasCard,
+    ThermalGaugeCard,
 )
 from pfc_inductor.ui.theme import CARD_MIN, get_theme, on_theme_changed
 
@@ -142,40 +167,57 @@ class AnalisePage(QWidget):
         # where the user genuinely wants more vertical room than the
         # window provides.
 
-        # Row 0 — Formas de Onda full width.
+        # Row 0 — Formas de Onda full width (now multi-trace).
+        # Stretch=2 because the stacked-axes plot needs the most
+        # vertical room of any card on this page.
         self.card_formas = FormasOndaCard()
         self.card_formas.setMinimumWidth(CARD_MIN.formas[0])
         grid.addWidget(self.card_formas, 0, 0, 1, 12)
         grid.setRowStretch(0, 2)
 
-        # Row 1 — Perdas full width (stacked bar reads wide).
+        # Row 1 — Fluxo (B–H) lado a lado com o gauge térmico. Both
+        # cards earn similar vertical room so the engineer reads
+        # "magnetic margin" and "thermal margin" with the same
+        # mental gesture.
+        self.card_bh = BHLoopCard()
+        self.card_thermal = ThermalGaugeCard()
+        # Re-use the bobinam minimum-width budget so the two cards
+        # share the row gracefully on a 1366 px viewport.
+        self.card_bh.setMinimumWidth(CARD_MIN.bobinam[0])
+        self.card_thermal.setMinimumWidth(CARD_MIN.bobinam[0])
+        grid.addWidget(self.card_bh, 1, 0, 1, 7)
+        grid.addWidget(self.card_thermal, 1, 7, 1, 5)
+        grid.setRowStretch(1, 2)
+
+        # Row 2 — Perdas full width (stacked bar reads wide).
         self.card_perdas = PerdasCard()
         self.card_perdas.setMinimumWidth(CARD_MIN.perdas[0])
-        grid.addWidget(self.card_perdas, 1, 0, 1, 12)
-        grid.setRowStretch(1, 1)
+        grid.addWidget(self.card_perdas, 2, 0, 1, 12)
+        grid.setRowStretch(2, 1)
 
-        # Row 2 — Bobinamento + Entreferro lado a lado.
+        # Row 3 — Bobinamento + Entreferro lado a lado.
         self.card_bobinamento = BobinamentoCard()
         self.card_entreferro = EntreferroCard()
         self.card_bobinamento.setMinimumWidth(CARD_MIN.bobinam[0])
         self.card_entreferro.setMinimumWidth(CARD_MIN.entreferro[0])
-        grid.addWidget(self.card_bobinamento, 2, 0, 1, 6)
-        grid.addWidget(self.card_entreferro, 2, 6, 1, 6)
-        grid.setRowStretch(2, 1)
+        grid.addWidget(self.card_bobinamento, 3, 0, 1, 6)
+        grid.addWidget(self.card_entreferro, 3, 6, 1, 6)
+        grid.setRowStretch(3, 1)
 
-        # Row 3 — Detalhes Técnicos full-width, default collapsed.
+        # Row 4 — Detalhes Técnicos full-width, default collapsed.
         # Datasheet-style card with every DesignResult field grouped
-        # by domain. The audit found 13 engine outputs that no other
-        # card surfaced; this card is their permanent home. Default
-        # collapsed so it doesn't crowd the at-a-glance row above —
-        # one click expands it for the engineer who wants every number.
+        # by domain. Default collapsed so it doesn't crowd the
+        # at-a-glance rows above — one click expands it for the
+        # engineer who wants every number.
         self.card_detalhes = DetalhesTecnicosCard()
-        grid.addWidget(self.card_detalhes, 3, 0, 1, 12)
-        grid.setRowStretch(3, 0)
+        grid.addWidget(self.card_detalhes, 4, 0, 1, 12)
+        grid.setRowStretch(4, 0)
 
         # Convenience list for batch update / clear loops.
         self._cards = [
             self.card_formas,
+            self.card_bh,
+            self.card_thermal,
             self.card_perdas,
             self.card_bobinamento,
             self.card_entreferro,
