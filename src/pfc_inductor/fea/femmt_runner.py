@@ -136,6 +136,39 @@ from pfc_inductor.visual.core_3d import _toroid_dims, infer_shape
 _TECH_AIR_GAP_M = 1e-5  # 10 µm "technical" gap; FEMMT requires non-zero
 
 
+def _equivalent_air_gap_m(core, material) -> float:
+    """Air-gap length that makes FEMMT's geometric inductance match
+    the catalog's ``AL_nH`` at zero bias.
+
+    The catalog's ``AL_nH`` already encodes whatever effective gap
+    (real or distributed) the manufacturer measures. FEMMT models
+    the core with explicit ``mu_r_abs`` + ``lgap``, so passing a
+    hard-coded 10 µm gap (the ``_TECH_AIR_GAP_M`` "FEMMT requires
+    non-zero" workaround) leaves the FE geometry inconsistent with
+    the analytic AL — the FE inductance can come out 5–30× too
+    high, depending on the material's ``mu_initial``.
+
+    Solving ``AL_nH·N² = µ₀·N²·Ae / (le/µr + lgap)`` for ``lgap``:
+
+        lgap = µ₀·Ae / AL_nH − le / µ_initial
+
+    Both terms in metres. Returns ``_TECH_AIR_GAP_M`` as a floor —
+    a few cores have catalog AL values consistent with no gap (the
+    "ungapped" ferrite case), in which case the formula returns a
+    negative or near-zero number; we still need a tiny positive
+    gap to keep FEMMT's mesh well-conditioned.
+    """
+    import math
+
+    mu_0 = 4.0 * math.pi * 1e-7
+    AL_H = max(core.AL_nH, 1e-3) * 1e-9        # nH → H per N²
+    Ae_m2 = max(core.Ae_mm2, 1e-6) * 1e-6
+    le_m = max(core.le_mm, 1e-3) * 1e-3
+    mu_r = max(material.mu_initial, 1.0)
+    lgap = mu_0 * Ae_m2 / AL_H - le_m / mu_r
+    return max(lgap, _TECH_AIR_GAP_M)
+
+
 def _resolve_verbosity(ft, prefer: tuple[str, ...]) -> object:
     """Pick the first available ``ft.Verbosity`` member from
     ``prefer`` and fall back to ``Silent`` if none of the
@@ -321,8 +354,14 @@ def _toroid_validation(
         )
         geo.set_core(core_obj)
 
+        # Use the gap implied by the catalog ``AL_nH`` so FEMMT's
+        # geometric inductance lines up with the analytic L₀; a fixed
+        # ``_TECH_AIR_GAP_M`` here would over-predict L by 5–30× on
+        # silicon-steel cores (catalog AL implies a much larger
+        # effective gap than the 10 µm fallback).
+        gap_m_toroid = _equivalent_air_gap_m(core, material)
         air_gaps = ft.AirGaps(ft.AirGapMethod.Percent, core_obj)
-        air_gaps.add_air_gap(ft.AirGapLegPosition.CenterLeg, _TECH_AIR_GAP_M, 50)
+        air_gaps.add_air_gap(ft.AirGapLegPosition.CenterLeg, gap_m_toroid, 50)
         geo.set_air_gaps(air_gaps)
 
         insulation = ft.Insulation(flag_insulation=True)
@@ -541,9 +580,23 @@ def _bobbin_validation(
         )
         geo.set_core(core_obj)
 
-        # Honour the analytic gap. FEMMT requires a non-zero gap so we use
-        # the technical 10 µm minimum even for ungapped cores.
-        gap_m = max((core.lgap_mm or 0.0) * 1e-3, _TECH_AIR_GAP_M)
+        # Pick the gap that keeps FEMMT consistent with the catalog
+        # AL. Two cases:
+        #
+        # 1. ``core.lgap_mm`` is explicitly published — use it. The
+        #    AL_nH was measured against that real gap, so geometry +
+        #    µr + lgap reproduce the same number in FEMMT.
+        # 2. ``core.lgap_mm`` is zero (Dongxing EI28 and many other
+        #    silicon-steel laminations ship as "no published gap").
+        #    A fixed 10 µm here mismatches the catalog AL by 5–30×;
+        #    back-solve the equivalent gap from AL_nH instead.
+        if core.lgap_mm and core.lgap_mm > 0:
+            gap_m = core.lgap_mm * 1e-3
+            gap_origin = "catalog lgap_mm"
+        else:
+            gap_m = _equivalent_air_gap_m(core, material)
+            gap_origin = "back-solved from AL_nH"
+        gap_m = max(gap_m, _TECH_AIR_GAP_M)
         air_gaps = ft.AirGaps(ft.AirGapMethod.Percent, core_obj)
         air_gaps.add_air_gap(ft.AirGapLegPosition.CenterLeg, gap_m, 50)
         geo.set_air_gaps(air_gaps)
@@ -614,8 +667,8 @@ def _bobbin_validation(
         f"FEMMT CoreType.Single mapeado para shape {kind.upper()}: "
         f"d_centro={core_inner_diameter_m * 1e3:.2f} mm "
         f"(eq. round leg), janela {window_w_m * 1e3:.1f}×{window_h_m * 1e3:.1f} mm "
-        f"(inflate {inflate:.2f}×). gap={gap_m * 1e3:.3f} mm. "
-        f"μ_eff(H={H_Oe:.0f} Oe)={mu_eff:.0f}."
+        f"(inflate {inflate:.2f}×). gap={gap_m * 1e3:.3f} mm "
+        f"({gap_origin}). μ_eff(H={H_Oe:.0f} Oe)={mu_eff:.0f}."
     )
 
     return FEAValidation(
