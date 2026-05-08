@@ -29,6 +29,10 @@ class ExportarTab(QWidget):
     # CTA — same content, different file format. See
     # ``pfc_inductor.report.pdf_report`` for the layout.
     export_pdf_requested = Signal()
+    # Engineering project report (PDF) — full theory + derivation
+    # walkthrough per topology. Emitted by the dedicated CTA on the
+    # second card. See ``pfc_inductor.report.pdf_project``.
+    export_project_pdf_requested = Signal()
     export_compare_requested = Signal()
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
@@ -39,16 +43,20 @@ class ExportarTab(QWidget):
         outer.setSpacing(16)
 
         intro = QLabel(
-            "Generates the self-contained HTML datasheet or a "
-            "print-grade PDF (3 pages each) with orthographic views, "
-            "specifications and BOM. Can also export the comparison "
-            "matrix as HTML/CSV."
+            "Three deliverables. The <b>Datasheet</b> is the customer-"
+            "facing summary (specs / BOM / FAT plan). The "
+            "<b>Project report</b> walks the design derivation — "
+            "theory, equations, substituted values, computed result "
+            "— so the project can be filed in an engineering "
+            "tracking system. The <b>Comparison</b> exports the "
+            "side-by-side matrix in PDF, HTML or CSV."
         )
         intro.setProperty("role", "muted")
         intro.setWordWrap(True)
         outer.addWidget(intro)
 
         outer.addWidget(self._build_datasheet_card())
+        outer.addWidget(self._build_project_report_card())
         outer.addWidget(self._build_compare_export_card())
         outer.addStretch(1)
 
@@ -117,6 +125,43 @@ class ExportarTab(QWidget):
         v.addWidget(self._summary)
         v.addLayout(row)
         return Card("Design datasheet", body)
+
+    def _build_project_report_card(self) -> Card:
+        """Engineering project report — the *how it was derived*
+        artefact engineers need to file a design in their internal
+        project tracking systems."""
+        body = QFrame()
+        v = QVBoxLayout(body)
+        v.setContentsMargins(0, 0, 0, 0)
+        v.setSpacing(8)
+        desc = QLabel(
+            "Engineering report tailored to the topology — theory "
+            "paragraphs, the design equations symbolically, the "
+            "same equations with the project's values substituted, "
+            "and the calculated result. As if a senior engineer "
+            "(rather than the tool) had walked the calculation "
+            "by hand and written it up. Use it for design "
+            "review, project filing, or hand-off to a junior "
+            "engineer learning the topology."
+        )
+        desc.setProperty("role", "muted")
+        desc.setWordWrap(True)
+
+        btn = QPushButton("Generate project report (PDF)")
+        btn.setProperty("class", "Primary")
+        btn.setIcon(ui_icon("file-text",
+                             color=get_theme().palette.text_inverse,
+                             size=14))
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn.clicked.connect(self.export_project_pdf_requested.emit)
+
+        row = QHBoxLayout()
+        row.addWidget(btn)
+        row.addStretch(1)
+
+        v.addWidget(desc)
+        v.addLayout(row)
+        return Card("Engineering project report", body)
 
     def _build_compare_export_card(self) -> Card:
         body = QFrame()

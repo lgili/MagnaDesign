@@ -61,7 +61,11 @@ from pfc_inductor.project import (
     push_recent,
     save_project,
 )
-from pfc_inductor.report import generate_datasheet, generate_pdf_datasheet
+from pfc_inductor.report import (
+    generate_datasheet,
+    generate_pdf_datasheet,
+    generate_project_report,
+)
 from pfc_inductor.settings import SETTINGS_APP, SETTINGS_ORG
 from pfc_inductor.setup_deps import check_fea_setup
 from pfc_inductor.topology.material_filter import materials_for_topology
@@ -255,6 +259,10 @@ class MainWindow(QMainWindow):
                     self._export_report_pdf,
                     hint="Native PDF (vector text, embedded font, "
                          "deterministic page breaks)."),
+            Command("export.project_pdf", "Export project report (PDF)", "",
+                    self._export_project_report,
+                    hint="Engineering report — theory, equations, "
+                         "and worked calculations per topology."),
             Command("export.compare",  "Export comparison",    "",
                     self._export_compare,
                     hint="Saves the comparison table as HTML or CSV."),
@@ -734,6 +742,9 @@ class MainWindow(QMainWindow):
         self.projeto_page.export_pdf_requested.connect(
             self._export_report_pdf,
         )
+        self.projeto_page.export_project_pdf_requested.connect(
+            self._export_project_report,
+        )
         self.projeto_page.export_compare_requested.connect(
             self._export_compare,
         )
@@ -963,6 +974,61 @@ class MainWindow(QMainWindow):
         Toast.show_message(
             self,
             f"PDF datasheet saved to {out}",
+            action_label="Open",
+            action=lambda p=str(out): self._open_path_externally(p),
+        )
+
+    def _export_project_report(self) -> None:
+        """Engineering project report (PDF).
+
+        Different artefact from the datasheet: walks the design
+        derivation step-by-step (theory paragraphs, symbolic
+        equations, substituted values, computed result) per
+        topology. Engineers file this in their internal project-
+        tracking systems.
+        """
+        from PySide6.QtWidgets import QFileDialog
+        try:
+            spec, core, wire, material = self._collect_inputs()
+            result = design(spec, core, wire, material)
+        except DesignError as e:
+            QMessageBox.warning(self, "Error", e.user_message())
+            return
+        # File name leads with "project_" so the dataheet and
+        # project report don't collide in the same folder.
+        default_name = (
+            f"project_{core.part_number}_{material.name}.pdf"
+        ).replace(" ", "_").replace("/", "-")
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Save project report (PDF)", default_name,
+            "PDF files (*.pdf)",
+        )
+        if not path:
+            return
+        try:
+            # The optional ``project_id`` falls back to the same
+            # spec/core/material hash the datasheet uses for its
+            # P/N — so the two artefacts cross-reference.
+            out = generate_project_report(
+                spec, core, material, wire, result, path,
+                designer=self._workflow_state.project_name or "—",
+            )
+        except (OSError, ValueError, KeyError) as e:
+            err = ReportGenerationError(
+                f"Failed to generate the project report: {e}",
+                hint=f"Check write permission for\n{path}",
+            )
+            QMessageBox.critical(
+                self, "Project report generation failed",
+                err.user_message(),
+            )
+            return
+        self._workflow_state.mark_saved()
+        self.projeto_page.mark_action_done("report")
+        from pfc_inductor.ui.widgets.toast import Toast
+        Toast.show_message(
+            self,
+            f"Project report saved to {out}",
             action_label="Open",
             action=lambda p=str(out): self._open_path_externally(p),
         )
