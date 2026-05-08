@@ -41,6 +41,8 @@ Excluded modules
 """
 from __future__ import annotations
 
+import os
+import re
 import sys
 from pathlib import Path
 
@@ -65,6 +67,48 @@ REPO_ROOT = Path(SPECPATH).resolve().parent
 
 ENTRY = str(REPO_ROOT / "src" / "pfc_inductor" / "__main__.py")
 APP_NAME = "pfc-inductor"
+
+
+# ---------------------------------------------------------------------------
+# Resolve the build version. Order of preference:
+#   1. ``PFC_BUILD_VERSION`` env var (so the release.yml workflow can
+#      explicitly pass it at build time without parsing the tag here).
+#   2. ``GITHUB_REF_NAME`` minus the leading ``v`` (set by GitHub
+#      Actions on tag pushes).
+#   3. ``pyproject.toml`` ``[project].version`` parsed by hand to avoid
+#      pulling in tomllib at spec-eval time on Python <3.11 paths.
+#   4. ``"0.0.0+dev"`` as a last-resort fallback.
+# CFBundleVersion accepts only digits + dots, so anything beyond the
+# first 3 dotted components or any non-digit gets stripped.
+# ---------------------------------------------------------------------------
+def _resolve_build_version() -> str:
+    env = os.environ.get("PFC_BUILD_VERSION")
+    if env:
+        return env.lstrip("v")
+    ref = os.environ.get("GITHUB_REF_NAME", "")
+    if ref.startswith("v") and re.match(r"^v\d", ref):
+        return ref.lstrip("v")
+    pyproject = REPO_ROOT / "pyproject.toml"
+    if pyproject.exists():
+        text = pyproject.read_text(encoding="utf-8")
+        m = re.search(r'^version\s*=\s*"([^"]+)"', text, re.MULTILINE)
+        if m:
+            return m.group(1)
+    return "0.0.0+dev"
+
+
+def _normalise_cfbundle_version(v: str) -> str:
+    # CFBundleVersion is "X.Y.Z" with digits only. Strip any -rcN /
+    # +localmeta / build-metadata suffix and pad to 3 components.
+    base = re.split(r"[^0-9.]", v, maxsplit=1)[0]
+    parts = (base or "0").split(".")
+    while len(parts) < 3:
+        parts.append("0")
+    return ".".join(parts[:3])
+
+
+BUILD_VERSION = _resolve_build_version()
+CFBUNDLE_VERSION = _normalise_cfbundle_version(BUILD_VERSION)
 
 # ---------------------------------------------------------------------------
 # Data files riding inside the bundle
@@ -235,8 +279,8 @@ if sys.platform == "darwin":
         info_plist={
             "CFBundleName": "PFC Inductor Designer",
             "CFBundleDisplayName": "PFC Inductor Designer",
-            "CFBundleVersion": "0.1.0",
-            "CFBundleShortVersionString": "0.1.0",
+            "CFBundleVersion": CFBUNDLE_VERSION,
+            "CFBundleShortVersionString": CFBUNDLE_VERSION,
             "NSHighResolutionCapable": True,
             "NSRequiresAquaSystemAppearance": False,  # supports light + dark
         },
