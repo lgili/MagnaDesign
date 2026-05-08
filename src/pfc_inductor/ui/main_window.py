@@ -623,10 +623,30 @@ class MainWindow(QMainWindow):
         # Mark saved + flip Próximos Passos.
         self._workflow_state.mark_saved()
         self.projeto_page.mark_action_done("report")
-        QMessageBox.information(
-            self, "Datasheet saved",
-            f"Saved to:\n{out}\n\nOpen in a browser and use Print → Save as PDF.",
+        # Replace the modal "Datasheet saved / OK" dialog with a
+        # transient toast pinned bottom-right + an "Abrir" action that
+        # opens the HTML in the user's default browser. Engineers
+        # generate a datasheet many times per session — the modal was
+        # a friction point that demanded a click for every confirmation.
+        from pfc_inductor.ui.widgets.toast import Toast
+        Toast.show_message(
+            self,
+            f"Datasheet salvo em {out}",
+            action_label="Abrir",
+            action=lambda p=str(out): self._open_path_externally(p),
         )
+
+    @staticmethod
+    def _open_path_externally(path: str) -> None:
+        """Open ``path`` with the OS default handler.
+
+        Used by the post-export Toast's "Abrir" action. ``QDesktopServices``
+        picks the right protocol per OS (``open`` on macOS, ``xdg-open``
+        on Linux, ``ShellExecute`` on Windows).
+        """
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+        QDesktopServices.openUrl(QUrl.fromLocalFile(path))
 
     def _export_compare(self) -> None:
         """Export the current comparative table to HTML or CSV.

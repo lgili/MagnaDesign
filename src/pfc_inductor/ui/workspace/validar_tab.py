@@ -107,14 +107,35 @@ class ValidarTab(QWidget):
         btn.setProperty("class", "Secondary")
         btn.setIcon(ui_icon("cube", color=get_theme().palette.text, size=14))
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn.setToolTip(
+            "Resolve o problema magnético no operating point — leva "
+            "alguns minutos. Bloqueia a UI até terminar."
+        )
         btn.clicked.connect(self.fea_requested.emit)
+        # Inline time estimate so the engineer doesn't click expecting
+        # a sub-second response and then think the app froze. Kept as
+        # a separate caption-styled label so it doesn't add a CTA-
+        # weight competitor next to the button.
+        time_hint = QLabel("≈ 2–5 min  ·  bloqueia a interface")
+        time_hint.setStyleSheet(self._hint_qss())
         row = QHBoxLayout()
         row.addWidget(btn)
+        row.addSpacing(12)
+        row.addWidget(time_hint)
         row.addStretch(1)
         v.addWidget(desc)
         v.addWidget(self._fea_summary)
         v.addLayout(row)
         return Card("Validação FEM", body)
+
+    @staticmethod
+    def _hint_qss() -> str:
+        p = get_theme().palette
+        t = get_theme().type
+        return (
+            f"color: {p.text_muted};"
+            f"font-size: {t.caption}px;"
+        )
 
     def _build_bh_card(self) -> Card:
         body = QFrame()

@@ -104,8 +104,23 @@ class _CandidateModel(QAbstractTableModel):
 
     def headerData(self, section: int, orientation: Qt.Orientation,
                    role: int = Qt.ItemDataRole.DisplayRole):
-        if orientation == Qt.Orientation.Horizontal and role == Qt.ItemDataRole.DisplayRole:
+        if orientation != Qt.Orientation.Horizontal:
+            return None
+        if role == Qt.ItemDataRole.DisplayRole:
             return self._headers[section]
+        # Tooltip on the Score column header — without this, users
+        # asked "score against what?" The text spells out the rank
+        # function so the engineer trusts the ordering.
+        if (
+            role == Qt.ItemDataRole.ToolTipRole
+            and section == len(self._headers) - 1
+        ):
+            return (
+                "Score combina perdas, volume e custo (peso 60/30/10) "
+                "para a spec atual.\n"
+                "100 = melhor candidato; valores caem com perda extra, "
+                "volume maior ou custo mais alto."
+            )
         return None
 
     def data(self, index: QModelIndex,
