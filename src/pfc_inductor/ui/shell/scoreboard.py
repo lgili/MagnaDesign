@@ -84,21 +84,20 @@ class Scoreboard(QFrame):
         self._kpi.setAlignment(Qt.AlignmentFlag.AlignCenter)
         h.addWidget(self._kpi, 1, Qt.AlignmentFlag.AlignVCenter)
 
-        # ---- right: Recalcular -----------------------------------------
+        # The visible Recalcular button on the scoreboard was the
+        # third instance of the same action (header CTA + drawer CTA +
+        # this one). Hidden in the P1 cleanup pass — the header's
+        # Primary button and the Ctrl+R shortcut below cover the
+        # action. The widget itself is kept so existing callers /
+        # tests that grab ``_btn_recalc`` don't break.
         self._btn_recalc = QToolButton()
-        self._btn_recalc.setIconSize(QSize(16, 16))
-        self._btn_recalc.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._btn_recalc.setToolTip("Recalcular (Ctrl+R)")
-        self._btn_recalc.setStyleSheet(self._btn_qss())
+        self._btn_recalc.setVisible(False)
         self._btn_recalc.clicked.connect(self.recalculate_requested.emit)
-        # Compose icon + label (icon-only too small to discover).
-        self._btn_recalc.setText("Recalcular")
-        self._btn_recalc.setToolButtonStyle(
-            Qt.ToolButtonStyle.ToolButtonTextBesideIcon,
-        )
-        h.addWidget(self._btn_recalc, 0, Qt.AlignmentFlag.AlignVCenter)
 
         # ---- shortcut --------------------------------------------------
+        # Ctrl+R stays anchored on the scoreboard so it works regardless
+        # of which tab has focus — the scoreboard is parented by the
+        # workspace and is always alive.
         self._shortcut = QShortcut(QKeySequence("Ctrl+R"), self)
         self._shortcut.activated.connect(self.recalculate_requested.emit)
 

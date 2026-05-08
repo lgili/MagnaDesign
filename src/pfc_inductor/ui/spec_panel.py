@@ -83,15 +83,17 @@ class SpecPanel(QWidget):
         # boost-CCM topology).
         self._apply_topology_visibility()
 
-        # Primary CTA pinned outside scroll area so it stays visible.
-        cta_row = QHBoxLayout()
-        cta_row.setContentsMargins(12, 8, 12, 12)
+        # The drawer used to pin a "Calcular" Primary button at the
+        # bottom — that was the third Recalcular CTA on the screen
+        # (header + drawer + scoreboard). Engineers reported
+        # decision paralysis. The header's Recalcular button + the
+        # ``Ctrl+R`` shortcut now own that action; the drawer no
+        # longer competes. ``btn_calculate`` is kept as a hidden
+        # widget so external code that referenced it (controllers,
+        # tests) doesn't ``AttributeError``.
         self.btn_calculate = QPushButton("Calcular")
-        self.btn_calculate.setProperty("primary", "true")
-        self.btn_calculate.setMinimumHeight(28)
+        self.btn_calculate.setVisible(False)
         self.btn_calculate.clicked.connect(self.calculate_requested.emit)
-        cta_row.addWidget(self.btn_calculate, 1)
-        outer.addLayout(cta_row)
 
         self._wire_signals()
 

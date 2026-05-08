@@ -82,11 +82,37 @@ class ValidarTab(QWidget):
         )
         # Live B-H trajectory plot.
         self._bh_chart.update_from_design(result, core, material)
+        # Enable the FEM CTA now that there's a design to validate.
+        self._set_fea_enabled(True)
 
     def clear(self) -> None:
         self._fea_summary.setText("Aguardando cálculo…")
         self._bh_summary.setText("Aguardando cálculo…")
         self._bh_chart.clear()
+        self._last_result = None
+        self._set_fea_enabled(False)
+
+    def _set_fea_enabled(self, enabled: bool) -> None:
+        """Gate the "Rodar validação FEM" button on whether there's a
+        design to validate.
+
+        Without this, a user clicking Validar before any Recalcular
+        would press the FEM button and watch FEMMT crunch on a default
+        / inconsistent spec — confusing wall-clock cost for no useful
+        output. Disabled state shows a tooltip explaining the
+        prerequisite.
+        """
+        btn = getattr(self, "_btn_fea", None)
+        if btn is None:
+            return
+        btn.setEnabled(enabled)
+        btn.setToolTip(
+            "Resolve o problema magnético no operating point — leva "
+            "alguns minutos. Bloqueia a UI até terminar."
+            if enabled else
+            "Calcule um design primeiro (Ctrl+R) para habilitar a "
+            "validação FEM."
+        )
 
     # ------------------------------------------------------------------
     def _build_fea_card(self) -> Card:
@@ -103,13 +129,18 @@ class ValidarTab(QWidget):
         desc.setWordWrap(True)
         self._fea_summary = QLabel("Aguardando cálculo…")
         self._fea_summary.setStyleSheet(self._summary_qss())
-        btn = QPushButton("Rodar validação FEM")
+        # Stored on ``self`` so ``_set_fea_enabled`` can toggle it
+        # later — disabled until ``update_from_design`` runs at least
+        # once.
+        self._btn_fea = QPushButton("Rodar validação FEM")
+        btn = self._btn_fea
         btn.setProperty("class", "Secondary")
         btn.setIcon(ui_icon("cube", color=get_theme().palette.text, size=14))
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn.setEnabled(False)         # gated until first design lands
         btn.setToolTip(
-            "Resolve o problema magnético no operating point — leva "
-            "alguns minutos. Bloqueia a UI até terminar."
+            "Calcule um design primeiro (Ctrl+R) para habilitar a "
+            "validação FEM."
         )
         btn.clicked.connect(self.fea_requested.emit)
         # Inline time estimate so the engineer doesn't click expecting
