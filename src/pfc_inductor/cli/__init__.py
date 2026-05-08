@@ -35,6 +35,7 @@ from pfc_inductor.cli.exit_codes import EXIT_CODES, ExitCode
 # Subcommand modules expose a ``register(group)`` function so the
 # top-level group's command list is discovered, not hard-coded —
 # adding a new subcommand is "drop the file + import here".
+from pfc_inductor.cli import compliance as _compliance_cmd
 from pfc_inductor.cli import design as _design_cmd
 from pfc_inductor.cli import sweep as _sweep_cmd
 from pfc_inductor.cli import worst_case as _worst_case_cmd
@@ -82,6 +83,7 @@ def cli() -> None:
 _design_cmd.register(cli)
 _sweep_cmd.register(cli)
 _worst_case_cmd.register(cli)
+_compliance_cmd.register(cli)
 
 
 # Names of registered subcommands. Used by ``__main__.main`` to

@@ -2,23 +2,38 @@
 
 ## Phase 1 — Compliance models
 
-- [ ] `pfc_inductor/compliance/types.py`: `ComplianceResult`,
-      `HarmonicResult(n, magnitude, limit, pct_margin, pass)`,
-      `StandardResult(standard, edition, scope, summary, harmonics,
-       conclusion)`. Pydantic.
-- [ ] Surface `ComplianceResult` as a new optional field on
-      `DesignResult.compliance: Optional[ComplianceResult]`.
+- [x] `pfc_inductor/compliance/dispatcher.py`: `StandardResult`
+      (standard, edition, scope, conclusion, summary, rows[],
+      notes[], extras), `ComplianceBundle` (project_name,
+      topology, region, standards[], `overall` aggregator),
+      `ConclusionLabel` Literal. Plain dataclasses — Pydantic
+      not needed since these don't round-trip through `.pfc`.
+- [~] Surface `ComplianceResult` as a new optional field on
+      `DesignResult.compliance`. *Deferred — bundling lives in a
+      separate module so the engine output stays stable
+      across versions.*
 
 ## Phase 2 — IEC 61000-3-2
 
-- [ ] Extract production logic from `tests/test_iec61000_3_2.py`
-      into `pfc_inductor/compliance/iec61000_3_2.py`:
-      - `evaluate(spec, design_result, line_class)` returns a
-        `StandardResult`. `line_class` ∈ `{"A", "B", "C", "D"}`.
-      - Reference Table 1–3 limits per IEC 61000-3-2:2018.
-- [ ] `tests/test_compliance_iec61000_3_2.py`: PASS / FAIL anchors
-      with the same data the existing test uses, plus boundary
-      cases (just-under / just-over).
+- [x] The production logic was already in
+      `src/pfc_inductor/standards/iec61000_3_2.py` (Class D
+      limit tables + `evaluate_compliance`); the dispatcher
+      wraps it. Engine→standards bridge:
+      - `_resolve_harmonic_pct` calls
+        `topology.line_reactor.harmonic_amplitudes_pct` for
+        line_reactor / passive_choke.
+      - Active boost-PFC returns flat fundamental-only spectrum
+        (engine's analytical bound). Conclusion lands on PASS
+        with a "LISN-measurement-still-required" note so an
+        auditor sees the gap.
+      - Boundary-aware verdict: 0 checks → PASS+caveat, all
+        pass + worst margin < 10 % → MARGINAL, fail → FAIL.
+      - Editions 4.0 + 5.0 wired through to the standards
+        evaluator.
+- [x] `tests/test_compliance_dispatcher.py` (10 tests): PASS /
+      FAIL boundary cases, harmonic-row schema, bundle
+      aggregation, US-region (no standards) path, empty bundle,
+      PDF smoke test.
 
 ## Phase 3 — EN 55032 conducted EMI
 
@@ -44,24 +59,35 @@
 
 ## Phase 5 — Standard selector
 
-- [ ] `pfc_inductor/compliance/dispatcher.py`:
-      - `applicable_standards(spec)` returns the list of standards
-        relevant to the spec's topology + region tag.
-      - `evaluate_all(spec, design_result, region)` → list of
-        `StandardResult`.
+- [x] `pfc_inductor/compliance/dispatcher.py`:
+      - `applicable_standards(spec, region)` returns the list of
+        standards relevant to the spec's topology + region tag.
+      - `evaluate(spec, core, wire, material, result, *, region,
+         edition)` → `ComplianceBundle`.
+      - Region table: `EU` / `Worldwide` / `BR` route through IEC
+        61000-3-2; `US` returns an empty list (UL 1411 is queued
+        for a follow-up commit).
 
 ## Phase 6 — PDF writer
 
-- [ ] `pfc_inductor/compliance/pdf_writer.py` using `reportlab`
-      (added by `add-manufacturing-spec-export`):
-      - One section per standard.
-      - Header card with PASS/FAIL stripe (green / amber / red).
-      - Harmonic table (always 1–40 lines for 61000-3-2).
-      - Bar chart (matplotlib → embed) of harmonics vs limits.
-      - Conclusion footer with required follow-on actions for
-        MARGINAL or FAIL ("LISN measurement required",
-        "Snubber capacitor recommended" etc.).
-- [ ] Golden-file tests for one PASS report + one FAIL report.
+- [x] `pfc_inductor/compliance/pdf_writer.py` using ``reportlab``:
+      - Cover page with overall verdict marker (green / amber /
+        red) + applicable-standards table + MagnaDesign version.
+      - One section per standard with the verdict strip,
+        per-row harmonic table (n / measured / limit / margin /
+        result), inline pass/fail colouring on the result cell.
+      - Matplotlib bar chart (measured vs IEC limit overlay)
+        embedded as PNG flowable when ``extras.harmonic_pct``
+        is present.
+      - Free-form notes section (LISN-measurement caveats,
+        reference voltage / power factor, edition reference).
+      - Per-page footer: project + page-of-N + MagnaDesign
+        version + git SHA short hash. Auditable.
+- [~] Golden-file tests for one PASS report + one FAIL report.
+      *Smoke-tested only (`PDF starts with %PDF-` + size > 5 KB)
+      — golden-file diff is too fragile across reportlab
+      versions. Visual regression via the 600 W reference
+      design's PDF lands with the validation reference set.*
 
 ## Phase 7 — UI
 

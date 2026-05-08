@@ -50,8 +50,10 @@
       reuses `report.datasheet.generate_datasheet`.
 - [ ] `magnadesign mfg-spec PROJECT.pfc --out FILE.pdf` (depends
       on `add-manufacturing-spec-export`).
-- [ ] `magnadesign compliance PROJECT.pfc --region EU --out FILE.pdf`
-      (depends on `add-compliance-report-pdf`).
+- [x] `magnadesign compliance PROJECT.pfc --region EU --out FILE.pdf`
+       — runs the dispatcher, prints overall + per-standard
+       verdict, optionally writes the PDF, exits with
+       ``COMPLIANCE_FAIL`` (2) on FAIL or strict-MARGINAL.
 - [x] `magnadesign worst-case PROJECT.pfc [--tolerances FILE]
        [--samples N --seed S --yield-threshold PCT --csv OUT
         --pretty/--json]` — runs the corner DOE + Monte-Carlo,
