@@ -235,3 +235,101 @@ def test_synthesis_is_fast(db):
         synthesize_il_waveform(spec, result)
     elapsed_ms = (time.perf_counter() - t0) * 100.0  # 10 calls → ms each
     assert elapsed_ms < 50.0, f"synthesis took {elapsed_ms:.1f} ms/call"
+
+
+# ---------------------------------------------------------------------------
+# Spectrum / THD — the v3 contract: every topology carries a non-empty
+# spectrum + a THD number, and the picked fundamental matches the
+# topology's natural rectifier order.
+# ---------------------------------------------------------------------------
+
+def test_every_topology_has_thd_and_spectrum(db):
+    """Each ``RealisticWaveform`` carries:
+      - ``thd_pct`` > 0 (non-trivial distortion present)
+      - ``harmonic_h`` of length 20 starting at 1
+      - ``harmonic_pct[0] == 100`` (fundamental normalisation)
+    """
+    cases = [
+        ("boost_ccm", 1),
+        ("passive_choke", 1),
+        ("line_reactor", 1),
+        ("line_reactor", 3),
+    ]
+    for topology, n_phases in cases:
+        spec = Spec(topology=topology, n_phases=n_phases)
+        wf = synthesize_il_waveform(spec, _result(db, spec))
+        assert wf is not None
+        assert wf.harmonic_h is not None
+        assert wf.harmonic_pct is not None
+        assert wf.harmonic_h.shape == (20,)
+        assert wf.harmonic_h[0] == 1
+        assert wf.harmonic_pct[0] == pytest.approx(100.0)
+        assert wf.thd_pct > 0.5, (
+            f"{topology}/{n_phases}ph THD too low ({wf.thd_pct:.1f}%) — "
+            "synthesis likely produced a near-pure sinusoid"
+        )
+
+
+def test_fundamental_matches_topology(db):
+    """boost / passive feed off a full-wave rectifier — natural
+    fundamental is at 2·f_line. Line reactors' iL is the line current
+    itself — fundamental at f_line."""
+    f_line = 50.0  # default Spec
+    cases_2x = [("boost_ccm", 1), ("passive_choke", 1)]
+    cases_1x = [("line_reactor", 1), ("line_reactor", 3)]
+    for topology, n_phases in cases_2x:
+        spec = Spec(topology=topology, n_phases=n_phases)
+        wf = synthesize_il_waveform(spec, _result(db, spec))
+        assert wf is not None
+        assert wf.fundamental_Hz == pytest.approx(2.0 * f_line)
+    for topology, n_phases in cases_1x:
+        spec = Spec(topology=topology, n_phases=n_phases)
+        wf = synthesize_il_waveform(spec, _result(db, spec))
+        assert wf is not None
+        assert wf.fundamental_Hz == pytest.approx(f_line)
+
+
+def test_line_reactor_dominant_odd_harmonics(db):
+    """Diode-bridge pulse-train signature: h3 / h5 / h7 should each
+    be above 50 % of the fundamental (these are the canonical
+    rectifier harmonics IEEE 519 calls out)."""
+    spec = Spec(topology="line_reactor", n_phases=1)
+    wf = synthesize_il_waveform(spec, _result(db, spec))
+    assert wf is not None
+    pct = wf.harmonic_pct
+    # ``harmonic_pct`` is indexed 0..19 for h = 1..20.
+    assert pct[2] > 50.0, f"h3 = {pct[2]:.1f}% < 50% — pulse train weak"
+    assert pct[4] > 30.0, f"h5 = {pct[4]:.1f}% < 30% — pulse train weak"
+    assert pct[6] > 20.0, f"h7 = {pct[6]:.1f}% < 20% — pulse train weak"
+
+
+def test_boost_ccm_low_thd_relative_to_line_reactor(db):
+    """Sanity-check ordering: a PFC boost should report dramatically
+    lower THD than a passive line reactor on the same operating
+    point. If the test ever inverts, the synthesis lost the PFC
+    current-shaping property and reverted to a generic rectifier."""
+    spec_boost = Spec(topology="boost_ccm")
+    spec_lr = Spec(topology="line_reactor", n_phases=1)
+    wf_b = synthesize_il_waveform(spec_boost, _result(db, spec_boost))
+    wf_lr = synthesize_il_waveform(spec_lr, _result(db, spec_lr))
+    assert wf_b is not None and wf_lr is not None
+    # Generous margin: even the noisiest boost should sit below 80 %,
+    # and a line reactor should always exceed 100 %.
+    assert wf_b.thd_pct < wf_lr.thd_pct
+    assert wf_b.thd_pct < 80.0
+    assert wf_lr.thd_pct > 100.0
+
+
+def test_thd_zero_signal_is_zero():
+    """Edge case: spectrum helper on a flat-zero signal returns
+    THD = 0 (no fundamental to normalise against) instead of NaN."""
+    from pfc_inductor.simulate.realistic_waveforms import (
+        _spectrum_at_harmonics,
+    )
+
+    t = np.linspace(0.0, 0.02, 1000)
+    flat = np.zeros_like(t)
+    h, pct, thd = _spectrum_at_harmonics(t, flat, fundamental_Hz=50.0)
+    assert h.shape == (20,)
+    assert np.all(pct == 0.0)
+    assert thd == 0.0

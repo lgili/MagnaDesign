@@ -70,6 +70,26 @@ class RealisticWaveform:
     method — the FormasOndaCard surfaces it as a one-liner so the
     engineer knows whether they're looking at PFC-shaped current
     + ripple, a rectifier pulse train, etc.
+
+    Spectrum / THD fields
+    ---------------------
+    Filled at construction by :func:`_attach_spectrum`. Two reasons:
+
+    1. The Análise card needs THD for **every** topology, not just
+       line_reactor — ``DesignResult.thd_estimate_pct`` is only
+       populated by the line-reactor engine path, leaving the THD
+       tile blank for boost / passive.
+    2. The bottom subplot of FormasOndaCard (was a perpetually-empty
+       B(t) axis because the engine doesn't sample ``waveform_B_T``)
+       gets repurposed as a harmonic-spectrum bar chart that reads
+       the same data the THD number is computed from.
+
+    ``fundamental_Hz`` is the topology's natural fundamental
+    (``f_line`` for line reactors, ``2·f_line`` for boost / passive
+    where the inductor sees a rectified envelope). ``harmonic_pct``
+    is each h-th harmonic's amplitude as a percentage of the
+    fundamental peak; ``thd_pct`` follows the IEEE/IEC definition:
+    ``√(Σ_{h=2..N} I_h²) / I_1 · 100``.
     """
 
     topology: str
@@ -79,10 +99,104 @@ class RealisticWaveform:
     iL_extra: tuple[np.ndarray, ...] = ()
     extra_labels: tuple[str, ...] = ()
     label: str = ""
+    # ---- Spectrum + THD (filled by ``_attach_spectrum``) -------------
+    fundamental_Hz: float = 0.0
+    harmonic_h: np.ndarray = None  # type: ignore[assignment]
+    harmonic_pct: np.ndarray = None  # type: ignore[assignment]
+    thd_pct: float = 0.0
 
     @property
     def n_traces(self) -> int:
         return 1 + len(self.iL_extra)
+
+
+# ---------------------------------------------------------------------------
+# Spectrum + THD helper
+# ---------------------------------------------------------------------------
+
+def _spectrum_at_harmonics(
+    t_s: np.ndarray, signal: np.ndarray,
+    fundamental_Hz: float, n_harmonics: int = 20,
+) -> tuple[np.ndarray, np.ndarray, float]:
+    """FFT of ``signal`` sampled at the harmonic bins of ``fundamental_Hz``.
+
+    Returns ``(h_array, mag_pct_of_fundamental, thd_pct)``. THD is the
+    canonical IEEE/IEC fraction:
+    ``thd = √(Σ_{h=2..N} I_h²) / I_1``.
+
+    The signal's DC component is removed before the FFT so the
+    "fundamental" bin isn't shadowed by a large DC offset (passive
+    chokes are dominated by their DC level). When the input is too
+    short to resolve the fundamental, a zero spectrum + THD = 0 is
+    returned so the caller can render a flat bar chart instead of
+    erroring.
+    """
+    h = np.arange(1, n_harmonics + 1)
+    if signal.size < 8 or t_s.size != signal.size or fundamental_Hz <= 0:
+        return h, np.zeros(n_harmonics), 0.0
+
+    dt = float(t_s[1] - t_s[0])
+    if dt <= 0:
+        return h, np.zeros(n_harmonics), 0.0
+
+    n = signal.size
+    # Strip DC so a passive choke (dominated by I_dc) doesn't pin the
+    # spectrum's largest value to bin 0.
+    centred = signal - float(np.mean(signal))
+    fft = np.fft.rfft(centred)
+    freqs = np.fft.rfftfreq(n, d=dt)
+    mag = np.abs(fft) * 2.0 / n  # peak amplitude per bin
+
+    # Sample magnitude at each harmonic bin (nearest neighbour). Past
+    # the Nyquist limit the harmonic doesn't exist — clamp to 0.
+    nyq = 0.5 / dt
+    pct = np.zeros(n_harmonics)
+    fund_mag = 0.0
+    for i, h_n in enumerate(h):
+        f_target = float(h_n) * fundamental_Hz
+        if f_target > nyq:
+            continue
+        idx = int(np.argmin(np.abs(freqs - f_target)))
+        m = float(mag[idx])
+        if h_n == 1:
+            fund_mag = m
+            pct[i] = 100.0
+        else:
+            pct[i] = (m / fund_mag * 100.0) if fund_mag > 1e-12 else 0.0
+
+    if fund_mag <= 1e-12:
+        return h, np.zeros(n_harmonics), 0.0
+    thd_sq = float(np.sum((pct[1:] / 100.0) ** 2))
+    thd_pct = math.sqrt(thd_sq) * 100.0
+    return h, pct, thd_pct
+
+
+def _attach_spectrum(
+    wf: RealisticWaveform, fundamental_Hz: float,
+    n_harmonics: int = 20,
+) -> RealisticWaveform:
+    """Compute spectrum + THD on ``wf.iL_A`` and return a new bundle.
+
+    For multi-phase topologies the spectrum/THD are computed on phase
+    A (the others are the same up to phase shift; the magnitude
+    spectrum is invariant under phase rotation).
+    """
+    h, pct, thd = _spectrum_at_harmonics(
+        wf.t_s, wf.iL_A, fundamental_Hz, n_harmonics=n_harmonics,
+    )
+    return RealisticWaveform(
+        topology=wf.topology,
+        n_phases=wf.n_phases,
+        t_s=wf.t_s,
+        iL_A=wf.iL_A,
+        iL_extra=wf.iL_extra,
+        extra_labels=wf.extra_labels,
+        label=wf.label,
+        fundamental_Hz=fundamental_Hz,
+        harmonic_h=h,
+        harmonic_pct=pct,
+        thd_pct=thd,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -165,7 +279,7 @@ def _boost_ccm(spec: Spec, result: DesignResult,
     ripple = 0.5 * delta_pp * saw * fade
 
     iL = i_envelope + ripple
-    return RealisticWaveform(
+    base = RealisticWaveform(
         topology="boost_ccm",
         n_phases=1,
         t_s=t,
@@ -176,6 +290,11 @@ def _boost_ccm(spec: Spec, result: DesignResult,
             f"ripple_pp = Vin·(1-Vin/Vout)·Tsw/L"
         ),
     )
+    # Boost-CCM sees a rectified envelope after the bridge — the
+    # natural fundamental is at 2·f_line. The PFC line current
+    # *before* the bridge would be at f_line, but the spectrum the
+    # plot shows is of the inductor current as seen here.
+    return _attach_spectrum(base, fundamental_Hz=2.0 * f_line)
 
 
 def _passive_choke(spec: Spec, result: DesignResult,
@@ -234,7 +353,7 @@ def _passive_choke(spec: Spec, result: DesignResult,
         note = " · ⚠ L abaixo do recomendado (ripple raw {:.0f} A)".format(
             delta_pp_raw,
         )
-    return RealisticWaveform(
+    base = RealisticWaveform(
         topology="passive_choke",
         n_phases=1,
         t_s=t,
@@ -245,6 +364,9 @@ def _passive_choke(spec: Spec, result: DesignResult,
             f"{note}"
         ),
     )
+    # Passive choke ripple lives at 2·f_line — same fundamental as
+    # boost CCM since both feed off a full-wave rectifier.
+    return _attach_spectrum(base, fundamental_Hz=2.0 * f_line)
 
 
 def _line_reactor_1ph(spec: Spec, result: DesignResult,
@@ -309,7 +431,7 @@ def _line_reactor_1ph(spec: Spec, result: DesignResult,
     iL[pos_window] = I_pk * np.maximum(pos_pulse[pos_window], 0.0)
     iL[neg_window] = -I_pk * np.maximum(neg_pulse[neg_window], 0.0)
 
-    return RealisticWaveform(
+    base = RealisticWaveform(
         topology="line_reactor",
         n_phases=1,
         t_s=t,
@@ -320,6 +442,10 @@ def _line_reactor_1ph(spec: Spec, result: DesignResult,
             f"I_pk ≈ {I_pk:.1f} A"
         ),
     )
+    # Line reactor's iL is the LINE current itself — fundamental is
+    # at f_line. The pulse-train signature produces high THD that
+    # an engineer can read off the spectrum directly.
+    return _attach_spectrum(base, fundamental_Hz=f_line)
 
 
 def _line_reactor_3ph(spec: Spec, result: DesignResult,
@@ -368,7 +494,7 @@ def _line_reactor_3ph(spec: Spec, result: DesignResult,
     iL_b = _phase_current(-2.0 * math.pi / 3.0)
     iL_c = _phase_current(+2.0 * math.pi / 3.0)
 
-    return RealisticWaveform(
+    base = RealisticWaveform(
         topology="line_reactor",
         n_phases=3,
         t_s=t,
@@ -380,6 +506,10 @@ def _line_reactor_3ph(spec: Spec, result: DesignResult,
             f"3 fases a 120°"
         ),
     )
+    # 3φ reactor: same fundamental (f_line) as the 1φ case — each
+    # phase current's magnitude spectrum is invariant under phase
+    # rotation, so we report one spectrum for the whole bundle.
+    return _attach_spectrum(base, fundamental_Hz=f_line)
 
 
 # ---------------------------------------------------------------------------

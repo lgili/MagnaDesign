@@ -15,14 +15,20 @@ flux density side-by-side to diagnose:
 v2 stacks 2-3 traces on a shared x-axis (matplotlib ``subplots(N, 1,
 sharex=True)``) and adapts the trace set per topology:
 
-================  ===========================================
+================  =====================================================
 Topology          Traces (top → bottom)
-================  ===========================================
-boost_ccm         iL(t) — v_in(t) rect — B(t)
-passive_choke     iL(t) — v_in(t) rect — B(t)
-line_reactor_1ph  iL(t) — v_phase(t) — B(t)
-line_reactor_3ph  iL(t)  + i_b(t) + i_c(t) overlay — v_a/b/c — B(t)
-================  ===========================================
+================  =====================================================
+boost_ccm         iL(t) — v_in(t) rect — FFT spectrum (h = 1..20)
+passive_choke     iL(t) — v_in(t) rect — FFT spectrum (h = 1..20)
+line_reactor_1ph  iL(t) — v_phase(t) — FFT spectrum (h = 1..20)
+line_reactor_3ph  iL_a/b/c overlay — v_a/b/c overlay — FFT spectrum
+================  =====================================================
+
+The bottom subplot was originally a B(t) trace, but the engine never
+sampled ``waveform_B_T`` for any topology — the axis sat empty.
+v3 repurposes it as the harmonic-spectrum bar chart, fed by the
+same FFT that drives the THD metric tile, so the user sees both the
+shape *and* its frequency content.
 
 For the source/flux/duty traces that the engine doesn't sample (yet),
 we *synthesise them analytically* from the spec — boost / passive
@@ -144,7 +150,13 @@ class _FormasOndaBody(QWidget):
         # plotted waveforms.
         self.m_Irms.set_value(f"{result.I_rms_total_A:.2f}")
         self.m_Ipk.set_value(f"{result.I_pk_max_A:.2f}")
-        if result.thd_estimate_pct is not None:
+        # THD: prefer the FFT-derived number from the synthesised
+        # waveform — it's available for **every** topology, while
+        # ``DesignResult.thd_estimate_pct`` is only populated by the
+        # line-reactor engine path (left blank for boost / passive).
+        if synth is not None and synth.thd_pct > 0:
+            self.m_THD.set_value(f"{synth.thd_pct:.0f}")
+        elif result.thd_estimate_pct is not None:
             self.m_THD.set_value(f"{result.thd_estimate_pct:.0f}")
         else:
             self.m_THD.set_value("—")
@@ -168,14 +180,14 @@ class _FormasOndaBody(QWidget):
                     synth: Optional[RealisticWaveform] = None) -> str:
         prefix = ""
         if topology == "boost_ccm":
-            prefix = "Topologia: PFC ativo (boost CCM) — iL · v_in · B"
+            prefix = "Topologia: PFC ativo (boost CCM) — iL · v_in · FFT"
         elif topology == "passive_choke":
-            prefix = "Topologia: choke passivo — iL · v_in · B"
+            prefix = "Topologia: choke passivo — iL · v_in · FFT"
         elif topology == "line_reactor":
             phase = "3φ" if n_phases == 3 else "1φ"
             prefix = (
                 f"Topologia: reator de linha {phase} — "
-                f"iL · v_phase · B"
+                f"iL · v_phase · FFT"
             )
         else:
             prefix = f"Topologia: {topology}"
@@ -210,16 +222,23 @@ class _FormasOndaBody(QWidget):
         if t_ms.size == 0:
             t_ms = _FALLBACK_T_MS
 
-        # 3 stacked axes — same layout for every topology so the
-        # eye learns where to look. ``height_ratios`` slightly
-        # favours the current trace (the headline diagnostic).
-        axes = self._fig.subplots(
-            3, 1, sharex=True,
-            gridspec_kw={"height_ratios": [1.2, 0.9, 0.9]},
-        )
-        ax_i, ax_v, ax_b = axes
+        # 3 stacked axes. The top two (iL + source-voltage) share a
+        # time x-axis so they read as a multi-trace scope. The bottom
+        # axis is independent — it shows the **harmonic spectrum**
+        # of the iL waveform (frequency / harmonic-number x-axis,
+        # not time). Replaces the v1 B(t) plot, which the engine
+        # never populated for any topology.
+        gs = self._fig.add_gridspec(3, 1, height_ratios=[1.2, 0.9, 0.9])
+        ax_i = self._fig.add_subplot(gs[0])
+        ax_v = self._fig.add_subplot(gs[1], sharex=ax_i)
+        # Hide the iL axis's x-tick labels — only ax_v carries the
+        # time-axis label so the top two stack reads as a single
+        # multi-trace scope. ``sharex`` synchronises limits but not
+        # tick visibility, hence the explicit ``labelbottom=False``.
+        ax_i.tick_params(axis="x", labelbottom=False)
+        ax_s = self._fig.add_subplot(gs[2])
 
-        for ax in axes:
+        for ax in (ax_i, ax_v, ax_s):
             ax.set_facecolor(p.surface)
             ax.tick_params(colors=p.text_muted, labelsize=8)
             for spine in ("top", "right"):
@@ -227,6 +246,10 @@ class _FormasOndaBody(QWidget):
             for spine in ("left", "bottom"):
                 ax.spines[spine].set_color(p.border)
             ax.grid(True, color=p.border, linewidth=0.4, alpha=0.6)
+
+        # Time-domain axes get a zero baseline; spectrum bars sit on
+        # the x-axis so a separate horizontal rule would look noisy.
+        for ax in (ax_i, ax_v):
             ax.axhline(0, color=p.border, linewidth=0.6,
                        linestyle="--", alpha=0.7)
 
@@ -240,13 +263,10 @@ class _FormasOndaBody(QWidget):
 
         # ---- Middle axis: source/voltage waveform ----------------------
         self._plot_source_voltage(ax_v, t_ms, spec, topology, n_phases, p)
+        ax_v.set_xlabel("t (ms)", fontsize=10, color=p.text_secondary)
 
-        # ---- Bottom axis: flux density ---------------------------------
-        self._plot_flux_density(ax_b, t_ms, result, p)
-
-        # Only the bottom axis carries the time label so the stack
-        # reads as a single multi-trace scope.
-        ax_b.set_xlabel("t (ms)", fontsize=10, color=p.text_secondary)
+        # ---- Bottom axis: harmonic spectrum (FFT) ----------------------
+        self._plot_harmonic_spectrum(ax_s, synth, p)
 
         self._canvas.draw_idle()
 
@@ -362,25 +382,72 @@ class _FormasOndaBody(QWidget):
             ax.set_ylabel("v_in rect (V)", fontsize=10,
                           color=p.text_secondary)
 
-    def _plot_flux_density(self, ax, t_ms: np.ndarray,
-                           result: DesignResult, p) -> None:
-        if result.waveform_B_T and result.waveform_t_s:
-            y = np.array(result.waveform_B_T, dtype=float) * 1000.0  # mT
-            ax.plot(t_ms, y, color=p.warning, linewidth=1.6,
-                    label="B(t)")
-            # Bsat reference — engineer's "how close are we?" check.
-            if result.B_sat_limit_T > 0:
-                ax.axhline(
-                    result.B_sat_limit_T * 1000.0,
-                    color=p.danger, linewidth=0.9, linestyle=":",
-                    alpha=0.7, label="Bsat",
-                )
-        else:
-            ax.text(0.5, 0.5, "B(t) — engine sem amostragem",
-                    ha="center", va="center",
-                    color=p.text_muted, fontsize=10,
-                    transform=ax.transAxes)
-        ax.set_ylabel("B (mT)", fontsize=10, color=p.text_secondary)
+    def _plot_harmonic_spectrum(self, ax,
+                                synth: Optional[RealisticWaveform],
+                                p) -> None:
+        """Bar chart of the iL harmonic spectrum.
+
+        X-axis: harmonic number (h = 1, 2, …, 20).
+        Y-axis: amplitude as a percentage of the fundamental.
+        Title: ``"Espectro · THD = X %"`` so the engineer reads the
+        same THD number twice (chart annotation + the THD metric tile
+        below the canvas) and can verify the synthesiser agrees with
+        itself.
+
+        Empty-state when ``synth`` is unavailable: a friendly hint
+        instead of an axis full of zero bars.
+        """
+        if synth is None or synth.harmonic_pct is None:
+            ax.text(
+                0.5, 0.5,
+                "Espectro indisponível — recompute para gerar a FFT",
+                ha="center", va="center",
+                color=p.text_muted, fontsize=10,
+                transform=ax.transAxes,
+            )
+            ax.set_xticks([])
+            ax.set_yticks([])
+            return
+
+        h = synth.harmonic_h
+        pct = synth.harmonic_pct
+        # Colour the fundamental in accent + harmonics in violet so
+        # the eye separates "the signal" from "the distortion" at a
+        # glance.
+        colors = [
+            p.accent if int(hi) == 1 else p.accent_violet
+            for hi in h
+        ]
+        ax.bar(h, pct, width=0.7, color=colors,
+               edgecolor=p.surface, linewidth=0.4)
+
+        ax.set_xlabel(
+            f"Harmônico · fundamental = {synth.fundamental_Hz:.0f} Hz",
+            fontsize=10, color=p.text_secondary,
+        )
+        ax.set_ylabel("% do fundamental", fontsize=10,
+                      color=p.text_secondary)
+        ax.set_xticks(list(h))
+        ax.set_xticklabels(
+            [str(int(hi)) for hi in h],
+            fontsize=8, color=p.text_muted,
+        )
+        # Cap the visible range a hair above 100 % so the fundamental
+        # bar isn't pinned to the top edge. Tall harmonics (e.g.
+        # 1φ reactor with h3 ≈ 97 %) still fit.
+        ax.set_ylim(0, max(105.0, float(pct.max()) * 1.05))
+
+        # THD annotation in the upper-right — matches the value
+        # surfaced in the THD metric tile.
+        ax.text(
+            0.98, 0.92,
+            f"THD = {synth.thd_pct:.0f} %",
+            ha="right", va="top",
+            transform=ax.transAxes,
+            color=p.text, fontsize=10, fontweight="bold",
+            bbox=dict(facecolor=p.surface, edgecolor=p.border,
+                      boxstyle="round,pad=0.3", alpha=0.85),
+        )
 
 
 class FormasOndaCard(Card):
