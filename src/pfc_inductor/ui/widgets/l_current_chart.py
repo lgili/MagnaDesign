@@ -111,17 +111,6 @@ class LCurrentChart(QWidget):
             return
         result, core, material, I_pk = self._last
 
-        # Materials without a published rolloff curve (silicon-steel
-        # laminations) — the L(I) trace would be essentially flat
-        # until the saturation cliff, which doesn't help an engineer
-        # reading the design point. Show a friendly note instead.
-        if material.rolloff is None:
-            self._render_empty(
-                f"Material {material.name} has no rolloff curve\n"
-                "(silicon-steel laminations are essentially flat\n"
-                "until B = Bsat)."
-            )
-            return
         if I_pk <= 0 or result.N_turns <= 0:
             self._render_empty("Insufficient data to plot L(I).")
             return
@@ -133,21 +122,58 @@ class LCurrentChart(QWidget):
         for spine in ax.spines.values():
             spine.set_visible(True)
 
-        # Sweep current from ε to ~2 × I_pk so the saturation knee
-        # past the design point is visible.
         N = int(result.N_turns)
-        I = np.linspace(0.01, I_pk * 2.0, 250)
-        L_uH = np.zeros_like(I)
-        for i, Ii in enumerate(I):
-            H_Oe = rf.H_from_NI(N, float(Ii), core.le_mm, units="Oe")
-            mu = rf.mu_pct(material, H_Oe)
-            L_uH[i] = rf.inductance_uH(N, core.AL_nH, mu)
+        # Pick the sweep range. Powder cores have a published rolloff
+        # polynomial that's already meaningful in the [0, 2 × I_pk]
+        # range. Silicon-steel cores need a wider sweep to make the
+        # saturation knee visible — extend until ~3 × Bsat is hit.
+        if material.rolloff is None:
+            Ae_m2 = max(core.Ae_mm2 * 1e-6, 1e-12)
+            L_lin_uH = rf.inductance_uH(N, core.AL_nH, 1.0)
+            B_at_Ipk = (L_lin_uH * 1e-6) * I_pk / max(N * Ae_m2, 1e-12)
+            I_max = (
+                I_pk * min(
+                    max(3.0 * material.Bsat_100C_T / max(B_at_Ipk, 1e-9),
+                         2.0),
+                    20.0,
+                )
+                if B_at_Ipk > 0 else I_pk * 5.0
+            )
+        else:
+            I_max = I_pk * 2.0
+
+        I = np.linspace(0.01, I_max, 300)
+        L_uH = np.array([
+            rf.L_at_current_uH(
+                material, N=N, I_A=float(Ii),
+                AL_nH=core.AL_nH, le_mm=core.le_mm,
+                Ae_mm2=core.Ae_mm2,
+            )
+            for Ii in I
+        ])
 
         L0 = float(L_uH[0])
         L_op = float(result.L_actual_uH)
-        rolloff_pct = (1.0 - L_op / L0) * 100.0 if L0 > 0 else 0.0
+        # Clamp tiny negatives from float-precision noise (the sweep
+        # starts at I = 0.01 A, not exactly zero, so for silicon-
+        # steel the first sweep point can sit a hair below L_op).
+        rolloff_pct = max(0.0, (1.0 - L_op / L0) * 100.0) if L0 > 0 else 0.0
+        op_label = (
+            f"Operating: L = {L_op:.0f} µH (no rolloff)"
+            if rolloff_pct < 0.5
+            else f"Operating: L = {L_op:.0f} µH (−{rolloff_pct:.0f}% from L₀)"
+        )
+        # Surface the model used so an engineer reading the chart
+        # knows whether the curve is from a vendor table or from
+        # the analytical Bsat-driven fallback.
+        model_label = (
+            "rolloff table"
+            if material.rolloff is not None
+            else "sech² (Bsat fallback)"
+        )
 
-        ax.plot(I, L_uH, color=p.accent, linewidth=1.6, label=f"L(I) at N = {N}")
+        ax.plot(I, L_uH, color=p.accent, linewidth=1.6,
+                 label=f"L(I) at N = {N} ({model_label})")
         ax.axhline(
             L0,
             color=p.text_muted,
@@ -171,7 +197,7 @@ class LCurrentChart(QWidget):
             color=p.danger,
             markersize=6,
             zorder=5,
-            label=f"Operating: L = {L_op:.0f} µH (−{rolloff_pct:.0f}% from L₀)",
+            label=op_label,
         )
         ax.set_xlabel("DC bias current I [A]", color=p.text)
         ax.set_ylabel("Inductance L [µH]", color=p.text)

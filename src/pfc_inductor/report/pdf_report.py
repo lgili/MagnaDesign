@@ -456,33 +456,76 @@ def _fig_rolloff(material: Material, result: DesignResult):
 
 def _fig_inductance_vs_current(material: Material, core: Core, result: DesignResult, I_pk_A: float):
     """L(I) saturation curve — sweeps DC bias from zero to ~2 × I_pk
-    and traces L(N, I) using the material's rolloff curve. The
-    operating point is marked so the engineer reads at a glance:
-    "at I_pk the inductance has fallen from L₀ = X µH to L_op = Y µH".
+    and traces L(N, I) using the best available saturation model.
 
-    Returns ``None`` for materials without a published rolloff curve
-    (e.g. silicon-steel laminations have no gradual rolloff — μ stays
-    constant up to Bsat). For those the L vs I trace is essentially
-    a flat line until saturation, so the plot adds little.
+    Two paths, picked transparently by ``rf.L_at_current_uH``:
+
+    - **Powder cores** with a published μ%(H) rolloff polynomial
+      (Magnetics 60 / 60-HighFlux / Kool-Mu, fitted Mn-Zn ferrites)
+      use the vendor's table directly.
+    - **Silicon-steel laminations / amorphous / nanocrystalline**
+      cores have no rolloff polynomial; we fall back to the
+      analytical ``sech²`` model derived from the tanh saturation
+      curve (gradual knee around B_lin ≈ Bsat). Engineer still
+      reads "where in I-space does the inductance start dropping"
+      at a glance.
+
+    The operating point is marked so the engineer sees: "at I_pk
+    the inductance has fallen from L₀ = X µH to L_op = Y µH".
     """
-    if material.rolloff is None:
-        return None
     if I_pk_A <= 0 or result.N_turns <= 0:
         return None
     N = result.N_turns
-    I = np.linspace(0.01, I_pk_A * 2.0, 250)
-    L_uH = np.zeros_like(I)
-    for i, Ii in enumerate(I):
-        H_Oe = rf.H_from_NI(N, Ii, core.le_mm, units="Oe")
-        mu = rf.mu_pct(material, H_Oe)
-        L_uH[i] = rf.inductance_uH(N, core.AL_nH, mu)
+    # Sweep current from ε to ~2 × I_pk for powder cores; for
+    # silicon-steel we extend further so the saturation cliff sits
+    # inside the plot. ``Bsat / B_lin_at_Ipk`` tells us how many
+    # I_pk-multiples it takes to reach Bsat.
+    if material.rolloff is None:
+        Ae_m2 = max(core.Ae_mm2 * 1e-6, 1e-12)
+        L_lin_uH = rf.inductance_uH(N, core.AL_nH, 1.0)
+        B_at_Ipk = (L_lin_uH * 1e-6) * I_pk_A / max(N * Ae_m2, 1e-12)
+        # Want to reach ~3 × Bsat in the sweep so the cliff is fully
+        # visible; clip to a sensible max so super-oversized designs
+        # don't blow up the x-axis.
+        I_max = (
+            I_pk_A * min(max(3.0 * material.Bsat_100C_T / max(B_at_Ipk, 1e-9), 2.0), 20.0)
+            if B_at_Ipk > 0
+            else I_pk_A * 5.0
+        )
+    else:
+        I_max = I_pk_A * 2.0
+    I = np.linspace(0.01, I_max, 300)
+    L_uH = np.array([
+        rf.L_at_current_uH(
+            material,
+            N=N,
+            I_A=float(Ii),
+            AL_nH=core.AL_nH,
+            le_mm=core.le_mm,
+            Ae_mm2=core.Ae_mm2,
+        )
+        for Ii in I
+    ])
     L0 = float(L_uH[0])
     L_op = float(result.L_actual_uH)
-    # ``rolloff_pct`` is positive when L_op < L0 (the usual case);
-    # the label reads "−X % from L₀" so the sign is unambiguous —
-    # ``+100% rolloff`` could be misread as "doubled" rather than
-    # "fell by 100%".
-    rolloff_pct = (1.0 - L_op / L0) * 100.0 if L0 > 0 else 0.0
+    # ``rolloff_pct`` is positive when L_op < L0 (the usual case).
+    # Clamp negatives — they only ever appear from float-precision
+    # noise (the sweep's first point is at I = 0.01 A, not exactly
+    # zero, so L_uH[0] can be infinitesimally below L_op for
+    # silicon-steel where the design sits at the linear plateau).
+    rolloff_pct = max(0.0, (1.0 - L_op / L0) * 100.0) if L0 > 0 else 0.0
+    op_label = (
+        f"Operating: L = {L_op:.0f} µH (no rolloff)"
+        if rolloff_pct < 0.5
+        else f"Operating: L = {L_op:.0f} µH (−{rolloff_pct:.0f}% from L₀)"
+    )
+    # Surface a hint when we're using the analytical fallback so the
+    # engineer knows the curve shape comes from a Bsat-driven model
+    # rather than a vendor table.
+    suffix = (
+        " — sech² model (no published rolloff)"
+        if material.rolloff is None else ""
+    )
     fig, ax = plt.subplots(figsize=(7.0, 3.2), dpi=110)
     ax.plot(I, L_uH, color="#3a78b5", linewidth=1.6, label=f"L(I) at N = {N}")
     ax.axhline(
@@ -508,12 +551,12 @@ def _fig_inductance_vs_current(material: Material, core: Core, result: DesignRes
         color="#a01818",
         markersize=6,
         zorder=5,
-        label=f"Operating: L = {L_op:.0f} µH (−{rolloff_pct:.0f}% from L₀)",
+        label=op_label,
     )
     ax.set_xlabel("DC bias current I [A]")
     ax.set_ylabel("Inductance L [µH]")
     ax.set_title(
-        "Inductance vs current — bias-induced rolloff",
+        f"Inductance vs current — bias-induced rolloff{suffix}",
         fontsize=10,
     )
     ax.set_ylim(bottom=0)

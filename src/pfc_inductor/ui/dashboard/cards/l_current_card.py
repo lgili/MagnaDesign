@@ -85,16 +85,19 @@ class _LCurrentBody(QWidget):
             wire,
             material,
         )
-        # Compute L₀ + rolloff for the summary strip — the chart
-        # widget computes the same numbers internally; here we
-        # re-derive the two scalars so the strip is independent
-        # (and stays synced when the chart silently bails because
-        # the material lacks rolloff data).
-        if material.rolloff is not None and result.N_turns > 0:
-            mu0 = rf.mu_pct(material, 0.01)
-            L0 = rf.inductance_uH(int(result.N_turns), core.AL_nH, mu0)
+        # Compute L₀ + rolloff for the summary strip. ``L0`` is the
+        # zero-bias inductance — same number the chart's flat top
+        # converges to. For powder cores μ%(0) = 1, so L₀ = AL · N²;
+        # for silicon-steel the same expression holds (no rolloff
+        # at zero bias). Use the engine's ``inductance_uH`` so the
+        # number matches the rest of the report exactly.
+        if result.N_turns > 0:
+            L0 = rf.inductance_uH(int(result.N_turns), core.AL_nH, 1.0)
             L_op = float(result.L_actual_uH)
-            rolloff_pct = (1.0 - L_op / L0) * 100.0 if L0 > 0 else 0.0
+            rolloff_pct = (
+                max(0.0, (1.0 - L_op / L0) * 100.0)
+                if L0 > 0 else 0.0
+            )
             self._lbl_l0.setText(f"L₀  {L0:.0f} µH")
             self._lbl_lop.setText(f"L_op  {L_op:.0f} µH")
             self._lbl_rolloff.setText(f"Rolloff  {rolloff_pct:.0f} %")

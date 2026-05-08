@@ -72,6 +72,66 @@ def B_dc_T(N: int, I_dc_A: float, AL_nH: float, Ae_mm2: float, mu_fraction: floa
     return L_H * I_dc_A / (N * Ae_m2)
 
 
+def L_at_current_uH(
+    material: Material,
+    *,
+    N: int,
+    I_A: float,
+    AL_nH: float,
+    le_mm: float,
+    Ae_mm2: float,
+) -> float:
+    """Differential inductance L(I) [µH] using the best available
+    saturation model.
+
+    Two paths:
+
+    1. **Material with published rolloff curve** (powder cores like
+       Magnetics 60 / 60-HighFlux / Kool-Mu, Mn-Zn ferrites with
+       fitted μ%(H) tables). The vendor's per-grade rolloff
+       polynomial gives μ%(H) directly:
+
+           L = AL · N² · μ%(H_pk)
+
+    2. **Material without rolloff data** (silicon-steel laminations,
+       amorphous, nanocrystalline cores). Fall back to the
+       analytical ``sech²`` differential-inductance model derived
+       from a tanh saturation B(H):
+
+           B_lin(I)   = L_lin · I / (N · A_e)        [linear extrap]
+           L_diff(I)  = L_lin · sech²(B_lin / Bsat)
+
+       with ``L_lin = AL · N²`` (zero-bias inductance, gap-set for
+       silicon-steel). The model:
+
+       - Reduces to ``L_lin`` when B_lin << Bsat (linear region).
+       - Drops smoothly through the saturation knee.
+       - Asymptotes to zero as B_lin >> Bsat. (In reality it would
+         asymptote to the air-gap inductance; the model is a touch
+         pessimistic deep in saturation but the cliff location is
+         the visualisation's whole point and that is correct.)
+
+    For very large arguments ``cosh`` overflows ``float``; we clamp
+    the exponent so the curve flatlines at zero past 30·Bsat
+    rather than raising.
+    """
+    if N <= 0 or AL_nH <= 0:
+        return 0.0
+    L_lin_uH = inductance_uH(N, AL_nH, 1.0)
+    if material.rolloff is not None:
+        H_Oe = H_from_NI(N, I_A, le_mm, units="Oe")
+        return inductance_uH(N, AL_nH, mu_pct(material, H_Oe))
+    # No rolloff — analytical sech² fallback.
+    Bsat = max(material.Bsat_100C_T, 1e-6)
+    Ae_m2 = max(Ae_mm2 * 1e-6, 1e-12)
+    B_lin = (L_lin_uH * 1e-6) * I_A / (N * Ae_m2)
+    arg = abs(B_lin) / Bsat
+    if arg > 30.0:
+        return 0.0
+    sech2 = 1.0 / (math.cosh(arg) ** 2)
+    return L_lin_uH * sech2
+
+
 def mu_pct_array(material: Material, H_Oe_arr: ArrayLike) -> np.ndarray:
     """Vectorized version of `mu_pct` for an array of H values."""
     H = np.maximum(np.abs(np.asarray(H_Oe_arr, dtype=float)), 1e-6)
