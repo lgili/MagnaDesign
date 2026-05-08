@@ -51,6 +51,10 @@ from PySide6.QtWidgets import (
 )
 
 from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
+from pfc_inductor.simulate.realistic_waveforms import (
+    RealisticWaveform,
+    synthesize_il_waveform,
+)
 from pfc_inductor.ui.theme import get_theme
 from pfc_inductor.ui.widgets import Card, MetricCard
 
@@ -122,9 +126,19 @@ class _FormasOndaBody(QWidget):
 
         topology = getattr(spec, "topology", "boost_ccm")
         n_phases = int(getattr(spec, "n_phases", 1) or 1)
-        self._badge.setText(self._badge_text(topology, n_phases))
 
-        self._render(result, spec, topology, n_phases)
+        # Synthesised iL waveform from the converter's textbook
+        # state-space / small-signal model. Preferred over the
+        # engine's sampled arrays because it carries the right
+        # high-frequency signature for each topology — PWM ripple
+        # for boost CCM, rectifier pulses for the line reactor,
+        # 2·f_line ripple for the passive choke. Falls through to
+        # ``None`` if the spec is half-baked, in which case the
+        # plotter uses the engine's ``waveform_iL_A`` as a backstop.
+        synth = synthesize_il_waveform(spec, result)
+        self._badge.setText(self._badge_text(topology, n_phases, synth))
+
+        self._render(result, spec, topology, n_phases, synth)
 
         # Metric tiles — same source as v1 so the numbers match the
         # plotted waveforms.
@@ -150,30 +164,45 @@ class _FormasOndaBody(QWidget):
 
     # ------------------------------------------------------------------
     @staticmethod
-    def _badge_text(topology: str, n_phases: int) -> str:
+    def _badge_text(topology: str, n_phases: int,
+                    synth: Optional[RealisticWaveform] = None) -> str:
+        prefix = ""
         if topology == "boost_ccm":
-            return "Topologia: PFC ativo (boost CCM) — iL · v_in · B"
-        if topology == "passive_choke":
-            return "Topologia: choke passivo — iL · v_in · B"
-        if topology == "line_reactor":
+            prefix = "Topologia: PFC ativo (boost CCM) — iL · v_in · B"
+        elif topology == "passive_choke":
+            prefix = "Topologia: choke passivo — iL · v_in · B"
+        elif topology == "line_reactor":
             phase = "3φ" if n_phases == 3 else "1φ"
-            return (
+            prefix = (
                 f"Topologia: reator de linha {phase} — "
                 f"iL · v_phase · B"
             )
-        return f"Topologia: {topology}"
+        else:
+            prefix = f"Topologia: {topology}"
+        if synth is not None and synth.label:
+            # The synthesised waveform's label documents the
+            # mathematical model in plain text — surfacing it makes
+            # the plot self-explanatory without tooltips.
+            return f"{prefix}    ·    {synth.label}"
+        return prefix
 
     # ------------------------------------------------------------------
     # Plotting
     # ------------------------------------------------------------------
     def _render(self, result: DesignResult, spec: Spec,
-                topology: str, n_phases: int) -> None:
+                topology: str, n_phases: int,
+                synth: Optional[RealisticWaveform]) -> None:
         p = get_theme().palette
         self._fig.clear()
         self._fig.set_facecolor(p.surface)
 
-        # Time axis (in ms) — shared across all subplots.
-        if result.waveform_t_s:
+        # Time axis (in ms) — shared across all subplots. When the
+        # synthesiser succeeded we use its time axis (one full line
+        # cycle for boost / two for AC reactors); otherwise we fall
+        # back to the engine's sampled t array.
+        if synth is not None:
+            t_s = synth.t_s
+        elif result.waveform_t_s:
             t_s = np.array(result.waveform_t_s, dtype=float)
         else:
             t_s = _FALLBACK_T_MS / 1000.0
@@ -203,9 +232,11 @@ class _FormasOndaBody(QWidget):
 
         # ---- Top axis: inductor current (or 3-phase overlay) -----------
         if topology == "line_reactor" and n_phases == 3:
-            self._plot_three_phase_currents(ax_i, t_ms, result, spec, p)
+            self._plot_three_phase_currents(
+                ax_i, t_ms, result, spec, p, synth,
+            )
         else:
-            self._plot_inductor_current(ax_i, t_ms, result, p)
+            self._plot_inductor_current(ax_i, t_ms, result, p, synth)
 
         # ---- Middle axis: source/voltage waveform ----------------------
         self._plot_source_voltage(ax_v, t_ms, spec, topology, n_phases, p)
@@ -220,8 +251,16 @@ class _FormasOndaBody(QWidget):
         self._canvas.draw_idle()
 
     def _plot_inductor_current(self, ax, t_ms: np.ndarray,
-                               result: DesignResult, p) -> None:
-        if result.waveform_iL_A and result.waveform_t_s:
+                               result: DesignResult, p,
+                               synth: Optional[RealisticWaveform]) -> None:
+        # Prefer the synthesised waveform — it carries the proper
+        # state-space-derived shape per topology (PFC sinusoid +
+        # PWM ripple for boost, slow triangle for passive choke,
+        # rectifier pulses for the line reactor).
+        if synth is not None:
+            ax.plot(t_ms, synth.iL_A, color=p.accent, linewidth=1.4,
+                    label="iL(t) sintetizado")
+        elif result.waveform_iL_A and result.waveform_t_s:
             y = np.array(result.waveform_iL_A, dtype=float)
             ax.plot(t_ms, y, color=p.accent, linewidth=1.6,
                     label="iL(t)")
@@ -234,39 +273,38 @@ class _FormasOndaBody(QWidget):
 
     def _plot_three_phase_currents(self, ax, t_ms: np.ndarray,
                                    result: DesignResult, spec: Spec,
-                                   p) -> None:
+                                   p,
+                                   synth: Optional[RealisticWaveform]) -> None:
         """For 3-phase line reactors, overlay the three phase currents.
 
-        The engine only emits the *worst-phase* sample in
-        ``waveform_iL_A``; we synthesise the other two phases by
-        rotating the same envelope ±120° so the diagnostic chart
-        shows the balanced 3-phase shape engineers expect.
+        Prefer the analytical 6-pulse synthesis (one shaped pulse per
+        phase per half-cycle, properly time-aligned at ±120°).
+        Falls back to phase-rotating the engine's worst-phase sample
+        if synthesis is unavailable.
         """
-        if not (result.waveform_iL_A and result.waveform_t_s):
+        if synth is not None and len(synth.iL_extra) >= 2:
+            i_a = synth.iL_A
+            i_b = synth.iL_extra[0]
+            i_c = synth.iL_extra[1]
+        elif result.waveform_iL_A and result.waveform_t_s:
+            i_a = np.array(result.waveform_iL_A, dtype=float)
+            f_line = float(spec.f_line_Hz or 50.0)
+            i_pk = float(np.max(np.abs(i_a)))
+            omega = 2.0 * math.pi * f_line
+            t_s = t_ms / 1e3
+            i_b = i_pk * np.sin(omega * t_s - 2.0 * math.pi / 3.0)
+            i_c = i_pk * np.sin(omega * t_s + 2.0 * math.pi / 3.0)
+        else:
             ax.text(0.5, 0.5, "iL(t) — sem dados",
                     ha="center", va="center",
                     color=p.text_muted, fontsize=10,
                     transform=ax.transAxes)
             return
 
-        i_a = np.array(result.waveform_iL_A, dtype=float)
-        # Phase rotations are easiest to express by recomputing the
-        # envelope in t-space. The Tier-2 sample is mostly sinusoidal
-        # for AC reactors, so we approximate phases B/C with a
-        # ±2π/3 phase shift on a fundamental fitted to the peak.
-        f_line = float(spec.f_line_Hz or 50.0)
-        i_pk = float(np.max(np.abs(i_a)))
-        omega = 2.0 * math.pi * f_line
-        t_s = t_ms / 1e3
-        phi_b = -2.0 * math.pi / 3.0
-        phi_c = +2.0 * math.pi / 3.0
-        i_b = i_pk * np.sin(omega * t_s + phi_b)
-        i_c = i_pk * np.sin(omega * t_s + phi_c)
-
-        ax.plot(t_ms, i_a, color=p.accent, linewidth=1.6, label="A")
-        ax.plot(t_ms, i_b, color=p.accent_violet, linewidth=1.4,
+        ax.plot(t_ms, i_a, color=p.accent, linewidth=1.4, label="A")
+        ax.plot(t_ms, i_b, color=p.accent_violet, linewidth=1.3,
                 alpha=0.85, label="B")
-        ax.plot(t_ms, i_c, color=p.warning, linewidth=1.4,
+        ax.plot(t_ms, i_c, color=p.warning, linewidth=1.3,
                 alpha=0.85, label="C")
         ax.set_ylabel("iL (A)", fontsize=10, color=p.text_secondary)
         ax.legend(loc="upper right", fontsize=7, frameon=False,
