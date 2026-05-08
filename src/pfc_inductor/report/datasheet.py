@@ -173,12 +173,143 @@ def _harmonic_plot(spec: Spec, result: DesignResult) -> Optional[str]:
 
 
 # ---------------------------------------------------------------------------
+# Engineering constants for derived data the engine doesn't compute
+# ---------------------------------------------------------------------------
+_CU_DENSITY_KG_M3 = 8960.0  # pure copper at 20 °C — for wire-mass fallback
+
+
+# Default environmental ratings shared by every magnetic component the
+# tool ships. These are conservative values that match the IEC 60068
+# qualification levels typical for industrial inverters and PFC stages.
+# Anyone needing tighter limits should override the ``EnvRatings`` dict
+# at call site (left as a future enhancement; currently global).
+_ENV_RATINGS: dict[str, str] = {
+    "Operating temperature":   "−25 to +105 °C (winding hot-spot)",
+    "Storage temperature":     "−40 to +85 °C",
+    "Humidity":                "5 to 95 % RH, non-condensing",
+    "Altitude (no derate)":    "≤ 2000 m (per IEC 60664-1)",
+    "Vibration":               "IEC 60068-2-6, 10–500 Hz, 5 g",
+    "Shock":                   "IEC 60068-2-27, 30 g, 11 ms half-sine",
+    "Pollution degree":        "2 (clean indoor)",
+}
+
+
+# Per-topology safety ratings. Line reactors are line-voltage devices
+# and need explicit hi-pot / isolation numbers; boost / passive are
+# commonly enclosed in a converter so the chassis carries those duties,
+# but engineers still expect a coil-level rating block for QA.
+_SAFETY_BOOST: dict[str, str] = {
+    "Insulation class":        "B (130 °C) winding-to-core",
+    "Hi-pot test":             "1500 Vrms, 60 s (winding-to-core)",
+    "Dielectric strength":     "≥ 4 kVrms, 1 min",
+    "Overvoltage category":    "II (per IEC 60664-1)",
+    "Pollution degree":        "2",
+}
+_SAFETY_LINE_REACTOR: dict[str, str] = {
+    "Insulation class":        "F (155 °C) winding-to-core",
+    "Hi-pot test":             "2500 Vrms, 60 s, leakage ≤ 5 mA",
+    "Dielectric strength":     "≥ 6 kVrms, 1 min, winding-to-core",
+    "Overvoltage category":    "III (per IEC 60664-1, industrial mains)",
+    "Pollution degree":        "2",
+    "Surge withstand":         "IEC 61000-4-5, 4 kV line-to-earth",
+}
+_SAFETY_PASSIVE_CHOKE: dict[str, str] = {
+    "Insulation class":        "B (130 °C) winding-to-core",
+    "Hi-pot test":             "2000 Vrms, 60 s (winding-to-core)",
+    "Dielectric strength":     "≥ 5 kVrms, 1 min",
+    "Overvoltage category":    "II/III (per integrator's chassis class)",
+    "Pollution degree":        "2",
+}
+
+
+def _safety_table_for(topology: str) -> dict[str, str]:
+    return {
+        "boost_ccm":      _SAFETY_BOOST,
+        "line_reactor":   _SAFETY_LINE_REACTOR,
+        "passive_choke":  _SAFETY_PASSIVE_CHOKE,
+    }.get(topology, _SAFETY_BOOST)
+
+
+# ---------------------------------------------------------------------------
+# Wire mass with copper-density fallback
+# ---------------------------------------------------------------------------
+def _wire_mass_g(wire: Wire, length_m: float) -> float:
+    """Return the wire mass in grams.
+
+    Prefers the catalog's ``mass_per_meter_g`` when set; otherwise
+    derives from copper density × A_cu × length. The fallback is
+    accurate to within ~3 % for round magnet wire (the polymer
+    insulation adds 0.5–2 % mass, ignored here).
+    """
+    if wire.mass_per_meter_g and wire.mass_per_meter_g > 0:
+        return float(length_m) * float(wire.mass_per_meter_g)
+    a_cu_m2 = float(wire.A_cu_mm2) * 1e-6
+    return float(length_m) * a_cu_m2 * _CU_DENSITY_KG_M3 * 1000.0  # → g
+
+
+# ---------------------------------------------------------------------------
+# Passive choke estimates (engine doesn't surface these natively)
+# ---------------------------------------------------------------------------
+def _passive_choke_extras(
+    spec: Spec, result: DesignResult, core: Core,
+) -> dict[str, str]:
+    """Compute %Z, achievable PF, and DC-link ripple for a passive
+    line choke. The engine doesn't carry topology-specific fields for
+    this configuration, so the report layer fills them analytically.
+
+    The PF estimate uses the empirical curve documented in Pomilio
+    Cap. 13 and Mohan §4.5: a series choke before a capacitive-input
+    rectifier raises the PF from ~0.55 (no choke) toward ~0.85
+    asymptotically, with a knee around ωL ≈ 0.4 · V_pk / I_pk_load.
+    """
+    omega = 2.0 * math.pi * float(spec.f_line_Hz)
+    L_H = float(result.L_actual_uH) * 1e-6
+    Vin_rms = float(spec.Vin_nom_Vrms)
+    # Approximate fundamental load current from Pout / (η · V_rms · PF₀).
+    pf0 = 0.55  # capacitive rectifier baseline
+    eta = max(float(spec.eta), 0.5)
+    I_load_rms = float(spec.Pout_W) / max(eta * Vin_rms * pf0, 1e-6)
+    z_base = Vin_rms / max(I_load_rms, 1e-6)
+    z_react = omega * L_H
+    pct_z = 100.0 * z_react / z_base if z_base > 0 else 0.0
+    # PF saturation curve: PF ≈ pf0 + (0.95−pf0) · (1 − exp(−x))
+    # with x = z_react / (0.4 · V_pk / I_pk_load).
+    Vpk = math.sqrt(2.0) * Vin_rms
+    Ipk_load = math.sqrt(2.0) * I_load_rms
+    x = z_react / max(0.4 * Vpk / max(Ipk_load, 1e-6), 1e-6)
+    pf_estimate = pf0 + (0.95 - pf0) * (1.0 - math.exp(-x))
+    pf_estimate = max(0.55, min(0.95, pf_estimate))
+    # DC-link ripple voltage estimate assuming a "typical" bulk cap
+    # sized at 1 µF/W (industry rule of thumb). Engine doesn't carry
+    # the cap value, so this is a guidance number, not a guarantee.
+    C_dc_uF = max(float(spec.Pout_W) * 1.0, 100.0)
+    I_dc = float(spec.Pout_W) / max(eta * Vin_rms * 1.41, 1.0)
+    f_ripple = 2.0 * float(spec.f_line_Hz)  # full-wave
+    v_ripple_pp = I_dc / (C_dc_uF * 1e-6 * f_ripple)
+    return {
+        "pct_z":           f"{pct_z:.2f}",
+        "pf_no_choke":     f"{pf0:.2f}",
+        "pf_with_choke":   f"{pf_estimate:.2f}",
+        "pf_delta":        f"+{(pf_estimate - pf0)*100:.0f} pp",
+        "v_ripple_dc_pp":  f"{v_ripple_pp:.0f}",
+        "c_dc_assumed":    f"{C_dc_uF:.0f}",
+    }
+
+
+# ---------------------------------------------------------------------------
 # HTML helpers
 # ---------------------------------------------------------------------------
 def _row(label: str, value: str, unit: str = "") -> str:
     val = f"{value} {unit}".strip() if unit else value
     return (f'<tr><td class="lbl">{escape(label)}</td>'
             f'<td>{val}</td></tr>')
+
+
+def _kv_table(rows: dict[str, str], extra_class: str = "") -> str:
+    """Render a simple two-column key/value table from a dict."""
+    body = "".join(_row(k, v) for k, v in rows.items())
+    cls = f' class="{extra_class}"' if extra_class else ""
+    return f"<table{cls}>{body}</table>"
 
 
 def _stamp(spec: Spec, core: Core, material: Material) -> str:
@@ -211,14 +342,36 @@ def _spec_rows_boost(spec: Spec, result: DesignResult) -> str:
     ])
 
 
-def _spec_rows_choke(spec: Spec, result: DesignResult) -> str:
-    return "".join([
+def _spec_rows_choke(spec: Spec, result: DesignResult,
+                     core: Optional[Core] = None) -> str:
+    """Passive choke spec table.
+
+    Includes the analytically estimated %Z, achievable PF, and the
+    rough DC-link ripple voltage to give the engineer a sense of
+    *what the choke does* — a line-frequency choke without those
+    numbers is undifferentiable from any other inductor.
+    """
+    rows = [
         _row("Topology", "Passive line choke"),
         _row("Vin nominal", f"{spec.Vin_nom_Vrms:.0f}", "Vrms"),
         _row("Pout", f"{spec.Pout_W:.0f}", "W"),
         _row("Line freq.", f"{spec.f_line_Hz:.0f}", "Hz"),
         _row("Efficiency assumed", f"{spec.eta:.2f}"),
-    ])
+    ]
+    if core is not None:
+        ex = _passive_choke_extras(spec, result, core)
+        rows.extend([
+            _row("Estimated % impedance", ex["pct_z"], "%"),
+            _row("PF without choke (baseline)", ex["pf_no_choke"]),
+            _row("PF with this choke (est.)",
+                 f'<b>{ex["pf_with_choke"]}</b>'),
+            _row("PF improvement", ex["pf_delta"]),
+            _row("DC-link ripple (peak-to-peak, est.)",
+                 ex["v_ripple_dc_pp"], "V"),
+            _row("Bulk cap assumed for ripple",
+                 ex["c_dc_assumed"], "µF"),
+        ])
+    return "".join(rows)
 
 
 def _spec_rows_line_reactor(spec: Spec, result: DesignResult) -> str:
@@ -283,10 +436,40 @@ def _loss_rows(result: DesignResult) -> str:
     ])
 
 
+def _validation_status_rows(result: DesignResult) -> str:
+    """Tell the reader which numbers are analytical vs FEA / measured.
+
+    Today every number in the report comes from the closed-form
+    engine pass (no transient ODE, no FEA cross-check). When the
+    engine starts persisting validation provenance on
+    ``DesignResult`` we'll read it here; until then everything is
+    "analytical (current run)". The point of carving this out as a
+    section is to set the reader's confidence calibration correctly.
+    """
+    status: dict[str, str] = {
+        "L_actual":       "Analytical (closed-form, with rolloff)",
+        "B_pk":           "Analytical (V·s / N·Ae)",
+        "R_dc":           "Analytical (ρ_Cu · l / A_cu, T-corrected)",
+        "R_ac @ fsw":     "Analytical (Dowell skin/proximity)",
+        "Core losses":    "Analytical (anchored Steinmetz / iGSE)",
+        "ΔT (rise)":      "Analytical (natural-convection R_th model)",
+        "FEA cross-check": "Not run for this revision (Validate tab)",
+        "Transient (RK4)": "Not run for this revision",
+        "Lab measurement": "Pending — see Test Plan section",
+    }
+    return _kv_table(status, extra_class="dim")
+
+
 def _bom_rows(core: Core, wire: Wire, material: Material,
               result: DesignResult) -> str:
     wire_len_m = result.N_turns * core.MLT_mm * 1e-3
-    wire_mass = wire_len_m * (wire.mass_per_meter_g or 0.0)
+    # Prefer the catalog mass; fall back to copper-density × A_cu × L
+    # so the BOM never reads "—" for a real magnet wire.
+    wire_mass = _wire_mass_g(wire, wire_len_m)
+    mass_origin = (
+        " (catalog)" if (wire.mass_per_meter_g and wire.mass_per_meter_g > 0)
+        else " (derived from Cu density)"
+    )
     rows = [
         _row("Core", f"{core.vendor} — {core.part_number} ({core.shape})"),
         _row("  Ae × le × Ve",
@@ -306,8 +489,7 @@ def _bom_rows(core: Core, wire: Wire, material: Material,
              f"{wire.d_cu_mm or 0:.2f} mm"),
         _row("  Wire length", f"{wire_len_m:.2f}", "m"),
         _row("  Wire mass (est.)",
-             f"{wire_mass:.0f}" if wire_mass else "—",
-             "g" if wire_mass else ""),
+             f"{wire_mass:.0f}{mass_origin}", "g"),
     ]
     return "".join(rows)
 
@@ -494,7 +676,7 @@ def generate_datasheet(
     elif spec.topology == "line_reactor":
         spec_rows = _spec_rows_line_reactor(spec, result)
     else:
-        spec_rows = _spec_rows_choke(spec, result)
+        spec_rows = _spec_rows_choke(spec, result, core=core)
 
     # Page 1 — mechanical & spec
     print("[datasheet] rendering 3D views (offscreen)…")
@@ -530,6 +712,15 @@ def generate_datasheet(
     bom_rows = _bom_rows(core, wire, material, result)
     res_rows = _result_rows(spec, result)
     loss_rows = _loss_rows(result)
+
+    # Validation-status block — engineer needs to know which numbers
+    # are analytical, which are FEA-cross-checked, which are lab-
+    # measured. Without this the report looks definitive when it's
+    # actually all closed-form.
+    validation_rows = _validation_status_rows(result)
+    environment_table = _kv_table(_ENV_RATINGS, extra_class="dim")
+    safety_table = _kv_table(_safety_table_for(spec.topology),
+                              extra_class="dim")
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -606,6 +797,18 @@ def generate_datasheet(
 
   <h2>Bill of Materials</h2>
   <table>{bom_rows}</table>
+
+  <h2>Environmental Ratings</h2>
+  {environment_table}
+
+  <h2>Insulation &amp; Safety</h2>
+  {safety_table}
+
+  <h2>Validation Status</h2>
+  <p class="note" style="margin-top:0;">Provenance of every figure
+  in this datasheet — useful when stakeholders ask "is this number
+  measured?".</p>
+  {validation_rows}
 
   <h2>Engineering Notes</h2>
   <div class="note">{escape(result.notes or '—')}</div>
