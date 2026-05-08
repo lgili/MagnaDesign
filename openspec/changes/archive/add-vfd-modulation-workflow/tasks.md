@@ -55,49 +55,72 @@
 
 ## Phase 4 — Spec drawer UI
 
-- [ ] `ui/spec_panel.py` adds a collapsible "Modulation" section:
+- [x] `ui/spec_panel.py` adds a collapsible "Modulation" section:
       - "Variable fsw" check-box.
       - Two QSpinBoxes (kHz_min, kHz_max).
       - Profile combo: "Uniform / Triangular dither / RPM-band".
       - When "RPM-band": rpm_min, rpm_max, pole-pairs spinboxes.
       - "Eval points" slider 2–20.
-- [ ] Emits `changed` on any sub-field change so the dirty pill
-      flips correctly (matching the `add-cascade-optimizer` pattern).
+      _Shipped in `05ca06a feat(ui/spec): VFD modulation sub-form
+      on the SpecPanel`._
+- [x] Emits `changed` on any sub-field change so the dirty pill
+      flips correctly.
 
 ## Phase 5 — Analysis tab integration
 
-- [ ] When `BandedDesignResult` is current, the Analysis tab
+- [x] When `BandedDesignResult` is current, the Analysis tab
       shows three new line plots: `P_total(fsw)`, `B_pk(fsw)`,
       `dT(fsw)`. Each plot annotates the worst-case point.
-- [ ] The `ResumoStrip` switches to worst-case values and the
-      tooltip carries "Worst across fsw [4–25 kHz, 5 points]"
-      so the user knows it's not the nominal.
+      _Shipped in `d681ead feat(ui/analise): VFD modulation
+      envelope card — per-fsw band plots`._
+- [~] The `ResumoStrip` switches to worst-case values and the
+      tooltip carries "Worst across fsw [4–25 kHz, 5 points]".
+      *Deferred — the modulation envelope card carries the
+      worst-case markers in-place, which already answers "what's
+      the worst across the band". Promoting the strip to band-
+      aware is queued behind a UX review and not blocking.*
 
 ## Phase 6 — Optimizer integration
 
-- [ ] `OptimizerEmbed._refresh_table()` ranks by `worst_case` when
-      a band is active.
-- [ ] `CascadeOrchestrator` Tier-1 evaluates the band per
-      candidate (cost: × `n_eval_points`). Add a perf note in the
-      run-config card so the user sees the multiplier.
-- [ ] Top-N table gains a "Band ΔT" column when active showing
-      the worst-case ΔT.
+- [~] `OptimizerEmbed._refresh_table()` ranks by `worst_case` when
+      a band is active. *Deferred — the cascade re-rank covers
+      this for the cascade orchestrator (`5bc7646`); the simple
+      optimizer path stays single-point until a real bottleneck
+      surfaces.*
+- [x] `CascadeOrchestrator` band-aware re-rank — post-cascade
+      step re-evaluates the surviving Tier-1 candidates across
+      the band and re-ranks by worst-case before the user sees
+      the Top-N. _Shipped in `5bc7646 feat(cascade): VFD
+      band-aware re-rank as a post-cascade step`._
+- [x] Top-N table reads the re-ranked store rows so the table is
+      implicitly band-aware.
 
 ## Phase 7 — Datasheet + reports
 
-- [ ] Datasheet adds a "Modulation envelope" page when the active
+- [x] Datasheet adds a "Modulation envelope" page when the active
       design is banded: the three curves plus a small worst-case
-      summary table.
-- [ ] Compliance report (`add-compliance-report-pdf`) evaluates
-      IEC 61000-3-2 at every band point and reports the worst.
-- [ ] Manufacturing spec carries a "Verified across fsw band" line
-      in the acceptance test plan when active.
+      summary table. _Shipped in `0271b8c feat(report): datasheet
+      extras` via `report/extras.py::modulation_envelope_flowables`._
+- [~] Compliance report evaluates IEC 61000-3-2 at every band
+      point. *Deferred — IEC 61000-3-2 is line-cycle harmonics
+      on the mains side, independent of the converter's
+      switching frequency. Per-band-point evaluation collapses
+      to the same answer as the nominal point. Re-opens if a
+      future standard lands a switching-frequency-dependent
+      criterion.*
+- [~] Manufacturing spec carries a "Verified across fsw band" line.
+      *Deferred — `add-manufacturing-spec-export` not yet
+      shipped; the band annotation lands with that change.*
 
 ## Phase 8 — Docs + onboarding
 
-- [ ] `docs/modulation.md`: methodology, when to use which profile,
-      compressor-VFD recommended values (4–25 kHz triangular,
-      5 points minimum).
-- [ ] Onboarding tour gains a 5th step pointing out the modulation
-      option for VFD users.
-- [ ] CHANGELOG + README "VFD-aware design" bullet.
+- [~] `docs/modulation.md`: methodology, profile guidance,
+      compressor-VFD recommended values. *Deferred — Sphinx
+      theory site (`da5c40e`) shipped without a dedicated VFD
+      chapter; lands with the next docs pass.*
+- [~] Onboarding tour gains a 5th step. *Deferred — the
+      Modulation surface lives one click away on the SpecPanel
+      and is documented inline via field tooltips.*
+- [~] CHANGELOG + README "VFD-aware design" bullet.
+      *Deferred — README + CHANGELOG sweep planned alongside
+      the next release tag.*

@@ -73,33 +73,52 @@
 - [x] Tests: `tests/test_worst_case_tab.py` (5 tests) — default
       state, status-line update, table population from a real
       summary, hero-label colour band switching.
-- [~] Sensitivity table — top-5 dominant tolerance contributors
-      per metric. *Deferred — current UI surfaces the worst
-      corner per metric which already answers "which combo is
-      driving this metric"; per-input partial-derivative ranking
-      lands in the next iteration.*
+- [x] Sensitivity table — top-5 dominant tolerance contributors
+      per metric. _Shipped in `b0ae495 feat(worst-case): per-
+      metric sensitivity table — engine + UI card`. Engine helper
+      `sensitivity_table` ranks tolerances by per-input partial
+      derivative; the UI card surfaces the top contributors per
+      tracked metric._
 
 ## Phase 5 — Cascade integration
 
-- [ ] `CascadeConfig.worst_case_check: bool = False` (opt-in).
-- [ ] When on, after each Tier-1 evaluation, run the corner DOE
-      and store `worst_case_status` ("pass" | "margin" | "fail")
-      in the SQLite store.
-- [ ] Top-N table gains a "WC" column showing the worst-case
-      status; sortable.
-- [ ] Update `CandidateRow` model + store schema migration
-      (add `worst_case_status TEXT NULL`).
+- [~] `CascadeConfig.worst_case_check: bool = False` (opt-in).
+      *Deferred — the in-tab Worst-case workflow on `ProjetoPage`
+      already covers the "run DOE on a candidate" use case.
+      Folding it into the cascade Tier-1 inner loop multiplies
+      run time by the corner count (143× with `DEFAULT_TOLERANCES`);
+      not enabled by default until a compelling perf budget lands.
+      The DTOs (CornerResult / WorstCaseSummary) are stable so
+      the integration is mechanical when the time comes.*
+- [~] When on, after each Tier-1 evaluation, run the corner DOE
+      and store `worst_case_status` in SQLite. *Deferred — see
+      above.*
+- [~] Top-N table gains a "WC" column. *Deferred — see above.*
+- [~] Update `CandidateRow` model + store schema migration.
+      *Deferred — premature schema migration before the cascade
+      hook lands.*
 
 ## Phase 6 — Datasheet integration
 
-- [ ] If a `WorstCaseSummary` is present at report time, the
-      datasheet adds a "Worst-case envelope" section with the four
-      corners + the yield estimate. Hidden if no summary computed.
+- [x] If a `WorstCaseSummary` is present at report time, the
+      datasheet adds a "Worst-case envelope" section with the
+      four corners + the yield estimate. Hidden if no summary
+      computed. _Shipped in `0271b8c feat(report): datasheet
+      extras` via `report/extras.py::worst_case_envelope_flowables`.
+      The factory returns an empty flowable list when no summary
+      is computed so the page disappears gracefully._
 
 ## Phase 7 — Docs + release
 
-- [ ] `docs/worst-case.md`: methodology, tolerance source citations
-      (IPC-2221, IEC 60401-3), recommended corner choice.
-- [ ] Onboarding tour gains a 4th step: "Production-ready: run
-      worst-case before exporting" once a design is computed.
-- [ ] CHANGELOG entry; reference in README under "Industrial-grade".
+- [~] `docs/worst-case.md`: methodology, tolerance source
+      citations. *Deferred — Sphinx theory site (`da5c40e`)
+      shipped without a dedicated worst-case chapter; lands with
+      the next docs pass alongside the per-tolerance derivation
+      tables.*
+- [~] Onboarding tour gains a 4th step: "Production-ready: run
+      worst-case before exporting". *Deferred — Worst-case tab
+      is reachable from the workspace today; an onboarding step
+      lands when the next tour pass refreshes for the v3 layout.*
+- [~] CHANGELOG entry; reference in README under "Industrial-grade".
+      *Deferred — README + CHANGELOG sweep planned alongside
+      the next release tag.*

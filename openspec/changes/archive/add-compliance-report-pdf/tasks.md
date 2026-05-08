@@ -37,25 +37,39 @@
 
 ## Phase 3 — EN 55032 conducted EMI
 
-- [ ] `pfc_inductor/compliance/en55032.py`:
-      - `estimate_conducted_emi(spec, core, wire, design_result)`
-        — analytical envelope of the dV/dt × C_parasitic source,
-        attenuated by the inductor's first-pole impedance.
+- [x] `pfc_inductor/standards/en55032.py`:
+      - `estimate_conducted_emi(spec, core, wire, design_result,
+        filter_attenuation_dB=60)` — analytical envelope of the
+        dV/dt × C_parasitic source, attenuated by the inductor's
+        first-pole impedance with an opt-in two-stage CISPR
+        Class B filter default (60 dB).
       - Returns a `StandardResult` with limits per Class A / B
-        (industrial vs residential) at 150 kHz – 30 MHz.
-      - Documented as **estimate**, not certification — the model
-        notes uncertainty and that final compliance requires LISN
-        + spectrum-analyser measurement.
-- [ ] `tests/test_compliance_en55032.py`: regress against three
-      hand-calc points at 150 kHz, 1 MHz, 30 MHz.
+        at 150 kHz – 30 MHz.
+      - Carries the LISN + spectrum-analyser caveat as a note
+        regardless of pass / fail.
+      _Shipped in `dc99d38 feat(compliance): EN 55032 conducted-
+      EMI evaluator + dispatcher hook`._
+- [x] Hand-calc anchors at 150 kHz, 1 MHz, 30 MHz cover the
+      regression. _Shipped in `dc99d38`._
 
 ## Phase 4 — UL 1411 + IEC 60335-1
 
-- [ ] `pfc_inductor/compliance/ul_1411.py`: Class 2 / 3 transformer
-      limits (V_oc, I_sc, energy). Returns `StandardResult`.
-- [ ] `pfc_inductor/compliance/iec60335_1.py`: touch-current,
-      isolation, hi-pot. Returns `StandardResult`.
-- [ ] Tests on both with hand-calc anchors.
+- [x] `pfc_inductor/standards/ul1411.py`: §39.2 + §40
+      temperature-rise envelope per insulation class
+      (A=65 °C, B=90 °C, F=115 °C, H=140 °C) plus the hipot
+      formula `2·V_work + 1000`. Returns `UlReport` translated
+      to `StandardResult` by the dispatcher; routed for US +
+      Worldwide regions.
+      _Shipped in `360053a feat(compliance): UL 1411 envelope
+      check + dispatcher hook`. 13 tests in
+      `tests/test_ul1411.py`._
+- [~] `pfc_inductor/standards/iec60335_1.py`: touch-current,
+      isolation, hi-pot. *Deferred — touch-current envelope
+      requires bobbin creepage / clearance dimensions which
+      aren't first-class fields on Core / Wire today. Lands
+      with a follow-up that promotes those geometric details
+      into the model.*
+- [x] Tests on UL 1411 with hand-calc anchors. _Shipped._
 
 ## Phase 5 — Standard selector
 
@@ -64,9 +78,10 @@
         standards relevant to the spec's topology + region tag.
       - `evaluate(spec, core, wire, material, result, *, region,
          edition)` → `ComplianceBundle`.
-      - Region table: `EU` / `Worldwide` / `BR` route through IEC
-        61000-3-2; `US` returns an empty list (UL 1411 is queued
-        for a follow-up commit).
+      - Region table: `EU` / `Worldwide` / `BR` route through
+        IEC 61000-3-2 + EN 55032; `US` / `Worldwide` route
+        through UL 1411 + EN 55032. Bundle aggregates the worst
+        per-standard verdict.
 
 ## Phase 6 — PDF writer
 
@@ -117,7 +132,15 @@
 
 ## Phase 8 — Docs + release
 
-- [ ] `docs/compliance.md`: standards covered, edition years,
-      uncertainty of each estimate, limits of the EN 55032 model.
-- [ ] Sample PDF for the 600 W boost reference design.
-- [ ] CHANGELOG + README "Standards covered" matrix.
+- [x] `docs/theory/compliance.rst` — Sphinx chapter covering
+      IEC 61000-3-2, EN 55032, and UL 1411 with derivations,
+      limits, and per-standard caveats. _Shipped in `da5c40e`
+      as part of the Theory of Operation site._
+- [~] Sample PDF for the 600 W boost reference design.
+      *Deferred — the CLI subcommand
+      `magnadesign compliance ... --out file.pdf` produces the
+      report on demand; bundling a checked-in sample lands when
+      the validation reference set lands.*
+- [~] CHANGELOG + README "Standards covered" matrix.
+      *Deferred — README + CHANGELOG sweep planned alongside
+      the next release tag.*
