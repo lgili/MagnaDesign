@@ -311,8 +311,22 @@ class WorstCaseTab(QWidget):
                 "engine snapshot to perturb.",
             )
             return
-        if self._thread is not None and self._thread.isRunning():
-            return
+        # Defensive guard: ``deleteLater`` (wired to ``_thread.finished``
+        # below) tears down the Qt C++ object as soon as the previous
+        # run completes, but the Python wrapper on ``self._thread``
+        # lingers until ``_on_run_finished`` clears it. If the
+        # ``finished`` slot races the next click we'd hit
+        # "Internal C++ object (QThread) already deleted" — wrap the
+        # ``isRunning()`` probe so the dead-wrapper case short-circuits.
+        if self._thread is not None:
+            try:
+                if self._thread.isRunning():
+                    return
+            except RuntimeError:
+                # C++ side gone; treat the slot as not running and
+                # let the launch proceed with a fresh thread.
+                self._thread = None
+                self._worker = None
 
         tolerances = self._cmb_tolerances.currentData()
         if tolerances is None:
@@ -383,6 +397,13 @@ class WorstCaseTab(QWidget):
     def _on_run_finished(self) -> None:
         for btn in (self._btn_corners, self._btn_yield, self._btn_both):
             btn.setEnabled(True)
+        # Clear references to the worker + thread so the next launch
+        # builds fresh ones. Without this the Python wrappers outlive
+        # their C++ counterparts (deleteLater is wired below) and the
+        # next ``_launch`` reaches a dead QThread on its ``isRunning``
+        # probe.
+        self._worker = None
+        self._thread = None
 
     # ------------------------------------------------------------------
     def _populate_worst_table(self, summary: WorstCaseSummary) -> None:

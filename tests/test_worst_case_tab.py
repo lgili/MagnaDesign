@@ -133,3 +133,73 @@ def test_worst_case_tab_yield_label_colors_per_band(
     red_qss = tab._lbl_yield_pct.styleSheet()
 
     assert green_qss != red_qss
+
+
+def test_worst_case_tab_relaunch_after_finished_clears_thread(tab):
+    """Regression: clicking Run twice in a row used to crash with
+    ``RuntimeError: Internal C++ object (QThread) already deleted``
+    because ``_thread.deleteLater`` torn down the C++ side while the
+    Python wrapper lingered. ``_on_run_finished`` now nulls the
+    references so the next launch sees a clean state.
+    """
+    # Simulate the post-run cleanup path directly. The previous bug
+    # left these set after a finished run, so the next ``_launch``
+    # would call ``isRunning()`` on a dead C++ object.
+    tab._worker = object()  # any non-None placeholder
+    tab._thread = object()
+    tab._on_run_finished()
+    assert tab._worker is None
+    assert tab._thread is None
+
+
+def test_worst_case_tab_launch_survives_dead_thread_wrapper(
+    tab, reference_inputs, monkeypatch,
+):
+    """Regression: if the Python wrapper for a previous QThread
+    still points at a deleted C++ object, ``_launch`` must
+    short-circuit the ``isRunning()`` probe via RuntimeError
+    instead of propagating the shiboken error. We simulate the
+    dead-wrapper case with a stub raising RuntimeError and
+    confirm ``_launch`` recovers and resets the references.
+    """
+    spec, core, wire, mat, result = reference_inputs
+    tab.update_from_design(result, spec, core, wire, mat)
+
+    class _DeadThread:
+        def isRunning(self):  # noqa: N802 (Qt camelCase)
+            raise RuntimeError(
+                "Internal C++ object (QThread) already deleted.",
+            )
+
+    tab._thread = _DeadThread()
+    tab._worker = object()
+
+    # Stop the launch from spawning a real worker — we only care
+    # that the dead-wrapper guard recovers and clears the refs.
+    monkeypatch.setattr(
+        tab, "_status",
+        type("S", (), {"setText": lambda self, _t: None})(),
+    )
+
+    # The worker would be created right after the guard. Patch the
+    # constructor so we don't actually start a thread; we just want
+    # to confirm we got past the dead-wrapper without raising.
+    captured: dict[str, bool] = {"reached_post_guard": False}
+    original_init = tab.__class__._launch.__globals__["_WorstCaseWorker"]
+
+    class _NullWorker:
+        def __init__(self, *a, **kw):
+            captured["reached_post_guard"] = True
+            raise RuntimeError("stop here — guard cleared, test done")
+
+    tab.__class__._launch.__globals__["_WorstCaseWorker"] = _NullWorker
+    try:
+        with pytest.raises(RuntimeError, match="stop here"):
+            tab._launch(run_corners=True, run_yield=False)
+    finally:
+        tab.__class__._launch.__globals__["_WorstCaseWorker"] = original_init
+
+    assert captured["reached_post_guard"], (
+        "the dead-wrapper guard did not recover — _launch never "
+        "reached the worker construction"
+    )
