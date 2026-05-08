@@ -112,16 +112,44 @@ def generate_html_report(
         items = "".join(f"<li>{escape(w)}</li>" for w in result.warnings)
         warnings_html = f'<div class="warnings"><h3>Warnings</h3><ul>{items}</ul></div>'
 
-    spec_rows = "".join([
-        _row("Topology", spec.topology),
-        _row("Vin (range)", f"{spec.Vin_min_Vrms:.0f}–{spec.Vin_max_Vrms:.0f}", "Vrms"),
-        _row("Vin nominal", f"{spec.Vin_nom_Vrms:.0f}", "Vrms"),
-        _row("f line", f"{spec.f_line_Hz:.0f}", "Hz"),
-        _row("Vout (DC bus)", f"{spec.Vout_V:.0f}", "V"),
+    # Topology-aware spec rows. Buck-CCM swaps the AC-line block for
+    # the DC input range; AC topologies keep the original Vin/f_line
+    # rows. The shared rows (Vout, Pout, η, fsw, thermal, Ku, Bsat)
+    # are appended unconditionally.
+    if spec.topology == "buck_ccm":
+        from pfc_inductor.topology import buck_ccm
+        Vin_min = buck_ccm._vin_min(spec)
+        Vin_max = buck_ccm._vin_max(spec)
+        Vin_nom = buck_ccm._vin_nom(spec)
+        spec_rows_input = [
+            _row("Topology", "buck_ccm"),
+            _row("Vin DC (range)",
+                 f"{Vin_min:.2f}–{Vin_max:.2f}", "V_dc"),
+            _row("Vin DC nominal", f"{Vin_nom:.2f}", "V_dc"),
+            _row("Vout (regulated)", f"{spec.Vout_V:.2f}", "V_dc"),
+        ]
+    else:
+        spec_rows_input = [
+            _row("Topology", spec.topology),
+            _row("Vin (range)",
+                 f"{spec.Vin_min_Vrms:.0f}–{spec.Vin_max_Vrms:.0f}",
+                 "Vrms"),
+            _row("Vin nominal", f"{spec.Vin_nom_Vrms:.0f}", "Vrms"),
+            _row("f line", f"{spec.f_line_Hz:.0f}", "Hz"),
+            _row("Vout (DC bus)", f"{spec.Vout_V:.0f}", "V"),
+        ]
+    ripple_label, ripple_value, ripple_unit = (
+        ("Δi_pp / Iout (target)",
+         f"{(spec.ripple_ratio or spec.ripple_pct / 100.0) * 100:.0f}",
+         "% of Iout")
+        if spec.topology == "buck_ccm"
+        else ("Ripple target (pp)", f"{spec.ripple_pct:.0f}", "%")
+    )
+    spec_rows = "".join(spec_rows_input + [
         _row("Pout", f"{spec.Pout_W:.0f}", "W"),
         _row("η assumed", f"{spec.eta:.2f}", ""),
         _row("fsw", f"{spec.f_sw_kHz:.0f}", "kHz"),
-        _row("Ripple target (pp)", f"{spec.ripple_pct:.0f}", "%"),
+        _row(ripple_label, ripple_value, ripple_unit),
         _row("T ambient", f"{spec.T_amb_C:.0f}", "°C"),
         _row("T max winding", f"{spec.T_max_C:.0f}", "°C"),
         _row("Ku max", f"{spec.Ku_max*100:.0f}", "%"),

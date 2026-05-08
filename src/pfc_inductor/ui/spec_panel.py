@@ -71,7 +71,10 @@ class SpecPanel(QWidget):
         self._topology: str = "boost_ccm"
         self._n_phases: int = 1
 
-        body.addWidget(self._build_input_box())
+        self._ac_input_box = self._build_input_box()
+        body.addWidget(self._ac_input_box)
+        self._dc_input_box = self._build_dc_input_box()
+        body.addWidget(self._dc_input_box)
         self._converter_box = self._build_converter_box()
         body.addWidget(self._converter_box)
         self._line_reactor_box = self._build_line_reactor_box()
@@ -133,10 +136,11 @@ class SpecPanel(QWidget):
         """Replace the active topology.
 
         Accepts both the canonical Spec keys (``boost_ccm`` /
-        ``passive_choke`` / ``line_reactor``) and the picker dialog's
-        suffixed variants (``line_reactor_1ph`` / ``line_reactor_3ph``).
-        Emits :attr:`topology_changed` and :attr:`changed` so the
-        debounced recalc on MainWindow picks up the new state.
+        ``passive_choke`` / ``line_reactor`` / ``buck_ccm``) and the
+        picker dialog's suffixed variants (``line_reactor_1ph`` /
+        ``line_reactor_3ph``). Emits :attr:`topology_changed` and
+        :attr:`changed` so the debounced recalc on MainWindow picks
+        up the new state.
         """
         if name == "line_reactor_1ph":
             name = "line_reactor"
@@ -145,11 +149,24 @@ class SpecPanel(QWidget):
             name = "line_reactor"
             n_phases = 3
 
-        if name not in ("boost_ccm", "passive_choke", "line_reactor"):
+        if name not in ("boost_ccm", "passive_choke",
+                        "line_reactor", "buck_ccm"):
             raise ValueError(f"unsupported topology: {name!r}")
 
         if name == self._topology and n_phases == self._n_phases:
             return  # no change — avoid spurious recalcs
+
+        # When entering buck mode from boost defaults (Vout=400, fsw=65)
+        # the converter box values are physically wrong (Vout > Vin_dc).
+        # Pre-fill textbook 12 V → 3.3 V POL defaults so the user gets
+        # a runnable spec on the first click. We only auto-fill when
+        # the current values look like the boost defaults — if the user
+        # already set Vout/fsw to something buck-shaped, leave them be.
+        prev = self._topology
+        if name == "buck_ccm" and prev != "buck_ccm":
+            self._apply_buck_defaults_if_boostlike()
+        elif prev == "buck_ccm" and name != "buck_ccm":
+            self._apply_boost_defaults_if_bucklike()
 
         self._topology = name
         self._n_phases = int(n_phases) if n_phases in (1, 3) else 1
@@ -160,8 +177,53 @@ class SpecPanel(QWidget):
     def _apply_topology_visibility(self) -> None:
         """Show/hide form blocks that don't apply to the active topology."""
         is_lr = self._topology == "line_reactor"
+        is_buck = self._topology == "buck_ccm"
+        # Line-reactor block: visible only for line_reactor.
         self._line_reactor_box.setVisible(is_lr)
+        # AC input block: hidden for line_reactor (it has its own
+        # V/I block) and for buck_ccm (DC input).
+        self._ac_input_box.setVisible(not is_lr and not is_buck)
+        # DC input block: only for buck_ccm.
+        self._dc_input_box.setVisible(is_buck)
+        # Converter block (Vout / Pout / η / fsw / ripple): visible
+        # for boost / passive / buck. Hidden only for line_reactor,
+        # which has its own electrical fields.
         self._converter_box.setVisible(not is_lr)
+
+    # ------------------------------------------------------------------
+    # Topology-default helpers — keep the UI runnable when toggling
+    # between AC and DC topologies. The user can always overwrite the
+    # filled-in numbers, but a fresh switch shouldn't produce a spec
+    # that fails the validator (e.g. boost's Vout=400 V vs buck's
+    # Vin_dc=12 V).
+    # ------------------------------------------------------------------
+    def _values_look_like_boost_defaults(self) -> bool:
+        return (
+            abs(self.sp_vout.value() - 400.0) < 1.0
+            and abs(self.sp_fsw.value() - 65.0) < 1.0
+        )
+
+    def _values_look_like_buck_defaults(self) -> bool:
+        # Loose check: any Vout < 100 V is buck-shaped (boost designs
+        # rarely go below 200 V on the DC bus).
+        return self.sp_vout.value() < 100.0
+
+    def _apply_buck_defaults_if_boostlike(self) -> None:
+        """If the converter values still match boost defaults, swap to
+        a textbook 12 V → 3.3 V POL preset."""
+        if self._values_look_like_boost_defaults():
+            self.sp_vout.setValue(3.3)
+            self.sp_pout.setValue(10.0)
+            self.sp_fsw.setValue(500.0)
+
+    def _apply_boost_defaults_if_bucklike(self) -> None:
+        """Inverse: if leaving buck and the values are still buck-shaped,
+        restore the boost defaults so the validator (Vout > Vin_pk·1.41)
+        passes."""
+        if self._values_look_like_buck_defaults():
+            self.sp_vout.setValue(400.0)
+            self.sp_pout.setValue(800.0)
+            self.sp_fsw.setValue(65.0)
 
     def _build_input_box(self) -> QGroupBox:
         box = QGroupBox("ENTRADA AC")
@@ -176,13 +238,41 @@ class SpecPanel(QWidget):
         form.addRow("f rede:", self.sp_fline)
         return box
 
+    def _build_dc_input_box(self) -> QGroupBox:
+        """DC input block — visible only when topology == ``buck_ccm``.
+
+        Buck-CCM is a step-down DC-DC; it has no AC line frequency, no
+        line-Vrms range. Instead the design is parameterised by:
+
+          * ``Vin_dc_V``      — nominal DC input
+          * ``Vin_dc_min_V``  — worst-case low (drives current calc)
+          * ``Vin_dc_max_V``  — worst-case high (drives ripple calc)
+
+        Defaults match the textbook 12 V → 3.3 V POL example we use in
+        ``tests/test_topology_buck_ccm.py`` so a fresh user who picks
+        "Buck CCM" gets a runnable spec immediately.
+        """
+        box = QGroupBox("ENTRADA DC")
+        form = QFormLayout(box)
+        self.sp_vin_dc = self._dspin(1.0, 1000.0, 12.0, 0.1, " V")
+        self.sp_vin_dc_min = self._dspin(1.0, 1000.0, 10.8, 0.1, " V")
+        self.sp_vin_dc_max = self._dspin(1.0, 1000.0, 13.2, 0.1, " V")
+        form.addRow("Vin DC nominal:", self.sp_vin_dc)
+        form.addRow("Vin DC mín (worst current):", self.sp_vin_dc_min)
+        form.addRow("Vin DC máx (worst ripple):", self.sp_vin_dc_max)
+        return box
+
     def _build_converter_box(self) -> QGroupBox:
         box = QGroupBox("CONVERSOR")
         form = QFormLayout(box)
-        self.sp_vout = self._dspin(100, 800, 400.0, 1.0, " V")
-        self.sp_pout = self._dspin(50, 5000, 800.0, 10.0, " W")
+        # Vout: boost typically 400 V; buck typically a few V.
+        # Allow the full 0.5–800 V range so both topologies fit
+        # without re-bounding when the user toggles topology.
+        self.sp_vout = self._dspin(0.5, 800, 400.0, 1.0, " V")
+        self.sp_pout = self._dspin(1, 5000, 800.0, 10.0, " W")
         self.sp_eta = self._dspin(0.5, 1.0, 0.97, 0.01, "")
-        self.sp_fsw = self._dspin(10, 500, 65.0, 1.0, " kHz")
+        # f_sw: bucks commonly 100–1000 kHz; cap at 2000 kHz for GaN.
+        self.sp_fsw = self._dspin(10, 2000, 65.0, 1.0, " kHz")
         self.sp_ripple = self._dspin(5, 100, 30.0, 1.0, " %")
         form.addRow("Vout (DC bus):", self.sp_vout)
         form.addRow("Pout:", self.sp_pout)
@@ -223,6 +313,10 @@ class SpecPanel(QWidget):
             self.sp_fline, self.sp_vout, self.sp_pout, self.sp_eta, self.sp_fsw,
             self.sp_ripple, self.sp_tamb, self.sp_tmax, self.sp_ku, self.sp_bsat_margin,
             self.sp_vline, self.sp_irated, self.sp_l_req,
+            # Buck-only DC input fields — they only feed `get_spec`
+            # when topology=="buck_ccm" but we still want a manual
+            # edit to trigger the debounced recalc when buck is active.
+            self.sp_vin_dc, self.sp_vin_dc_min, self.sp_vin_dc_max,
         ]
         for w in widgets:
             # QDoubleSpinBox.valueChanged emits float; discard it.
@@ -261,6 +355,21 @@ class SpecPanel(QWidget):
                 self.sp_vline.setValue(spec.Vin_nom_Vrms)
                 self.sp_l_req.setValue(spec.L_req_mH)
                 self.sp_irated.setValue(spec.I_rated_Arms)
+            # Buck-CCM: pull DC input fields, falling back to legacy
+            # AC values for specs that haven't migrated.
+            if spec.topology == "buck_ccm":
+                v_dc = (spec.Vin_dc_V or spec.Vin_min_Vrms or 12.0)
+                v_dc_min = (spec.Vin_dc_min_V or spec.Vin_dc_V
+                            or spec.Vin_min_Vrms or v_dc)
+                v_dc_max = (spec.Vin_dc_max_V or spec.Vin_dc_V
+                            or spec.Vin_max_Vrms or v_dc)
+                self.sp_vin_dc.setValue(float(v_dc))
+                self.sp_vin_dc_min.setValue(float(v_dc_min))
+                self.sp_vin_dc_max.setValue(float(v_dc_max))
+                # ``ripple_ratio`` is the buck design knob; if absent,
+                # the existing ``ripple_pct`` already covers it.
+                if spec.ripple_ratio is not None:
+                    self.sp_ripple.setValue(spec.ripple_ratio * 100.0)
         finally:
             self.blockSignals(False)
         # Single fan-out at the end — host re-reads via ``get_spec``.
@@ -268,15 +377,47 @@ class SpecPanel(QWidget):
 
     def get_spec(self) -> Spec:
         topo = self._topology
-        # Line reactor uses its own V/I from the dedicated block; for other
-        # topologies we fall back to the AC input block values.
+        # Per-topology source of voltages / currents:
+        #
+        #   * line_reactor — uses its own V/I block (``sp_vline`` etc.)
+        #   * buck_ccm     — uses the DC input block (``sp_vin_dc*``);
+        #                    legacy AC fields are populated with safe
+        #                    placeholders so the Pydantic model still
+        #                    constructs (the validator only reads the
+        #                    DC fields for buck).
+        #   * boost / passive — AC input block.
+        vin_dc: Optional[float] = None
+        vin_dc_min: Optional[float] = None
+        vin_dc_max: Optional[float] = None
+        ripple_ratio: Optional[float] = None
         if topo == "line_reactor":
             v_nom = self.sp_vline.value()
+            v_min_ac = self.sp_vin_min.value()
+            v_max_ac = self.sp_vin_max.value()
             n_phases = self._n_phases
             i_rated = self.sp_irated.value()
             l_req = self.sp_l_req.value()
+        elif topo == "buck_ccm":
+            # Buck doesn't use AC fields; fill them with the DC values
+            # so legacy serialisers and downstream UI tiles that still
+            # read ``Vin_min_Vrms`` (e.g. some report tables) display
+            # something sensible. The validator/engine path goes
+            # through the DC fields explicitly.
+            vin_dc = self.sp_vin_dc.value()
+            vin_dc_min = self.sp_vin_dc_min.value()
+            vin_dc_max = self.sp_vin_dc_max.value()
+            v_nom = vin_dc
+            v_min_ac = vin_dc_min
+            v_max_ac = vin_dc_max
+            n_phases = 3  # placeholder, ignored for buck
+            i_rated = 2.2
+            l_req = 10.0
+            # Convert the % ripple field to a 0..1 ratio for buck.
+            ripple_ratio = self.sp_ripple.value() / 100.0
         else:
             v_nom = self.sp_vin_nom.value()
+            v_min_ac = self.sp_vin_min.value()
+            v_max_ac = self.sp_vin_max.value()
             # ``n_phases`` is meaningless for boost / passive choke;
             # the legacy default 3 is preserved for spec serialisation
             # so existing snapshot tests don't drift.
@@ -285,8 +426,8 @@ class SpecPanel(QWidget):
             l_req = 10.0
         return Spec(
             topology=topo,
-            Vin_min_Vrms=self.sp_vin_min.value(),
-            Vin_max_Vrms=self.sp_vin_max.value(),
+            Vin_min_Vrms=v_min_ac,
+            Vin_max_Vrms=v_max_ac,
             Vin_nom_Vrms=v_nom,
             f_line_Hz=self.sp_fline.value(),
             Vout_V=self.sp_vout.value(),
@@ -301,4 +442,8 @@ class SpecPanel(QWidget):
             n_phases=n_phases,
             L_req_mH=l_req,
             I_rated_Arms=i_rated,
+            Vin_dc_V=vin_dc,
+            Vin_dc_min_V=vin_dc_min,
+            Vin_dc_max_V=vin_dc_max,
+            ripple_ratio=ripple_ratio,
         )

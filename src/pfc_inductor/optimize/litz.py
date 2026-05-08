@@ -204,13 +204,18 @@ def recommend(
 ) -> LitzRecommendation:
     """Search across strand AWGs around the Sullivan optimum and return the
     best feasible Litz construction, plus a baseline best round wire."""
-    from pfc_inductor.topology import boost_ccm
+    from pfc_inductor.optimize.feasibility import rated_current_A
 
     fsw_Hz = spec.f_sw_kHz * 1000.0
     layers = _layers_for(core)
 
-    # Operating-current at low-line worst case
-    I_rms = boost_ccm.line_rms_current_A(spec, spec.Vin_min_Vrms)
+    # Operating-current at the topology's worst-case point. Pre-buck
+    # this hard-coded ``boost_ccm.line_rms_current_A``, which silently
+    # returned 0 A for buck specs (no AC line current → Litz couldn't
+    # be sized for buck at all). The shared ``rated_current_A``
+    # helper on ``optimize.feasibility`` already dispatches per
+    # topology — boost low-line, line-reactor I_rated, buck Iout.
+    I_rms = rated_current_A(spec)
     rec = LitzRecommendation(
         spec=spec, core=core, material=material,
         layers_assumed=layers, target_J_A_mm2=target_J_A_mm2,

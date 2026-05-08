@@ -144,12 +144,16 @@ def test_pareto_chart_emits_selection_changed_on_pick(app):
 def test_cascade_page_has_results_tabs(app, tmp_path: Path):
     """The redesigned page hosts both the table and the Pareto
     chart inside a QTabWidget — the engineer can toggle without
-    losing the run state."""
+    losing the run state.
+
+    Tab labels were translated to English during the MagnaDesign
+    rebrand (``Lista`` → ``List``).
+    """
     from pfc_inductor.ui.workspace import CascadePage
 
     page = CascadePage(store_path=tmp_path / "cascade.db")
     assert page._results_tabs.count() == 2
-    assert page._results_tabs.tabText(0).lower() == "lista"
+    assert page._results_tabs.tabText(0).lower() == "list"
     assert page._results_tabs.tabText(1).lower() == "pareto"
 
 

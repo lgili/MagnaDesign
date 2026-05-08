@@ -46,15 +46,25 @@ def design_bundle():
     return result, spec, core, wire, material, materials, cores, wires
 
 
-def test_projeto_page_has_four_tabs(app, design_bundle):
+def test_projeto_page_has_six_tabs(app, design_bundle):
+    """ProjetoPage now mounts six post-design tabs in audit order:
+    Core → Analysis → Validate → Worst-case → Compliance → Export.
+
+    The Worst-case + Compliance tabs were inserted between Validate
+    and Export so an engineer signing a design for production sees
+    the line × ambient × tolerance sweep and IEC 61000-3-2 / harmonics
+    pass before reaching the export pane.
+    """
     from pfc_inductor.ui.workspace.projeto_page import ProjetoPage
     *_, materials, cores, wires = design_bundle
     p = ProjetoPage(materials, cores, wires)
-    assert p.tabs.count() == 4
+    assert p.tabs.count() == 6
     assert p.tabs.tabText(0) == "Core"
     assert p.tabs.tabText(1) == "Analysis"
     assert p.tabs.tabText(2) == "Validate"
-    assert p.tabs.tabText(3) == "Export"
+    assert p.tabs.tabText(3) == "Worst-case"
+    assert p.tabs.tabText(4) == "Compliance"
+    assert p.tabs.tabText(5) == "Export"
 
 
 def test_projeto_page_kpi_strip_persistent(app, design_bundle):
@@ -73,7 +83,8 @@ def test_projeto_page_switch_to_each_tab(app, design_bundle):
     *_, materials, cores, wires = design_bundle
     p = ProjetoPage(materials, cores, wires)
     for key, idx in [("nucleo", 0), ("analise", 1),
-                     ("validar", 2), ("exportar", 3)]:
+                     ("validar", 2), ("worst_case", 3),
+                     ("compliance", 4), ("exportar", 5)]:
         p.switch_to(key)
         assert p.tabs.currentIndex() == idx
 

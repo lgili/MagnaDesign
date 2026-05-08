@@ -12,6 +12,7 @@ from pfc_inductor.data_loader import (
 from pfc_inductor.models import Spec
 from pfc_inductor.models.cascade import FeasibilityEnvelope
 from pfc_inductor.topology.boost_ccm_model import BoostCCMModel
+from pfc_inductor.topology.buck_ccm_model import BuckCCMModel
 from pfc_inductor.topology.line_reactor_model import LineReactorModel
 from pfc_inductor.topology.passive_choke_model import PassiveChokeModel
 from pfc_inductor.topology.protocol import ConverterModel
@@ -149,9 +150,16 @@ def test_steady_state_returns_design_result(db):
 # Registry
 # ────────────────────────────────────────────────────────────────
 
-def test_registry_lists_three_topologies():
+def test_registry_lists_all_topologies():
+    """The registry exposes every supported ``Spec.topology`` value.
+
+    Was three when only AC topologies existed; ``add-buck-ccm-topology``
+    added the synchronous DC-DC buck.
+    """
     topos = registered_topologies()
-    assert set(topos) == {"boost_ccm", "passive_choke", "line_reactor"}
+    assert set(topos) == {
+        "boost_ccm", "passive_choke", "line_reactor", "buck_ccm",
+    }
 
 
 def test_model_for_returns_matching_class():
@@ -161,6 +169,13 @@ def test_model_for_returns_matching_class():
     assert isinstance(model_for(spec_choke), PassiveChokeModel)
     spec_reactor = Spec(topology="line_reactor")
     assert isinstance(model_for(spec_reactor), LineReactorModel)
+    spec_buck = Spec(
+        topology="buck_ccm",
+        Vin_dc_V=12.0, Vin_dc_min_V=10.8, Vin_dc_max_V=13.2,
+        Vout_V=3.3, Pout_W=10.0, eta=0.95,
+        f_sw_kHz=500.0, ripple_ratio=0.30,
+    )
+    assert isinstance(model_for(spec_buck), BuckCCMModel)
 
 
 def test_model_for_raises_on_unregistered_topology():

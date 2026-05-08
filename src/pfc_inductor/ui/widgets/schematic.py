@@ -68,6 +68,7 @@ TopologyKind = Literal[
     "passive_choke",
     "line_reactor_1ph",
     "line_reactor_3ph",
+    "buck_ccm",
 ]
 
 
@@ -692,11 +693,87 @@ def _render_line_reactor_3ph(p: _SchematicPainter, accent: QColor,
     p.load_block((x_load, 125), neutral)
 
 
+def _render_buck_ccm(p: _SchematicPainter, accent: QColor,
+                     neutral: QColor, glow: QColor) -> None:
+    """Synchronous buck DC-DC step-down: Vin → Q1 → L → Cout → load.
+
+    Layout (logical px, 1000 × 250 canvas):
+
+    - x = 80   Vin DC source (battery / DC bus glyph)
+    - x = 240  high-side switch Q1
+    - x = 360  switching node + freewheel diode (drawn as a sync FET
+               body diode — single diode glyph for simplicity)
+    - x = 500  inductor centre (highlighted)  ← test pins this column
+                                                  for boost / passive
+                                                  but buck has no test
+                                                  contract on it
+    - x = 700  output capacitor
+    - x = 880  load
+    - y_top = 80, y_bot = 170 (positive rail / ground)
+
+    Buck has no rectifier so the AC source + bridge are absent — the
+    schematic reads as a clean four-component loop, which matches an
+    engineer's mental model of the topology.
+    """
+    y_top, y_bot = 80, 170
+
+    # ---- DC source — drawn as a battery glyph (two parallel plates)
+    # since the AC sine source primitive doesn't fit a buck context.
+    cx_src, cy_src = 80, (y_top + y_bot) / 2
+    p._qp.setPen(p._pen(neutral, p.STROKE_COMPONENT))
+    p._qp.setBrush(Qt.BrushStyle.NoBrush)
+    # Long plate (positive) on top, short plate (negative) below.
+    p._qp.drawLine(QPointF(cx_src - 12, cy_src - 6), QPointF(cx_src + 12, cy_src - 6))
+    p._qp.drawLine(QPointF(cx_src - 6, cy_src + 6), QPointF(cx_src + 6, cy_src + 6))
+    # Short leads to the rails.
+    p.wire((cx_src, y_top), (cx_src, cy_src - 6), neutral)
+    p.wire((cx_src, cy_src + 6), (cx_src, y_bot), neutral)
+    p.label((cx_src, cy_src - 30), "Vin", neutral, size=10, weight=600)
+
+    # ---- High-side switch Q1
+    p.wire((cx_src, y_top), (240 - 24, y_top), neutral)
+    p.mosfet((240, y_top), neutral, "Q1")
+    # Q1's mosfet primitive draws a horizontal box. The drain pin sits
+    # on the left, source on the right (the box itself spans
+    # ±BLOCK_W/2). Wires extend to the rail on both sides.
+    p.wire((240 + 24, y_top), (360, y_top), neutral)
+    sw_node_x = 360
+
+    # ---- Switching node + freewheel diode to the negative rail
+    p.junction_dot((sw_node_x, y_top), neutral)
+    p.diode((sw_node_x, 125), neutral, "D",
+            orientation="up")  # cathode up (toward sw node)
+    p.wire((sw_node_x, y_top), (sw_node_x, 125 - 14), neutral)
+    p.wire((sw_node_x, 125 + 14), (sw_node_x, y_bot), neutral)
+    p.junction_dot((sw_node_x, y_bot), neutral)
+
+    # ---- Inductor (highlighted) — sw_node → +Vout rail
+    p.wire((sw_node_x, y_top), (500 - 65, y_top), neutral)
+    p.inductor((500, y_top), 130, accent=accent, glow_bg=glow,
+               highlighted=True)
+    p.label((500, y_top - 28), "L", accent, size=12, weight=700)
+    p.wire((500 + 65, y_top), (700, y_top), neutral)
+
+    # ---- Output capacitor + load tap
+    p.junction_dot((700, y_top), neutral)
+    p.junction_dot((700, y_bot), neutral)
+    p.capacitor((700, 125), neutral, "C_out", polarised=True, vertical=True)
+    p.wire((700, y_top), (700, 125 - 18), neutral)
+    p.wire((700, 125 + 18), (700, y_bot), neutral)
+
+    # ---- +Vout bus + load
+    p.wire((700, y_top), (880, y_top), neutral)
+    p.label((790, y_top - 12), "+Vout", neutral, size=9, weight=600)
+    p.wire((700, y_bot), (880, y_bot), neutral)
+    p.load_block((880, 125), neutral)
+
+
 _TOPOLOGY_RENDERERS = {
     "boost_ccm":         _render_boost_ccm,
     "passive_choke":     _render_passive_choke,
     "line_reactor_1ph":  _render_line_reactor_1ph,
     "line_reactor_3ph":  _render_line_reactor_3ph,
+    "buck_ccm":          _render_buck_ccm,
 }
 
 

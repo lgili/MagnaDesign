@@ -126,6 +126,21 @@ def _mu_band_score(topology: str, mu: float) -> float:
         if mu < 14:
             return 12.0
         return 8.0
+    if topology == "buck_ccm":
+        # POL bucks favor *low-μ* powder cores (26–60 µi) so the
+        # high DC bias of Iout doesn't push the working point into
+        # heavy roll-off. They tolerate plain ferrite too — the
+        # gap dominates AL anyway. Anything above ~200 µi is
+        # marginal at typical I_dc levels.
+        if 26 <= mu <= 60:
+            return 35.0
+        if 14 <= mu < 26 or 60 < mu <= 125:
+            return 28.0
+        if 125 < mu <= 200:
+            return 18.0
+        if mu < 14:
+            return 12.0
+        return 6.0
     # passive_choke — somewhere in between; broad acceptance.
     if 60 <= mu <= 1_000:
         return 32.0
@@ -229,9 +244,16 @@ def score_wire(
         delta = abs(J_actual - _J_TARGET) / _J_TARGET
         score += _clamp(50.0 * (1.0 - min(delta, 1.0)), 0.0, 50.0)
 
-    # Type-vs-frequency
-    f_sw_kHz = (spec.f_sw_kHz if spec.topology == "boost_ccm"
-                else spec.f_line_Hz / 1000.0)
+    # Type-vs-frequency. The "switching frequency seen by the wire"
+    # depends on topology: HF PFC + buck see ``f_sw_kHz`` (tens to
+    # thousands of kHz); line-reactor + passive choke see only the
+    # line fundamental. Pre-buck this branched on ``boost_ccm``
+    # alone, which silently dropped buck wires onto the line-freq
+    # path and stopped favouring Litz — fixed below.
+    if spec.topology in ("boost_ccm", "buck_ccm"):
+        f_sw_kHz = spec.f_sw_kHz
+    else:
+        f_sw_kHz = spec.f_line_Hz / 1000.0
     f_sw_Hz = f_sw_kHz * 1000.0
     if f_sw_Hz >= 50_000:
         # High frequency — Litz wins.

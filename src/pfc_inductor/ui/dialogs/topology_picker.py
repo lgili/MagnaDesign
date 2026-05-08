@@ -42,6 +42,9 @@ _OPTIONS: list[tuple[str, str, Optional[int], str]] = [
     ("line_reactor_3ph", "Line Reactor (3ph)", 3,
      "3φ line reactor on the input of a 6-pulse rectifier. "
      "Reduces harmonic THD for industrial drives."),
+    ("buck_ccm", "Buck CCM (sync DC-DC)", None,
+     "Synchronous DC-DC step-down. Output inductor sees triangle "
+     "ripple on top of DC. POL, automotive 12→5 V, telecom 48→12 V."),
 ]
 
 

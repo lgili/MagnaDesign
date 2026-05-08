@@ -552,6 +552,91 @@ def _line_reactor_3ph(spec: Spec, result: DesignResult,
 
 
 # ---------------------------------------------------------------------------
+# Buck CCM synthesiser
+# ---------------------------------------------------------------------------
+
+def _buck_ccm(spec: Spec, result: DesignResult,
+              n_samples: int) -> RealisticWaveform | None:
+    """Buck-CCM iL(t) — pure HF triangle ripple on a DC level.
+
+    State-space averaging: with the high-side switch ON the inductor
+    sees ``Vin − Vout`` and ramps up at ``(Vin − Vout) / L``; with the
+    switch OFF (low-side conducting) it sees ``−Vout`` and ramps down
+    at ``Vout / L``. Volt-seconds balance gives ``D = Vout / Vin``,
+    so the ramp-up / ramp-down magnitudes are equal in steady state
+    and the resulting iL(t) is a symmetric triangle around ``Iout``.
+
+    No line envelope, no sinusoidal shaping — bucks are DC-DC, the
+    waveform is the same triangle on every switching cycle. We
+    sample ``n_periods`` cycles at ``Vin_nom`` (worst-case ripple
+    happens at ``Vin_max``; we pick nominal so the displayed
+    average matches what a scope on the bench would show).
+
+    Returns ``None`` for half-baked specs (no L, no fsw, no Pout).
+    """
+    # Defer the topology import to avoid a hard cyclic dep at module
+    # load (``simulate.realistic_waveforms`` is imported indirectly
+    # from many places).
+    from pfc_inductor.topology import buck_ccm
+
+    L_uH = float(result.L_actual_uH)
+    if L_uH <= 0:
+        return None
+
+    Iout = buck_ccm.output_current_A(spec)
+    f_sw_kHz = float(spec.f_sw_kHz or 0.0)
+    if Iout <= 0 or f_sw_kHz <= 0:
+        return None
+
+    Vin_nom = buck_ccm._vin_nom(spec)
+    Vin_max = buck_ccm._vin_max(spec)
+    Vout = float(spec.Vout_V or 0.0)
+    if Vin_nom <= 0 or Vin_max <= 0 or Vout <= 0:
+        return None
+
+    f_sw_Hz = f_sw_kHz * 1e3
+    T_sw = 1.0 / f_sw_Hz
+    D_nom = buck_ccm.duty_cycle(spec, Vin_nom)
+    delta_nom = buck_ccm.ripple_pp_at_Vin(spec, L_uH, Vin_nom)
+    delta_worst = buck_ccm.worst_case_ripple_pp_A(spec, L_uH)
+
+    # Show 6 switching periods — enough to read the ramp slope and
+    # the symmetry of the triangle without crowding the plot.
+    n_periods = 6
+    t = np.linspace(0.0, n_periods * T_sw, n_samples, endpoint=False)
+    phase = (t / T_sw) % 1.0
+    on_mask = phase < D_nom
+
+    # Ramp up during D·T_sw from Iout − ΔI/2 to Iout + ΔI/2; ramp
+    # down symmetrically during (1 − D)·T_sw.
+    on_norm = phase / max(D_nom, 1e-9)
+    off_norm = (phase - D_nom) / max(1.0 - D_nom, 1e-9)
+    iL = np.where(
+        on_mask,
+        Iout - 0.5 * delta_nom + delta_nom * on_norm,
+        Iout + 0.5 * delta_nom - delta_nom * off_norm,
+    )
+
+    label = (
+        f"Buck CCM @ Vin_nom={Vin_nom:.1f} V → Vout={Vout:.2f} V · "
+        f"D={D_nom:.3f} · I_out={Iout:.2f} A · "
+        f"ΔI_pp={delta_nom:.2f} A (nom) / {delta_worst:.2f} A (Vin_max)"
+    )
+    base = RealisticWaveform(
+        topology="buck_ccm",
+        n_phases=1,
+        t_s=t,
+        iL_A=iL,
+        label=label,
+    )
+    # Buck has no line frequency — the inductor's natural fundamental
+    # is the switching frequency. The spectrum will show one strong
+    # bin at h=1 (= f_sw) and very small higher harmonics from the
+    # triangle's odd-harmonic content (1/h² fall-off).
+    return _attach_spectrum(base, fundamental_Hz=f_sw_Hz)
+
+
+# ---------------------------------------------------------------------------
 # Dispatch
 # ---------------------------------------------------------------------------
 
@@ -571,6 +656,8 @@ def synthesize_il_waveform(
         return _boost_ccm(spec, result, n_samples)
     if topology == "passive_choke":
         return _passive_choke(spec, result, n_samples)
+    if topology == "buck_ccm":
+        return _buck_ccm(spec, result, n_samples)
     if topology == "line_reactor":
         if n_phases == 3:
             return _line_reactor_3ph(spec, result, n_samples)

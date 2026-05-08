@@ -193,6 +193,11 @@ class _FormasOndaBody(QWidget):
                 f"Topologia: reator de linha {phase} — "
                 f"iL · v_phase · FFT"
             )
+        elif topology == "buck_ccm":
+            prefix = (
+                "Topologia: buck CCM (sync DC-DC) — "
+                "iL · v_sw · FFT @ f_sw"
+            )
         else:
             prefix = f"Topologia: {topology}"
         if synth is not None and synth.label:
@@ -212,19 +217,35 @@ class _FormasOndaBody(QWidget):
         self._fig.clear()
         self._fig.set_facecolor(p.surface)
 
-        # Time axis (in ms) — shared across all subplots. When the
+        # Time axis — shared across all subplots. When the
         # synthesiser succeeded we use its time axis (one full line
-        # cycle for boost / two for AC reactors); otherwise we fall
-        # back to the engine's sampled t array.
+        # cycle for boost / two for AC reactors / a few f_sw periods
+        # for buck); otherwise we fall back to the engine's sampled
+        # t array.
         if synth is not None:
             t_s = synth.t_s
         elif result.waveform_t_s:
             t_s = np.array(result.waveform_t_s, dtype=float)
         else:
             t_s = _FALLBACK_T_MS / 1000.0
-        t_ms = t_s * 1e3
-        if t_ms.size == 0:
-            t_ms = _FALLBACK_T_MS
+        # Auto-scale the time-axis unit: if the entire window is
+        # under 1 ms (buck @ 500 kHz × 6 periods = 12 µs), use
+        # microseconds — otherwise milliseconds reads cleaner.
+        span_s = float(t_s.max() - t_s.min()) if t_s.size else 0.0
+        if 0 < span_s < 1e-3:
+            t_disp = t_s * 1e6
+            time_unit_label = "µs"
+        else:
+            t_disp = t_s * 1e3
+            time_unit_label = "ms"
+        if t_disp.size == 0:
+            t_disp = _FALLBACK_T_MS
+            time_unit_label = "ms"
+        # Keep ``t_ms`` as the legacy local name so downstream
+        # plotters don't need to rename. (It holds whatever display
+        # unit ``t_disp`` is in — the helpers don't read it as
+        # absolute milliseconds; they just plot against it.)
+        t_ms = t_disp
 
         # 3 stacked axes. The top two (iL + source-voltage) share a
         # time x-axis so they read as a multi-trace scope. The bottom
@@ -267,7 +288,9 @@ class _FormasOndaBody(QWidget):
 
         # ---- Middle axis: source/voltage waveform ----------------------
         self._plot_source_voltage(ax_v, t_ms, spec, topology, n_phases, p)
-        ax_v.set_xlabel("t (ms)", fontsize=10, color=p.text_secondary)
+        ax_v.set_xlabel(
+            f"t ({time_unit_label})", fontsize=10, color=p.text_secondary,
+        )
 
         # ---- Bottom axis: harmonic spectrum (FFT) ----------------------
         self._plot_harmonic_spectrum(ax_s, synth, p, result)
@@ -345,7 +368,18 @@ class _FormasOndaBody(QWidget):
           rectification.
         - ``line_reactor_3ph``: three sinusoids 120° apart (we draw
           all three so the user sees the balanced source).
+        - ``buck_ccm``: switching-node voltage ``v_sw(t)`` — square
+          pulses between 0 V and Vin_dc with duty ``D = Vout/Vin``.
+          The inductor sees ``v_L = v_sw − Vout``, but plotting
+          v_sw directly is more familiar to a power-stage engineer
+          (they read it on a probe at the SW node).
         """
+        # Buck-CCM gets its own branch — the AC sanity guards
+        # below would reject it (no f_line, no Vin_Vrms).
+        if topology == "buck_ccm":
+            self._plot_buck_switching_node(ax, t_ms, spec, p)
+            return
+
         v_min = float(spec.Vin_min_Vrms or 0.0)
         f_line = float(spec.f_line_Hz or 50.0)
         if v_min <= 0 or f_line <= 0 or t_ms.size == 0:
@@ -385,6 +419,60 @@ class _FormasOndaBody(QWidget):
             ax.plot(t_ms, v_t, color=p.accent_violet, linewidth=1.4)
             ax.set_ylabel("v_in rect (V)", fontsize=10,
                           color=p.text_secondary)
+
+    def _plot_buck_switching_node(self, ax, t_disp: np.ndarray,
+                                  spec: Spec, p) -> None:
+        """Switching-node voltage v_sw(t) for buck-CCM.
+
+        Pulses between 0 V and Vin_dc with duty ``D = Vout / (Vin·η)``
+        at f_sw — the same square wave a scope probe at the SW node
+        would show. The inductor sees ``v_L = v_sw − Vout``, which we
+        annotate as a faint dashed line so the engineer can visually
+        confirm the volt-second balance (positive area during
+        D·T_sw equals negative area during (1 − D)·T_sw).
+        """
+        from pfc_inductor.topology import buck_ccm
+
+        f_sw_kHz = float(spec.f_sw_kHz or 0.0)
+        Vin = buck_ccm._vin_nom(spec)
+        Vout = float(spec.Vout_V or 0.0)
+        if f_sw_kHz <= 0 or Vin <= 0 or Vout <= 0 or t_disp.size == 0:
+            ax.text(0.5, 0.5, "v_sw — sem dados",
+                    ha="center", va="center",
+                    color=p.text_muted, fontsize=10,
+                    transform=ax.transAxes)
+            ax.set_ylabel("V", fontsize=10, color=p.text_secondary)
+            return
+
+        # Derive duty + the displayed period directly from ``t_disp``:
+        # since the synthesised iL covers exactly the same time window
+        # as v_sw should, we just need ``t_disp`` to give us the same
+        # phase modulo. The total displayed span equals ``n_periods``
+        # of T_sw — we read it back as ``span / n_periods`` without
+        # caring whether the unit is µs or ms.
+        D = buck_ccm.duty_cycle(spec, Vin)
+        span_disp = float(t_disp.max() - t_disp.min())
+        # The synth uses 6 periods (see _buck_ccm in realistic_waveforms).
+        # Pulling that constant in directly is brittle but the
+        # alternative (re-deriving via the µs/ms unit) is more so.
+        n_periods = 6
+        T_sw_disp = span_disp / max(n_periods, 1)
+        if T_sw_disp <= 0:
+            return
+        phase = (t_disp / T_sw_disp) % 1.0
+        v_sw = np.where(phase < D, Vin, 0.0)
+        v_L = v_sw - Vout
+
+        ax.plot(t_disp, v_sw, color=p.accent_violet, linewidth=1.4,
+                label="v_sw (SW node)")
+        ax.plot(t_disp, v_L, color=p.accent, linewidth=1.0,
+                linestyle="--", alpha=0.75, label="v_L = v_sw − Vout")
+        ax.set_ylabel("v (V)", fontsize=10, color=p.text_secondary)
+        ax.legend(loc="upper right", fontsize=7, frameon=False,
+                  labelcolor=p.text_secondary, ncol=2)
+        # Headroom so the square pulses don't kiss the axis edge.
+        margin = 0.10 * max(Vin, 1.0)
+        ax.set_ylim(min(-Vout, 0.0) - margin, Vin + margin)
 
     def _plot_harmonic_spectrum(self, ax,
                                 synth: Optional[RealisticWaveform],

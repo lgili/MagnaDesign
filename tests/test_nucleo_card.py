@@ -32,13 +32,19 @@ def db():
 
 
 def test_nucleo_card_three_tabs(app):
+    """Component-tabbed score view should expose Material / Core / Wire.
+
+    The MagnaDesign rebrand passed an EN translation across the
+    component cards; the previous PT-BR labels (``Núcleo`` / ``Fio``)
+    are no longer expected.
+    """
     from pfc_inductor.ui.dashboard.cards.nucleo_card import NucleoCard
     card = NucleoCard()
     tabs = card._nbody._tabs
     assert tabs.count() == 3
     assert tabs.tabText(0) == "Material"
-    assert tabs.tabText(1) == "Núcleo"
-    assert tabs.tabText(2) == "Fio"
+    assert tabs.tabText(1) == "Core"
+    assert tabs.tabText(2) == "Wire"
 
 
 def test_nucleo_card_populates_all_tabs(app, db):

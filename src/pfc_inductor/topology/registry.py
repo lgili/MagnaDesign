@@ -11,6 +11,7 @@ from typing import Callable
 from pfc_inductor.models import Spec
 from pfc_inductor.models.spec import Topology
 from pfc_inductor.topology.boost_ccm_model import BoostCCMModel
+from pfc_inductor.topology.buck_ccm_model import BuckCCMModel
 from pfc_inductor.topology.line_reactor_model import LineReactorModel
 from pfc_inductor.topology.passive_choke_model import PassiveChokeModel
 from pfc_inductor.topology.protocol import ConverterModel
@@ -25,6 +26,7 @@ TOPOLOGY_MODELS: dict[Topology, ModelFactory] = {
     "boost_ccm": BoostCCMModel,
     "passive_choke": PassiveChokeModel,
     "line_reactor": LineReactorModel,
+    "buck_ccm": BuckCCMModel,
 }
 
 

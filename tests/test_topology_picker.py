@@ -49,12 +49,20 @@ def test_picker_selected_n_phases_for_line_reactor(app):
     assert dlg.selected_n_phases() == 1
 
 
-def test_picker_has_four_options(app):
+def test_picker_has_five_options(app):
+    """Picker exposes all engine topologies as cards.
+
+    The two line-reactor variants (1φ and 3φ) appear as separate
+    cards even though they map back to a single ``Spec.topology``
+    value, so the user picks the phasing without a secondary combo.
+    Buck-CCM was added in the ``add-buck-ccm-topology`` change.
+    """
     from pfc_inductor.ui.dialogs import TopologyPickerDialog
     dlg = TopologyPickerDialog()
     assert set(dlg._options.keys()) == {
         "boost_ccm", "passive_choke",
         "line_reactor_1ph", "line_reactor_3ph",
+        "buck_ccm",
     }
 
 

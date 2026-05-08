@@ -63,6 +63,19 @@ def _waveform_plot(result: DesignResult, topology: str) -> Optional[str]:
         title = "Inductor Current — half line cycle"
         ax.plot(t_ms, iL, color="#3a78b5", linewidth=1.4)
         ax.fill_between(t_ms, 0, iL, alpha=0.12, color="#3a78b5")
+    elif topology == "buck_ccm":
+        # Buck has no line envelope — span is in microseconds. Switch
+        # the x-unit so the trace doesn't render as a thin line at
+        # x≈0.01 ms.
+        title = "Inductor Current — switching periods (DC-DC)"
+        t_us = t_ms * 1000.0
+        ax.plot(t_us, iL, color="#3a78b5", linewidth=1.4)
+        ax.fill_between(t_us, iL.min(), iL, alpha=0.12, color="#3a78b5")
+        ax.set_xlabel("t [µs]")
+        ax.set_ylabel("i [A]")
+        ax.set_title(title, fontsize=10)
+        ax.grid(True, alpha=0.35)
+        return _b64(fig)
     else:
         title = "Inductor Current"
         ax.plot(t_ms, iL, color="#3a78b5", linewidth=1.4)
@@ -449,6 +462,19 @@ def _test_plan_rows(spec: Spec, result: DesignResult,
             "Curve tracer (DC bias)",
             "L drops ≤ 30 %",
         ))
+    elif spec.topology == "buck_ccm":
+        rows.append((
+            "Saturation current Isat",
+            f"≥ {result.I_pk_max_A:.2f} A",
+            "Curve tracer (DC bias sweep)",
+            "L drops ≤ 30 % at Isat",
+        ))
+        rows.append((
+            "Inductor ripple Δi_pp",
+            f"{result.I_ripple_pk_pk_A:.2f} A @ Vin_max",
+            "Scope at SW node + current probe",
+            "± 20 % vs design",
+        ))
     rows.append((
         "Visual / mechanical",
         "—",
@@ -530,6 +556,67 @@ def _switching_ripple_plot(spec: Spec, result: DesignResult) -> Optional[str]:
 
 
 # ---------------------------------------------------------------------------
+# Buck-CCM output ripple zoom — shows Δi_pp at Vin_max (worst case
+# for a buck because ``1 − D`` is largest there). Mirrors the
+# boost ``_switching_ripple_plot`` but uses buck-specific math
+# (ramp-up = (Vin − Vout)·D·Tsw / L, ramp-down = Vout·(1 − D)·Tsw / L).
+# ---------------------------------------------------------------------------
+def _buck_output_ripple_plot(spec: Spec,
+                             result: DesignResult) -> Optional[str]:
+    if spec.topology != "buck_ccm" or spec.f_sw_kHz <= 0:
+        return None
+    L_H = float(result.L_actual_uH) * 1e-6
+    if L_H <= 0:
+        return None
+    from pfc_inductor.topology import buck_ccm
+
+    Vin_max = buck_ccm._vin_max(spec)
+    Vout = float(spec.Vout_V)
+    Iout = buck_ccm.output_current_A(spec)
+    if Vin_max <= 0 or Vout <= 0 or Iout <= 0:
+        return None
+
+    Tsw = 1.0 / (float(spec.f_sw_kHz) * 1000.0)
+    D = buck_ccm.duty_cycle(spec, Vin_max)
+    delta_i = buck_ccm.worst_case_ripple_pp_A(spec, result.L_actual_uH)
+    iL_min = Iout - delta_i / 2.0
+    iL_max = Iout + delta_i / 2.0
+    t_on = D * Tsw
+    # Build 3 switching periods of the buck triangular ripple riding
+    # on Iout. Volt-seconds are equal in steady state, so the ramps
+    # close perfectly at the start of each period.
+    n_periods = 3
+    t_pts: list[float] = []
+    iL_pts: list[float] = []
+    for k in range(n_periods):
+        t0 = k * Tsw
+        t_pts.extend([t0, t0 + t_on, t0 + Tsw])
+        iL_pts.extend([iL_min, iL_max, iL_min])
+    t_us = np.array(t_pts) * 1e6
+    fig, ax = plt.subplots(figsize=(7.0, 3.0), dpi=110)
+    ax.plot(t_us, iL_pts, color="#3a78b5", linewidth=1.6)
+    ax.fill_between(t_us, iL_min, iL_pts, alpha=0.12, color="#3a78b5")
+    ax.axhline(Iout, color="#777", linestyle=":", linewidth=0.8,
+               label=f"I_out = {Iout:.2f} A")
+    ax.axhline(iL_max, color="#a01818", linestyle="--", linewidth=0.8,
+               label=f"I_pk = {iL_max:.2f} A")
+    ax.axhline(iL_min, color="#1c7c3b", linestyle="--", linewidth=0.8,
+               label=f"I_valley = {iL_min:.2f} A")
+    ax.set_xlabel("t [µs]")
+    ax.set_ylabel("iL [A]")
+    pct = 100.0 * delta_i / max(Iout, 1e-6)
+    ax.set_title(
+        f"Buck ripple at Vin_max = {Vin_max:.1f} V — "
+        f"Δi_pp = {delta_i:.2f} A ({pct:.0f} % of I_out, "
+        f"D = {D:.3f})",
+        fontsize=10,
+    )
+    ax.grid(True, alpha=0.35)
+    ax.legend(loc="upper right", fontsize=8)
+    return _b64(fig)
+
+
+# ---------------------------------------------------------------------------
 # η-vs-load curve — sweep Pout from 10 % to 100 % using the engine's
 # closed-form pass at each point and plot the resulting efficiency.
 # Re-running ``design()`` is cheap (sub-millisecond) so this is fine
@@ -539,7 +626,7 @@ def _efficiency_curve_plot(
     spec: Spec, core: Core, wire: Wire, material: Material,
     result: DesignResult,
 ) -> Optional[str]:
-    if spec.topology not in ("boost_ccm", "passive_choke"):
+    if spec.topology not in ("boost_ccm", "passive_choke", "buck_ccm"):
         return None
     if float(spec.Pout_W) <= 0 or float(result.losses.P_total_W) <= 0:
         return None
@@ -694,6 +781,19 @@ _SAFETY_PASSIVE_CHOKE: dict[str, str] = {
     "Overvoltage category":    "II/III (per integrator's chassis class)",
     "Pollution degree":        "2",
 }
+# Buck-CCM bucks operate at low DC voltages (typically 5–60 V on the
+# input rail). Hi-pot / dielectric numbers don't carry the same
+# weight as for line-voltage devices — the SELV envelope of the
+# host system already covers them. We still surface a B-class
+# rating block so QA has a number to test against.
+_SAFETY_BUCK_CCM: dict[str, str] = {
+    "Insulation class":        "B (130 °C) winding-to-core",
+    "Hi-pot test":             "500 Vrms, 60 s (low-voltage SELV)",
+    "Dielectric strength":     "≥ 1 kVrms, 1 min",
+    "Overvoltage category":    "I (per IEC 60664-1, internal converter)",
+    "Pollution degree":        "2",
+    "EMI screening":           "Recommended on SW node — high dV/dt",
+}
 
 
 def _safety_table_for(topology: str) -> dict[str, str]:
@@ -701,6 +801,7 @@ def _safety_table_for(topology: str) -> dict[str, str]:
         "boost_ccm":      _SAFETY_BOOST,
         "line_reactor":   _SAFETY_LINE_REACTOR,
         "passive_choke":  _SAFETY_PASSIVE_CHOKE,
+        "buck_ccm":       _SAFETY_BUCK_CCM,
     }.get(topology, _SAFETY_BOOST)
 
 
@@ -797,6 +898,7 @@ def _topology_label(topology: str) -> str:
         "boost_ccm":     "Boost-PFC CCM Inductor",
         "passive_choke": "Passive Line Choke",
         "line_reactor":  "AC Line Reactor (50/60 Hz)",
+        "buck_ccm":      "Synchronous Buck CCM Inductor",
     }.get(topology, "Inductor")
 
 
@@ -846,6 +948,37 @@ def _spec_rows_choke(spec: Spec, result: DesignResult,
                  ex["c_dc_assumed"], "µF"),
         ])
     return "".join(rows)
+
+
+def _spec_rows_buck(spec: Spec, result: DesignResult) -> str:
+    """Buck-CCM (synchronous DC-DC) spec table.
+
+    Buck specs surface DC input range, the per-cycle ripple ratio,
+    and the output current. Output capacitance is NOT included —
+    that's the system designer's choice and depends on the bus
+    requirements outside this module's scope.
+    """
+    from pfc_inductor.topology import buck_ccm
+    Vin_min = buck_ccm._vin_min(spec)
+    Vin_max = buck_ccm._vin_max(spec)
+    Vin_nom = buck_ccm._vin_nom(spec)
+    Iout = buck_ccm.output_current_A(spec)
+    D_min = buck_ccm.duty_cycle(spec, Vin_max)
+    D_max = buck_ccm.duty_cycle(spec, Vin_min)
+    r = buck_ccm._ripple_ratio(spec)
+    return "".join([
+        _row("Topology", "Synchronous buck (DC-DC), CCM"),
+        _row("Vin range",
+             f"{Vin_min:.2f} – {Vin_max:.2f} (nom {Vin_nom:.2f})", "V_dc"),
+        _row("Vout (regulated)", f"{spec.Vout_V:.2f}", "V_dc"),
+        _row("Iout (full load)", f"{Iout:.2f}", "A_dc"),
+        _row("Pout", f"{spec.Pout_W:.1f}", "W"),
+        _row("Switching freq.", f"{spec.f_sw_kHz:.0f}", "kHz"),
+        _row("Duty cycle range", f"{D_min:.3f} – {D_max:.3f}"),
+        _row("Ripple target Δi_pp / Iout",
+             f"{r * 100:.0f}", "% of Iout"),
+        _row("Efficiency assumed", f"{spec.eta:.2f}"),
+    ])
 
 
 def _spec_rows_line_reactor(spec: Spec, result: DesignResult) -> str:
@@ -1063,6 +1196,27 @@ def _topology_section(spec: Spec, core: Core, wire: Wire,
                 '<h3>Efficiency vs Load</h3>'
                 f'<img src="data:image/png;base64,{eta_curve}" />'
             )
+    elif spec.topology == "buck_ccm":
+        # Roll-off chart confirms the chosen N has bias-margin headroom
+        # at the worst-case Iout + Δi_pp/2 peak.
+        roll = _rolloff_plot(material, result)
+        if roll:
+            blocks.append(
+                '<h3>DC Bias Roll-off</h3>'
+                f'<img src="data:image/png;base64,{roll}" />'
+            )
+        ripple = _buck_output_ripple_plot(spec, result)
+        if ripple:
+            blocks.append(
+                '<h3>Worst-Case Output Ripple — Δi_pp at Vin_max</h3>'
+                f'<img src="data:image/png;base64,{ripple}" />'
+            )
+        eta_curve = _efficiency_curve_plot(spec, core, wire, material, result)
+        if eta_curve:
+            blocks.append(
+                '<h3>Efficiency vs Load</h3>'
+                f'<img src="data:image/png;base64,{eta_curve}" />'
+            )
     return "\n".join(blocks)
 
 
@@ -1181,6 +1335,8 @@ def generate_datasheet(
         spec_rows = _spec_rows_boost(spec, result)
     elif spec.topology == "line_reactor":
         spec_rows = _spec_rows_line_reactor(spec, result)
+    elif spec.topology == "buck_ccm":
+        spec_rows = _spec_rows_buck(spec, result)
     else:
         spec_rows = _spec_rows_choke(spec, result, core=core)
 

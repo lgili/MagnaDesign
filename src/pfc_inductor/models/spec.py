@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field, model_validator
 # a Spec from JSON.
 from pfc_inductor.models.modulation import FswModulation
 
-Topology = Literal["boost_ccm", "passive_choke", "line_reactor"]
+Topology = Literal["boost_ccm", "passive_choke", "line_reactor", "buck_ccm"]
 
 
 class Spec(BaseModel):
@@ -86,6 +86,43 @@ class Spec(BaseModel):
         ),
     )
 
+    # --- buck-CCM (DC-input topology) ---
+    # ``Vin_dc_V`` is the nominal DC input voltage when the spec is a
+    # DC-DC topology (currently ``buck_ccm``; future ``flyback`` /
+    # ``psfb_output_choke`` will reuse the same field). When ``None``
+    # the engine falls back to ``Vin_min_Vrms`` for backward
+    # compatibility with legacy specs.
+    Vin_dc_V: Optional[float] = Field(
+        None,
+        description=(
+            "DC input voltage (volts). Used only for DC-input "
+            "topologies (buck_ccm). For AC-input topologies leave "
+            "as None — Vin_min/max/nom_Vrms drive the design."
+        ),
+    )
+    Vin_dc_min_V: Optional[float] = Field(
+        None,
+        description="Lower bound of Vin_dc_V range (worst-case current).",
+    )
+    Vin_dc_max_V: Optional[float] = Field(
+        None,
+        description="Upper bound of Vin_dc_V range (worst-case ripple).",
+    )
+
+    # Buck-specific design knob: target ripple ratio ``ΔI_pp / Iout``.
+    # 0.30 is the textbook optimum (Erickson §5.2). Lower values give
+    # bigger inductors; higher values shrink L at the cost of larger
+    # output capacitance. Ignored for non-buck topologies.
+    ripple_ratio: Optional[float] = Field(
+        None,
+        ge=0.05, le=1.0,
+        description=(
+            "Target ΔI_pp / I_out for buck designs. 0.20–0.40 typical. "
+            "When None, the legacy ``ripple_pct`` field is reused as "
+            "a percent of I_out so old specs keep working."
+        ),
+    )
+
     @model_validator(mode="before")
     @classmethod
     def _convert_legacy_pct_impedance(cls, data):
@@ -124,6 +161,23 @@ class Spec(BaseModel):
         if self.topology == "line_reactor":
             if self.n_phases not in (1, 3):
                 raise ValueError("line_reactor: n_phases must be 1 or 3")
+        if self.topology == "buck_ccm":
+            # Buck must step DOWN: Vout < Vin (with margin for duty
+            # ratio < 0.99). Use ``Vin_dc_min_V`` if provided, else
+            # ``Vin_dc_V``, else fall back to the legacy AC field so
+            # specs migrated from boost-CCM tests don't fail loading.
+            v_in = (self.Vin_dc_min_V or self.Vin_dc_V
+                    or self.Vin_min_Vrms)
+            if v_in is None or v_in <= 0:
+                raise ValueError(
+                    "buck_ccm: Vin_dc_V (or Vin_dc_min_V) must be > 0"
+                )
+            if self.Vout_V >= v_in * 0.99:
+                raise ValueError(
+                    f"buck_ccm: Vout_V={self.Vout_V} must be < "
+                    f"Vin (got Vin={v_in}); buck is a step-down "
+                    "converter — use boost_ccm if Vout > Vin."
+                )
         return self
 
     @property

@@ -32,7 +32,7 @@ from pfc_inductor.physics import copper as cp
 from pfc_inductor.physics import core_loss as cl
 from pfc_inductor.physics import rolloff as rf
 from pfc_inductor.physics import thermal as th
-from pfc_inductor.topology import boost_ccm, line_reactor, passive_choke
+from pfc_inductor.topology import boost_ccm, buck_ccm, line_reactor, passive_choke
 
 
 def _solve_N(
@@ -114,12 +114,27 @@ def design(
         I_pk = line_reactor.line_pk_current_A(spec)
         I_rms_line = line_reactor.line_rms_current_A(spec)
         L_req = line_reactor.required_inductance_uH(spec)
+    elif spec.topology == "buck_ccm":
+        # Buck DC-DC: ``I_pk`` here is the *average* output current —
+        # the saturation-relevant peak (``Iout + ΔI_pp/2``) is recomputed
+        # below once L is sized via ``buck_ccm.peak_inductor_current_A``.
+        # ``I_rms_line`` is identical to ``Iout`` since buck has no AC
+        # input on the inductor side.
+        I_pk = buck_ccm.output_current_A(spec)
+        I_rms_line = I_pk
+        L_req = buck_ccm.required_inductance_uH(spec)
     else:
         I_pk = passive_choke.line_peak_current_A(spec, Vin_design)
         I_rms_line = passive_choke.line_rms_current_A(spec, Vin_design)
         L_req = passive_choke.required_inductance_uH(spec, Vin_design)
 
     N, L_actual, mu_at_peak = _solve_N(L_req, core, material, I_pk)
+
+    # Buck-CCM: now that L is sized, recompute I_pk to include the
+    # worst-case ripple half so saturation is checked at the actual
+    # peak current the inductor sees, not just Iout.
+    if spec.topology == "buck_ccm":
+        I_pk = buck_ccm.peak_inductor_current_A(spec, L_actual)
 
     H_pk = rf.H_from_NI(N, I_pk, core.le_mm, units="Oe")
     if spec.topology == "line_reactor":
@@ -152,8 +167,9 @@ def design(
             f"{Bsat_limit*1000:.0f} mT (margin {spec.Bsat_margin*100:.0f}%)"
         )
 
-    # Waveforms (only meaningful for boost CCM). Line reactors and
-    # passive chokes carry only fundamental + harmonics, no fsw ripple.
+    # Waveforms (boost CCM and buck CCM carry switching-frequency
+    # ripple). Line reactors and passive chokes carry only fundamental
+    # + harmonics, no fsw ripple.
     if spec.topology == "boost_ccm":
         wf = boost_ccm.waveforms(spec, Vin_design, L_actual)
         I_total_rms = boost_ccm.rms_inductor_current_A(wf)
@@ -161,6 +177,13 @@ def design(
         delta_iL_max = boost_ccm.ripple_max_pp_A(wf)
         I_pk_total = boost_ccm.peak_inductor_current_A(wf)
         # AC RMS of ripple component: from delta_iL(t)^2/12 averaged
+        I_rip_rms = math.sqrt(float(np.mean(wf["delta_iL_pp_A"] ** 2 / 12.0)))
+    elif spec.topology == "buck_ccm":
+        wf = buck_ccm.waveforms(spec, L_actual)
+        I_total_rms = buck_ccm.rms_inductor_current_from_waveform(wf)
+        delta_iL_avg = buck_ccm.ripple_avg_pp_A(wf)
+        delta_iL_max = buck_ccm.ripple_max_pp_A(wf)
+        I_pk_total = buck_ccm.peak_inductor_current_from_waveform(wf)
         I_rip_rms = math.sqrt(float(np.mean(wf["delta_iL_pp_A"] ** 2 / 12.0)))
     else:
         wf = None
@@ -284,6 +307,11 @@ def design(
             L_actual / 1000.0, spec.Vin_min_Vrms, spec.Pout_W,
             spec.f_line_Hz,
         )
+    elif spec.topology == "buck_ccm":
+        # Buck has DC output — line-side THD is undefined (depends on
+        # the input EMI filter, not the inductor). The Análise card's
+        # THD tile reads "—" for thd_estimate_pct == 0.
+        thd_pct = buck_ccm.estimate_thd_pct(spec)
 
     res = DesignResult(
         L_required_uH=L_req,

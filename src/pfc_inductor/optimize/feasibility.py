@@ -24,7 +24,7 @@ import math
 from typing import Literal
 
 from pfc_inductor.models import Core, Material, Spec, Wire
-from pfc_inductor.topology import boost_ccm, line_reactor, passive_choke
+from pfc_inductor.topology import boost_ccm, buck_ccm, line_reactor, passive_choke
 
 # Per-topology cap on the heuristic's estimated turn count. PFC
 # chokes are HF (≥ 50 kHz) so their L sits in the µH band — even a
@@ -39,6 +39,9 @@ N_HARD_CAP_BY_TOPOLOGY: dict[str, int] = {
     "boost_ccm": 250,
     "passive_choke": 1000,
     "line_reactor": 1000,
+    # Buck inductors at typical kHz–MHz f_sw rarely need more than
+    # ~150 turns; cap at 200 to give the optimizer a healthy margin.
+    "buck_ccm": 200,
 }
 N_HARD_CAP_DEFAULT = 250
 
@@ -71,6 +74,8 @@ def required_L_uH(spec: Spec) -> float:
         return line_reactor.required_inductance_uH(spec)
     if spec.topology == "boost_ccm":
         return boost_ccm.required_inductance_uH(spec, spec.Vin_min_Vrms)
+    if spec.topology == "buck_ccm":
+        return buck_ccm.required_inductance_uH(spec)
     return passive_choke.required_inductance_uH(spec, spec.Vin_min_Vrms)
 
 
@@ -85,6 +90,11 @@ def peak_current_A(spec: Spec) -> float:
         return line_reactor.line_pk_current_A(spec)
     if spec.topology == "boost_ccm":
         return boost_ccm.line_peak_current_A(spec, spec.Vin_min_Vrms)
+    if spec.topology == "buck_ccm":
+        # Pre-L sizing the heuristic uses Iout alone; the peak with
+        # ripple comes once L is chosen. The cascade Tier-0 filter
+        # only needs an order-of-magnitude figure, so Iout is fine.
+        return buck_ccm.output_current_A(spec)
     return passive_choke.line_peak_current_A(spec, spec.Vin_min_Vrms)
 
 
@@ -207,6 +217,11 @@ def rated_current_A(spec: Spec) -> float:
     """
     if spec.topology == "line_reactor":
         return float(spec.I_rated_Arms or 0.0)
+    if spec.topology == "buck_ccm":
+        # Buck: the inductor carries the output DC current. Pout / Vout
+        # is the cleanest formula and doesn't depend on Vin (the input
+        # current is on the FET / Cin path, not the inductor).
+        return buck_ccm.output_current_A(spec)
     if spec.Vin_min_Vrms <= 0 or spec.Pout_W <= 0:
         return 0.0
     eta = float(getattr(spec, "eta", 0.95) or 0.95)
