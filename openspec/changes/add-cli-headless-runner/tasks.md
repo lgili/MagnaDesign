@@ -37,12 +37,20 @@
 
 ## Phase 4 — `cascade` subcommand
 
-- [ ] `pfc_inductor/cli/cascade.py`:
-      `magnadesign cascade PROJECT.pfc [--tier2-k 50 --tier3-k 0
-       --workers N --store DB]`.
-      Drives `CascadeOrchestrator` synchronously, prints a progress
-      line per tier.
-- [ ] On completion, prints the Top-N from the SQLite store.
+- [x] `pfc_inductor/cli/cascade.py`:
+      `magnadesign cascade PROJECT.pfc [--tier2-k --tier3-k
+       --tier4-k --workers --store --top --rank --csv --pretty]`.
+      Drives `CascadeOrchestrator` synchronously, throttles
+      progress callbacks to one stderr line per second so a
+      100k-candidate sweep doesn't spam the CI log. Topology
+      filter via `materials_for_topology` mirrors the GUI.
+- [x] On completion, prints the Top-N from the SQLite store.
+      ``--rank`` honours the four server-side ORDER BY columns
+      (loss / temp / cost / loss_t2); volume / score variants
+      stay GUI-only because they need a JOIN to cores.
+- [x] Test: `tests/test_cli_cascade.py` (5 tests) — registered,
+      help, rank choices, missing-project usage error, full
+      end-to-end run gated as ``slow``.
 
 ## Phase 5 — Reporting subcommands
 

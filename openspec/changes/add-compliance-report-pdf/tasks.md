@@ -91,15 +91,29 @@
 
 ## Phase 7 — UI
 
-- [ ] `ui/workspace/compliance_tab.py`: per-standard card with
-      PASS/MARGINAL/FAIL chip, "Show details" expandable panel,
-      "Generate report" button.
-- [ ] Mount as a new tab in ProjetoPage.
-- [ ] File → Export → "Compliance report…" plus command-palette
-      entry "Export compliance report".
-- [ ] Spec drawer gains a "Region" picker (`EU` / `US` / `BR` /
-      `Worldwide`) so the dispatcher knows which standards to apply
-      by default. Saves with `.pfc`.
+- [x] `ui/workspace/compliance_tab.py`: per-standard card with
+      colour-coded verdict strip (PASS green / MARGINAL amber /
+      FAIL red, left-border accent), per-row harmonic table
+      (n / measured / limit / margin / result with red-green
+      colouring), free-form notes section. Hero strip aggregates
+      the bundle's overall verdict.
+- [x] Mount as a new tab in ProjetoPage between "Worst-case"
+      and "Export" — completes the audit-flow ordering.
+- [x] Region picker (Worldwide / EU / BR / US) + IEC edition
+      picker (5.0 / 4.0) live inside the tab so a user can flip
+      regions without leaving the workspace.
+- [x] "Export PDF…" button on the tab — calls
+      ``write_compliance_pdf`` with the current bundle.
+- [x] Tests: `tests/test_compliance_tab.py` (5 tests) — default
+      state, region-combo coverage, bundle render, empty-bundle
+      graceful handling, project-name propagation.
+- [~] Spec drawer "Region" picker that saves with `.pfc`.
+      *Deferred — tab-local picker covers the workflow; persisting
+      the region in the project file lands when ``Spec.region``
+      gets a Pydantic field (separate change).*
+- [~] File → Export → "Compliance report…" menu + command palette
+      entry. *Today only the in-tab button is wired; menu shortcut
+      lands with the next batch of menu/command-palette polish.*
 
 ## Phase 8 — Docs + release
 

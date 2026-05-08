@@ -53,20 +53,31 @@
 
 ## Phase 4 — UI surface (Worst-case tab)
 
-- [ ] `ui/workspace/worst_case_tab.py`:
-      - Tolerance picker (combo of bundled sets + "Custom…" opens
-        an editor dialog).
-      - Corner-DOE button: runs in worker thread, populates a
-        small table of corners with PASS/FAIL chips.
-      - Yield button: runs Monte-Carlo, shows the `pct_pass`
-        prominently (big number, color-coded > 95 % green / 90–95 %
-        amber / < 90 % red), plus a fail-mode pie chart.
-      - Sensitivity table: top-5 dominant tolerance contributors
-        per metric, sorted by impact.
-- [ ] Mount as a new tab in `ProjetoPage` between "Validate" and
-      "Export".
-- [ ] Tests: `tests/test_worst_case_tab.py` (UI populates
-      correctly when fed a stub `WorstCaseSummary`).
+- [x] `ui/workspace/worst_case_tab.py`:
+      - Tolerance picker (combo of bundled sets — bundled
+        ``DEFAULT_TOLERANCES`` only today; "Custom…" editor is
+        a follow-up).
+      - Corner-DOE button: runs in `_WorstCaseWorker` worker
+        thread, populates a small table of worst corners
+        (T_winding / B_pk / P_total / T_rise) with PASS/FAIL
+        marks against the project's own pass envelope.
+      - Yield button: runs Monte-Carlo (default 1 000 samples,
+        seed 0), shows the `pct_pass` as a hero label
+        colour-coded (≥95 % success, 90-95 % warning, <90 %
+        danger), plus the top fail-mode buckets.
+      - Run-both button kicks off both phases on the same worker.
+- [x] Mount as a new tab in `ProjetoPage` between "Validate" and
+      "Compliance" (the audit-flow order:
+      Core → Analysis → Validate → Worst-case → Compliance →
+      Export).
+- [x] Tests: `tests/test_worst_case_tab.py` (5 tests) — default
+      state, status-line update, table population from a real
+      summary, hero-label colour band switching.
+- [~] Sensitivity table — top-5 dominant tolerance contributors
+      per metric. *Deferred — current UI surfaces the worst
+      corner per metric which already answers "which combo is
+      driving this metric"; per-input partial-derivative ranking
+      lands in the next iteration.*
 
 ## Phase 5 — Cascade integration
 

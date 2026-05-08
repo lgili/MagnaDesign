@@ -62,7 +62,9 @@ from pfc_inductor.ui.widgets import ResumoStrip
 from pfc_inductor.ui.workspace.analise_page import AnalisePage
 from pfc_inductor.ui.workspace.nucleo_selection_page import NucleoSelectionPage
 
-TabKey = Literal["nucleo", "analise", "validar", "exportar"]
+TabKey = Literal[
+    "nucleo", "analise", "validar", "worst_case", "compliance", "exportar",
+]
 
 
 class ProjetoPage(QWidget):
@@ -182,7 +184,25 @@ class ProjetoPage(QWidget):
         self.validar_tab.compare_requested.connect(self.compare_requested.emit)
         self.tabs.addTab(self._wrap_scrollable(self.validar_tab), "Validate")
 
-        # Tab 3 — Export (wrap for the same reason).
+        # Tab 3 — Worst-case (corner DOE + Monte-Carlo yield).
+        # Closes the production-tolerance loop the v3 split opened —
+        # an engineer signing off for production needs to defend
+        # "every unit shipped will pass" across line × ambient ×
+        # tolerance × load. Lives between Validate and Compliance
+        # so the four post-design tabs read in audit order:
+        # Validate → Worst-case → Compliance → Export.
+        from pfc_inductor.ui.workspace.worst_case_tab import WorstCaseTab
+        self.worst_case_tab = WorstCaseTab()
+        self.tabs.addTab(self._wrap_scrollable(self.worst_case_tab),
+                         "Worst-case")
+
+        # Tab 4 — Compliance (IEC 61000-3-2 + future UL / EN 55032).
+        from pfc_inductor.ui.workspace.compliance_tab import ComplianceTab
+        self.compliance_tab = ComplianceTab()
+        self.tabs.addTab(self._wrap_scrollable(self.compliance_tab),
+                         "Compliance")
+
+        # Tab 5 — Export (wrap for the same reason).
         self.exportar_tab = ExportarTab()
         self.exportar_tab.export_html_requested.connect(
             self.export_html_requested.emit,
@@ -237,6 +257,12 @@ class ProjetoPage(QWidget):
         self.nucleo_tab.update_from_design(result, spec, core, wire, material)
         self.analise_tab.update_from_design(result, spec, core, wire, material)
         self.validar_tab.update_from_design(result, spec, core, wire, material)
+        self.worst_case_tab.update_from_design(
+            result, spec, core, wire, material,
+        )
+        self.compliance_tab.update_from_design(
+            result, spec, core, wire, material,
+        )
         self.exportar_tab.update_from_design(result, spec, core, wire, material)
         self.scoreboard.update_from_result(result, spec)
         # Flash the persistent KPI strip so the user has an unambiguous
@@ -262,7 +288,14 @@ class ProjetoPage(QWidget):
         )
 
     def switch_to(self, key: TabKey) -> None:
-        idx = {"nucleo": 0, "analise": 1, "validar": 2, "exportar": 3}[key]
+        idx = {
+            "nucleo": 0,
+            "analise": 1,
+            "validar": 2,
+            "worst_case": 3,
+            "compliance": 4,
+            "exportar": 5,
+        }[key]
         self.tabs.setCurrentIndex(idx)
 
     def _on_failed_metric_clicked(self, metric_name: str) -> None:
