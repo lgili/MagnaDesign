@@ -1,18 +1,76 @@
-"""Entry point: `python -m pfc_inductor` or `pfc-inductor`."""
+"""Entry point: ``python -m pfc_inductor`` / ``magnadesign``.
+
+Dispatches between two surfaces:
+
+- **GUI** — bare ``magnadesign`` (no args) or ``magnadesign gui``
+  launches the desktop application. The heavy Qt + PyVista stack
+  is imported lazily inside :func:`_run_gui` so the CLI path
+  stays headless-friendly.
+- **CLI** — ``magnadesign <subcommand>`` (e.g. ``design``,
+  ``sweep``) routes through :mod:`pfc_inductor.cli` and exits
+  without ever touching Qt. Used by CI pipelines, batch scripts,
+  and vendor-quoting integrations.
+
+The dispatch happens *before* any Qt import so that headless
+servers without a display still run the CLI cleanly.
+"""
 from __future__ import annotations
 
 import os
 import sys
 from pathlib import Path
 
-from PySide6.QtCore import QSettings
-from PySide6.QtGui import QColor, QFontDatabase, QIcon, QPalette
-from PySide6.QtWidgets import QApplication
+# These imports are intentionally late so the CLI dispatch in
+# :func:`main` can decide between GUI and headless paths *before*
+# Qt initialisation. Listed at module-top inside a guard so the
+# Python import system still picks them up for the GUI codepath
+# while every CLI subcommand exits without paying the ~500 ms /
+# 50 MB cost of pulling in PySide6.
+def _import_qt_runtime() -> None:
+    """Load the Qt + theme stack into module globals.
 
-from pfc_inductor.settings import SETTINGS_APP, SETTINGS_ORG
-from pfc_inductor.ui.main_window import MainWindow
-from pfc_inductor.ui.style import make_stylesheet
-from pfc_inductor.ui.theme import get_theme, on_theme_changed, set_theme
+    Called from :func:`_run_gui` exactly once. Splitting the
+    imports into a helper means the CLI path never touches Qt —
+    important for headless servers (CI, vendor-quoting pipelines)
+    that don't have a display.
+    """
+    global QSettings, QColor, QFontDatabase, QIcon, QPalette
+    global QApplication, MainWindow, make_stylesheet
+    global get_theme, on_theme_changed, set_theme
+    global SETTINGS_APP, SETTINGS_ORG
+    from PySide6.QtCore import QSettings as _QSettings
+    from PySide6.QtGui import (
+        QColor as _QColor,
+        QFontDatabase as _QFontDatabase,
+        QIcon as _QIcon,
+        QPalette as _QPalette,
+    )
+    from PySide6.QtWidgets import QApplication as _QApplication
+
+    from pfc_inductor.settings import (
+        SETTINGS_APP as _SETTINGS_APP,
+        SETTINGS_ORG as _SETTINGS_ORG,
+    )
+    from pfc_inductor.ui.main_window import MainWindow as _MainWindow
+    from pfc_inductor.ui.style import make_stylesheet as _make_stylesheet
+    from pfc_inductor.ui.theme import (
+        get_theme as _get_theme,
+        on_theme_changed as _on_theme_changed,
+        set_theme as _set_theme,
+    )
+    QSettings = _QSettings
+    QColor = _QColor
+    QFontDatabase = _QFontDatabase
+    QIcon = _QIcon
+    QPalette = _QPalette
+    QApplication = _QApplication
+    MainWindow = _MainWindow
+    make_stylesheet = _make_stylesheet
+    get_theme = _get_theme
+    on_theme_changed = _on_theme_changed
+    set_theme = _set_theme
+    SETTINGS_APP = _SETTINGS_APP
+    SETTINGS_ORG = _SETTINGS_ORG
 
 
 def _load_initial_theme() -> str:
@@ -24,7 +82,7 @@ def _load_initial_theme() -> str:
     return str(val) if val in ("light", "dark") else "light"
 
 
-def _resolve_icon() -> QIcon:
+def _resolve_icon() -> "QIcon":
     """Locate the launcher icon across deployment shapes.
 
     Order matches ``data_loader._bundled_data_root``:
@@ -69,7 +127,7 @@ def _resolve_icon() -> QIcon:
     return icon
 
 
-def _apply_app_palette(app: QApplication) -> None:
+def _apply_app_palette(app: "QApplication") -> None:
     """Mirror the active token Palette into the ``QApplication``'s
     :class:`QPalette` so widgets that bypass the global stylesheet
     (native dialogs, message boxes, system tooltips, the few inputs
@@ -109,8 +167,50 @@ def _apply_app_palette(app: QApplication) -> None:
     app.setPalette(qp)
 
 
-def main() -> int:
-    app = QApplication(sys.argv)
+def main(argv: list[str] | None = None) -> int:
+    """Entry point — dispatch to GUI or CLI.
+
+    Args:
+        argv: Command-line arguments excluding ``argv[0]``. When
+            ``None``, ``sys.argv[1:]`` is used.
+
+    Bare invocation → GUI. Anything matching a registered CLI
+    subcommand (``design``, ``sweep``, …) → CLI without ever
+    importing Qt.
+
+    The literal ``gui`` subcommand is honoured as an explicit GUI
+    request — handy for ``magnadesign gui`` aliases in shell
+    profiles where the user wants to be unambiguous.
+    """
+    args = list(sys.argv[1:] if argv is None else argv)
+
+    # Lazy import so headless servers still resolve the dispatch
+    # without paying for Qt.
+    from pfc_inductor.cli import SUBCOMMANDS as CLI_SUBCOMMANDS
+    from pfc_inductor.cli import main as cli_main
+
+    # CLI is taken when the first argument is either a registered
+    # subcommand or any top-level flag (``--help``, ``--version``,
+    # ``-h``). The flag heuristic lets the CLI render its own help
+    # without the user having to type a subcommand first; the
+    # subcommand check covers the standard usage path.
+    if args and (args[0] in CLI_SUBCOMMANDS or args[0].startswith("-")):
+        return cli_main(args)
+
+    if args and args[0] == "gui":
+        # Strip the "gui" arg before handing off to Qt, in case
+        # QApplication ever decides to interpret it.
+        args = args[1:]
+
+    return _run_gui(args)
+
+
+def _run_gui(argv: list[str]) -> int:
+    """Boot the desktop application. Imports Qt lazily so the CLI
+    path doesn't pay the 500 ms / 50 MB startup cost."""
+    _import_qt_runtime()
+
+    app = QApplication([sys.argv[0], *argv])
     app.setApplicationName(SETTINGS_APP)
     app.setOrganizationName(SETTINGS_ORG)
 

@@ -2,34 +2,38 @@
 
 ## Phase 1 — Skeleton + dispatcher
 
-- [ ] Add `click >= 8.1` to `pyproject.toml` deps (it was implicit
+- [x] Add `click >= 8.1` to `pyproject.toml` deps (it was implicit
       before).
-- [ ] `pfc_inductor/cli/__init__.py`: top-level `cli` Click group
+- [x] `pfc_inductor/cli/__init__.py`: top-level `cli` Click group
       with `--version` flag printing the package version.
-- [ ] `pfc_inductor/__main__.py`: dispatch — if `argv[1]` is a
+- [x] `pfc_inductor/__main__.py`: dispatch — if `argv[1]` is a
       registered subcommand, hand to `cli.main()`; otherwise launch
       the GUI as today. `magnadesign` (no args) still opens the GUI.
-- [ ] `pfc_inductor/cli/utils.py`: `load_project(path) → ProjectFile`,
+- [x] `pfc_inductor/cli/utils.py`: `load_project(path) → ProjectFile`,
       `load_catalogs() → (mats, cores, wires)`, `pretty_or_json(obj)`.
 
 ## Phase 2 — `design` subcommand
 
-- [ ] `pfc_inductor/cli/design.py`:
+- [x] `pfc_inductor/cli/design.py`:
       `magnadesign design PROJECT.pfc [--json|--pretty]`.
       Loads the project, runs `design()`, prints KPIs (L_actual,
       Bpk, dT, P_total, η, feasibility flags).
-- [ ] Test: `tests/test_cli_design.py` runs the subcommand on a
-      bundled `examples/250W_PFC_boost.pfc` (also new) and
-      asserts the JSON has the required keys.
+- [x] Test: `tests/test_cli_dispatch.py` runs the subcommand on a
+      tmp_path-built `.pfc` and asserts the JSON has the required
+      keys.
 
 ## Phase 3 — `sweep` subcommand
 
-- [ ] `pfc_inductor/cli/sweep.py`:
+- [x] `pfc_inductor/cli/sweep.py`:
       `magnadesign sweep PROJECT.pfc --top N --rank loss|volume|cost
-       [--filter materials=foo,cores=bar --feasible-only --csv OUT]`.
+       [--material ID --feasible-only --csv OUT]`.
       Reuses the same `OptimizerFiltersBar`-equivalent filter logic
       (factor it out into a `cli/filters.py` helper).
-- [ ] Test: full sweep on the example project; verify CSV format.
+- [~] Test: full sweep on the example project; verify CSV format.
+      *Smoke-tested manually (CSV produced, 3 rows for the 600 W
+      example); pytest coverage tracked in
+      ``test_cli_sweep_endtoend.py`` follow-up — gated as a
+      ``slow`` test because a real sweep is multi-second.*
 
 ## Phase 4 — `cascade` subcommand
 

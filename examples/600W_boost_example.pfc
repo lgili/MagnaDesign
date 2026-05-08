@@ -1,0 +1,28 @@
+{
+  "version": "1.0",
+  "name": "600W boost example",
+  "spec": {
+    "topology": "boost_ccm",
+    "Vin_min_Vrms": 85.0,
+    "Vin_max_Vrms": 265.0,
+    "Vin_nom_Vrms": 230.0,
+    "f_line_Hz": 50.0,
+    "Vout_V": 400.0,
+    "Pout_W": 600.0,
+    "eta": 0.97,
+    "f_sw_kHz": 65.0,
+    "ripple_pct": 20.0,
+    "T_amb_C": 40.0,
+    "T_max_C": 125.0,
+    "Ku_max": 0.7,
+    "Bsat_margin": 0.2,
+    "n_phases": 3,
+    "L_req_mH": 10.0,
+    "I_rated_Arms": 2.2
+  },
+  "selection": {
+    "material_id": "magnetics-60_highflux",
+    "core_id": "magnetics-0058181a2-60_highflux",
+    "wire_id": "AWG14"
+  }
+}
