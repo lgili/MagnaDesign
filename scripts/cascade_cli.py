@@ -666,7 +666,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "top-K survivors. Default 0 (Tier 3 disabled). Each "
         "FEA solve is 5–30 s, so K = 10–50 is the practical "
         "sweet spot. Skipped silently if no FEA backend is "
-        "installed (run `pfc-inductor-setup` to provision FEMMT).",
+        "installed (run `magnadesign-setup` to provision FEMMT).",
     )
     p_run.add_argument(
         "--tier3-timeout",

@@ -79,10 +79,10 @@ def _bundled_data_root() -> Path:
         # PyInstaller version that produced the bundle:
         #
         # - Legacy / pinned ``contents_directory='.'`` (what the
-        #   release spec ships): ``<dist>/pfc-inductor/data/``.
+        #   release spec ships): ``<dist>/magnadesign/data/``.
         # - PyInstaller 6.x default ``contents_directory='_internal'``:
-        #   ``<dist>/pfc-inductor/_internal/data/`` (the executable
-        #   stays directly under ``<dist>/pfc-inductor/``).
+        #   ``<dist>/magnadesign/_internal/data/`` (the executable
+        #   stays directly under ``<dist>/magnadesign/``).
         #
         # We probe legacy first because the spec opts back into it,
         # then fall through to ``_internal/data`` so a build that

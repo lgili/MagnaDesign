@@ -2,10 +2,10 @@
 # ruff: noqa: F821
 # (Analysis/PYZ/EXE/COLLECT/BUNDLE are injected by PyInstaller's spec
 # runner; they're not regular Python imports.)
-"""PyInstaller spec for PFC Inductor Designer.
+"""PyInstaller spec for MagnaDesign.
 
 Built once and reused on Linux / macOS / Windows. The release CI
-workflow invokes ``pyinstaller packaging/pfc-inductor.spec`` from the
+workflow invokes ``pyinstaller packaging/magnadesign.spec`` from the
 repo root on a per-platform runner — no per-OS branching is needed
 inside this spec because PyInstaller itself emits the right binary
 shape for each runtime.
@@ -56,7 +56,7 @@ from PyInstaller.utils.hooks import collect_all, collect_data_files
 # build across Linux / macOS / Windows. ``SPECPATH`` is always
 # present at runtime, so the dotted access without a fallback is
 # the simpler and correct form. The local-dev case (``python
-# packaging/pfc-inductor.spec``) goes through ``__file__`` instead.
+# packaging/magnadesign.spec``) goes through ``__file__`` instead.
 try:
     SPECPATH = globals()["SPECPATH"]
 except KeyError:
@@ -66,7 +66,11 @@ except KeyError:
 REPO_ROOT = Path(SPECPATH).resolve().parent
 
 ENTRY = str(REPO_ROOT / "src" / "pfc_inductor" / "__main__.py")
-APP_NAME = "pfc-inductor"
+# User-facing binary name. The Python package on disk stays as
+# ``pfc_inductor`` for backwards-compat with import sites, but every
+# user-visible artifact (executable, .app bundle, dist folder, asset
+# zip) ships under ``magnadesign``.
+APP_NAME = "magnadesign"
 
 
 # ---------------------------------------------------------------------------
@@ -285,10 +289,10 @@ if sys.platform == "darwin":
         coll,
         name=f"{APP_NAME}.app",
         icon=icon,
-        bundle_identifier="com.indutor.pfcinductor",
+        bundle_identifier="com.indutor.magnadesign",
         info_plist={
-            "CFBundleName": "PFC Inductor Designer",
-            "CFBundleDisplayName": "PFC Inductor Designer",
+            "CFBundleName": "MagnaDesign",
+            "CFBundleDisplayName": "MagnaDesign",
             "CFBundleVersion": CFBUNDLE_VERSION,
             "CFBundleShortVersionString": CFBUNDLE_VERSION,
             "NSHighResolutionCapable": True,

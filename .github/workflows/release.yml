@@ -35,13 +35,13 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            artifact_name: pfc-inductor-linux-x86_64
+            artifact_name: magnadesign-linux-x86_64
             archive_ext: tar.gz
           - os: macos-latest
-            artifact_name: pfc-inductor-macos-arm64
+            artifact_name: magnadesign-macos-arm64
             archive_ext: zip
           - os: windows-latest
-            artifact_name: pfc-inductor-windows-x86_64
+            artifact_name: magnadesign-windows-x86_64
             archive_ext: zip
 
     steps:
@@ -88,7 +88,7 @@ jobs:
         # ``--clean`` wipes the cache so two consecutive tag builds
         # don't pick up stale data files. ``--noconfirm`` avoids the
         # interactive "overwrite dist/" prompt.
-        run: pyinstaller --clean --noconfirm packaging/pfc-inductor.spec
+        run: pyinstaller --clean --noconfirm packaging/magnadesign.spec
 
       # ---------- macOS: code-sign + notarise -------------------------
       # Gated on the certificate secrets being present so a fresh
@@ -149,9 +149,9 @@ jobs:
             --entitlements packaging/macos/entitlements.plist \
             --sign "$IDENTITY" \
             --timestamp \
-            "dist/pfc-inductor.app"
+            "dist/magnadesign.app"
           codesign --verify --deep --strict --verbose=2 \
-            "dist/pfc-inductor.app"
+            "dist/magnadesign.app"
 
       - name: Notarise macOS .app
         if: runner.os == 'macOS' && env.APPLE_NOTARY_USERNAME != ''
@@ -163,7 +163,7 @@ jobs:
           set -e
           NOTARY_ZIP=$RUNNER_TEMP/notary.zip
           ditto -c -k --keepParent --sequesterRsrc \
-            "dist/pfc-inductor.app" "$NOTARY_ZIP"
+            "dist/magnadesign.app" "$NOTARY_ZIP"
           # ``--wait`` blocks until Apple finishes (typically <5 min).
           # Fail the build if Apple rejects — better than shipping
           # an unverifiable artefact.
@@ -174,7 +174,7 @@ jobs:
             --wait
           # Staple the ticket so Gatekeeper accepts the .app
           # offline (no network round-trip on first launch).
-          xcrun stapler staple "dist/pfc-inductor.app"
+          xcrun stapler staple "dist/magnadesign.app"
 
       # ---------- Windows: Authenticode signing -----------------------
       - name: Sign Windows executable
@@ -210,9 +210,9 @@ jobs:
             /p $env:WINDOWS_CERT_PASSWORD `
             /tr $tsUrl /td sha256 /fd sha256 `
             /a `
-            "dist\pfc-inductor\pfc-inductor.exe"
+            "dist\magnadesign\magnadesign.exe"
 
-          & $signtool verify /pa /v "dist\pfc-inductor\pfc-inductor.exe"
+          & $signtool verify /pa /v "dist\magnadesign\magnadesign.exe"
 
           Remove-Item $certPath -Force
 
@@ -227,10 +227,10 @@ jobs:
         run: |
           set -e
           if [[ "${{ runner.os }}" == "Linux" ]]; then
-            test -x dist/pfc-inductor/pfc-inductor || {
+            test -x dist/magnadesign/magnadesign || {
               echo "::error::missing executable"; exit 1; }
           else
-            test -f dist/pfc-inductor/pfc-inductor.exe || {
+            test -f dist/magnadesign/magnadesign.exe || {
               echo "::error::missing executable"; exit 1; }
           fi
           # PyInstaller 6.x ships data under ``_internal/`` by default;
@@ -238,9 +238,9 @@ jobs:
           # so ``data/`` lives next to the executable. Accept both so
           # an accidental layout regression doesn't silently ship a
           # broken bundle.
-          if [[ -d dist/pfc-inductor/data ]]; then
+          if [[ -d dist/magnadesign/data ]]; then
             echo "OK — flat layout (data/ next to executable)"
-          elif [[ -d dist/pfc-inductor/_internal/data ]]; then
+          elif [[ -d dist/magnadesign/_internal/data ]]; then
             echo "OK — _internal/ layout (PyInstaller 6.x default)"
           else
             echo "::error::missing bundled data/ directory"; exit 1
@@ -251,13 +251,13 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           set -e
-          test -d "dist/pfc-inductor.app" || {
+          test -d "dist/magnadesign.app" || {
             echo "::error::missing .app bundle"; exit 1; }
-          test -x "dist/pfc-inductor.app/Contents/MacOS/pfc-inductor" || {
+          test -x "dist/magnadesign.app/Contents/MacOS/magnadesign" || {
             echo "::error::missing executable inside .app"; exit 1; }
-          test -d "dist/pfc-inductor.app/Contents/Resources/data" || \
-          test -d "dist/pfc-inductor.app/Contents/Frameworks/data" || \
-          test -d "dist/pfc-inductor/data" || {
+          test -d "dist/magnadesign.app/Contents/Resources/data" || \
+          test -d "dist/magnadesign.app/Contents/Frameworks/data" || \
+          test -d "dist/magnadesign/data" || {
             echo "::error::missing bundled data/ inside .app or dist/"; exit 1; }
           echo "OK — .app layout looks sane"
 
@@ -268,7 +268,7 @@ jobs:
         # extract to whatever directory they like.
         run: |
           cd dist
-          tar -czf "../${{ matrix.artifact_name }}.tar.gz" pfc-inductor
+          tar -czf "../${{ matrix.artifact_name }}.tar.gz" magnadesign
           cd ..
           ls -lh "${{ matrix.artifact_name }}.tar.gz"
 
@@ -279,7 +279,7 @@ jobs:
         run: |
           cd dist
           ditto -c -k --keepParent --sequesterRsrc \
-            "pfc-inductor.app" "../${{ matrix.artifact_name }}.zip"
+            "magnadesign.app" "../${{ matrix.artifact_name }}.zip"
           cd ..
           ls -lh "${{ matrix.artifact_name }}.zip"
 
@@ -289,7 +289,7 @@ jobs:
         # always present. No per-runner zip install needed.
         shell: pwsh
         run: |
-          Compress-Archive -Path dist/pfc-inductor `
+          Compress-Archive -Path dist/magnadesign `
             -DestinationPath "${{ matrix.artifact_name }}.zip" `
             -CompressionLevel Optimal
           Get-Item "${{ matrix.artifact_name }}.zip" |
@@ -351,14 +351,14 @@ jobs:
             echo ""
             echo "| Platform | Architecture | File |"
             echo "|----------|--------------|------|"
-            echo "| Linux | x86_64 | \`pfc-inductor-linux-x86_64.tar.gz\` |"
-            echo "| macOS | Apple Silicon (arm64) | \`pfc-inductor-macos-arm64.zip\` |"
-            echo "| Windows | x86_64 | \`pfc-inductor-windows-x86_64.zip\` |"
+            echo "| Linux | x86_64 | \`magnadesign-linux-x86_64.tar.gz\` |"
+            echo "| macOS | Apple Silicon (arm64) | \`magnadesign-macos-arm64.zip\` |"
+            echo "| Windows | x86_64 | \`magnadesign-windows-x86_64.zip\` |"
             echo ""
             echo "### How to run"
-            echo "- **Linux:** \`tar -xzf pfc-inductor-linux-x86_64.tar.gz && ./pfc-inductor/pfc-inductor\`"
-            echo "- **macOS:** unzip and drag \`pfc-inductor.app\` into \`/Applications\`. First launch: right-click → Open to bypass Gatekeeper."
-            echo "- **Windows:** unzip and run \`pfc-inductor\\pfc-inductor.exe\`. Windows SmartScreen may warn — click *More info → Run anyway*."
+            echo "- **Linux:** \`tar -xzf magnadesign-linux-x86_64.tar.gz && ./magnadesign/magnadesign\`"
+            echo "- **macOS:** unzip and drag \`magnadesign.app\` into \`/Applications\`. First launch: right-click → Open to bypass Gatekeeper."
+            echo "- **Windows:** unzip and run \`magnadesign\\magnadesign.exe\`. Windows SmartScreen may warn — click *More info → Run anyway*."
             echo ""
             echo "FEA validation (FEMMT + ONELAB) is **not** bundled. Install it via *Configurações → Setup FEA* inside the app on first use."
           } >> body.md

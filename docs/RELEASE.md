@@ -50,10 +50,10 @@ Build the same artifact your runner will produce, before pushing the tag:
 
 ```bash
 pip install pyinstaller==6.11.1
-pyinstaller --clean --noconfirm packaging/pfc-inductor.spec
-# → dist/pfc-inductor/      (Linux/Windows)
-# → dist/pfc-inductor.app/  (macOS)
-./dist/pfc-inductor/pfc-inductor   # smoke test
+pyinstaller --clean --noconfirm packaging/magnadesign.spec
+# → dist/magnadesign/      (Linux/Windows)
+# → dist/magnadesign.app/  (macOS)
+./dist/magnadesign/magnadesign   # smoke test
 ```
 
 Use this to catch missing hidden imports before they fail in CI.
@@ -75,7 +75,7 @@ Useful for verifying a PySide6 / pyvista upgrade still bundles cleanly.
 
 | Want to … | Where |
 |---|---|
-| Add a hidden import | `packaging/pfc-inductor.spec`, `hidden += [...]` |
+| Add a hidden import | `packaging/magnadesign.spec`, `hidden += [...]` |
 | Add a data file | Same file, `datas.append((src, dst))` |
 | Add a runner OS | `.github/workflows/release.yml`, `matrix.include` |
 | Change Python version | `release.yml` step *Set up Python* + matching pyproject `requires-python` |

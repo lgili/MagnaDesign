@@ -11,7 +11,7 @@ Outputs:
 - ``img/logo-256.png``   — Linux .desktop / Qt window icon (square)
 - ``img/logo-512.png``   — high-DPI variant for retina launchers
 
-The PyInstaller spec at ``packaging/pfc-inductor.spec`` already
+The PyInstaller spec at ``packaging/magnadesign.spec`` already
 references ``img/logo.ico`` / ``img/logo.icns`` — once these files
 land it picks them up automatically. Qt's ``QApplication.setWindow
 Icon`` reads ``img/logo-256.png`` at runtime as a platform-neutral
