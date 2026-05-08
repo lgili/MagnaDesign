@@ -40,6 +40,7 @@ from pfc_inductor.cli import catalog as _catalog_cmd
 from pfc_inductor.cli import compliance as _compliance_cmd
 from pfc_inductor.cli import datasheet as _datasheet_cmd
 from pfc_inductor.cli import design as _design_cmd
+from pfc_inductor.cli import mfg_spec as _mfg_spec_cmd
 from pfc_inductor.cli import report as _report_cmd
 from pfc_inductor.cli import sweep as _sweep_cmd
 from pfc_inductor.cli import worst_case as _worst_case_cmd
@@ -92,6 +93,7 @@ _cascade_cmd.register(cli)
 _datasheet_cmd.register(cli)
 _catalog_cmd.register(cli)
 _report_cmd.register(cli)
+_mfg_spec_cmd.register(cli)
 
 
 # Names of registered subcommands. Used by ``__main__.main`` to
