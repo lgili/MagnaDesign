@@ -154,6 +154,40 @@ def _harmonic_plot(spec: Spec, result: DesignResult) -> Optional[str]:
         ax.plot(lo, lv_mA, color="#a06700", linestyle="--", marker="o",
                 markersize=4, linewidth=1.5,
                 label="IEC 61000-3-2 Class D")
+    # IEC 61000-3-12 — industrial-equipment connection at the PCC,
+    # for input current 16 A < I ≤ 75 A. Default compatibility level
+    # 2 (general industrial environment), Table 4: per-harmonic
+    # current limits expressed as % of fundamental.
+    iec_3_12_pct = {
+        3: 21.6, 5: 10.7, 7: 7.2, 9: 3.8, 11: 3.1, 13: 2.0,
+        15: 0.7, 17: 1.2, 19: 1.1, 21: 0.6, 23: 0.9, 25: 0.8,
+        27: 0.6, 29: 0.7, 31: 0.7, 33: 0.6, 35: 0.6, 37: 0.5,
+        39: 0.5,
+    }
+    if I1 > 0:
+        lo312 = sorted(iec_3_12_pct.keys())
+        lv312_mA = [iec_3_12_pct[h] / 100.0 * I1 * 1000.0 for h in lo312]
+        ax.plot(lo312, lv312_mA, color="#3a78b5", linestyle=":",
+                marker="s", markersize=3, linewidth=1.2,
+                label="IEC 61000-3-12 (industrial)")
+    # IEEE 519-2014 Table 10-3 — TDD (Total Demand Distortion) at the
+    # PCC. The standard expresses limits as % of I_L (max demand
+    # load current at the fundamental). Without a specific Isc/IL
+    # ratio we plot the most-common 50≤Isc/IL<100 column (industrial
+    # mid-range), which gives 7 % per individual h<11.
+    ieee_519_pct = {
+        3: 7.0, 5: 7.0, 7: 7.0, 9: 7.0,
+        11: 3.5, 13: 3.5, 15: 3.5,
+        17: 2.5, 19: 2.5, 21: 2.5,
+        23: 1.0, 25: 1.0, 27: 1.0, 29: 1.0,
+        31: 0.5, 33: 0.5, 35: 0.5, 37: 0.5, 39: 0.5,
+    }
+    if I1 > 0:
+        lo519 = sorted(ieee_519_pct.keys())
+        lv519_mA = [ieee_519_pct[h] / 100.0 * I1 * 1000.0 for h in lo519]
+        ax.plot(lo519, lv519_mA, color="#52525B", linestyle="-.",
+                marker="^", markersize=3, linewidth=1.0,
+                label="IEEE 519-2014 (50≤Isc/IL<100)")
     verdict = "PASS" if compliance.passes else "FAIL"
     extra = ""
     if Pi > 600:
@@ -169,6 +203,179 @@ def _harmonic_plot(spec: Spec, result: DesignResult) -> Optional[str]:
     ax.set_xticks(plot_orders[::2])
     ax.grid(True, axis="y", alpha=0.35)
     ax.legend(loc="upper right", fontsize=8)
+    return _b64(fig)
+
+
+# ---------------------------------------------------------------------------
+# Boost-CCM switching-period zoom — the line-cycle envelope hides the
+# Δi pp ripple; this plot synthesises a few switching periods at the
+# worst-case operating point so the user actually sees the parameter
+# they sized L for.
+# ---------------------------------------------------------------------------
+def _switching_ripple_plot(spec: Spec, result: DesignResult) -> Optional[str]:
+    if spec.topology != "boost_ccm" or spec.f_sw_kHz <= 0:
+        return None
+    L_H = float(result.L_actual_uH) * 1e-6
+    if L_H <= 0:
+        return None
+    Vin_min_pk = math.sqrt(2.0) * float(spec.Vin_min_Vrms)
+    Vout = float(spec.Vout_V)
+    if Vout <= Vin_min_pk:
+        return None
+    # Worst-case ripple sits at the line-current peak, when the duty
+    # cycle is D = 1 − Vin_pk/Vout. There the inductor sees Vin_pk
+    # during ON and (Vin_pk − Vout) during OFF.
+    Tsw = 1.0 / (float(spec.f_sw_kHz) * 1000.0)
+    D = 1.0 - Vin_min_pk / Vout
+    t_on = D * Tsw
+    delta_i = (Vin_min_pk * t_on) / L_H              # peak-to-peak
+    iL_dc = float(result.I_line_pk_A)
+    iL_min = iL_dc - delta_i / 2.0
+    iL_max = iL_dc + delta_i / 2.0
+    # Build 3 switching periods of the triangular ripple riding on iL_dc.
+    n_periods = 3
+    t = []
+    iL = []
+    for k in range(n_periods):
+        t0 = k * Tsw
+        t.extend([t0, t0 + t_on, t0 + Tsw])
+        iL.extend([iL_min, iL_max, iL_min])
+    t_us = np.array(t) * 1e6
+    fig, ax = plt.subplots(figsize=(7.0, 3.0), dpi=110)
+    ax.plot(t_us, iL, color="#3a78b5", linewidth=1.6)
+    ax.fill_between(t_us, iL_min, iL, alpha=0.12, color="#3a78b5")
+    ax.axhline(iL_dc, color="#777", linestyle=":", linewidth=0.8,
+               label=f"I_dc = {iL_dc:.2f} A")
+    ax.axhline(iL_max, color="#a01818", linestyle="--", linewidth=0.8,
+               label=f"I_pk = {iL_max:.2f} A")
+    ax.axhline(iL_min, color="#1c7c3b", linestyle="--", linewidth=0.8,
+               label=f"I_valley = {iL_min:.2f} A")
+    ax.set_xlabel("t [µs]")
+    ax.set_ylabel("iL [A]")
+    ax.set_title(
+        f"Switching ripple at Vin_min — Δi_pp = {delta_i:.2f} A "
+        f"({100.0*delta_i/max(iL_dc, 1e-6):.0f} %)",
+        fontsize=10,
+    )
+    ax.grid(True, alpha=0.35)
+    ax.legend(loc="upper right", fontsize=8)
+    return _b64(fig)
+
+
+# ---------------------------------------------------------------------------
+# η-vs-load curve — sweep Pout from 10 % to 100 % using the engine's
+# closed-form pass at each point and plot the resulting efficiency.
+# Re-running ``design()`` is cheap (sub-millisecond) so this is fine
+# inline.
+# ---------------------------------------------------------------------------
+def _efficiency_curve_plot(
+    spec: Spec, core: Core, wire: Wire, material: Material,
+    result: DesignResult,
+) -> Optional[str]:
+    if spec.topology not in ("boost_ccm", "passive_choke"):
+        return None
+    if float(spec.Pout_W) <= 0 or float(result.losses.P_total_W) <= 0:
+        return None
+    # Sweep at 10/25/50/75/100/110 % of nominal Pout. The 110 % point
+    # tells the user how the design behaves at headroom — overload is
+    # often the parameter that decides MTBF.
+    fractions = (0.10, 0.25, 0.50, 0.75, 1.00, 1.10)
+    P_nom = float(spec.Pout_W)
+    from pfc_inductor.design import design as _design
+    pts: list[tuple[float, float]] = []
+    for f in fractions:
+        try:
+            spec_p = spec.model_copy(update={"Pout_W": P_nom * f})
+            r = _design(spec_p, core, wire, material)
+            P_in = r.Pi_W if r.Pi_W else (P_nom * f + r.losses.P_total_W)
+            eta_pct = 100.0 * (P_nom * f) / max(P_in, 1e-6)
+            pts.append((100.0 * f, eta_pct))
+        except Exception:
+            # If the engine refuses (e.g. infeasible at 10 % load),
+            # skip the point — partial curves are still useful.
+            continue
+    if len(pts) < 2:
+        return None
+    xs = [p[0] for p in pts]
+    ys = [p[1] for p in pts]
+    fig, ax = plt.subplots(figsize=(6.0, 3.0), dpi=110)
+    ax.plot(xs, ys, "-o", color="#3a78b5", linewidth=1.5, markersize=5)
+    ax.set_xlabel("Pout [% of nominal]")
+    ax.set_ylabel("η [%]")
+    ax.set_ylim(min(ys) - 2.0, max(100.0, max(ys) + 0.5))
+    ax.set_title("Efficiency vs Load (inductor only)", fontsize=10)
+    ax.axvline(100.0, color="#777", linestyle=":", linewidth=0.8)
+    ax.grid(True, alpha=0.35)
+    return _b64(fig)
+
+
+# ---------------------------------------------------------------------------
+# Commutation notch summary — engine has the ``commutation_overlap_rad``
+# helper but the report never called it before. The notch depth /
+# duration coordinates protection / gate-drive timing upstream.
+# ---------------------------------------------------------------------------
+def _commutation_notch_block(spec: Spec, result: DesignResult) -> Optional[str]:
+    if spec.topology != "line_reactor":
+        return None
+    from pfc_inductor.topology import line_reactor as lr
+    L_mH = float(result.L_actual_uH) / 1000.0
+    if L_mH <= 0:
+        return None
+    mu = lr.commutation_overlap_rad(spec, L_mH)
+    mu_deg = math.degrees(mu)
+    # Notch depth: during overlap, the line-to-line voltage at the
+    # commutating phase pair drops to roughly V_pk · (1 − cos µ).
+    V_pk = math.sqrt(2.0) * float(spec.Vin_nom_Vrms)
+    notch_depth_V = V_pk * (1.0 - math.cos(mu))
+    notch_pct = 100.0 * notch_depth_V / V_pk if V_pk > 0 else 0.0
+    notch_us = (mu / (2.0 * math.pi)) * (1.0 / max(spec.f_line_Hz, 1.0)) * 1e6
+    rows = {
+        "Overlap angle µ":         f"{mu_deg:.2f}°",
+        "Notch duration":          f"{notch_us:.0f} µs",
+        "Notch depth (line-line)": f"{notch_depth_V:.0f} V "
+                                   f"({notch_pct:.1f} % of V_pk)",
+        "Reference":               "Mohan/Undeland eq. (5-65), "
+                                   "6-pulse diode rectifier",
+    }
+    return _kv_table(rows, extra_class="dim")
+
+
+# ---------------------------------------------------------------------------
+# Choke before/after PF + Vripple comparison chart
+# ---------------------------------------------------------------------------
+def _choke_comparison_plot(spec: Spec, result: DesignResult,
+                            core: Core) -> Optional[str]:
+    if spec.topology != "passive_choke":
+        return None
+    ex = _passive_choke_extras(spec, result, core)
+    pf_no = float(ex["pf_no_choke"])
+    pf_yes = float(ex["pf_with_choke"])
+    # Capacitor-input rectifier ripple without choke: rule of thumb
+    # 2× the with-choke value (the choke smooths the rectifier
+    # current pulse, halving its DC-link bucket excursion).
+    v_ripple_yes = float(ex["v_ripple_dc_pp"])
+    v_ripple_no = v_ripple_yes * 2.0
+    fig, axes = plt.subplots(1, 2, figsize=(7.5, 2.8), dpi=110)
+    ax_pf, ax_v = axes
+    bars_pf = ax_pf.bar(["No choke", "With choke"], [pf_no, pf_yes],
+                          color=["#a01818", "#1c7c3b"], width=0.55)
+    ax_pf.set_ylim(0, 1.0)
+    ax_pf.set_ylabel("Power factor")
+    ax_pf.set_title("PF — before vs after", fontsize=10)
+    ax_pf.grid(True, axis="y", alpha=0.35)
+    for b, v in zip(bars_pf, [pf_no, pf_yes], strict=False):
+        ax_pf.text(b.get_x() + b.get_width()/2, v + 0.02, f"{v:.2f}",
+                    ha="center", va="bottom", fontsize=9)
+    bars_v = ax_v.bar(["No choke", "With choke"],
+                       [v_ripple_no, v_ripple_yes],
+                       color=["#a01818", "#1c7c3b"], width=0.55)
+    ax_v.set_ylabel("V_ripple pp [V]")
+    ax_v.set_title("DC-link ripple — before vs after", fontsize=10)
+    ax_v.grid(True, axis="y", alpha=0.35)
+    for b, v in zip(bars_v, [v_ripple_no, v_ripple_yes], strict=False):
+        ax_v.text(b.get_x() + b.get_width()/2, v + 0.5, f"{v:.0f}",
+                   ha="center", va="bottom", fontsize=9)
+    fig.tight_layout()
     return _b64(fig)
 
 
@@ -544,18 +751,50 @@ def _topology_section(spec: Spec, core: Core, wire: Wire,
     blocks.append('</div>')
 
     if spec.topology == "boost_ccm":
+        # Switching-period zoom + roll-off + η-curve.
+        switch = _switching_ripple_plot(spec, result)
+        if switch:
+            blocks.append(
+                '<h3>Switching Ripple (Vin_min, peak operating point)</h3>'
+                f'<img src="data:image/png;base64,{switch}" />'
+            )
         roll = _rolloff_plot(material, result)
         if roll:
             blocks.append(
                 '<h3>DC Bias Roll-off</h3>'
                 f'<img src="data:image/png;base64,{roll}" />'
             )
+        eta_curve = _efficiency_curve_plot(spec, core, wire, material, result)
+        if eta_curve:
+            blocks.append(
+                '<h3>Efficiency vs Load</h3>'
+                f'<img src="data:image/png;base64,{eta_curve}" />'
+            )
     elif spec.topology == "line_reactor":
         spec_plot = _harmonic_plot(spec, result)
         if spec_plot:
             blocks.append(
-                '<h3>IEC 61000-3-2 Class D Compliance</h3>'
+                '<h3>Harmonic Compliance — IEC 61000-3-2 / 61000-3-12 / IEEE 519</h3>'
                 f'<img src="data:image/png;base64,{spec_plot}" />'
+            )
+        notch = _commutation_notch_block(spec, result)
+        if notch:
+            blocks.append(
+                '<h3>Commutation Notch (6-pulse rectifier)</h3>'
+                + notch
+            )
+    elif spec.topology == "passive_choke":
+        cmp = _choke_comparison_plot(spec, result, core)
+        if cmp:
+            blocks.append(
+                '<h3>Choke Effect — before vs after (estimated)</h3>'
+                f'<img src="data:image/png;base64,{cmp}" />'
+            )
+        eta_curve = _efficiency_curve_plot(spec, core, wire, material, result)
+        if eta_curve:
+            blocks.append(
+                '<h3>Efficiency vs Load</h3>'
+                f'<img src="data:image/png;base64,{eta_curve}" />'
             )
     return "\n".join(blocks)
 
