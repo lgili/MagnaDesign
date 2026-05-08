@@ -61,7 +61,7 @@ from pfc_inductor.project import (
     push_recent,
     save_project,
 )
-from pfc_inductor.report import generate_datasheet
+from pfc_inductor.report import generate_datasheet, generate_pdf_datasheet
 from pfc_inductor.settings import SETTINGS_APP, SETTINGS_ORG
 from pfc_inductor.setup_deps import check_fea_setup
 from pfc_inductor.topology.material_filter import materials_for_topology
@@ -248,9 +248,13 @@ class MainWindow(QMainWindow):
             Command("calc",            "Recalculate",          "Ctrl+R",
                     self._on_calculate,
                     hint="Runs the engine with the current spec + selection."),
-            Command("export.report",   "Export datasheet",     "",
+            Command("export.report",   "Export datasheet (HTML)", "",
                     self._export_report,
                     hint="Generates a 3-page HTML datasheet (base64-embedded)."),
+            Command("export.report_pdf", "Export datasheet (PDF)", "",
+                    self._export_report_pdf,
+                    hint="Native PDF (vector text, embedded font, "
+                         "deterministic page breaks)."),
             Command("export.compare",  "Export comparison",    "",
                     self._export_compare,
                     hint="Saves the comparison table as HTML or CSV."),
@@ -727,6 +731,9 @@ class MainWindow(QMainWindow):
         self.projeto_page.similar_requested.connect(self._open_similar_parts)
         self.projeto_page.litz_requested.connect(self._open_litz)
         self.projeto_page.export_html_requested.connect(self._export_report)
+        self.projeto_page.export_pdf_requested.connect(
+            self._export_report_pdf,
+        )
         self.projeto_page.export_compare_requested.connect(
             self._export_compare,
         )
@@ -905,6 +912,57 @@ class MainWindow(QMainWindow):
         Toast.show_message(
             self,
             f"Datasheet saved to {out}",
+            action_label="Open",
+            action=lambda p=str(out): self._open_path_externally(p),
+        )
+
+    def _export_report_pdf(self) -> None:
+        """Native PDF datasheet (ReportLab + matplotlib).
+
+        Mirrors ``_export_report`` (HTML) — same gather/design/save/toast
+        flow, different output format. PDF is the print/customer
+        artefact (vector text, embedded Inter font, deterministic page
+        breaks); HTML is the screen-grade preview.
+        """
+        from PySide6.QtWidgets import QFileDialog
+        try:
+            spec, core, wire, material = self._collect_inputs()
+            result = design(spec, core, wire, material)
+        except DesignError as e:
+            QMessageBox.warning(self, "Error", e.user_message())
+            return
+        default_name = (
+            f"datasheet_{core.part_number}_{material.name}.pdf"
+        ).replace(" ", "_").replace("/", "-")
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Save datasheet (PDF)", default_name,
+            "PDF files (*.pdf)",
+        )
+        if not path:
+            return
+        try:
+            out = generate_pdf_datasheet(
+                spec, core, material, wire, result, path,
+            )
+        except (OSError, ValueError, KeyError) as e:
+            err = ReportGenerationError(
+                f"Failed to generate the PDF datasheet: {e}",
+                hint=f"Check write permission for\n{path}",
+            )
+            QMessageBox.critical(
+                self, "PDF datasheet generation failed",
+                err.user_message(),
+            )
+            return
+        # Same post-export side effects as HTML — mark workspace clean,
+        # advance the Next Steps card, transient toast with "Open"
+        # action that hands the file off to the OS default PDF viewer.
+        self._workflow_state.mark_saved()
+        self.projeto_page.mark_action_done("report")
+        from pfc_inductor.ui.widgets.toast import Toast
+        Toast.show_message(
+            self,
+            f"PDF datasheet saved to {out}",
             action_label="Open",
             action=lambda p=str(out): self._open_path_externally(p),
         )

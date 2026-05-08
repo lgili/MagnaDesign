@@ -78,6 +78,8 @@ class ProjetoPage(QWidget):
     similar_requested = Signal()
     litz_requested = Signal()
     export_html_requested = Signal()
+    # Native PDF datasheet — see ExportarTab.export_pdf_requested.
+    export_pdf_requested = Signal()
     export_compare_requested = Signal()
     selection_applied = Signal(str, str, str)  # material_id, core_id, wire_id
 
@@ -184,6 +186,9 @@ class ProjetoPage(QWidget):
         self.exportar_tab = ExportarTab()
         self.exportar_tab.export_html_requested.connect(
             self.export_html_requested.emit,
+        )
+        self.exportar_tab.export_pdf_requested.connect(
+            self.export_pdf_requested.emit,
         )
         self.exportar_tab.export_compare_requested.connect(
             self.export_compare_requested.emit,

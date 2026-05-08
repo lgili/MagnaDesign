@@ -24,6 +24,11 @@ class ExportarTab(QWidget):
     """Export workspace tab."""
 
     export_html_requested = Signal()
+    # Native PDF datasheet (ReportLab + matplotlib). Emitted by the
+    # secondary "Generate datasheet (PDF)" button alongside the HTML
+    # CTA — same content, different file format. See
+    # ``pfc_inductor.report.pdf_report`` for the layout.
+    export_pdf_requested = Signal()
     export_compare_requested = Signal()
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
@@ -34,9 +39,10 @@ class ExportarTab(QWidget):
         outer.setSpacing(16)
 
         intro = QLabel(
-            "Generates the self-contained HTML datasheet (3 pages) "
-            "with orthographic views, specifications and BOM. Can "
-            "also export the comparison matrix as HTML/CSV."
+            "Generates the self-contained HTML datasheet or a "
+            "print-grade PDF (3 pages each) with orthographic views, "
+            "specifications and BOM. Can also export the comparison "
+            "matrix as HTML/CSV."
         )
         intro.setProperty("role", "muted")
         intro.setWordWrap(True)
@@ -67,9 +73,16 @@ class ExportarTab(QWidget):
         v = QVBoxLayout(body)
         v.setContentsMargins(0, 0, 0, 0)
         v.setSpacing(8)
+        # Two formats, same content. PDF is the print/customer artefact
+        # (vector text, embedded fonts, deterministic page breaks);
+        # HTML is the live screen-grade preview (Slack-pastable, opens
+        # in a browser without a reader). The user picks per-recipient.
         desc = QLabel(
-            "Manufacturer-grade datasheet — 3 pages of self-contained "
-            "HTML (base64 images). Print to PDF from the browser.",
+            "Manufacturer-grade datasheet — 3 pages, customer-ready. "
+            "PDF is the print/shop-floor artefact (vector text, "
+            "embedded Inter font, deterministic page breaks). HTML is "
+            "the screen-grade preview (open in any browser, paste-able "
+            "into Slack).",
         )
         desc.setProperty("role", "muted")
         desc.setWordWrap(True)
@@ -77,14 +90,27 @@ class ExportarTab(QWidget):
         self._summary = QLabel("Waiting for calculation…")
         self._summary.setStyleSheet(self._summary_qss())
 
-        btn = QPushButton("Generate datasheet (HTML)")
-        btn.setProperty("class", "Primary")
-        btn.setIcon(ui_icon("file-text",
-                            color=get_theme().palette.text_inverse, size=14))
-        btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn.clicked.connect(self.export_html_requested.emit)
+        # PDF button is "Primary" because it's what most engineers want
+        # to ship; HTML stays as the secondary preview path.
+        pdf_btn = QPushButton("Generate datasheet (PDF)")
+        pdf_btn.setProperty("class", "Primary")
+        pdf_btn.setIcon(ui_icon("file-text",
+                                color=get_theme().palette.text_inverse,
+                                size=14))
+        pdf_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        pdf_btn.clicked.connect(self.export_pdf_requested.emit)
+
+        html_btn = QPushButton("Generate datasheet (HTML)")
+        html_btn.setProperty("class", "Secondary")
+        html_btn.setIcon(ui_icon("file-text",
+                                  color=get_theme().palette.text,
+                                  size=14))
+        html_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        html_btn.clicked.connect(self.export_html_requested.emit)
+
         row = QHBoxLayout()
-        row.addWidget(btn)
+        row.addWidget(pdf_btn)
+        row.addWidget(html_btn)
         row.addStretch(1)
 
         v.addWidget(desc)
