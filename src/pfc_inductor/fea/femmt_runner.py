@@ -147,6 +147,20 @@ def validate_design_femmt(
 ) -> FEAValidation:
     """End-to-end FEMMT validation. Raises FEMMNotAvailable / FEMMSolveError."""
     _install_no_space_femmt_shim()
+    # FEMMT 0.5.x imports ``pkg_resources`` from its top-level
+    # ``functions.py``, but recent setuptools (≥ 70) removed
+    # ``pkg_resources``. Surfacing a focused error here avoids a
+    # confusing ``ModuleNotFoundError: pkg_resources`` blamed on
+    # FEMMT when the actual fix is a setuptools downgrade.
+    try:
+        import pkg_resources  # noqa: F401 — probe import only
+    except ImportError as e:
+        raise FEMMNotAvailable(
+            "FEMMT depends on `pkg_resources`, which was removed "
+            "from setuptools ≥ 70. Pin setuptools with: "
+            '`uv pip install "setuptools<70"`.\n\n'
+            f"Underlying error: {type(e).__name__}: {e}"
+        ) from e
     try:
         import femmt as ft
     except Exception as e:
@@ -155,6 +169,22 @@ def validate_design_femmt(
             "Install with `uv pip install pfc-inductor-designer[fea]` "
             "(requires Python 3.12 and scipy<1.14)."
         ) from e
+    # Integrity precheck — catch broken installs where ``import femmt``
+    # succeeds (because Python treats it as a PEP 420 namespace
+    # package when ``__init__.py`` is missing) but the top-level
+    # exports the rest of the runner relies on aren't available. The
+    # symptom we hit in the wild was ``AttributeError: module 'femmt'
+    # has no attribute 'MagneticComponent'`` deep in the validation
+    # call; failing here gives the engineer a direct fix.
+    integrity = _femmt_integrity_check(ft)
+    if not integrity["ok"]:
+        raise FEMMNotAvailable(
+            "FEMMT install is incomplete: "
+            f"{integrity['message']}\n\n"
+            "Reinstall with: "
+            '`uv pip install --reinstall -e ".[fea]"` '
+            "(requires Python 3.12 and scipy<1.14)."
+        )
     diag = _femmt_onelab_diagnostics()
     if not diag["ok"]:
         # Surface the precise asset that's missing so the engineer
@@ -579,6 +609,60 @@ def _bobbin_validation(
             "(round centre leg) and approximate in EE (area-equivalent)."
         ),
     )
+
+
+def _femmt_integrity_check(femmt_module) -> dict:
+    """Verify the FEMMT install is complete enough to drive a
+    validation run.
+
+    PEP 420 namespace packages let ``import femmt`` succeed even
+    when ``__init__.py`` is missing (or corrupted), so the deeper
+    failure is a generic ``AttributeError: module 'femmt' has no
+    attribute 'MagneticComponent'`` 4+ frames into the runner. We
+    catch that up-front by checking for the top-level exports the
+    runner actually uses:
+
+    - ``MagneticComponent`` — the entry-point class.
+    - ``CoreType``, ``ComponentType``, ``Verbosity`` — enums the
+      runner constructs.
+    - ``dtos`` — submodule that holds ``SingleCoreDimensions``.
+
+    Returns ``{ok: bool, missing: list[str], message: str}``.
+    """
+    required = (
+        "MagneticComponent",
+        "CoreType",
+        "ComponentType",
+        "Verbosity",
+        "Conductor",
+        "Insulation",
+        "WindingWindow",
+        "AirGaps",
+        "dtos",
+    )
+    missing = [name for name in required
+               if not hasattr(femmt_module, name)]
+    out: dict = {"ok": not missing, "missing": missing, "message": ""}
+    if missing:
+        install_dir = _femmt_install_dir(femmt_module)
+        loc = (
+            f" at {install_dir}"
+            if install_dir is not None else ""
+        )
+        # Probable cause: namespace package (no __init__.py present).
+        # Spell that out so the user knows what to look for if a
+        # straight reinstall doesn't fix it.
+        ns_hint = (
+            " (Python is treating `femmt` as a namespace package — "
+            "the install probably lost its `__init__.py`)"
+            if getattr(femmt_module, "__file__", None) is None
+            else ""
+        )
+        out["message"] = (
+            f"FEMMT module{loc} is missing required top-level "
+            f"attributes: {', '.join(missing)}{ns_hint}."
+        )
+    return out
 
 
 def _femmt_install_dir(femmt_module) -> Optional[Path]:
