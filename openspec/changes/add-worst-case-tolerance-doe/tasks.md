@@ -2,43 +2,54 @@
 
 ## Phase 1 — Tolerance modelling
 
-- [ ] `pfc_inductor/worst_case/tolerances.py`:
+- [x] `pfc_inductor/worst_case/tolerances.py`:
       - `Tolerance(name, kind, p3sigma_pct, distribution)` Pydantic
         model. Distributions: `gaussian`, `uniform`, `triangle`.
       - `ToleranceSet`: collection of `Tolerance`s, loadable from
         JSON / YAML.
-      - Standard sets bundled in `data/tolerances/`:
-        `ipc-2221.json`, `iec-60401-3.json`, `vendor-conservative.json`.
-- [ ] Spec extension: `Spec.tolerance_set: Optional[str]` (filename),
+      - Bundled `DEFAULT_TOLERANCES` ships an IPC + IEC blend
+        (AL ±8 %, Bsat ±5 %, µ_r ±25 %, wire ø ±2 %, T_amb 25–55 °C,
+        Vin ±10 %, Pout 50–130 %). Each carries a citation to its
+        source so an auditor can trace the assumption back.
+- [~] Spec extension: `Spec.tolerance_set: Optional[str]` (filename),
       with backward-compat default `None` → "all tolerances zero".
-      Add round-trip test for `.pfc` serialisation.
+      *Deferred to a follow-up — the engine wraps `design()` from
+      outside the Spec for now, which keeps `.pfc` files
+      backward-compat without a model migration.*
 
 ## Phase 2 — Corner DOE engine
 
-- [ ] `pfc_inductor/worst_case/engine.py`:
-      - `WorstCaseConfig(corners: Literal["3^3", "3^4", "min-max"], …)`.
-      - `evaluate_corners(spec, core, wire, material, tolerances)` →
-        returns `list[CornerResult]` where each `CornerResult` has
-        the corner's `(V_in, T_amb, AL_delta, Bsat_delta, …)` and
-        the resulting `DesignResult`.
-      - Identify per-metric worst case: returns
-        `WorstCaseSummary` with `worst_dT_corner`, `worst_Bpk_corner`,
-        `worst_loss_corner`.
-- [ ] `tests/test_worst_case_engine.py`: regression on a known
-      design — verify `worst_dT_corner` matches hand-calc.
+- [x] `pfc_inductor/worst_case/engine.py`:
+      - `WorstCaseConfig(full_factorial_max_n, metrics_to_track)`.
+      - `evaluate_corners(spec, core, wire, material, tolerances)`
+        returns a `WorstCaseSummary` with
+        `corners: tuple[CornerResult, ...]`, `nominal`, and
+        `worst_per_metric: dict[metric_name, CornerResult]`.
+      - For N ≤ 4 evaluates every 3^N corner; for N > 4 falls back
+        to fractional factorial (2^N edges + centre + per-axis ±).
+        Bundled 7-tolerance set runs in **~30 ms / 143 corners**.
+      - DesignError + arithmetic errors absorbed per corner —
+        `n_corners_failed` lets the caller see breakage without
+        the DOE crashing.
+- [x] `tests/test_worst_case_engine.py`: 11 tests covering empty
+      sets, full factorial sizing, fractional sizing, the
+      "thermal worst case is hot-ambient + high-load" engineering
+      anchor, and graceful engine-failure handling.
 
 ## Phase 3 — Monte-Carlo yield
 
-- [ ] `pfc_inductor/worst_case/monte_carlo.py`:
+- [x] `pfc_inductor/worst_case/monte_carlo.py`:
       - `simulate_yield(spec, core, wire, material, tolerances,
-         n_samples=10_000)` → `YieldReport(pct_pass, fail_modes,
-         per_metric_distributions)`.
-      - Use `numpy.random.Generator` with a fixed seed for
-        reproducibility (same spec + tolerance file → same yield).
-      - Each fail-mode bucketed: "Bsat exceeded", "ΔT exceeded",
-        "Ku exceeded", etc.
-- [ ] `tests/test_monte_carlo.py`: with `tolerances=zero`, expected
-      yield is 100 %; with absurd tolerances, expected yield drops.
+         n_samples=1000, seed=0)` → `YieldReport(pct_pass,
+         n_engine_error, fail_modes)`.
+      - `numpy.random.default_rng(seed)` for reproducibility —
+        same seed → same report (required for CI regression).
+      - Default pass criterion: T_winding ≤ T_max, B_pk ≤ Bsat·(1−margin),
+        Ku ≤ Ku_max, P_total ≤ 10 % Pout. Override via `pass_fn`.
+      - Fail modes bucketed and sorted high-to-low.
+- [x] `tests/test_worst_case_engine.py`: zero-tolerance → 100 %
+      yield, seed reproducibility, hot-T_max regime produces
+      buckets.
 
 ## Phase 4 — UI surface (Worst-case tab)
 
