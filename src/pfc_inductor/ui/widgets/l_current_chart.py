@@ -207,7 +207,10 @@ class LCurrentChart(QWidget):
         for spine in ax.spines.values():
             spine.set_color(p.border)
         ax.grid(True, alpha=0.25, color=p.border)
-        leg = ax.legend(loc="upper right", fontsize=8, framealpha=0.85)
+        # Lower-left placement keeps the legend away from the curve
+        # (which always slopes upper-left → lower-right for L(I))
+        # and the operating-point marker at I_pk.
+        leg = ax.legend(loc="lower left", fontsize=8, framealpha=0.9)
         leg.get_frame().set_facecolor(p.surface)
         leg.get_frame().set_edgecolor(p.border)
         for txt in leg.get_texts():

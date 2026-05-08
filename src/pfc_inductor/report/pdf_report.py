@@ -562,7 +562,11 @@ def _fig_inductance_vs_current(material: Material, core: Core, result: DesignRes
     ax.set_ylim(bottom=0)
     ax.set_xlim(left=0)
     ax.grid(True, alpha=0.35)
-    ax.legend(loc="upper right", fontsize=8)
+    # Legend goes in the lower-left corner so it never overlaps the
+    # data: any L(I) curve (whether powder-rolloff or silicon-steel
+    # sech²) runs from upper-left → lower-right, so the
+    # lower-left quadrant is always empty.
+    ax.legend(loc="lower left", fontsize=8, framealpha=0.9)
     return fig
 
 
