@@ -1,0 +1,20 @@
+# Pre-commit hooks — install with ``pre-commit install`` after
+# ``uv pip install pre-commit`` so the same checks CI runs (``ruff
+# format --check`` / ``ruff check``) gate every local commit. Without
+# this, format/lint drift only surfaces on the GitHub Actions run
+# 60 s after the push, and "fix the format" follow-up commits become
+# the most common reason CI flips red.
+#
+# To bypass for a one-off (e.g. an emergency hotfix), prefix the
+# commit with ``SKIP=ruff git commit ...`` — the hook respects the
+# standard ``SKIP`` env var. Don't make a habit of it; the next
+# push will be red.
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    # Keep the rev pinned so contributors get deterministic checks;
+    # bump alongside the dev-dep ``ruff>=0.6`` version in pyproject.
+    rev: v0.6.9
+    hooks:
+      - id: ruff-format
+      - id: ruff
+        args: [--fix]
