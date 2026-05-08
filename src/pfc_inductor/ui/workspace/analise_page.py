@@ -76,6 +76,7 @@ from pfc_inductor.ui.dashboard.cards import (
     FormasOndaCard,
     LCurrentCard,
     PerdasCard,
+    PFvsLCard,
     ThermalGaugeCard,
 )
 from pfc_inductor.ui.theme import CARD_MIN, get_theme, on_theme_changed
@@ -199,31 +200,44 @@ class AnalisePage(QWidget):
         grid.addWidget(self.card_l_current, 2, 0, 1, 12)
         grid.setRowStretch(2, 2)
 
-        # Row 3 — Perdas full width (stacked bar reads wide).
+        # Row 3 — PF vs L (passive_choke / line_reactor only). Pairs
+        # with the L vs I card directly above as the "design-space"
+        # complement to the "operating-point" view: L vs I says
+        # "given this design, how does L hold up?", PF vs L says
+        # "if I'd picked a different L, what input PF / source-side
+        # apparent power would I see?". Boost-PFC topologies render
+        # an empty placeholder because active control sets PF ≈ 1
+        # regardless of L.
+        self.card_pf_vs_l = PFvsLCard()
+        self.card_pf_vs_l.setMinimumWidth(CARD_MIN.formas[0])
+        grid.addWidget(self.card_pf_vs_l, 3, 0, 1, 12)
+        grid.setRowStretch(3, 2)
+
+        # Row 4 — Perdas full width (stacked bar reads wide).
         self.card_perdas = PerdasCard()
         self.card_perdas.setMinimumWidth(CARD_MIN.perdas[0])
-        grid.addWidget(self.card_perdas, 3, 0, 1, 12)
-        grid.setRowStretch(3, 1)
+        grid.addWidget(self.card_perdas, 4, 0, 1, 12)
+        grid.setRowStretch(4, 1)
 
-        # Row 4 — Bobinamento + Entreferro lado a lado.
+        # Row 5 — Bobinamento + Entreferro lado a lado.
         self.card_bobinamento = BobinamentoCard()
         self.card_entreferro = EntreferroCard()
         self.card_bobinamento.setMinimumWidth(CARD_MIN.bobinam[0])
         self.card_entreferro.setMinimumWidth(CARD_MIN.entreferro[0])
-        grid.addWidget(self.card_bobinamento, 4, 0, 1, 6)
-        grid.addWidget(self.card_entreferro, 4, 6, 1, 6)
-        grid.setRowStretch(4, 1)
+        grid.addWidget(self.card_bobinamento, 5, 0, 1, 6)
+        grid.addWidget(self.card_entreferro, 5, 6, 1, 6)
+        grid.setRowStretch(5, 1)
 
-        # Row 5 — Technical Details full-width, default collapsed.
+        # Row 6 — Technical Details full-width, default collapsed.
         # Datasheet-style card with every DesignResult field grouped
         # by domain. Default collapsed so it doesn't crowd the
         # at-a-glance rows above — one click expands it for the
         # engineer who wants every number.
         self.card_detalhes = DetalhesTecnicosCard()
-        grid.addWidget(self.card_detalhes, 5, 0, 1, 12)
-        grid.setRowStretch(5, 0)
+        grid.addWidget(self.card_detalhes, 6, 0, 1, 12)
+        grid.setRowStretch(6, 0)
 
-        # Row 6 — VFD modulation band chart, full-width, hidden by
+        # Row 7 — VFD modulation band chart, full-width, hidden by
         # default. ``update_from_design`` shows it only when the
         # active spec carries an ``fsw_modulation`` band. Lives
         # below the Technical Details card because it's the most
@@ -241,10 +255,10 @@ class AnalisePage(QWidget):
             self._modulation_chart,
         )
         self._modulation_card.setVisible(False)
-        grid.addWidget(self._modulation_card, 6, 0, 1, 12)
-        grid.setRowStretch(6, 0)
+        grid.addWidget(self._modulation_card, 7, 0, 1, 12)
+        grid.setRowStretch(7, 0)
 
-        # Row 7 — Acoustic noise card, full-width, hidden by
+        # Row 8 — Acoustic noise card, full-width, hidden by
         # default. Self-mounting widget — it shows itself when
         # the engine has enough data to run the estimator
         # (B_pk + ripple > 0) and hides for unfeasible / zero
@@ -256,8 +270,8 @@ class AnalisePage(QWidget):
         )
 
         self.card_acoustic = AcousticCard()
-        grid.addWidget(self.card_acoustic, 7, 0, 1, 12)
-        grid.setRowStretch(7, 0)
+        grid.addWidget(self.card_acoustic, 8, 0, 1, 12)
+        grid.setRowStretch(8, 0)
 
         # Convenience list for batch update / clear loops.
         # ``card_acoustic`` is included so its own self-show /
@@ -268,6 +282,7 @@ class AnalisePage(QWidget):
             self.card_bh,
             self.card_thermal,
             self.card_l_current,
+            self.card_pf_vs_l,
             self.card_perdas,
             self.card_bobinamento,
             self.card_entreferro,

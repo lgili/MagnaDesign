@@ -570,6 +570,95 @@ def _fig_inductance_vs_current(material: Material, core: Core, result: DesignRes
     return fig
 
 
+def _fig_pf_vs_inductance(spec: Spec, result: DesignResult):
+    """Power factor + apparent power as a function of choke / reactor
+    inductance.
+
+    Sweeps L from a small value up past the design's L_actual (so
+    the engineer sees both the steep PF gain in the under-sized
+    region and the diminishing-returns plateau past the design
+    point) and computes ``pf_at_L`` and ``apparent_power_VA`` for
+    each L. Two y-axes:
+
+    - **Left** (blue): power factor, 0–1.
+    - **Right** (red): apparent power S = P_active / PF in kVA —
+      the source-side rating burden the choice of L imposes.
+
+    The design's actual L is marked with a green vertical reference
+    line and a marker on the PF curve; the title carries the
+    design's PF + S so the chart is self-documenting.
+
+    Returns ``None`` for ``boost_ccm`` (active control sets PF ≈ 1
+    regardless of L; plot is uninformative).
+    """
+    if spec.topology not in ("passive_choke", "line_reactor"):
+        return None
+    from pfc_inductor.physics import power_factor as pfm
+
+    L_design = float(result.L_actual_uH)
+    if L_design <= 0:
+        return None
+    # Sweep from 5 % of design L (well below typical specs) up to
+    # 2.5 × design L (past the diminishing-returns asymptote). 200
+    # samples gives a smooth curve at the rendered DPI.
+    L_min = max(L_design * 0.05, 50.0)
+    L_max = L_design * 2.5
+    L_arr = np.linspace(L_min, L_max, 200)
+    PF_arr = np.array([pfm.pf_at_L(spec, L) for L in L_arr])
+    S_arr_VA = np.array([pfm.apparent_power_VA(spec, L) for L in L_arr])
+    PF_design = pfm.pf_at_L(spec, L_design)
+    S_design = pfm.apparent_power_VA(spec, L_design)
+
+    # Plot. The L axis carries µH for chokes, mH for line reactors —
+    # picked so the numbers stay readable.
+    use_mH = spec.topology == "line_reactor"
+    L_plot = L_arr / 1000.0 if use_mH else L_arr
+    L_design_plot = L_design / 1000.0 if use_mH else L_design
+    L_unit = "mH" if use_mH else "µH"
+
+    fig, ax_pf = plt.subplots(figsize=(7.0, 3.4), dpi=110)
+    ax_pf.plot(L_plot, PF_arr, color="#3a78b5", linewidth=1.8,
+                label=f"PF (predicted, {spec.topology})")
+    ax_pf.set_xlabel(f"Inductance L [{L_unit}]")
+    ax_pf.set_ylabel("Power factor [—]", color="#3a78b5")
+    ax_pf.tick_params(axis="y", labelcolor="#3a78b5")
+    ax_pf.set_ylim(0.5, 1.02)
+    ax_pf.grid(True, alpha=0.35)
+
+    ax_S = ax_pf.twinx()
+    ax_S.plot(L_plot, S_arr_VA / 1000.0, color="#a01818",
+                linewidth=1.4, linestyle="--",
+                label="Apparent power S")
+    ax_S.set_ylabel("Apparent power S [kVA]", color="#a01818")
+    ax_S.tick_params(axis="y", labelcolor="#a01818")
+    # Comfortable headroom on the right axis so the dashed S line
+    # never bumps against the upper edge.
+    ax_S.set_ylim(bottom=0,
+                    top=max(S_arr_VA / 1000.0) * 1.15 if S_arr_VA.size else 1)
+
+    # Mark design point.
+    ax_pf.axvline(L_design_plot, color="#1c7c3b", linestyle=":",
+                    linewidth=1.4, alpha=0.85,
+                    label=f"Design L = {L_design_plot:.2f} {L_unit}")
+    ax_pf.plot([L_design_plot], [PF_design], "o",
+                color="#1c7c3b", markersize=7, zorder=6)
+
+    # Build a single combined legend.
+    h_pf, l_pf = ax_pf.get_legend_handles_labels()
+    h_S, l_S = ax_S.get_legend_handles_labels()
+    ax_pf.legend(h_pf + h_S, l_pf + l_S,
+                   loc="lower right", fontsize=8, framealpha=0.9)
+
+    fig.suptitle(
+        f"Power factor vs inductance — design: PF = {PF_design:.2f}, "
+        f"S = {S_design / 1000.0:.1f} kVA at "
+        f"P = {spec.Pout_W / 1000.0:.1f} kW",
+        fontsize=10,
+    )
+    fig.tight_layout()
+    return fig
+
+
 def _fig_harmonic(spec: Spec, result: DesignResult):
     """Bar chart of harmonics in mA RMS, with three standards overlaid
     (IEC 61000-3-2 Class D, IEC 61000-3-12, IEEE 519-2014). Only
@@ -1557,6 +1646,23 @@ def _page2_story(
             _section(
                 "Inductance vs current — saturation rolloff",
                 fig_LI,
+            )
+        )
+
+    # ---------- PF vs L (passive_choke / line_reactor only) ----------
+    # Pairs with the L vs I curve directly above: L vs I says "given
+    # this design, how does the inductance hold up?" while PF vs L
+    # says "if I'd chosen a different L, what input PF / source-side
+    # apparent power would I see?". Together they give the engineer
+    # both the operating-point and the design-space view of the
+    # choke. Skipped for boost_ccm (active control sets PF ≈ 1
+    # regardless of L).
+    fig_PF = _fig_pf_vs_inductance(spec, result)
+    if fig_PF is not None:
+        curve_blocks.append(
+            _section(
+                "Power factor &amp; apparent power vs inductance",
+                fig_PF,
             )
         )
 

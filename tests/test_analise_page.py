@@ -63,6 +63,7 @@ def test_analise_page_card_set(app):
         FormasOndaCard,
         LCurrentCard,
         PerdasCard,
+        PFvsLCard,
         ThermalGaugeCard,
     )
     from pfc_inductor.ui.dashboard.cards.acoustic_card import (
@@ -74,6 +75,7 @@ def test_analise_page_card_set(app):
         BHLoopCard,
         ThermalGaugeCard,
         LCurrentCard,
+        PFvsLCard,
         PerdasCard,
         BobinamentoCard,
         EntreferroCard,

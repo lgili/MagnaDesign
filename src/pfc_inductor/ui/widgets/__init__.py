@@ -9,6 +9,7 @@ from pfc_inductor.ui.widgets.l_current_chart import LCurrentChart
 from pfc_inductor.ui.widgets.metric_card import MetricCard, MetricStatus
 from pfc_inductor.ui.widgets.mode_toggle import ModeToggle
 from pfc_inductor.ui.widgets.next_steps import ActionItem, ActionStatus, NextStepsCard
+from pfc_inductor.ui.widgets.pf_inductance_chart import PFInductanceChart
 
 # ``ResumoStrip`` imports MetricCard, so it must be after the import
 # above to avoid a forward-reference cycle.
@@ -35,6 +36,7 @@ __all__ = [
     "MetricStatus",
     "ModeToggle",
     "NextStepsCard",
+    "PFInductanceChart",
     "ResumoStrip",
     "ScorePill",
     "TopologyKind",

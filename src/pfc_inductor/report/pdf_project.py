@@ -77,6 +77,7 @@ from pfc_inductor.report.pdf_report import (
     _fig_bh_trajectory,
     _fig_inductance_vs_current,
     _fig_loss_breakdown,
+    _fig_pf_vs_inductance,
     _fig_waveform,
     _kv_table_style,
     _mpl_flowable,
@@ -1903,6 +1904,29 @@ def _body_line_reactor(
                 ]
             )
         )
+    fig_PF_lr = _fig_pf_vs_inductance(spec, result)
+    if fig_PF_lr is not None:
+        flowables.append(
+            KeepTogether(
+                [
+                    Paragraph(
+                        "Power factor vs inductance — design-space view",
+                        styles["h3"],
+                    ),
+                    _mpl_flowable(fig_PF_lr, _USABLE_WIDTH_MM),
+                    Paragraph(
+                        "PF rises sharply with the first few mH of "
+                        "reactance and saturates past ~5 % impedance — "
+                        "the diminishing-returns plateau lets the "
+                        "engineer pick the smallest L that still meets "
+                        "the THD / PF spec. The dashed red trace is the "
+                        "apparent power S = P_active / PF the source "
+                        "has to deliver, in kVA.",
+                        styles["note"],
+                    ),
+                ]
+            )
+        )
 
     # ----- 8. Voltage drop & THD -----
     flowables.append(
@@ -2071,7 +2095,11 @@ def _body_passive_choke(
 
     Vin = spec.Vin_nom_Vrms
     P_in = spec.Pout_W / spec.eta
-    omega = 2.0 * math.pi * max(spec.f_line_Hz, 1.0)
+    # ``_omega`` is part of the canonical Z = ωL derivation used in
+    # the choke-design flowchart this report walks through; assigned
+    # for chain-of-thought clarity even though Z_base goes through
+    # a different path here.
+    _omega = 2.0 * math.pi * max(spec.f_line_Hz, 1.0)
     Z_base = (Vin**2) / max(P_in, 1.0)
     L_actual_uH = result.L_actual_uH
     L_actual_mH = L_actual_uH / 1000.0
@@ -2304,6 +2332,29 @@ def _body_passive_choke(
                         "its envelope. The extent of rolloff sets the "
                         "effective %Z seen by the rectifier across the "
                         "line cycle.",
+                        styles["note"],
+                    ),
+                ]
+            )
+        )
+    fig_PF_pc = _fig_pf_vs_inductance(spec, result)
+    if fig_PF_pc is not None:
+        flowables.append(
+            KeepTogether(
+                [
+                    Paragraph(
+                        "Power factor vs inductance — design-space view",
+                        styles["h3"],
+                    ),
+                    _mpl_flowable(fig_PF_pc, _USABLE_WIDTH_MM),
+                    Paragraph(
+                        "Capacitor-input rectifier without choke sits at "
+                        "PF ≈ 0.55. Adding the series choke widens the "
+                        "rectifier's conduction angle and pushes PF "
+                        "asymptotically toward ≈ 0.95 (Erickson Ch. 18 / "
+                        "Pomilio Cap. 13). The dashed red trace is the "
+                        "apparent power S = P_active / PF the source "
+                        "has to deliver, in kVA.",
                         styles["note"],
                     ),
                 ]

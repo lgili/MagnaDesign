@@ -13,6 +13,7 @@ from pfc_inductor.ui.dashboard.cards.formas_onda_card import FormasOndaCard
 from pfc_inductor.ui.dashboard.cards.l_current_card import LCurrentCard
 from pfc_inductor.ui.dashboard.cards.nucleo_card import NucleoCard
 from pfc_inductor.ui.dashboard.cards.perdas_card import PerdasCard
+from pfc_inductor.ui.dashboard.cards.pf_inductance_card import PFvsLCard
 from pfc_inductor.ui.dashboard.cards.proximos_passos_card import ProximosPassosCard
 from pfc_inductor.ui.dashboard.cards.resumo_card import ResumoCard
 from pfc_inductor.ui.dashboard.cards.thermal_gauge_card import ThermalGaugeCard
@@ -27,6 +28,7 @@ __all__ = [
     "FormasOndaCard",
     "LCurrentCard",
     "NucleoCard",
+    "PFvsLCard",
     "PerdasCard",
     "ProximosPassosCard",
     "ResumoCard",
