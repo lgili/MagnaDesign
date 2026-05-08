@@ -37,7 +37,7 @@ from dataclasses import dataclass, field
 from typing import Literal, Optional
 
 from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
-from pfc_inductor.standards import iec61000_3_2
+from pfc_inductor.standards import en55032, iec61000_3_2
 
 ConclusionLabel = Literal["PASS", "MARGINAL", "FAIL", "NOT APPLICABLE"]
 RegionTag = Literal["EU", "US", "BR", "Worldwide"]
@@ -121,6 +121,13 @@ def applicable_standards(
     # D / A limits apply to its drawn current spectrum).
     if region in ("EU", "Worldwide", "BR"):
         out.append("IEC 61000-3-2")
+    # EN 55032 conducted-EMI applies to switching converters with
+    # appreciable ripple. Boost-PFC + buck-CCM + flyback all qualify;
+    # passive choke / line reactor produce no measurable conducted
+    # EMI in this band (they're a 60 Hz path).
+    if region in ("EU", "Worldwide", "BR"):
+        if spec.topology in ("boost_ccm", "buck_ccm", "flyback"):
+            out.append("EN 55032")
     return out
 
 
@@ -145,12 +152,118 @@ def evaluate(
         region=region,
     )
 
-    if "IEC 61000-3-2" in applicable_standards(spec, region):
+    applicable = applicable_standards(spec, region)
+    if "IEC 61000-3-2" in applicable:
         bundle.standards.append(_evaluate_iec61000_3_2(
             spec, core, wire, material, result, edition=edition,
         ))
+    if "EN 55032" in applicable:
+        bundle.standards.append(_evaluate_en55032(
+            spec, core, wire, material, result,
+        ))
 
     return bundle
+
+
+def _evaluate_en55032(
+    spec: Spec,
+    core: Core,
+    wire: Wire,
+    material: Material,
+    result: DesignResult,
+) -> StandardResult:
+    """Run the analytical conducted-EMI envelope estimator and
+    translate to the standard ``StandardResult`` shape."""
+    fsw_kHz = float(getattr(spec, "f_sw_kHz", 0.0) or 0.0)
+    ripple_pk = float(getattr(result, "I_ripple_pk_pk_A", 0.0) or 0.0)
+
+    # Class B (residential / appliance) is the default for the
+    # compressor-inverter use case; the dispatcher could later
+    # accept a region+application hint to pick A vs. B.
+    report = en55032.evaluate_emi(
+        spec_fsw_kHz=fsw_kHz,
+        I_ripple_pk_pk_A=ripple_pk,
+        class_="B",
+        detector="QP",
+    )
+
+    rows: list[tuple[str, str, str, float, bool]] = []
+    for pt in report.points:
+        rows.append((
+            f"n = {pt.n}",
+            f"{pt.measured_dbuv:.1f} dBµV @ "
+            f"{pt.frequency_Hz / 1e6:.2f} MHz",
+            f"{pt.limit_dbuv:.1f} dBµV",
+            float(pt.margin_dB),
+            bool(pt.passes),
+        ))
+
+    if not rows:
+        conclusion: ConclusionLabel = "PASS"
+        summary = (
+            "PASS — fsw is too low to produce harmonics in the "
+            "150 kHz – 30 MHz conducted-EMI band, or ripple "
+            "amplitude is zero."
+        )
+    elif report.passes:
+        if report.worst_margin_dB < 6.0:
+            conclusion = "MARGINAL"
+            summary = (
+                f"PASS — but worst margin only "
+                f"{report.worst_margin_dB:.1f} dB at "
+                f"h={report.worst_n}. LISN measurement strongly "
+                f"recommended; analytical envelope has ±10 dB "
+                f"uncertainty."
+            )
+        else:
+            conclusion = "PASS"
+            summary = (
+                f"PASS — worst margin {report.worst_margin_dB:.1f} dB "
+                f"at h={report.worst_n}."
+            )
+    else:
+        conclusion = "FAIL"
+        summary = (
+            f"FAIL — h={report.worst_n} exceeds the Class B QP "
+            f"limit by {abs(report.worst_margin_dB):.1f} dB. "
+            f"Analytical envelope only — real LISN measurement "
+            f"with snubber + Y-cap fitted may shift this; treat "
+            f"as a design-stage warning."
+        )
+
+    notes: list[str] = [
+        "Class B (residential / appliance) limits per EN 55032:2017 §A.5.",
+        "Quasi-peak (QP) detector. Average (AV) limits are 10 dB tighter.",
+        "Analytical envelope ONLY — assumes ideal square-wave switching, "
+        f"a {en55032.DEFAULT_CP_PF:.0f} pF parasitic shunt capacitance, "
+        "and a 50 Ω LISN. Real-world certification needs LISN + "
+        "spectrum-analyser measurement with the production controller.",
+        "Snubber capacitance, controller dV/dt and ground-plane "
+        "returns are NOT modelled — they typically *worsen* the "
+        "high-MHz envelope by 5–15 dB.",
+    ]
+
+    return StandardResult(
+        standard="EN 55032",
+        edition="Edition 2017 + A1:2020",
+        scope=(
+            "Class B conducted-emission limits for "
+            "multimedia / residential equipment in the "
+            "150 kHz – 30 MHz band."
+        ),
+        conclusion=conclusion,
+        summary=summary,
+        rows=rows,
+        notes=notes,
+        extras={
+            "fsw_Hz":          report.fsw_Hz,
+            "worst_margin_dB": report.worst_margin_dB,
+            "worst_n":         report.worst_n,
+            "n_harmonics":     len(report.points),
+            "class":           report.class_,
+            "detector":        report.detector,
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
