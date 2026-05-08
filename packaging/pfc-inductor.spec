@@ -46,10 +46,21 @@ from pathlib import Path
 
 from PyInstaller.utils.hooks import collect_all, collect_data_files
 
-# Spec scripts run with ``__file__`` set, but PyInstaller also sets
-# ``SPECPATH`` to the spec's directory. ``Path(SPECPATH).parent`` is
-# the repo root.
-SPECPATH = globals().get("SPECPATH", str(Path(__file__).resolve().parent))
+# PyInstaller 6.x ``exec()``-runs the spec file in a namespace that
+# sets ``SPECPATH`` (the spec's directory) but NOT ``__file__`` —
+# the previous one-liner ``globals().get("SPECPATH", str(Path(
+# __file__).resolve().parent))`` evaluates the default expression
+# eagerly and crashed with ``NameError: __file__`` on every release
+# build across Linux / macOS / Windows. ``SPECPATH`` is always
+# present at runtime, so the dotted access without a fallback is
+# the simpler and correct form. The local-dev case (``python
+# packaging/pfc-inductor.spec``) goes through ``__file__`` instead.
+try:
+    SPECPATH = globals()["SPECPATH"]
+except KeyError:
+    # Local dev — running the spec module directly (rare; mainly
+    # for IDE introspection). ``__file__`` is set in that path.
+    SPECPATH = str(Path(__file__).resolve().parent)
 REPO_ROOT = Path(SPECPATH).resolve().parent
 
 ENTRY = str(REPO_ROOT / "src" / "pfc_inductor" / "__main__.py")
