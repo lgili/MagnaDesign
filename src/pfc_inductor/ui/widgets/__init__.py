@@ -4,6 +4,7 @@ from pfc_inductor.ui.widgets.bh_loop_chart import BHLoopChart
 from pfc_inductor.ui.widgets.card import Card
 from pfc_inductor.ui.widgets.data_table import DataTable
 from pfc_inductor.ui.widgets.donut_chart import DonutChart
+from pfc_inductor.ui.widgets.l_current_chart import LCurrentChart
 from pfc_inductor.ui.widgets.metric_card import MetricCard, MetricStatus
 from pfc_inductor.ui.widgets.mode_toggle import ModeToggle
 from pfc_inductor.ui.widgets.next_steps import ActionItem, ActionStatus, NextStepsCard
@@ -28,6 +29,7 @@ __all__ = [
     "DataTable",
     "DonutChart",
     "HorizontalStackedBar",
+    "LCurrentChart",
     "MetricCard",
     "MetricStatus",
     "ModeToggle",

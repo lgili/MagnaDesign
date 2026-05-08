@@ -44,31 +44,37 @@ def design_bundle():
     return result, spec, core, wire, material
 
 
-def test_analise_page_has_seven_cards(app):
-    """The Análise v2 tab holds seven cards: FormasOnda, BHLoop,
-    ThermalGauge, Perdas, Bobinamento, Entreferro, and
-    DetalhesTecnicos (auto-expand on tall screens). NucleoCard /
-    Viz3DCard / Resumo / ProximosPassos are NOT here — they live
-    elsewhere in v3."""
+def test_analise_page_card_set(app):
+    """The Análise tab holds the engineer-facing cards: waveforms,
+    saturation views (BH-loop + L-vs-I), thermal, losses, winding,
+    air gap, the technical-details summary, and the acoustic-noise
+    card. NucleoCard / Viz3DCard / Resumo / ProximosPassos are NOT
+    here — they live elsewhere in v3."""
     from pfc_inductor.ui.workspace.analise_page import AnalisePage
     p = AnalisePage()
-    assert len(p._cards) == 7
-    # Check the type of each card.
     from pfc_inductor.ui.dashboard.cards import (
         BHLoopCard,
         BobinamentoCard,
         DetalhesTecnicosCard,
         EntreferroCard,
         FormasOndaCard,
+        LCurrentCard,
         PerdasCard,
         ThermalGaugeCard,
     )
-    types = {type(c) for c in p._cards}
-    assert types == {
-        FormasOndaCard, BHLoopCard, ThermalGaugeCard,
+    from pfc_inductor.ui.dashboard.cards.acoustic_card import (
+        AcousticCard,
+    )
+    expected = {
+        FormasOndaCard, BHLoopCard, ThermalGaugeCard, LCurrentCard,
         PerdasCard, BobinamentoCard, EntreferroCard,
-        DetalhesTecnicosCard,
+        DetalhesTecnicosCard, AcousticCard,
     }
+    types = {type(c) for c in p._cards}
+    assert types == expected, (
+        f"Card set drifted; got {types}, expected {expected}"
+    )
+    assert len(p._cards) == len(expected)
 
 
 def test_analise_page_update_propagates(app, design_bundle):

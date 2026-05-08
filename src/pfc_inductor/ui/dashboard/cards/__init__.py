@@ -9,6 +9,7 @@ from pfc_inductor.ui.dashboard.cards.bobinamento_card import BobinamentoCard
 from pfc_inductor.ui.dashboard.cards.detalhes_tecnicos_card import DetalhesTecnicosCard
 from pfc_inductor.ui.dashboard.cards.entreferro_card import EntreferroCard
 from pfc_inductor.ui.dashboard.cards.formas_onda_card import FormasOndaCard
+from pfc_inductor.ui.dashboard.cards.l_current_card import LCurrentCard
 from pfc_inductor.ui.dashboard.cards.nucleo_card import NucleoCard
 from pfc_inductor.ui.dashboard.cards.perdas_card import PerdasCard
 from pfc_inductor.ui.dashboard.cards.proximos_passos_card import ProximosPassosCard
@@ -23,6 +24,7 @@ __all__ = [
     "DetalhesTecnicosCard",
     "EntreferroCard",
     "FormasOndaCard",
+    "LCurrentCard",
     "NucleoCard",
     "PerdasCard",
     "ProximosPassosCard",
