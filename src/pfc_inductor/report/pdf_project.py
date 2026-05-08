@@ -78,6 +78,7 @@ from pfc_inductor.report.pdf_report import (
     _fig_inductance_vs_current,
     _fig_loss_breakdown,
     _fig_pf_vs_inductance,
+    _fig_power_vs_inductance,
     _fig_waveform,
     _kv_table_style,
     _mpl_flowable,
@@ -1927,6 +1928,32 @@ def _body_line_reactor(
                 ]
             )
         )
+    fig_PL_lr = _fig_power_vs_inductance(
+        spec, core, material, result, I_pk_A=I_pk_lr,
+    )
+    if fig_PL_lr is not None:
+        flowables.append(
+            KeepTogether(
+                [
+                    Paragraph(
+                        "Active power vs inductance — saturation impact",
+                        styles["h3"],
+                    ),
+                    _mpl_flowable(fig_PL_lr, _USABLE_WIDTH_MM),
+                    Paragraph(
+                        "Parametric trace: as the bias current rises, "
+                        "the effective L drops AND the input PF "
+                        "degrades, so the active power throughput "
+                        "doesn't scale linearly with I — the choke is "
+                        "protecting the source from delivering "
+                        "uncontrolled apparent power into a saturated "
+                        "magnetic. The operating point sits at "
+                        "(L_op, P_rated).",
+                        styles["note"],
+                    ),
+                ]
+            )
+        )
 
     # ----- 8. Voltage drop & THD -----
     flowables.append(
@@ -2355,6 +2382,30 @@ def _body_passive_choke(
                         "Pomilio Cap. 13). The dashed red trace is the "
                         "apparent power S = P_active / PF the source "
                         "has to deliver, in kVA.",
+                        styles["note"],
+                    ),
+                ]
+            )
+        )
+    fig_PL_pc = _fig_power_vs_inductance(
+        spec, core, material, result, I_pk_A=I_pk,
+    )
+    if fig_PL_pc is not None:
+        flowables.append(
+            KeepTogether(
+                [
+                    Paragraph(
+                        "Active power vs inductance — saturation impact",
+                        styles["h3"],
+                    ),
+                    _mpl_flowable(fig_PL_pc, _USABLE_WIDTH_MM),
+                    Paragraph(
+                        "Same parametric construction as the L vs I "
+                        "curve, re-plotted in P → L coordinates. As "
+                        "the rectified line current pulses through I_pk "
+                        "the choke saturates and PF degrades, so the "
+                        "real-power throughput tapers — exactly the "
+                        "behaviour the choke must contain.",
                         styles["note"],
                     ),
                 ]
