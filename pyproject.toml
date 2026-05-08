@@ -21,6 +21,19 @@ dependencies = [
     "pyvistaqt>=0.11",
     "openpyxl>=3.1",
     "pandas>=2.2",
+    # Headless CLI: ``magnadesign design / sweep / cascade / report``
+    # subcommands (see openspec/changes/add-cli-headless-runner). Click
+    # is also used by the FEA setup CLI in ``setup_deps/cli.py``; we
+    # promote it to a top-level dep so the GUI build can import the
+    # CLI module unconditionally.
+    "click>=8.1",
+    # Native PDF datasheet generation (vector charts, embedded fonts,
+    # proper page-break control). The HTML datasheet generator
+    # (``html_report.py`` / ``datasheet.py``) stays for screen-grade
+    # previews; PDF is the print/customer artefact and avoids the
+    # browser-print pitfalls (background colours stripped, font
+    # substitution, fragile page breaks).
+    "reportlab>=4.0",
 ]
 
 [project.optional-dependencies]
@@ -62,7 +75,17 @@ where = ["src"]
 # ``py.typed`` (PEP 561) tells type-checkers that the package ships
 # inline annotations; without it, mypy/pyright in downstream projects
 # treat ``pfc_inductor`` as untyped third-party.
-pfc_inductor = ["data/*.json", "py.typed"]
+#
+# ``report/fonts/*.ttf`` ships the Inter font family (SIL OFL 1.1)
+# embedded into the native PDF datasheet generator. License text is
+# alongside the fonts; remove the directory to fall back to the
+# PDF built-in Helvetica.
+pfc_inductor = [
+    "data/*.json",
+    "py.typed",
+    "report/fonts/*.ttf",
+    "report/fonts/LICENSE-*.txt",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
