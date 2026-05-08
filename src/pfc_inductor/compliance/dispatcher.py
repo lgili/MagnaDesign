@@ -37,7 +37,7 @@ from dataclasses import dataclass, field
 from typing import Literal, Optional
 
 from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
-from pfc_inductor.standards import en55032, iec61000_3_2
+from pfc_inductor.standards import en55032, iec61000_3_2, ul1411
 
 ConclusionLabel = Literal["PASS", "MARGINAL", "FAIL", "NOT APPLICABLE"]
 RegionTag = Literal["EU", "US", "BR", "Worldwide"]
@@ -128,6 +128,12 @@ def applicable_standards(
     if region in ("EU", "Worldwide", "BR"):
         if spec.topology in ("boost_ccm", "buck_ccm", "flyback"):
             out.append("EN 55032")
+    # UL 1411 covers the US-region appliance / consumer market
+    # — the temperature-rise + hi-pot envelope applies to every
+    # PFC topology in the catalogue. Worldwide projects honour
+    # it too because UL is a common dual-listing requirement.
+    if region in ("US", "Worldwide"):
+        out.append("UL 1411")
     return out
 
 
@@ -161,8 +167,104 @@ def evaluate(
         bundle.standards.append(_evaluate_en55032(
             spec, core, wire, material, result,
         ))
+    if "UL 1411" in applicable:
+        bundle.standards.append(_evaluate_ul1411(
+            spec, core, wire, material, result,
+        ))
 
     return bundle
+
+
+def _evaluate_ul1411(
+    spec: Spec,
+    core: Core,
+    wire: Wire,
+    material: Material,
+    result: DesignResult,
+) -> StandardResult:
+    """Run the UL 1411 envelope check + translate to
+    :class:`StandardResult`.
+
+    Insulation class defaults to ``B`` (130 °C-rated magnet
+    wire — the standard appliance choice). Working voltage is
+    pulled from the spec: nominal AC RMS for AC-input
+    topologies, the DC bus for buck-CCM. The dispatcher could
+    later accept a per-project insulation-class hint when the
+    Spec model gains the field.
+    """
+    if spec.topology == "buck_ccm":
+        v_work = float(getattr(spec, "Vin_dc_V", None)
+                       or spec.Vin_min_Vrms or 12.0)
+    else:
+        v_work = float(spec.Vin_nom_Vrms)
+
+    report = ul1411.evaluate(
+        insulation_class="B",
+        temperature_rise_C=float(getattr(result, "T_rise_C", 0.0) or 0.0),
+        working_voltage_Vrms=v_work,
+        ambient_temperature_C=float(getattr(spec, "T_amb_C", 40.0) or 40.0),
+    )
+
+    rows: list[tuple[str, str, str, float, bool]] = [
+        (
+            "Temperature rise",
+            f"{report.temperature_rise_C:.0f} °C",
+            f"{report.temperature_rise_limit_C:.0f} °C",
+            float(report.margin_to_temperature_limit_C),
+            bool(report.passes_temperature),
+        ),
+        (
+            "Hi-pot test voltage",
+            f"{report.hipot_voltage_Vrms:.0f} Vrms (60 s)",
+            "—",
+            0.0,
+            True,  # the calculator never "fails" — it tells the
+                   # lab what to apply.
+        ),
+    ]
+
+    if report.passes_temperature:
+        margin = report.margin_to_temperature_limit_C
+        if margin < 10.0:
+            conclusion: ConclusionLabel = "MARGINAL"
+            summary = (
+                f"PASS — but only {margin:.0f} °C of margin to the "
+                f"Class {report.insulation_class} limit. Consider "
+                f"stepping up to Class F if the lot-to-lot spread "
+                f"could push individual units over."
+            )
+        else:
+            conclusion = "PASS"
+            summary = (
+                f"PASS — {margin:.0f} °C margin to the Class "
+                f"{report.insulation_class} temperature limit."
+            )
+    else:
+        conclusion = "FAIL"
+        over_by = abs(report.margin_to_temperature_limit_C)
+        summary = (
+            f"FAIL — temperature rise exceeds the Class "
+            f"{report.insulation_class} limit by {over_by:.0f} °C. "
+            f"Step up the insulation class or reduce losses."
+        )
+
+    return StandardResult(
+        standard="UL 1411",
+        edition="Edition 2024",
+        scope=(
+            "Class B insulation temperature-rise + hi-pot test "
+            "envelope per UL 1411:2024 §39.2 + §40."
+        ),
+        conclusion=conclusion,
+        summary=summary,
+        rows=rows,
+        notes=list(report.notes),
+        extras={
+            "insulation_class":     report.insulation_class,
+            "hipot_voltage_Vrms":   report.hipot_voltage_Vrms,
+            "needs_hipot":          report.passes_hipot_required,
+        },
+    )
 
 
 def _evaluate_en55032(

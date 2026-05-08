@@ -87,12 +87,13 @@ def test_applicable_standards_includes_iec_for_eu_region(boost_design) -> None:
 
 
 def test_applicable_standards_excludes_iec_for_us_region(boost_design) -> None:
-    """The US region routes through UL eventually; today the
-    dispatcher only knows IEC, so US returns an empty list. This
-    is a regression contract — when UL 1411 lands the test moves
-    to assert UL is included, not that IEC is."""
+    """The US region routes through UL 1411 (temperature-rise +
+    hi-pot envelope) but NOT through IEC 61000-3-2 — that's the
+    EU's harmonic regime."""
     spec = boost_design[0]
-    assert applicable_standards(spec, "US") == []
+    standards = applicable_standards(spec, "US")
+    assert "IEC 61000-3-2" not in standards
+    assert "UL 1411" in standards
 
 
 # ---------------------------------------------------------------------------

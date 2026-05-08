@@ -131,23 +131,27 @@ def test_compliance_boost_passes_with_caveat(
         assert result.exit_code == 0
 
 
-def test_compliance_us_region_emits_warning(
+def test_compliance_us_region_runs_ul1411(
     cli_runner: CliRunner, tmp_path: Path,
 ) -> None:
-    """US region today routes through no standard (UL 1411 is
-    queued for a follow-up commit). The CLI exits 0 with a
-    GitHub-Actions ``::warning::`` line so a CI script gets a
-    visible signal that nothing was checked."""
+    """US region routes through UL 1411 (since the standard
+    landed). A typical boost-PFC clears the temperature-rise
+    envelope so overall = PASS, exit 0; FAIL / MARGINAL also
+    valid outcomes when the engine reports an unhealthy
+    temperature."""
     from pfc_inductor.cli import cli
 
     project_path = _write_boost_project(tmp_path)
     result = cli_runner.invoke(
         cli, ["compliance", str(project_path), "--region", "US"],
     )
-    assert result.exit_code == 0
-    assert "::warning::" in result.stderr or "::warning::" in result.output
     payload = json.loads(result.stdout)
-    assert payload["overall"] == "NOT APPLICABLE"
+    standards = {s["standard"] for s in payload["standards"]}
+    assert "UL 1411" in standards
+    if payload["overall"] == "PASS":
+        assert result.exit_code == 0
+    else:
+        assert result.exit_code != 0
 
 
 def test_compliance_writes_pdf_to_out_path(
