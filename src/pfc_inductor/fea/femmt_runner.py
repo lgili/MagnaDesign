@@ -163,9 +163,7 @@ def validate_design_femmt(
         # binary it can't find.
         femmt_dir = _femmt_install_dir(ft)
         config_loc = (
-            f"`{femmt_dir}/config.json`"
-            if femmt_dir is not None
-            else "FEMMT's config.json"
+            f"`{femmt_dir}/config.json`" if femmt_dir is not None else "FEMMT's config.json"
         )
         config_hint = (
             f"Edit {config_loc} adding "
@@ -672,7 +670,7 @@ def _femmt_onelab_diagnostics() -> dict:
                 "Could not locate the FEMMT install directory: "
                 "`femmt.__file__` and `femmt.__path__` are both "
                 "unavailable. Reinstall FEMMT with "
-                "`uv pip install --reinstall -e \".[fea]\"` and retry."
+                '`uv pip install --reinstall -e ".[fea]"` and retry.'
             )
             return out
         config_path = femmt_dir / "config.json"
@@ -693,15 +691,12 @@ def _femmt_onelab_diagnostics() -> dict:
             )
             return out
         out["onelab_dir"] = str(onelab)
-        required = (
-            "onelab.py",
-            "gmsh", "gmsh.exe",
-            "getdp", "getdp.exe",
-        )
         # Group "gmsh" and "gmsh.exe" so we mark the asset missing
-        # only when *neither* variant is present.
-        groups = [("onelab.py",), ("gmsh", "gmsh.exe"),
-                   ("getdp", "getdp.exe")]
+        # only when *neither* variant is present. ``onelab.py`` is
+        # the cross-platform Python entry point and is always
+        # required; ``gmsh`` / ``getdp`` ship as platform-specific
+        # binaries (``.exe`` on Windows, no extension on macOS / Linux).
+        groups = [("onelab.py",), ("gmsh", "gmsh.exe"), ("getdp", "getdp.exe")]
         missing: list[str] = []
         onelab_path = Path(onelab)
         for group in groups:
@@ -718,7 +713,7 @@ def _femmt_onelab_diagnostics() -> dict:
             )
             return out
         out["ok"] = True
-    except Exception as e:  # noqa: BLE001 — defensive precheck
+    except Exception as e:
         out["message"] = f"FEMMT config probe failed: {type(e).__name__}: {e}"
     return out
 

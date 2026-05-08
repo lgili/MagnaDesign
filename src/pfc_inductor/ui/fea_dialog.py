@@ -83,8 +83,7 @@ class _ValidationWorker(QObject):
             # plus the top of the call chain inside our code.
             tail = "\n".join(tb[-6:]) if len(tb) > 6 else "\n".join(tb)
             self.failed.emit(
-                f"Unexpected error: {type(e).__name__}: {e}\n\n"
-                f"Traceback (last frames):\n{tail}"
+                f"Unexpected error: {type(e).__name__}: {e}\n\nTraceback (last frames):\n{tail}"
             )
 
 
