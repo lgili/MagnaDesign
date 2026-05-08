@@ -102,9 +102,91 @@ If you ever add a new bundled data directory, update the spec's
   warning on first launch (right-click → Open); Windows users see
   SmartScreen (More info → Run anyway). Adding signing requires an
   Apple Developer ID and a Windows EV cert — secrets, not a CI change.
+  See `docs/release-secrets.md` for the runbook.
 - **Apple Silicon only on macOS**: `macos-latest` runners are arm64.
   Intel-mac users need an x86_64 build via `macos-13` runner; not
   enabled today to keep matrix size down.
 - **Linux runtime libs**: the bundle expects glibc 2.31+ (Ubuntu 22.04
   baseline used by `ubuntu-latest`). Older distros need a build from
   source.
+
+## Auto-update (appcast)
+
+The shipped GUI carries a Help → "Check for updates…" menu entry
+backed by `pfc_inductor.updater`. The updater polls a Sparkle-style
+appcast at `https://magnadesign.dev/appcast.xml` and offers the
+newest release when one is available. Privacy contract:
+
+- **Disabled by default.** First-launch users have to click
+  "Check for updates…" manually. The "Automatically check at
+  startup" toggle is opt-in and persisted in `QSettings`.
+- **Kill switch.** `MAGNADESIGN_DISABLE_TELEMETRY=1` (the same
+  env var the crash reporter honours) makes the updater a no-op.
+- **No PII.** The HTTP GET sends only
+  `magnadesign/<version> <os>/<arch>` as the User-Agent.
+- **Signature verification.** Every appcast `<enclosure>` carries
+  a `sparkle:edSignature` attribute (Ed25519 over the artefact's
+  bytes). The maintainer build pins the public key in
+  `pfc_inductor/updater/signature.py::PUBLIC_KEY_BASE64`. A
+  tampered appcast can't push a bogus binary.
+
+### Publishing a new appcast
+
+`scripts/generate_appcast.py` produces the XML from the GitHub
+Releases API and (optionally) signs each enclosure with the
+maintainer's Ed25519 private key. Wire into the release workflow:
+
+```yaml
+- name: Generate signed appcast
+  if: startsWith(github.ref, 'refs/tags/v')
+  env:
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  run: |
+    echo "${{ secrets.APPCAST_SIGNING_KEY_BASE64 }}" > /tmp/key
+    python scripts/generate_appcast.py \
+      --output appcast.xml \
+      --signing-key /tmp/key
+    rm -f /tmp/key
+- name: Publish to gh-pages
+  uses: peaceiris/actions-gh-pages@v3
+  with:
+    github_token: ${{ secrets.GITHUB_TOKEN }}
+    publish_branch: gh-pages
+    publish_dir: ./
+    keep_files: true
+```
+
+### Generating the signing keypair
+
+```bash
+python -c "
+import base64
+from cryptography.hazmat.primitives.asymmetric import ed25519
+priv = ed25519.Ed25519PrivateKey.generate()
+print('PRIVATE (store as APPCAST_SIGNING_KEY_BASE64 secret):')
+print(base64.b64encode(priv.private_bytes_raw()).decode())
+print()
+print('PUBLIC (paste into signature.py::PUBLIC_KEY_BASE64):')
+print(base64.b64encode(priv.public_key().public_bytes_raw()).decode())
+"
+```
+
+Store the private key as a GitHub Actions repo secret; pin the
+public key in `signature.py` in the maintainer build (or via a
+build-time substitution if you fork). The two keys must match
+or every running app will reject the new release with
+`SignatureCheckResult.BAD_SIGNATURE`.
+
+### Local testing
+
+```bash
+# Generate the appcast against your fork:
+python scripts/generate_appcast.py --output appcast.xml \
+    --repo lgili/MagnaDesign
+
+# Serve locally and point the running app at it:
+python -m http.server 8000  # in the dir containing appcast.xml
+MAGNADESIGN_APPCAST_URL=http://localhost:8000/appcast.xml \
+    uv run magnadesign
+# → Help → Check for updates…
+```

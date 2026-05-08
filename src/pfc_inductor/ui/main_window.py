@@ -554,6 +554,27 @@ class MainWindow(QMainWindow):
         act_about.triggered.connect(self._open_about)
         help_menu.addAction(act_about)
 
+        help_menu.addSeparator()
+
+        # Auto-update — opt-in. Manual "Check for updates…" runs
+        # ``updater.check_for_updates`` on demand; the toggle
+        # below persists a preference in QSettings that the
+        # MainWindow's startup hook reads on next launch.
+        self._act_check_updates = QAction("Check for updates…", self)
+        self._act_check_updates.triggered.connect(
+            self._on_check_for_updates,
+        )
+        help_menu.addAction(self._act_check_updates)
+
+        self._act_auto_check = QAction(
+            "Automatically check at startup",
+            self,
+        )
+        self._act_auto_check.setCheckable(True)
+        self._act_auto_check.setChecked(self._auto_check_enabled())
+        self._act_auto_check.toggled.connect(self._set_auto_check)
+        help_menu.addAction(self._act_auto_check)
+
     def _show_command_palette(self) -> None:
         """Open the Cmd+K command palette from the menu entry.
 
@@ -1253,6 +1274,99 @@ class MainWindow(QMainWindow):
     def _open_about(self) -> None:
         dlg = AboutDialog(parent=self)
         dlg.exec()
+
+    # ───── Auto-update (opt-in, see ``pfc_inductor.updater``) ─────
+
+    _AUTO_CHECK_KEY = "updates/auto_check_at_startup"
+
+    def _auto_check_enabled(self) -> bool:
+        """Read the persisted "auto-check at startup" preference.
+
+        Default is ``False`` — explicit opt-in only. Mirrors
+        the same privacy stance the crash reporter takes.
+        """
+        try:
+            from PySide6.QtCore import QSettings
+
+            settings = QSettings("MagnaDesign", "MagnaDesign")
+            raw = settings.value(self._AUTO_CHECK_KEY, False)
+        except Exception:
+            return False
+        if isinstance(raw, bool):
+            return raw
+        if isinstance(raw, str):
+            return raw.strip().lower() in {"true", "1", "yes", "on"}
+        return bool(raw)
+
+    def _set_auto_check(self, enabled: bool) -> None:
+        from PySide6.QtCore import QSettings
+
+        settings = QSettings("MagnaDesign", "MagnaDesign")
+        settings.setValue(self._AUTO_CHECK_KEY, bool(enabled))
+        settings.sync()
+
+    def _on_check_for_updates(self) -> None:
+        """Manual "Check for updates…" trigger.
+
+        Runs the network probe on a worker thread so the GUI
+        stays responsive (the appcast fetch has a 10 s timeout
+        and DNS / TLS / 4xx all degrade to "no update available"
+        — see ``updater.client.check_for_updates``). Result lands
+        on the GUI thread via a Qt signal.
+        """
+        from PySide6.QtCore import QObject, QThread, Signal
+        from PySide6.QtWidgets import QMessageBox
+
+        from pfc_inductor.updater import UpdateInfo, check_for_updates
+
+        # Inline a minimal worker so the import cost stays in the
+        # menu-handler path (the updater module has no Qt dep).
+        class _Worker(QObject):
+            done = Signal(object)  # UpdateInfo | None
+
+            def run(self) -> None:
+                info = check_for_updates()
+                self.done.emit(info)
+
+        thread = QThread(self)
+        worker = _Worker()
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+
+        def _on_done(info) -> None:
+            thread.quit()
+            thread.wait(1000)
+            if info is None:
+                QMessageBox.information(
+                    self,
+                    "MagnaDesign — Check for updates",
+                    "You're running the latest version.",
+                )
+                return
+            assert isinstance(info, UpdateInfo)
+            url = info.latest.download_url or "(no download URL)"
+            notes = info.latest.description_html or ""
+            # Truncate long release notes so the dialog stays
+            # readable; the user can click through to the URL
+            # for the full text.
+            if len(notes) > 800:
+                notes = notes[:800].rstrip() + "…"
+            text = (
+                f"Version {info.latest.version} is available.\n"
+                f"You are running {info.current_version}.\n\n"
+                f"{notes}\n\n"
+                f"Download: {url}"
+            )
+            QMessageBox.information(
+                self,
+                "MagnaDesign — Update available",
+                text,
+            )
+
+        worker.done.connect(_on_done)
+        worker.done.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+        thread.start()
 
     def current_compare_slot(self) -> CompareSlot:
         spec, core, wire, material = self._collect_inputs()
