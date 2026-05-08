@@ -137,6 +137,13 @@ class ProjetoPage(QWidget):
         self.kpi_strip.spec_drawer_requested.connect(
             lambda: self.drawer.set_collapsed(False),
         )
+        # Failure path (P1.H): when the badge shows
+        # Reprovado / Verificar and the user clicks it, switch to
+        # the Análise tab so the failing card is in front of them.
+        # Future iteration can route to the specific metric tile.
+        self.kpi_strip.failed_metric_clicked.connect(
+            self._on_failed_metric_clicked,
+        )
         kh.addWidget(self.kpi_strip)
         col_v.addWidget(kpi_holder)
 
@@ -252,6 +259,21 @@ class ProjetoPage(QWidget):
     def switch_to(self, key: TabKey) -> None:
         idx = {"nucleo": 0, "analise": 1, "validar": 2, "exportar": 3}[key]
         self.tabs.setCurrentIndex(idx)
+
+    def _on_failed_metric_clicked(self, metric_name: str) -> None:
+        """Handle a click on the ResumoStrip's "Reprovado" badge.
+
+        Today's behaviour: switch to the Análise tab so the failing
+        card is in front of the user. Future iteration can scroll to
+        the specific metric tile within Análise based on
+        ``metric_name`` (e.g. "ΔT" → flash the EntreferroCard's
+        margin tile). The signal payload is plumbed through so the
+        next pass doesn't need to re-architect.
+        """
+        self.switch_to("analise")
+        # Re-flash the strip so the user sees a clear "I heard you"
+        # response — same animation already used post-recalc.
+        self.kpi_strip.flash_applied()
 
     def mark_action_done(self, key: str) -> None:
         # ProximosPassosCard was retired in v3.1; this method is kept

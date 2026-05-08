@@ -372,17 +372,49 @@ class _DetalhesBody(QWidget):
 class DetalhesTecnicosCard(Card):
     """Public façade — collapsible datasheet of every computed parameter.
 
-    Mounts as the last row of ``AnalisePage`` (full width). Default
-    collapsed; click "Mostrar todos os parâmetros" to expand.
+    Mounts as the last row of ``AnalisePage`` (full width). On screens
+    ≥ 1080 px tall the card auto-expands at construction time so the
+    engineer with monitor space sees the full datasheet without
+    hunting for the toggle. Smaller viewports stay collapsed by
+    default to keep the at-a-glance row above the fold.
+
+    The user's manual toggle wins over the auto-expand heuristic —
+    once they collapse it explicitly the choice survives data updates.
     """
 
     expanded_changed = Signal(bool)
+
+    # Threshold in CSS pixels above which we auto-expand the card on
+    # construction. 1080 px clears MacBook Air (1080) and most modern
+    # external monitors; 1366×768 laptops stay collapsed.
+    AUTO_EXPAND_HEIGHT_PX = 1080
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         body = _DetalhesBody()
         super().__init__("Detalhes técnicos", body, parent=parent)
         self._dbody = body
         self._dbody._toggle.toggled.connect(self.expanded_changed.emit)
+        self._auto_expand_if_tall()
+
+    def _auto_expand_if_tall(self) -> None:
+        """Open the datasheet by default when the screen has the room.
+
+        ``QGuiApplication.primaryScreen()`` is None on headless /
+        offscreen platforms (CI, screenshot harness) — we leave the
+        card collapsed in that case so test snapshots stay stable.
+        """
+        try:
+            from PySide6.QtGui import QGuiApplication
+            screen = QGuiApplication.primaryScreen()
+            if screen is None:
+                return
+            h = screen.availableGeometry().height()
+            if h >= self.AUTO_EXPAND_HEIGHT_PX:
+                self._dbody._toggle.setChecked(True)
+        except Exception:
+            # Defensive: never let a screen-info hiccup block card
+            # construction.
+            pass
 
     def update_from_design(self, *args, **kwargs) -> None:
         self._dbody.update_from_design(*args, **kwargs)

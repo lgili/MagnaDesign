@@ -87,6 +87,13 @@ class ResumoStrip(QFrame):
     # Emitted when the "Preencha a especificação" empty-state badge is
     # clicked — host (ProjetoPage) opens the SpecDrawer in response.
     spec_drawer_requested = Signal()
+    # Emitted when the user clicks the badge while it shows
+    # "Reprovado" or "Verificar" — host scrolls / switches to the
+    # tab that explains *why* (the Análise card with the failing
+    # metric). String payload is the metric name (e.g. "ΔT", "B")
+    # for future per-metric routing; the empty string means "no
+    # specific metric, just take me to the analysis".
+    failed_metric_clicked = Signal(str)
 
     # 80 px is just tall enough for the metric_compact tiles (64 px
     # content + 8/8 padding) and lets ProjetoPage breathe on a 768 px
@@ -135,6 +142,11 @@ class ResumoStrip(QFrame):
         # ``installEventFilter`` so the polish/show events that fire
         # during ``addWidget`` find the attribute defined.
         self._pending: bool = True
+        # Worst-metric name (e.g. "ΔT", "B pico") cached when the
+        # aggregate badge resolves to warning/danger. Surfaced via
+        # ``failed_metric_clicked`` so the host can route to the
+        # explanation. Empty string = no failing metric or pending.
+        self._worst_metric: str = ""
 
         self.badge = QLabel("—")
         self.badge.setProperty("class", "Pill")
@@ -177,11 +189,20 @@ class ResumoStrip(QFrame):
         from PySide6.QtCore import QEvent
         if (
             obj is self.badge
-            and self._pending
             and event.type() == QEvent.Type.MouseButtonRelease
         ):
-            self.spec_drawer_requested.emit()
-            return True
+            if self._pending:
+                self.spec_drawer_requested.emit()
+                return True
+            # Failed-design path (P1.H): user clicks the
+            # "Reprovado" / "Verificar" badge to ask "where did
+            # I fail?". Pass the *worst* metric name (cached by
+            # ``_set_badge``) so the host can route to the
+            # explanation. ``"ok"`` = nothing to click on.
+            variant = str(self.badge.property("pill") or "neutral")
+            if variant in ("danger", "warning"):
+                self.failed_metric_clicked.emit(self._worst_metric)
+                return True
         return super().eventFilter(obj, event)
 
     def _poke_badge_style(self) -> None:
@@ -237,7 +258,21 @@ class ResumoStrip(QFrame):
             self.m_dI.set_status("neutral")
 
         agg, reasons = self._aggregate_status()
+        # Cache the *first* failing metric name so the badge click
+        # handler can emit it via ``failed_metric_clicked``. ``reasons``
+        # is already ordered by severity (errors before warnings) by
+        # ``_aggregate_status``.
+        self._worst_metric = reasons[0] if reasons else ""
         self._set_badge(agg, reasons)
+        # Badge is now interactive when there's a failure to inspect.
+        if agg in ("err", "warn"):
+            self.badge.setCursor(Qt.CursorShape.PointingHandCursor)
+            self.badge.setToolTip(
+                "Clique para ver o que falhou nesta análise."
+            )
+        else:
+            self.badge.setCursor(Qt.CursorShape.ArrowCursor)
+            self.badge.setToolTip("")
 
     def flash_applied(self) -> None:
         """Brief violet outline on the strip that confirms a recalc /
