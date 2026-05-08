@@ -594,7 +594,12 @@ def _fig_choke_comparison(spec: Spec, result: DesignResult, core: Core):
 
 def _fig_bh_trajectory(result: DesignResult, core: Core, material: Material):
     """B–H operating-point trajectory — same plot the dashboard's
-    BHLoopCard builds, rendered at print-DPI for the datasheet."""
+    BHLoopCard builds, rendered at print-DPI for the datasheet.
+
+    The matplotlib title is intentionally omitted — the section h3
+    above the chart already states "B–H trajectory at operating
+    point", and the duplicate showed up in the rendered PDF.
+    """
     try:
         from pfc_inductor.visual import compute_bh_trajectory
         tr = compute_bh_trajectory(result, core, material)
@@ -619,7 +624,6 @@ def _fig_bh_trajectory(result: DesignResult, core: Core, material: Material):
                    f"{tr['B_pk_T'] * 1000.0:.0f} mT)")
     ax.set_xlabel("H [Oe]")
     ax.set_ylabel("B [mT]")
-    ax.set_title("B–H trajectory at operating point", fontsize=10)
     ax.set_xlim(left=0)
     ax.set_ylim(bottom=0)
     ax.grid(True, alpha=0.35)
@@ -1187,53 +1191,53 @@ def _page2_story(spec: Spec, core: Core, wire: Wire, material: Material,
         curve_blocks.append(Paragraph("Loss breakdown", styles["h3"]))
         curve_blocks.append(_mpl_flowable(fig_loss, _USABLE_WIDTH_MM))
 
-    # Topology-specific extra curves.
+    # Topology-specific extra curves. Each (h3 header + chart) pair is
+    # wrapped in ``KeepTogether`` so a header never orphans at the
+    # bottom of a page when the chart pushes to the next page —
+    # ReportLab's natural-flow layout otherwise allows the split.
+    def _section(label: str, fig) -> KeepTogether:
+        return KeepTogether([
+            Paragraph(label, styles["h3"]),
+            _mpl_flowable(fig, _USABLE_WIDTH_MM),
+        ])
+
     if spec.topology == "boost_ccm":
         fig_sw = _fig_switching_ripple(spec, result)
         if fig_sw is not None:
-            curve_blocks.append(Paragraph(
+            curve_blocks.append(_section(
                 "Switching ripple (Vin_min, peak operating point)",
-                styles["h3"]))
-            curve_blocks.append(_mpl_flowable(fig_sw, _USABLE_WIDTH_MM))
+                fig_sw))
         fig_ro = _fig_rolloff(material, result)
         if fig_ro is not None:
-            curve_blocks.append(Paragraph("DC bias roll-off",
-                                           styles["h3"]))
-            curve_blocks.append(_mpl_flowable(fig_ro, _USABLE_WIDTH_MM))
+            curve_blocks.append(_section("DC bias roll-off", fig_ro))
         fig_eta = _fig_efficiency(spec, core, wire, material, result)
         if fig_eta is not None:
-            curve_blocks.append(Paragraph("Efficiency vs load",
-                                           styles["h3"]))
-            curve_blocks.append(_mpl_flowable(fig_eta, _USABLE_WIDTH_MM))
+            curve_blocks.append(_section("Efficiency vs load", fig_eta))
     elif spec.topology == "line_reactor":
         fig_h = _fig_harmonic(spec, result)
         if fig_h is not None:
-            curve_blocks.append(Paragraph(
+            curve_blocks.append(_section(
                 "Harmonic compliance — IEC 61000-3-2 / 61000-3-12 / "
-                "IEEE 519",
-                styles["h3"]))
-            curve_blocks.append(_mpl_flowable(fig_h, _USABLE_WIDTH_MM))
+                "IEEE 519", fig_h))
     elif spec.topology == "passive_choke":
         fig_cmp = _fig_choke_comparison(spec, result, core)
         if fig_cmp is not None:
-            curve_blocks.append(Paragraph(
-                "Choke effect — before vs after (estimated)",
-                styles["h3"]))
-            curve_blocks.append(_mpl_flowable(fig_cmp, _USABLE_WIDTH_MM))
+            curve_blocks.append(_section(
+                "Choke effect — before vs after (estimated)", fig_cmp))
         fig_eta = _fig_efficiency(spec, core, wire, material, result)
         if fig_eta is not None:
-            curve_blocks.append(Paragraph("Efficiency vs load",
-                                           styles["h3"]))
-            curve_blocks.append(_mpl_flowable(fig_eta, _USABLE_WIDTH_MM))
+            curve_blocks.append(_section("Efficiency vs load", fig_eta))
 
     story.extend(curve_blocks)
 
     # ---------- B–H trajectory ----------
     fig_bh = _fig_bh_trajectory(result, core, material)
     if fig_bh is not None:
-        story.append(Paragraph("B–H trajectory at operating point",
-                                styles["h3"]))
-        story.append(_mpl_flowable(fig_bh, _USABLE_WIDTH_MM))
+        story.append(KeepTogether([
+            Paragraph("B–H trajectory at operating point",
+                       styles["h3"]),
+            _mpl_flowable(fig_bh, _USABLE_WIDTH_MM),
+        ]))
 
     # ---------- Warnings (if any) ----------
     if result.warnings:
@@ -1265,101 +1269,125 @@ def _page3_story(spec: Spec, core: Core, wire: Wire, material: Material,
                               fonts=fonts, styles=styles))
     story.append(Spacer(1, 4 * mm))
 
+    # Each ``(h2 header, optional note, table)`` cluster is wrapped in
+    # ``KeepTogether`` so a section header never sits orphaned at the
+    # bottom of a page while its content overflows to the next. The
+    # only exception is BOM — its 11-row table is the largest and we
+    # let it split naturally if needed (a header on its own at the top
+    # of a page is acceptable; better than forcing a page break that
+    # leaves the previous page half-empty).
+    def _kv_section(h2: str, rows: list[tuple[str, str]],
+                     note: Optional[str] = None,
+                     label_col_pct: float = 0.40,
+                     keep_together: bool = True) -> list:
+        flowables: list = [Paragraph(h2, styles["h2"])]
+        if note:
+            flowables.append(Paragraph(note, styles["note"]))
+        flowables.append(_kv_flow(rows, _USABLE_WIDTH_MM, fonts,
+                                   styles, label_col_pct=label_col_pct))
+        return [KeepTogether(flowables)] if keep_together else flowables
+
     # ---------- Bill of Materials ----------
-    story.append(Paragraph("Bill of Materials", styles["h2"]))
-    story.append(_kv_flow(_bom_data(core, wire, material, result),
-                           _USABLE_WIDTH_MM, fonts, styles,
-                           label_col_pct=0.42))
+    # Allow natural splitting — 11-row table is the longest and bolting
+    # it together can force a half-empty preceding page.
+    story.extend(_kv_section(
+        "Bill of Materials",
+        _bom_data(core, wire, material, result),
+        label_col_pct=0.42, keep_together=False,
+    ))
 
     # ---------- Tolerance Bands ----------
-    story.append(Paragraph("Tolerance Bands", styles["h2"]))
-    story.append(Paragraph(
-        "Acceptance bands for incoming inspection. Inductance band is "
-        "keyed off the material family — silicon-steel gapped designs "
-        "run wider, powder cores tighter.",
-        styles["note"],
+    story.extend(_kv_section(
+        "Tolerance Bands",
+        _tolerance_data(result, material),
+        note=(
+            "Acceptance bands for incoming inspection. Inductance band "
+            "is keyed off the material family — silicon-steel gapped "
+            "designs run wider, powder cores tighter."
+        ),
     ))
-    story.append(_kv_flow(_tolerance_data(result, material),
-                           _USABLE_WIDTH_MM, fonts, styles,
-                           label_col_pct=0.40))
 
     # ---------- Build Instructions ----------
-    story.append(Paragraph("Build Instructions", styles["h2"]))
-    story.append(Paragraph(
-        "Wind-room hand-off. Layer counts are estimated from the "
-        "window envelope; verify against the actual bobbin before "
-        "committing.",
-        styles["note"],
+    story.extend(_kv_section(
+        "Build Instructions",
+        _build_data(core, wire, result),
+        note=(
+            "Wind-room hand-off. Layer counts are estimated from the "
+            "window envelope; verify against the actual bobbin before "
+            "committing."
+        ),
     ))
-    story.append(_kv_flow(_build_data(core, wire, result),
-                           _USABLE_WIDTH_MM, fonts, styles,
-                           label_col_pct=0.40))
 
     # ---------- Test Plan / FAT ----------
-    story.append(Paragraph(
-        "Test Plan / Factory Acceptance Test", styles["h2"]))
-    story.append(Paragraph(
-        "Every parameter QA must measure before signing off the batch. "
-        "Pass bands inherit from the Tolerance section above so the "
-        "wind-room and the QA bench agree.",
-        styles["note"],
-    ))
     fat_header, fat_rows = _fat_data(spec, result, material)
-    # Column widths sum to 182 mm (the usable width); chosen so the
-    # widest column ("Instrument") gets enough room for vendor names.
-    story.append(_grid_flow(fat_header, fat_rows,
-                             [50.0, 35.0, 65.0, 32.0],
-                             fonts, styles))
+    story.append(KeepTogether([
+        Paragraph("Test Plan / Factory Acceptance Test", styles["h2"]),
+        Paragraph(
+            "Every parameter QA must measure before signing off the "
+            "batch. Pass bands inherit from the Tolerance section "
+            "above so the wind-room and the QA bench agree.",
+            styles["note"],
+        ),
+        # Column widths sum to 182 mm (the usable width); chosen so
+        # the widest column ("Instrument") gets enough room for vendor
+        # names.
+        _grid_flow(fat_header, fat_rows,
+                    [50.0, 35.0, 65.0, 32.0], fonts, styles),
+    ]))
 
     # ---------- Environmental Ratings ----------
-    story.append(Paragraph("Environmental Ratings", styles["h2"]))
-    env_rows = list(_ENV_RATINGS.items())
-    story.append(_kv_flow(env_rows, _USABLE_WIDTH_MM, fonts, styles,
-                           label_col_pct=0.40))
+    story.extend(_kv_section(
+        "Environmental Ratings", list(_ENV_RATINGS.items()),
+    ))
 
     # ---------- Insulation & Safety ----------
-    story.append(Paragraph("Insulation & Safety", styles["h2"]))
-    safety_rows = list(_safety_table_for(spec.topology).items())
-    story.append(_kv_flow(safety_rows, _USABLE_WIDTH_MM, fonts, styles,
-                           label_col_pct=0.40))
+    story.extend(_kv_section(
+        "Insulation & Safety",
+        list(_safety_table_for(spec.topology).items()),
+    ))
 
     # ---------- Validation Status ----------
-    story.append(Paragraph("Validation Status", styles["h2"]))
-    story.append(Paragraph(
-        "Provenance of every figure in this datasheet — useful when "
-        "stakeholders ask \"is this number measured?\".",
-        styles["note"],
+    story.extend(_kv_section(
+        "Validation Status", _validation_data(),
+        note=(
+            "Provenance of every figure in this datasheet — useful "
+            "when stakeholders ask \"is this number measured?\"."
+        ),
     ))
-    story.append(_kv_flow(_validation_data(), _USABLE_WIDTH_MM,
-                           fonts, styles, label_col_pct=0.40))
 
     # ---------- Engineering Notes ----------
     notes = (result.notes or "—").strip()
-    story.append(Paragraph("Engineering Notes", styles["h2"]))
-    story.append(Paragraph(notes, styles["note"]))
+    story.append(KeepTogether([
+        Paragraph("Engineering Notes", styles["h2"]),
+        Paragraph(notes, styles["note"]),
+    ]))
 
     # ---------- Revision History ----------
-    story.append(Paragraph("Revision History", styles["h2"]))
     rev_header, rev_rows = _revision_data(revision, designer, now)
-    story.append(_grid_flow(rev_header, rev_rows,
-                             [18.0, 25.0, 35.0, 104.0],
-                             fonts, styles))
+    story.append(KeepTogether([
+        Paragraph("Revision History", styles["h2"]),
+        _grid_flow(rev_header, rev_rows,
+                    [18.0, 25.0, 35.0, 104.0], fonts, styles),
+    ]))
 
     # ---------- Project Metadata ----------
-    story.append(Paragraph("Project Metadata", styles["h2"]))
-    story.append(Paragraph(
-        "Identifiers needed to reproduce this design in MagnaDesign. "
-        "The engine is deterministic — feeding the four ids below back "
-        "into the same topology recovers an identical result.",
-        styles["note"],
+    story.extend(_kv_section(
+        "Project Metadata",
+        _metadata_data(spec, core, material, wire, pn),
+        note=(
+            "Identifiers needed to reproduce this design in "
+            "MagnaDesign. The engine is deterministic — feeding the "
+            "four ids below back into the same topology recovers an "
+            "identical result."
+        ),
+        label_col_pct=0.42,
     ))
-    story.append(_kv_flow(_metadata_data(spec, core, material, wire, pn),
-                           _USABLE_WIDTH_MM, fonts, styles,
-                           label_col_pct=0.42))
 
     # ---------- Disclaimer ----------
-    story.append(Paragraph("Disclaimer", styles["h2"]))
-    story.append(Paragraph(_DISCLAIMER_TEXT, styles["note"]))
+    story.append(KeepTogether([
+        Paragraph("Disclaimer", styles["h2"]),
+        Paragraph(_DISCLAIMER_TEXT, styles["note"]),
+    ]))
 
     story.append(Spacer(1, 6 * mm))
     story.append(Paragraph(
