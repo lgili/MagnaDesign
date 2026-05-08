@@ -44,25 +44,29 @@ def design_bundle():
     return result, spec, core, wire, material
 
 
-def test_analise_page_has_five_cards(app):
-    """The Análise tab holds five cards: FormasOnda, Perdas,
-    Bobinamento, Entreferro, and DetalhesTecnicos (collapsed by
-    default). NucleoCard / Viz3DCard / Resumo / ProximosPassos are
-    NOT here — they live elsewhere in v3."""
+def test_analise_page_has_seven_cards(app):
+    """The Análise v2 tab holds seven cards: FormasOnda, BHLoop,
+    ThermalGauge, Perdas, Bobinamento, Entreferro, and
+    DetalhesTecnicos (auto-expand on tall screens). NucleoCard /
+    Viz3DCard / Resumo / ProximosPassos are NOT here — they live
+    elsewhere in v3."""
     from pfc_inductor.ui.workspace.analise_page import AnalisePage
     p = AnalisePage()
-    assert len(p._cards) == 5
+    assert len(p._cards) == 7
     # Check the type of each card.
     from pfc_inductor.ui.dashboard.cards import (
+        BHLoopCard,
         BobinamentoCard,
         DetalhesTecnicosCard,
         EntreferroCard,
         FormasOndaCard,
         PerdasCard,
+        ThermalGaugeCard,
     )
     types = {type(c) for c in p._cards}
     assert types == {
-        FormasOndaCard, PerdasCard, BobinamentoCard, EntreferroCard,
+        FormasOndaCard, BHLoopCard, ThermalGaugeCard,
+        PerdasCard, BobinamentoCard, EntreferroCard,
         DetalhesTecnicosCard,
     }
 

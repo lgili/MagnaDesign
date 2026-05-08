@@ -299,7 +299,26 @@ class CompareDialog(QDialog):
                 w.deleteLater()
         self._columns = []
 
-        leftmost = self._slots[0] if self._slots else None
+        # Empty-state CTA: when the dialog opens with zero slots the
+        # columns area used to be a vacant rectangle and the toolbar
+        # button was the only visible affordance. New users blanked
+        # out — they didn't connect "Adicionar design atual" with the
+        # empty space below. Now we paint an inline placeholder card
+        # with a duplicate, prominently sized CTA right where the
+        # comparison columns will land.
+        if not self._slots:
+            placeholder = self._build_empty_placeholder()
+            self._columns_layout.addWidget(placeholder, 1)
+            self._status.setText(
+                "Use "
+                "<b>Adicionar design atual</b> para snapshot do projeto "
+                "ativo. Repita após cada Recalcular para acumular "
+                f"até {MAX_SLOTS} alternativas lado a lado."
+            )
+            self.btn_add_current.setEnabled(True)
+            return
+
+        leftmost = self._slots[0]
         for i, slot in enumerate(self._slots):
             col = _ColumnWidget(
                 slot,
@@ -314,12 +333,55 @@ class CompareDialog(QDialog):
         self._columns_layout.addStretch(1)
 
         n = len(self._slots)
-        if n == 0:
-            self._status.setText("Adicione um design para começar (botão "
-                                  "'Adicionar design atual').")
-        else:
-            self._status.setText(
-                f"{n}/{MAX_SLOTS} designs no comparador. "
-                f"Coluna 1 é a referência; verde = melhor, vermelho = pior."
-            )
+        self._status.setText(
+            f"{n}/{MAX_SLOTS} designs no comparador. "
+            f"Coluna 1 é a referência; verde = melhor, vermelho = pior."
+        )
         self.btn_add_current.setEnabled(n < MAX_SLOTS)
+
+    def _build_empty_placeholder(self) -> QWidget:
+        """Painted in the columns area when ``self._slots`` is empty.
+
+        Big centered CTA mirrors the toolbar button — discoverable
+        without forcing the user's eye up to the toolbar. Same
+        ``_on_add_current`` slot fires either way.
+        """
+        from PySide6.QtWidgets import QFrame
+        p = get_theme().palette
+        wrap = QFrame()
+        wrap.setStyleSheet(
+            f"QFrame {{ background: {p.bg};"
+            f" border: 2px dashed {p.border}; border-radius: 12px; }}"
+        )
+        wrap.setMinimumHeight(280)
+        v = QVBoxLayout(wrap)
+        v.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title = QLabel("Comparativo vazio")
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title.setStyleSheet(
+            f"color: {p.text}; font-size: 16px; font-weight: 600;"
+            " border: 0;"
+        )
+        sub = QLabel(
+            "Tire um snapshot do projeto atual para iniciar.\n"
+            f"Você pode acumular até {MAX_SLOTS} designs lado a lado."
+        )
+        sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        sub.setStyleSheet(
+            f"color: {p.text_secondary}; font-size: 12px; border: 0;"
+        )
+        cta = QPushButton("➕  Adicionar design atual")
+        cta.setCursor(Qt.CursorShape.PointingHandCursor)
+        cta.setStyleSheet(
+            f"QPushButton {{ background: {p.accent}; color: white;"
+            f" border: 0; border-radius: 8px; padding: 10px 20px;"
+            f" font-size: 13px; font-weight: 600; }}"
+            f"QPushButton:hover {{ background: {p.accent_hover}; }}"
+        )
+        cta.clicked.connect(self._on_add_current)
+        v.addWidget(title)
+        v.addSpacing(6)
+        v.addWidget(sub)
+        v.addSpacing(20)
+        v.addWidget(cta, 0, Qt.AlignmentFlag.AlignCenter)
+        return wrap
