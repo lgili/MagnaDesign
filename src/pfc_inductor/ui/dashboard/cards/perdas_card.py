@@ -1,4 +1,4 @@
-"""Perdas card — horizontal stacked bar with inline legend.
+"""Losses card — horizontal stacked bar with inline legend.
 
 Replaces the v2 ``DonutChart + DataTable`` body, which couldn't render
 clearly in the bottom-strip column width (~155 px). The new
@@ -38,17 +38,17 @@ class _PerdasBody(QWidget):
         losses = result.losses
         # Segment colours pinned to semantic palette tokens so the bar
         # reads consistently in both themes.
-        # 4-segment split — Cu DC / Cu AC / Núcleo @ linha (60 Hz) /
-        # Núcleo @ ripple (fsw). Previously collapsed into 3
-        # ("Núcleo" was P_core_total), which hid the engineer's most
+        # 4-segment split — Cu DC / Cu AC / Core @ line (60 Hz) /
+        # Core @ ripple (fsw). Previously collapsed into 3 ("Core"
+        # was P_core_total), which hid the engineer's most
         # diagnostic loss split: low-frequency hysteresis-ish core
         # losses vs switching-ripple losses.
         self._bar.set_segments([
             Segment("Cu DC", losses.P_cu_dc_W, p.data_series_1),
             Segment("Cu AC", losses.P_cu_ac_W, p.data_series_2),
-            Segment("Núcleo @ linha", losses.P_core_line_W,
+            Segment("Core @ line", losses.P_core_line_W,
                     p.data_series_3),
-            Segment("Núcleo @ ripple", losses.P_core_ripple_W,
+            Segment("Core @ ripple", losses.P_core_ripple_W,
                     p.copper_bright),
         ])
 
@@ -59,7 +59,7 @@ class _PerdasBody(QWidget):
 class PerdasCard(Card):
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         body = _PerdasBody()
-        super().__init__("Perdas", body, parent=parent)
+        super().__init__("Losses", body, parent=parent)
         self._pbody = body
 
     def update_from_design(self, *args, **kwargs) -> None:

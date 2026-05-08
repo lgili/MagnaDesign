@@ -1,6 +1,6 @@
-"""Seleção de Núcleo card.
+"""Core selection card.
 
-Tabbed score-table view: Material | Núcleo | Fio. Each tab is a
+Tabbed score-table view: Material | Core | Wire. Each tab is a
 ``QTableView`` backed by ``_CandidateModel`` whose rightmost column
 renders a colour-graded :class:`ScorePill
 <pfc_inductor.ui.widgets.ScorePill>` via ``_ScorePillDelegate``.
@@ -9,9 +9,9 @@ Filters above each table:
 
 - Searchable ``QLineEdit`` (case-insensitive substring against name +
   vendor).
-- "Apenas curados" checkbox (vendor in :data:`_CURATED_VENDORS`).
+- "Curated only" checkbox (vendor in :data:`_CURATED_VENDORS`).
 
-Footer: an "Aplicar seleção" primary button. Becomes enabled when the
+Footer: an "Apply selection" primary button. Becomes enabled when the
 user picks a row whose id differs from the current selection. Emits
 ``selection_applied(material_id, core_id, wire_id)`` with the picked
 ids — only the field for the active tab actually changes; the others
@@ -116,10 +116,10 @@ class _CandidateModel(QAbstractTableModel):
             and section == len(self._headers) - 1
         ):
             return (
-                "Score combina perdas, volume e custo (peso 60/30/10) "
-                "para a spec atual.\n"
-                "100 = melhor candidato; valores caem com perda extra, "
-                "volume maior ou custo mais alto."
+                "Score combines losses, volume and cost (weights "
+                "60/30/10) for the current spec.\n"
+                "100 = best candidate; values drop with extra loss, "
+                "larger volume or higher cost."
             )
         return None
 
@@ -228,7 +228,7 @@ class _CandidateFilterProxy(QSortFilterProxyModel):
 
 
 # ---------------------------------------------------------------------------
-# Tab body — one per Material / Núcleo / Fio
+# Tab body — one per Material / Core / Wire
 # ---------------------------------------------------------------------------
 
 class _CandidateTab(QWidget):
@@ -247,8 +247,8 @@ class _CandidateTab(QWidget):
         row = QHBoxLayout()
         row.setSpacing(8)
         self._search = QLineEdit()
-        self._search.setPlaceholderText("Buscar por nome / vendor…")
-        self._chk_curated = QCheckBox("Apenas curados")
+        self._search.setPlaceholderText("Search by name / vendor…")
+        self._chk_curated = QCheckBox("Curated only")
         row.addWidget(self._search, 1)
         row.addWidget(self._chk_curated, 0)
         v.addLayout(row)
@@ -375,8 +375,8 @@ class _NucleoBody(QWidget):
         self.tab_core = _CandidateTab(["Core", "Vendor", "Ve (cm³)"])
         self.tab_wire = _CandidateTab(["Fio", "Tipo", "A_cu (mm²)"])
         self._tabs.addTab(self.tab_material, "Material")
-        self._tabs.addTab(self.tab_core, "Núcleo")
-        self._tabs.addTab(self.tab_wire, "Fio")
+        self._tabs.addTab(self.tab_core, "Core")
+        self._tabs.addTab(self.tab_wire, "Wire")
         v.addWidget(self._tabs, 1)
 
         # Cache inputs for re-ranking.
@@ -635,14 +635,14 @@ def QLabel_(text: str = ""):
 # ---------------------------------------------------------------------------
 
 class NucleoCard(Card):
-    """Public façade: forwards :meth:`update_from_design` and the
+    """Public facade: forwards :meth:`update_from_design` and the
     :attr:`selection_applied` signal."""
 
     selection_applied = Signal(str, str, str)
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         body = _NucleoBody()
-        super().__init__("Seleção de Núcleo", body, parent=parent)
+        super().__init__("Core Selection", body, parent=parent)
         self._nbody = body
         body.selection_applied.connect(self.selection_applied.emit)
 

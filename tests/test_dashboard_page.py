@@ -129,7 +129,7 @@ def test_resumo_aggregate_badge_reflects_metric_statuses(app, design_bundle):
     # v3.x: the badge now also appends " — reason1 · reason2 +N" when
     # any metric is warn/err. Just check the prefix.
     badge = p.kpi_strip.badge.text()
-    assert badge.startswith(("Aprovado", "Verificar", "Reprovado", "—"))
+    assert badge.startswith(("Pass", "Check", "Fail", "Failed", "—"))
 
 
 # ---------------------------------------------------------------------------

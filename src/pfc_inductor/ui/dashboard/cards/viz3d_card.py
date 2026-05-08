@@ -1,4 +1,4 @@
-"""Visualização 3D card — embeds an existing :class:`CoreView3D` widget.
+"""3D Visualization card — embeds an existing :class:`CoreView3D` widget.
 
 The card itself only frames the viewer; chrome controls (orientation
 cube, view chips, side toolbar, bottom action bar) come from the
@@ -41,7 +41,7 @@ class _Viz3DBody(QWidget):
 class Viz3DCard(Card):
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         body = _Viz3DBody()
-        super().__init__("Visualização 3D", body, parent=parent)
+        super().__init__("3D Visualization", body, parent=parent)
         self._vbody = body
         from PySide6.QtWidgets import QSizePolicy
         self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)

@@ -1,4 +1,4 @@
-"""Resumo do Projeto card — 6 metric tiles + aggregate status pill."""
+"""Project Summary card — 6 metric tiles + aggregate status pill."""
 from __future__ import annotations
 
 from typing import Optional
@@ -50,12 +50,12 @@ class _ResumoBody(QWidget):
         grid.setHorizontalSpacing(10)
         grid.setVerticalSpacing(10)
 
-        self.m_L = MetricCard("Indutância", "—", "µH")
-        self.m_I = MetricCard("Corrente DC", "—", "A")
+        self.m_L = MetricCard("Inductance", "—", "µH")
+        self.m_I = MetricCard("DC current", "—", "A")
         self.m_dI = MetricCard("Ripple", "—", "A pp")
-        self.m_B = MetricCard("Indução pico", "—", "mT")
-        self.m_T = MetricCard("ΔT enrolamento", "—", "°C", trend_better="lower")
-        self.m_P = MetricCard("Perdas totais", "—", "W", trend_better="lower")
+        self.m_B = MetricCard("Peak flux", "—", "mT")
+        self.m_T = MetricCard("ΔT winding", "—", "°C", trend_better="lower")
+        self.m_P = MetricCard("Total losses", "—", "W", trend_better="lower")
 
         for r, c, mc in [
             (0, 0, self.m_L), (0, 1, self.m_I), (0, 2, self.m_dI),
@@ -114,7 +114,7 @@ class _ResumoBody(QWidget):
 class ResumoCard(Card):
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         body = _ResumoBody()
-        super().__init__("Resumo do Projeto", body,
+        super().__init__("Project Summary", body,
                          badge="—", badge_variant="neutral", parent=parent)
         self._rbody = body
 
@@ -124,11 +124,11 @@ class ResumoCard(Card):
         self._rbody.update_from_design(result, spec, core, wire, material)
         agg = self._rbody.aggregate_status()
         if agg == "ok":
-            self.set_badge("Aprovado", "success")
+            self.set_badge("Pass", "success")
         elif agg == "warn":
-            self.set_badge("Verificar", "warning")
+            self.set_badge("Check", "warning")
         elif agg == "err":
-            self.set_badge("Reprovado", "danger")
+            self.set_badge("Fail", "danger")
         else:
             self.set_badge("—", "neutral")
 

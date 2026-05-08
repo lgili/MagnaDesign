@@ -1,9 +1,9 @@
-"""Detalhes Técnicos card — collapsible datasheet view of every
+"""Technical Details card — collapsible datasheet view of every
 ``DesignResult`` field the engine produces.
 
 Why this exists
 ---------------
-The v3 split (Núcleo / Análise / Validar / Exportar) replaced the
+The v3 split (Core / Analysis / Validate / Export) replaced the
 v2 ``ResultPanel`` (a flat tabular dump of every computed value)
 with focused cards. Each card is great for "one fact at a time",
 but that left ~13 ``DesignResult`` fields invisible:
@@ -17,8 +17,8 @@ but that left ~13 ``DesignResult`` fields invisible:
 
 The audit's recommendation: a **datasheet-style** card, default
 collapsed, that exposes ALL fields in a 2-column grid grouped by
-domain (Indutância / Magnético / Bobinamento / Térmico / Perdas /
-Convergência). One click to expand, one click to fold.
+domain (Inductance / Magnetic / Winding / Thermal / Losses /
+Convergence). One click to expand, one click to fold.
 
 This is *the* place an experienced engineer goes when they say
 "show me the numbers" — without polluting the at-a-glance cards
@@ -175,7 +175,7 @@ class _DatasheetGroup(QFrame):
 # ---------------------------------------------------------------------------
 class _DetalhesBody(QWidget):
     """Body widget — a 2 × 3 grid of ``_DatasheetGroup``s, all hidden
-    behind a single Q "Mostrar / Ocultar" toggle.
+    behind a single "Show / Hide" toggle.
 
     Default collapsed: clicking the chevron expands; clicking again
     folds. The toggle state survives data updates so the user's
@@ -188,7 +188,7 @@ class _DetalhesBody(QWidget):
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(12)
 
-        self._toggle = QPushButton("Mostrar todos os parâmetros")
+        self._toggle = QPushButton("Show all parameters")
         self._toggle.setProperty("class", "Tertiary")
         self._toggle.setCheckable(True)
         self._toggle.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -215,12 +215,12 @@ class _DetalhesBody(QWidget):
         grid.setColumnStretch(0, 1)
         grid.setColumnStretch(1, 1)
 
-        self.g_l = _DatasheetGroup("Indutância")
-        self.g_mag = _DatasheetGroup("Magnético")
-        self.g_wind = _DatasheetGroup("Bobinamento")
-        self.g_thermal = _DatasheetGroup("Térmico")
-        self.g_loss = _DatasheetGroup("Perdas")
-        self.g_conv = _DatasheetGroup("Convergência")
+        self.g_l = _DatasheetGroup("Inductance")
+        self.g_mag = _DatasheetGroup("Magnetic")
+        self.g_wind = _DatasheetGroup("Winding")
+        self.g_thermal = _DatasheetGroup("Thermal")
+        self.g_loss = _DatasheetGroup("Losses")
+        self.g_conv = _DatasheetGroup("Convergence")
 
         # 3 rows × 2 cols.
         grid.addWidget(self.g_l,       0, 0)
@@ -238,7 +238,7 @@ class _DetalhesBody(QWidget):
     def update_from_design(self, result: DesignResult, spec: Spec,
                            core: Core, wire: Wire,
                            material: Material) -> None:
-        # ---- Indutância ------------------------------------------------
+        # ---- Inductance ------------------------------------------------
         l_target = result.L_required_uH
         l_actual = result.L_actual_uH
         delta_pct = ((l_actual - l_target) / l_target * 100.0) if l_target > 0 else 0.0
@@ -249,12 +249,12 @@ class _DetalhesBody(QWidget):
         self.g_l.set_row("AL", "AL", f"{AL:.1f}", "nH/N²")
         self.g_l.set_row("N", "Voltas (N)", f"{result.N_turns}")
 
-        # ---- Magnético -------------------------------------------------
+        # ---- Magnetic --------------------------------------------------
         Bsat = result.B_sat_limit_T
         sat_pct = (result.B_pk_T / Bsat * 100.0) if Bsat > 0 else 0.0
         self.g_mag.set_row("B_pk", "B pico",
                            f"{result.B_pk_T*1000.0:.0f} ({sat_pct:.0f}% B_sat)", "mT")
-        self.g_mag.set_row("Bsat", "B saturação",
+        self.g_mag.set_row("Bsat", "B saturation",
                            f"{Bsat*1000.0:.0f}", "mT")
         self.g_mag.set_row("margin", "Margem sat.",
                            f"{result.sat_margin_pct:.1f}", "%")
@@ -277,7 +277,7 @@ class _DetalhesBody(QWidget):
                             f"{r_ac_mohm:.1f} ({r_ratio:.2f}× DC)", "mΩ")
         self.g_wind.set_row("len", "Comprimento fio", f"{wire_len_m:.2f}", "m")
 
-        # ---- Térmico ---------------------------------------------------
+        # ---- Thermal ---------------------------------------------------
         T_amb = spec.T_amb_C
         self.g_thermal.set_row("T_amb", "T ambiente", f"{T_amb:.0f}", "°C")
         self.g_thermal.set_row("dT", "ΔT (rise)", f"{result.T_rise_C:.0f}", "°C")
@@ -285,7 +285,7 @@ class _DetalhesBody(QWidget):
                                f"{result.T_winding_C:.0f} (lim 130)", "°C")
         # Line-reactor-only metrics (None for boost/passive)
         if result.pct_impedance_actual is not None:
-            self.g_thermal.set_row("pctZ", "%Z impedância",
+            self.g_thermal.set_row("pctZ", "%Z impedance",
                                    f"{result.pct_impedance_actual:.2f}", "%")
         if result.voltage_drop_pct is not None:
             self.g_thermal.set_row("vdrop", "Queda V no reator",
@@ -297,32 +297,33 @@ class _DetalhesBody(QWidget):
         self.g_loss.set_row("Cu_ac", "Cu AC@fsw", f"{L.P_cu_ac_W:.2f}", "W")
         self.g_loss.set_row("Cu_total", "Cu total",
                             f"{L.P_cu_total_W:.2f}", "W")
-        self.g_loss.set_row("core_line", "Núcleo @ linha",
+        self.g_loss.set_row("core_line", "Core @ line",
                             f"{L.P_core_line_W:.2f}", "W")
-        self.g_loss.set_row("core_ripple", "Núcleo @ ripple",
+        self.g_loss.set_row("core_ripple", "Core @ ripple",
                             f"{L.P_core_ripple_W:.2f}", "W")
-        self.g_loss.set_row("core_total", "Núcleo total",
+        self.g_loss.set_row("core_total", "Core total",
                             f"{L.P_core_total_W:.2f}", "W")
         self.g_loss.set_row("p_total", "Total", f"{L.P_total_W:.2f}", "W")
         if result.Pi_W is not None:
             eta_pct = (1.0 - L.P_total_W / result.Pi_W) * 100.0 if result.Pi_W > 0 else 0.0
-            self.g_loss.set_row("eta", "Eficiência",
+            self.g_loss.set_row("eta", "Efficiency",
                                 f"{eta_pct:.2f}", "%")
 
-        # ---- Convergência ---------------------------------------------
+        # ---- Convergence ----------------------------------------------
         self.g_conv.set_row("status", "Status",
-                            "✓ Convergiu" if result.converged else "✗ Não convergiu")
+                            "✓ Converged" if result.converged
+                            else "✗ Did not converge")
         if result.warnings:
-            self.g_conv.set_row("warn", "Avisos",
-                                f"{len(result.warnings)} alerta(s)")
+            self.g_conv.set_row("warn", "Warnings",
+                                f"{len(result.warnings)} alert(s)")
         else:
-            self.g_conv.set_row("warn", "Avisos", "Nenhum")
+            self.g_conv.set_row("warn", "Warnings", "None")
         if result.notes:
-            self.g_conv.set_row("notes", "Notas",
+            self.g_conv.set_row("notes", "Notes",
                                 result.notes if len(result.notes) <= 28
                                 else result.notes[:25] + "…")
         if result.thd_estimate_pct is not None:
-            self.g_conv.set_row("thd", "THD estimada",
+            self.g_conv.set_row("thd", "Estimated THD",
                                 f"{result.thd_estimate_pct:.1f}", "%")
 
     def clear(self) -> None:
@@ -334,8 +335,8 @@ class _DetalhesBody(QWidget):
     def _on_toggled(self, checked: bool) -> None:
         self._content.setVisible(checked)
         self._toggle.setText(
-            "Ocultar parâmetros" if checked
-            else "Mostrar todos os parâmetros"
+            "Hide parameters" if checked
+            else "Show all parameters"
         )
         self._toggle.setIcon(ui_icon(
             "chevron-down" if checked else "chevron-right",
@@ -370,7 +371,7 @@ class _DetalhesBody(QWidget):
 
 
 class DetalhesTecnicosCard(Card):
-    """Public façade — collapsible datasheet of every computed parameter.
+    """Public facade — collapsible datasheet of every computed parameter.
 
     Mounts as the last row of ``AnalisePage`` (full width). On screens
     ≥ 1080 px tall the card auto-expands at construction time so the
@@ -391,7 +392,7 @@ class DetalhesTecnicosCard(Card):
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         body = _DetalhesBody()
-        super().__init__("Detalhes técnicos", body, parent=parent)
+        super().__init__("Technical details", body, parent=parent)
         self._dbody = body
         self._dbody._toggle.toggled.connect(self.expanded_changed.emit)
         self._auto_expand_if_tall()

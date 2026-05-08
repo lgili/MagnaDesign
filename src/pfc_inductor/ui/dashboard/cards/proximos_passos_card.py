@@ -1,4 +1,4 @@
-"""Próximos Passos card — actionable workflow next-steps."""
+"""Next Steps card — actionable workflow next-steps."""
 from __future__ import annotations
 
 from typing import Optional
@@ -35,7 +35,7 @@ class ProximosPassosCard(Card):
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         self._steps_widget = NextStepsCard()
-        super().__init__("Próximos Passos", self._steps_widget, parent=parent)
+        super().__init__("Next Steps", self._steps_widget, parent=parent)
 
         # Default state: every action "todo".
         self._actions: dict[str, ActionStatus] = {
@@ -72,15 +72,15 @@ class ProximosPassosCard(Card):
     # ------------------------------------------------------------------
     def _refresh(self) -> None:
         items = [
-            ActionItem("Validar com FEM",
+            ActionItem("Validate with FEM",
                        self._actions["fea"], self.fea_requested.emit),
-            ActionItem("Comparar com alternativos",
+            ActionItem("Compare with alternatives",
                        self._actions["compare"], self.compare_requested.emit),
-            ActionItem("Otimizar Litz",
+            ActionItem("Optimize Litz",
                        self._actions["litz"], self.litz_requested.emit),
-            ActionItem("Buscar similares",
+            ActionItem("Find similar parts",
                        self._actions["similar"], self.similar_requested.emit),
-            ActionItem("Gerar relatório",
+            ActionItem("Generate report",
                        self._actions["report"], self.report_requested.emit),
         ]
         self._steps_widget.set_items(items)

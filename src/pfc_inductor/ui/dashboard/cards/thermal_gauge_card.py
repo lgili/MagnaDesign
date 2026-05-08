@@ -9,8 +9,8 @@ graphical gauge that tells the engineer at a glance:
   underneath, same colour scheme as :class:`PerdasCard`).
 
 Visual: a horizontal gradient bar from cool (T_amb) to hot (T_max),
-with a needle at T_winding. Three pills above the bar (Ambiente /
-Atual / Limite) anchor the numeric values, and a short caption below
+with a needle at T_winding. Three pills above the bar (Ambient /
+Current / Limit) anchor the numeric values, and a short caption below
 gives the headroom in °C and as a percentage of the ΔT span.
 
 Why a custom-painted gauge instead of a plain progress bar
@@ -19,7 +19,7 @@ Why a custom-painted gauge instead of a plain progress bar
 tokens don't apply consistently across light / dark; the bar reads as
 "a generic progress widget" rather than "the design's thermal budget".
 A hand-drawn gauge with the same gradient palette as the BH-loop
-danger line keeps the visual language coherent across the Análise
+danger line keeps the visual language coherent across the Analysis
 tab.
 """
 from __future__ import annotations
@@ -160,9 +160,9 @@ class _ThermalGaugeBody(QWidget):
         # Pills row — Ambiente / Atual / Limite with delta-T below.
         pills = QHBoxLayout()
         pills.setSpacing(8)
-        self._pill_amb = self._make_pill("Ambiente", "—")
-        self._pill_now = self._make_pill("Atual", "—", emphasised=True)
-        self._pill_max = self._make_pill("Limite", "—")
+        self._pill_amb = self._make_pill("Ambient", "—")
+        self._pill_now = self._make_pill("Current", "—", emphasised=True)
+        self._pill_max = self._make_pill("Limit", "—")
         for col in (self._pill_amb, self._pill_now, self._pill_max):
             pills.addWidget(col, 1)
         v.addLayout(pills)
@@ -210,7 +210,7 @@ class _ThermalGaugeBody(QWidget):
         wv = QVBoxLayout(wrap)
         wv.setContentsMargins(0, 0, 0, 0)
         wv.setSpacing(4)
-        legend = QLabel("Origem do calor: Cu  vs  Núcleo")
+        legend = QLabel("Heat origin: Cu  vs  Core")
         legend.setProperty("role", "muted")
         wv.addWidget(legend)
 
@@ -252,17 +252,17 @@ class _ThermalGaugeBody(QWidget):
         # Gauge.
         self._gauge.set_temperatures(t_amb, t_winding, t_max)
 
-        # Caption: "ΔT 53 °C · margem 38 °C antes do limite (boa)".
+        # Caption: "ΔT 53 °C · margin 38 °C before the limit (good)".
         margin_c = max(t_max - t_winding, 0.0)
         if margin_c >= MARGIN_OK_C:
-            verdict = "boa folga térmica"
+            verdict = "good thermal margin"
         elif margin_c >= MARGIN_WARN_C:
-            verdict = "folga apertada — considere melhorar refrigeração"
+            verdict = "tight margin — consider better cooling"
         else:
-            verdict = "sem folga — design não atende T_max"
+            verdict = "no margin — design does not meet T_max"
         self._caption.setText(
-            f"ΔT_rise <b>{t_rise:.0f} °C</b> sobre o ambiente · "
-            f"margem <b>{margin_c:.0f} °C</b> até T_max — {verdict}.",
+            f"ΔT_rise <b>{t_rise:.0f} °C</b> over ambient · "
+            f"margin <b>{margin_c:.0f} °C</b> to T_max — {verdict}.",
         )
 
         # Recolour the "Atual" pill border in tone with the margin.
@@ -351,7 +351,7 @@ class ThermalGaugeCard(Card):
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         body = _ThermalGaugeBody()
-        super().__init__("Térmico", body, parent=parent)
+        super().__init__("Thermal", body, parent=parent)
         self._wbody = body
 
     def update_from_design(self, *args, **kwargs) -> None:
