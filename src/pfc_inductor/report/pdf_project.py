@@ -499,6 +499,7 @@ def _stamp(spec: Spec, core: Core, material: Material) -> str:
 def _topology_label(topology: str) -> str:
     return {
         "boost_ccm": "Active Boost-PFC CCM Inductor",
+        "interleaved_boost_pfc": "Interleaved Active Boost-PFC Inductor (per phase)",
         "passive_choke": "Passive Line Choke",
         "line_reactor": "AC Line Reactor (50/60 Hz)",
     }.get(topology, "Inductor")
@@ -569,21 +570,48 @@ def _kv_flow(
 # ---------------------------------------------------------------------------
 def _spec_input_data(spec: Spec) -> list[tuple[str, str]]:
     """KV rows describing the input specification."""
-    if spec.topology == "boost_ccm":
+    if spec.topology in ("boost_ccm", "interleaved_boost_pfc"):
+        is_interleaved = spec.topology == "interleaved_boost_pfc"
+        N = int(getattr(spec, "n_interleave", 2)) if is_interleaved else 1
         rows = [
-            ("Topology", "Active boost-PFC, CCM"),
+            (
+                "Topology",
+                f"Interleaved active boost-PFC, CCM — {N} phases (360°/{N} PWM shift)"
+                if is_interleaved
+                else "Active boost-PFC, CCM",
+            ),
             (
                 "Input voltage range",
                 f"{spec.Vin_min_Vrms:.0f} – {spec.Vin_max_Vrms:.0f} Vrms "
                 f"(nom. {spec.Vin_nom_Vrms:.0f} Vrms)",
             ),
             ("Output voltage (DC bus)", f"{spec.Vout_V:.0f} V"),
-            ("Output power (rated)", f"{spec.Pout_W:.0f} W"),
-            ("Switching frequency", f"{spec.f_sw_kHz:.0f} kHz"),
-            ("Line frequency", f"{spec.f_line_Hz:.0f} Hz"),
-            ("Inductor ripple target", f"{spec.ripple_pct:.0f} % of I_pk"),
-            ("Efficiency assumed", f"{spec.eta:.2f}"),
         ]
+        if is_interleaved:
+            rows.extend(
+                [
+                    ("Output power (total, all phases)", f"{spec.Pout_W:.0f} W"),
+                    ("Output power (per phase)", f"{spec.Pout_W / N:.0f} W"),
+                    ("Number of phases (N)", f"{N}"),
+                ]
+            )
+        else:
+            rows.append(("Output power (rated)", f"{spec.Pout_W:.0f} W"))
+        rows.extend(
+            [
+                ("Switching frequency", f"{spec.f_sw_kHz:.0f} kHz"),
+                ("Line frequency", f"{spec.f_line_Hz:.0f} Hz"),
+                ("Inductor ripple target", f"{spec.ripple_pct:.0f} % of I_pk"),
+                ("Efficiency assumed", f"{spec.eta:.2f}"),
+            ]
+        )
+        if is_interleaved:
+            rows.append(
+                (
+                    "Aggregate input ripple frequency",
+                    f"{N * spec.f_sw_kHz:.0f} kHz (= N · f_sw, Hwu-Yau cancellation)",
+                )
+            )
     elif spec.topology == "line_reactor":
         rows = [
             ("Topology", f"AC line reactor — {spec.n_phases}φ (diode-rectifier + DC-link)"),
@@ -804,7 +832,11 @@ def _section_verification(
 def _section_topology_body(
     spec: Spec, core: Core, material: Material, wire: Wire, result: DesignResult, fonts, styles
 ) -> list:
-    if spec.topology == "boost_ccm":
+    if spec.topology in ("boost_ccm", "interleaved_boost_pfc"):
+        # Interleaved derivation reuses the boost-CCM walkthrough — the
+        # report describes a single phase whose Pout = Total / N. The
+        # caller (engine) has already routed the per-phase spec through
+        # boost-CCM, so the equations and numbers match.
         return _body_boost_ccm(
             spec,
             core,
@@ -851,6 +883,16 @@ def _body_boost_ccm(
 ) -> list:
     import math
 
+    # For an interleaved design, ``result`` was produced by routing the
+    # per-phase spec through the boost_ccm engine. The walkthrough
+    # below has to use the per-phase Pout / per-phase currents so the
+    # equations match the printed numerical results to the last
+    # decimal. The original (total) Pout / N is still surfaced in the
+    # input spec section so the reader knows the converter rating.
+    is_interleaved = spec.topology == "interleaved_boost_pfc"
+    N_phases = int(getattr(spec, "n_interleave", 2)) if is_interleaved else 1
+    Pout_phase_W = (spec.Pout_W / N_phases) if is_interleaved else float(spec.Pout_W)
+
     # Worst-case operating point — low line for currents.
     # ``_Vin_pk`` / ``_Tsw_us`` / ``_J_actual`` are computed for
     # readability of the analytical chain (every intermediate step
@@ -860,9 +902,9 @@ def _body_boost_ccm(
     # visible to a reader following the derivation.
     Vin_design = spec.Vin_min_Vrms
     _Vin_pk = math.sqrt(2.0) * Vin_design
-    P_in = spec.Pout_W / spec.eta
+    P_in = Pout_phase_W / spec.eta
     I_pk = math.sqrt(2.0) * P_in / Vin_design
-    I_rms_line = spec.Pout_W / (spec.eta * Vin_design)
+    I_rms_line = Pout_phase_W / (spec.eta * Vin_design)
     fsw_Hz = spec.f_sw_kHz * 1000.0
     _Tsw_us = 1e6 / fsw_Hz
     delta_max_A = (spec.ripple_pct / 100.0) * I_pk
@@ -892,19 +934,58 @@ def _body_boost_ccm(
     flowables: list = []
 
     # ----- 3. Theory introduction -----
-    flowables.append(Paragraph("3. Boost-PFC CCM — theory", styles["h2"]))
-    flowables.append(
-        Paragraph(
-            "The boost-PFC stage shapes the input current into a "
-            "scaled image of the input voltage so the converter "
-            "presents a near-resistive load to the mains. In "
-            "continuous-conduction mode (CCM) the inductor never fully "
-            "demagnetises within a switching period, so the inductor "
-            "current is the half-wave rectified line current riding on "
-            "a switching-frequency triangular ripple.",
-            styles["body"],
+    if is_interleaved:
+        flowables.append(
+            Paragraph(
+                f"3. Interleaved Boost-PFC — theory ({N_phases} phases)",
+                styles["h2"],
+            )
         )
-    )
+        flowables.append(
+            Paragraph(
+                f"The interleaved boost-PFC topology runs {N_phases} "
+                "boost stages in parallel, sharing the input current "
+                f"and the DC bus. The PWM gate signals are shifted by "
+                f"360°/{N_phases} = "
+                f"{360.0 / N_phases:.0f}° between phases so the input "
+                f"ripple components partially cancel before reaching "
+                f"the EMI filter — by the Hwu-Yau analysis, the "
+                f"surviving ripple appears at <i>N · f<sub>sw</sub></i> "
+                f"and is suppressed by a factor that vanishes at the "
+                f"natural-null duty cycles {{1/N, 2/N, …, (N−1)/N}}. "
+                "Each phase is a textbook CCM boost converter "
+                "carrying P<sub>out</sub>/N. The derivation below "
+                "treats <b>one phase</b> with that reduced power; the "
+                "BOM lists the per-phase part and the converter ships "
+                f"<b>{N_phases}</b> identical units.",
+                styles["body"],
+            )
+        )
+        flowables.append(
+            Paragraph(
+                "References: J. Hwu, S.-S. Yau, <i>An Interleaved Boost "
+                "Converter With Reduced Volume Magnetic Component for "
+                "PFC Applications</i>, IEEE PEDS 2009; Erickson &amp; "
+                "Maksimovic ch. 18 (single-phase boost-PFC averaged "
+                "model — applied here to one of the N phases).",
+                styles["body"],
+            )
+        )
+    else:
+        flowables.append(Paragraph("3. Boost-PFC CCM — theory", styles["h2"]))
+    if not is_interleaved:
+        flowables.append(
+            Paragraph(
+                "The boost-PFC stage shapes the input current into a "
+                "scaled image of the input voltage so the converter "
+                "presents a near-resistive load to the mains. In "
+                "continuous-conduction mode (CCM) the inductor never fully "
+                "demagnetises within a switching period, so the inductor "
+                "current is the half-wave rectified line current riding on "
+                "a switching-frequency triangular ripple.",
+                styles["body"],
+            )
+        )
     flowables.append(
         Paragraph(
             "The derivation below follows Erickson &amp; Maksimovic, "
@@ -931,8 +1012,14 @@ def _body_boost_ccm(
     flowables.append(
         _eqn_block(
             r"P_{in} = \frac{P_{out}}{\eta}",
-            with_values=f"{spec.Pout_W:.0f} W / {spec.eta:.2f}",
+            with_values=f"{Pout_phase_W:.0f} W / {spec.eta:.2f}",
             result=f"{P_in:.1f} W",
+            note=(
+                f"Per-phase analysis ({N_phases} parallel phases — total "
+                f"converter Pout = {spec.Pout_W:.0f} W)."
+                if is_interleaved
+                else None
+            ),
             fonts=fonts,
             styles=styles,
         )
@@ -1386,16 +1473,22 @@ def _section_winding_losses_thermal(
     # engine used so the displayed values match the rest of the
     # report to the printed precision.
     Vin_design = (
-        spec.Vin_min_Vrms if spec.topology in ("boost_ccm", "passive_choke") else spec.Vin_nom_Vrms
+        spec.Vin_min_Vrms
+        if spec.topology in ("boost_ccm", "interleaved_boost_pfc", "passive_choke")
+        else spec.Vin_nom_Vrms
     )
     if spec.topology == "boost_ccm":
         I_rms_line = spec.Pout_W / (spec.eta * Vin_design)
+    elif spec.topology == "interleaved_boost_pfc":
+        # Per-phase RMS — Pout per phase = total / N.
+        N = int(getattr(spec, "n_interleave", 2))
+        I_rms_line = (spec.Pout_W / N) / (spec.eta * Vin_design)
     elif spec.topology == "line_reactor":
         I_rms_line = spec.I_rated_Arms
     else:
         I_rms_line = spec.Pout_W / (spec.eta * Vin_design)
     l_wire_m = result.N_turns * core.MLT_mm * 1e-3
-    is_ac_relevant = spec.topology == "boost_ccm"
+    is_ac_relevant = spec.topology in ("boost_ccm", "interleaved_boost_pfc")
 
     # ----- Winding resistance + copper losses -----
     flowables.append(

@@ -37,7 +37,9 @@ testes em `tests/test_positioning.py` impedem drift silencioso.
 
 ### 1. PFC topology specialização
 
-Matemática de boost CCM, choke passivo de linha e reator de linha
+Matemática de boost CCM, **interleaved boost PFC (2 / 3 fases, com
+cancelamento Hwu-Yau de ripple de entrada a N · f_sw)**, buck CCM,
+flyback (DCM/CCM), choke passivo de linha e reator de linha
 (1ph + 3ph) embutidas end-to-end — forma de onda real `iL(t)`,
 worst-case low-line, ripple `D(t)`, modelo cap-DC-link com pulso
 half-cosine para conformidade IEC 61000-3-2. Outros tools são

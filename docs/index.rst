@@ -45,6 +45,7 @@ chain.
    :caption: Topology
 
    topology/boost-ccm
+   topology/interleaved-boost-pfc
    topology/line-reactor
    topology/passive-choke
    topology/buck-ccm

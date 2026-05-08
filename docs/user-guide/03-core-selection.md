@@ -17,6 +17,11 @@ tab filters automatically:
   (Magnetics 60 / 60-HighFlux / Kool-Mu / XFlux), Mn-Zn ferrites
   (TDK Epcos N87/N95/N97). Hides silicon-steel laminations
   (line-frequency only).
+- **interleaved boost PFC**: same family as boost-CCM — each
+  phase is a textbook boost-CCM inductor sized for `Pout / N`,
+  so the material filter is identical. The optimizer searches
+  the per-phase candidate space and returns the per-phase part;
+  the BOM lists `Quantity per converter = N`.
 - **line reactor**: silicon-steel laminations (Dongxing 50H800/
   50H1300/50CS1300, AK Steel M5/M19) and amorphous /
   nanocrystalline. Hides powder cores (no DC bias to roll

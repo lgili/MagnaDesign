@@ -16,6 +16,9 @@ parameters.
 | Topology | Spec section | Typical use |
 |---|---|---|
 | **Active boost-PFC (CCM)** | Vin range / Vout / Pout / fsw / ripple % | Single-phase universal-input PFC |
+| **Interleaved boost PFC** | Vin range / Vout / Pout (total) / fsw / ripple % / `n_interleave` ∈ {2, 3} | Server PSUs, EV chargers, 1.5 – 22 kW |
+| **Buck (sync DC-DC)** | Vin / Vout / Iout / fsw / ripple % | POL rails, automotive 12→5 V, telecom 48→12 V |
+| **Flyback (DCM/CCM)** | Vin / Vout / Pout / fsw / `flyback_n` (turns ratio) | Wall adapters, USB-PD bricks, LED drivers |
 | **Passive line choke** | Vin nom / Pout / fline / η | DC-bus or AC-side filtering, no switching |
 | **Line reactor (1Ø/3Ø)** | Vline / I_rated / fline / %Z | Diode-bridge + DC-link drives, THD reduction |
 
@@ -41,6 +44,17 @@ For **line reactor**:
 | `n_phases` | 1 or 3. |
 | `I_rated_Arms` | Drive's rated input current (per phase). |
 | `pct_impedance` | Target %Z (3 % typical for general drives, 5 % for THD-sensitive applications). |
+
+For **interleaved boost PFC**: same fields as boost-CCM plus
+`n_interleave` ∈ {2, 3}. The `Pout_W` you enter is the **total**
+output of the converter — the engine internally computes the
+per-phase spec (`Pout / N`) and routes it through the boost-CCM
+math. The BOM lists the **per-phase** part with a *Quantity per
+converter = N* line; reports show both the per-phase numbers
+(used for sizing) and the aggregate input ripple frequency
+`N · f_sw` (used for input filter design). See
+[topology / interleaved-boost-pfc](../topology/interleaved-boost-pfc.rst)
+for the Hwu-Yau cancellation math.
 
 For **passive choke**: same as boost without the switching fields
 plus a power-factor target.

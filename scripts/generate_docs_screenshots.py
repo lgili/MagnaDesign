@@ -30,6 +30,7 @@ Headless caveats:
   sub-pixel differences. The screenshots are good enough for
   documentation purposes.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -207,9 +208,7 @@ def parse_size(value: str) -> tuple[int, int]:
         w, h = value.lower().split("x")
         return int(w), int(h)
     except Exception:
-        raise argparse.ArgumentTypeError(
-            f"resolution must be WIDTHxHEIGHT (got {value!r})"
-        )
+        raise argparse.ArgumentTypeError(f"resolution must be WIDTHxHEIGHT (got {value!r})")
 
 
 def main() -> int:
@@ -258,9 +257,8 @@ def main() -> int:
             continue
         try:
             fn(window, args)
-        except Exception as e:  # noqa: BLE001 — keep going on individual fails
-            print(f"  ! {shot_id} failed: {type(e).__name__}: {e}",
-                  file=sys.stderr)
+        except Exception as e:
+            print(f"  ! {shot_id} failed: {type(e).__name__}: {e}", file=sys.stderr)
 
     print(f"\nScreenshots saved to {OUT_DIR.relative_to(REPO)}")
     return 0

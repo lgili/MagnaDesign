@@ -38,18 +38,24 @@ unit:
     steel uses the analytical sech² model.
   - **P vs L (saturation throughput)** — what the saturating L
     does to the active-power throughput. Skipped for boost-PFC
-    (PF ≈ 1 by active control).
+    (and interleaved boost PFC) — PF ≈ 1 by active control.
   - **PF vs L (design-space)** — power factor and source-side
     apparent power as a function of choke / reactor inductance.
-    Skipped for boost-PFC.
-  - Topology-specific: switching ripple zoom (boost),
-    harmonic spectrum vs IEC 61000-3-2 / 3-12 / IEEE 519 (line
-    reactor), choke before/after PF (passive choke).
+    Skipped for boost-PFC and interleaved boost PFC.
+  - Topology-specific: switching ripple zoom (boost &
+    interleaved boost PFC — the latter shows per-phase ripple
+    plus the *aggregate* input ripple at `N · f_sw` after
+    Hwu-Yau cancellation), harmonic spectrum vs IEC 61000-3-2
+    / 3-12 / IEEE 519 (line reactor), choke before/after PF
+    (passive choke).
 - B–H trajectory.
 
 **Page 3 — Bill of Materials & Notes**
 
 - BOM (core / material / wire with parameters and total wire mass).
+  For **interleaved boost PFC** the BOM lists the **per-phase**
+  part with a *Quantity per converter = N* line at the top, so
+  the wind-room and purchasing teams don't miss the multiplier.
 - Tolerance bands (per-parameter ± typical for the material family).
 - Build instructions (wind-room hand-off).
 - Test plan / FAT (LCR, R<sub>dc</sub>, hi-pot, megger, sat-current).
@@ -69,8 +75,8 @@ the project report is *traceable derivation*. Many engineering
 teams need this artefact to file the design in their internal
 project-tracking system.
 
-Layout per topology (boost / line reactor / passive choke)
-varies, but the structure is always:
+Layout per topology (boost / interleaved boost PFC / line
+reactor / passive choke) varies, but the structure is always:
 
 1. **Project specification** — every input the engine consumed.
 2. **Selected components** — core, material, wire with full

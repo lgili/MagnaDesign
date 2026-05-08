@@ -388,7 +388,7 @@ def _fig_waveform(result: DesignResult, topology: str):
         title = "Line current — phase A (steady state)"
         ax.plot(t_ms, iL, color="#a01818", linewidth=1.4)
         ax.axhline(0, color="#999", linewidth=0.5)
-    elif topology == "boost_ccm":
+    elif topology in ("boost_ccm", "interleaved_boost_pfc"):
         title = "Inductor current — half line cycle"
         ax.plot(t_ms, iL, color="#3a78b5", linewidth=1.4)
         ax.fill_between(t_ms, 0, iL, alpha=0.12, color="#3a78b5")
@@ -921,7 +921,7 @@ def _fig_switching_ripple(spec: Spec, result: DesignResult):
     """Synthesise three switching periods at the worst-case Vin_min
     operating point so the printed datasheet shows the Δi_pp the
     engineer sized L for. Boost-CCM only."""
-    if spec.topology != "boost_ccm" or spec.f_sw_kHz <= 0:
+    if spec.topology not in ("boost_ccm", "interleaved_boost_pfc") or spec.f_sw_kHz <= 0:
         return None
     L_H = float(result.L_actual_uH) * 1e-6
     if L_H <= 0:
@@ -970,7 +970,7 @@ def _fig_switching_ripple(spec: Spec, result: DesignResult):
 def _fig_efficiency(spec: Spec, core: Core, wire: Wire, material: Material, result: DesignResult):
     """η-vs-load curve. Re-runs the engine at 10/25/50/75/100/110 % of
     nominal Pout. Boost-CCM and passive choke only."""
-    if spec.topology not in ("boost_ccm", "passive_choke"):
+    if spec.topology not in ("boost_ccm", "interleaved_boost_pfc", "passive_choke"):
         return None
     if float(spec.Pout_W) <= 0 or float(result.losses.P_total_W) <= 0:
         return None
@@ -1118,16 +1118,44 @@ def _fig_bh_trajectory(result: DesignResult, core: Core, material: Material):
 # ``_kv_flow`` / ``_grid_flow`` below.
 # ---------------------------------------------------------------------------
 def _spec_data_boost(spec: Spec) -> list[tuple[str, str]]:
-    return [
-        ("Topology", "Boost PFC, CCM"),
+    is_interleaved = spec.topology == "interleaved_boost_pfc"
+    N = int(getattr(spec, "n_interleave", 2)) if is_interleaved else 1
+    topo_label = (
+        f"Interleaved Boost PFC, CCM ({N} phases, 360°/{N} PWM shift)"
+        if is_interleaved
+        else "Boost PFC, CCM"
+    )
+    rows: list[tuple[str, str]] = [
+        ("Topology", topo_label),
         ("Vin range", f"{spec.Vin_min_Vrms:.0f} – {spec.Vin_max_Vrms:.0f} Vrms"),
         ("Vout (DC bus)", f"{spec.Vout_V:.0f} V"),
-        ("Pout", f"{spec.Pout_W:.0f} W"),
-        ("Switching freq.", f"{spec.f_sw_kHz:.0f} kHz"),
-        ("Line freq.", f"{spec.f_line_Hz:.0f} Hz"),
-        ("Ripple target (pp)", f"{spec.ripple_pct:.0f} %"),
-        ("Efficiency assumed", f"{spec.eta:.2f}"),
     ]
+    if is_interleaved:
+        rows.extend(
+            [
+                ("Pout (total, all phases)", f"{spec.Pout_W:.0f} W"),
+                ("Pout per phase", f"{spec.Pout_W / N:.0f} W"),
+                ("Number of phases", f"{N}"),
+            ]
+        )
+    else:
+        rows.append(("Pout", f"{spec.Pout_W:.0f} W"))
+    rows.extend(
+        [
+            ("Switching freq.", f"{spec.f_sw_kHz:.0f} kHz"),
+            ("Line freq.", f"{spec.f_line_Hz:.0f} Hz"),
+            ("Ripple target (pp)", f"{spec.ripple_pct:.0f} %"),
+            ("Efficiency assumed", f"{spec.eta:.2f}"),
+        ]
+    )
+    if is_interleaved:
+        rows.append(
+            (
+                "Aggregate input ripple freq.",
+                f"{N * spec.f_sw_kHz:.0f} kHz (= N · f_sw)",
+            )
+        )
+    return rows
 
 
 def _spec_data_choke(spec: Spec, result: DesignResult, core: Core) -> list[tuple[str, str]]:
@@ -1330,7 +1358,7 @@ def _fat_data(
         ["Hi-pot (winding-to-core)", "1 min", "5 kV hi-pot tester", "No flashover, leakage ≤ 5 mA"],
         ["Insulation resistance", "≥ 100 MΩ", "500 V megohmmeter", "≥ 100 MΩ"],
     ]
-    if spec.topology == "boost_ccm":
+    if spec.topology in ("boost_ccm", "interleaved_boost_pfc"):
         rows.append(
             [
                 "Saturation current Isat",
@@ -1605,7 +1633,7 @@ def _page1_story(
     # ---------- Specification ----------
     story.append(Paragraph("Specification", styles["h2"]))
 
-    if spec.topology == "boost_ccm":
+    if spec.topology in ("boost_ccm", "interleaved_boost_pfc"):
         spec_rows = _spec_data_boost(spec)
     elif spec.topology == "line_reactor":
         spec_rows = _spec_data_line_reactor(spec, result)
@@ -1813,7 +1841,7 @@ def _page2_story(
             )
         )
 
-    if spec.topology == "boost_ccm":
+    if spec.topology in ("boost_ccm", "interleaved_boost_pfc"):
         fig_sw = _fig_switching_ripple(spec, result)
         if fig_sw is not None:
             curve_blocks.append(
@@ -2197,6 +2225,7 @@ def _stamp(spec: Spec, core: Core, material: Material) -> str:
 def _topology_label(topology: str) -> str:
     return {
         "boost_ccm": "Boost-PFC CCM Inductor",
+        "interleaved_boost_pfc": "Interleaved Boost-PFC Inductor (per phase)",
         "passive_choke": "Passive Line Choke",
         "line_reactor": "AC Line Reactor (50/60 Hz)",
     }.get(topology, "Inductor")

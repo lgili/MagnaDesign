@@ -99,9 +99,10 @@ apparent power into a saturated magnetic.
 
 ![P vs L card](../_static/screenshots/04-p-vs-l-card.png)
 
-For boost-PFC topologies the card shows a friendly placeholder
-(active control sets PF ≈ 1 by design, so P scales linearly
-with I — saturation tapering does not apply).
+For boost-PFC and interleaved boost-PFC topologies the card
+shows a friendly placeholder (active control sets PF ≈ 1 by
+design, so P scales linearly with I — saturation tapering does
+not apply).
 
 ## 4.7 PF vs L (design-space)
 

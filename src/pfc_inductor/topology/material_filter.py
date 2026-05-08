@@ -57,6 +57,11 @@ _POLICY: dict[Topology, frozenset[MaterialType]] = {
     "boost_ccm": frozenset({"powder", "ferrite", "nanocrystalline", "amorphous"}),
     "passive_choke": frozenset({"silicon-steel", "amorphous", "nanocrystalline"}),
     "line_reactor": frozenset({"silicon-steel", "amorphous", "nanocrystalline"}),
+    # Interleaved boost-PFC sees per-phase boost-CCM operation, so
+    # the same material families apply: powder cores dominate the
+    # 200 W – 3 kW per-phase band, with ferrite picking up at the
+    # higher per-phase power for low-fsw designs.
+    "interleaved_boost_pfc": frozenset({"powder", "ferrite", "nanocrystalline", "amorphous"}),
 }
 
 

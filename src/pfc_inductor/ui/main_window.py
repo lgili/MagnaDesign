@@ -939,20 +939,33 @@ class MainWindow(QMainWindow):
         except (ValueError, TypeError, AttributeError):
             current = "boost_ccm"
             n_phases = 1
+        # SpecPanel may not expose ``n_interleave`` yet on older
+        # spec-panel revisions; fall back to 2 (default phase count
+        # for interleaved boost) when the accessor is missing.
+        try:
+            n_interleave = sp.n_interleave()
+        except (ValueError, TypeError, AttributeError):
+            n_interleave = 2
         dlg = TopologyPickerDialog(
             current=current,
             n_phases=int(n_phases),
+            n_interleave=int(n_interleave),
             parent=self,
         )
         if dlg.exec() != TopologyPickerDialog.DialogCode.Accepted:
             return
         new_key = dlg.selected_key()
         new_phases = dlg.selected_n_phases()
+        new_interleave = dlg.selected_n_interleave()
         # ``set_topology`` is the single SpecPanel-side setter — it
-        # toggles the line-reactor block visibility and emits
-        # ``changed`` / ``topology_changed`` (the drawer button label
-        # listens to the latter).
-        sp.set_topology(new_key, n_phases=new_phases)
+        # toggles the line-reactor / interleaved block visibility and
+        # emits ``changed`` / ``topology_changed`` (the drawer button
+        # label listens to the latter).
+        sp.set_topology(
+            new_key,
+            n_phases=new_phases,
+            n_interleave=new_interleave,
+        )
         self._on_calculate()
 
     def _open_optimizer(self) -> None:
