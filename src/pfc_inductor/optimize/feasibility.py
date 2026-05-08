@@ -164,7 +164,7 @@ def filter_viable_cores(
     """Return ``(viable_cores, reason_counts)`` for the given spec.
 
     The reason_counts tally is useful for the UI label
-    ("9 viáveis · 23 ocultos: 18 Ku, 5 saturação").
+    ("9 feasible · 23 hidden: 18 Ku, 5 saturation").
     """
     viable: list[Core] = []
     reasons: dict[str, int] = {"too_small_L": 0, "window_overflow": 0,

@@ -40,7 +40,7 @@ class FEAValidation(BaseModel):
         """Coarse confidence label based on the worst error band."""
         worst = max(abs(self.L_pct_error), abs(self.B_pct_error))
         if worst <= 5.0:
-            return "alta"
+            return "high"
         if worst <= 15.0:
-            return "média"
-        return "baixa"
+            return "medium"
+        return "low"

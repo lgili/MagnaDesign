@@ -1,9 +1,9 @@
 """Heuristic 0–100 scoring of materials / cores / wires for the
-Núcleo card's ranked-table view.
+Core selection card's ranked-table view.
 
 Scoring functions are deliberately *cheap* — they do not call
 ``design()``. Each takes the current ``Spec`` plus the candidate and
-returns a float in ``[0, 100]``. The Núcleo table sorts by this
+returns a float in ``[0, 100]``. The Core table sorts by this
 score and uses :class:`ScorePill <pfc_inductor.ui.widgets.ScorePill>`
 to colour-grade rows.
 

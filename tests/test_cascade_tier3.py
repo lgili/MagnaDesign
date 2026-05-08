@@ -106,7 +106,7 @@ def test_tier3_evaluate_candidate_packages_FEAValidation(db):
     assert r.B_pk_FEA_T == pytest.approx(0.331)
     assert r.L_relative_error_pct == pytest.approx(0.5)
     assert r.B_relative_error_pct == pytest.approx(2.2)
-    assert r.confidence == "alta"          # both errors < 5 %
+    assert r.confidence == "high"          # both errors < 5 %
     assert r.disagrees_with_tier1 is False  # under default 15 % threshold
     assert r.backend == "femmt"
 
@@ -124,7 +124,7 @@ def test_tier3_disagrees_flag_fires_when_pct_exceeds_threshold(db):
 
     assert r is not None
     assert r.disagrees_with_tier1 is True
-    assert r.confidence == "baixa"  # 20 % is in the > 15 % band
+    assert r.confidence == "low"  # 20 % is in the > 15 % band
 
 
 def test_tier3_reuses_provided_tier1_design(db):

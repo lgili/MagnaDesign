@@ -26,9 +26,9 @@ def validate_design(
 ) -> FEAValidation:
     """Dispatch to the best backend for this design's core shape.
 
-    Toroide → prefere FEMM (axissimétrico nativo, alta fidelidade).
-    EE/ETD/PQ → prefere FEMMT (mapeamento exato).
-    Fallback automático quando o backend preferido não está instalado.
+    Toroid → prefers FEMM (native axisymmetric, high fidelity).
+    EE/ETD/PQ → prefers FEMMT (exact mapping).
+    Automatic fallback when the preferred backend is not installed.
     """
     shape = infer_shape(core)
     backend = select_backend_for_shape(shape)
@@ -44,8 +44,8 @@ def validate_design(
             output_dir=output_dir, timeout_s=timeout_s,
         )
     raise FEMMNotAvailable(
-        "Nenhum backend FEA disponível. Instale FEMMT "
-        "(`pip install pfc-inductor-designer[fea]`) ou um binário FEMM."
+        "No FEA backend available. Install FEMMT "
+        "(`pip install pfc-inductor-designer[fea]`) or a FEMM binary."
     )
 
 
@@ -99,8 +99,8 @@ def _validate_design_femm(
         fem_path=str(inputs.fem_path),
         log_excerpt=(out.stdout or out.stderr)[-400:],
         notes=(
-            "Backend legado FEMM. Static magnetostatic; AC/eddy não "
-            "modelados nesta v1."
+            "Legacy FEMM backend. Static magnetostatic; AC/eddy not "
+            "modelled in this v1."
         ),
     )
 

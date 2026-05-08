@@ -287,8 +287,8 @@ class FEAValidationDialog(QDialog):
             f"({self._color_pct(v.B_pct_error)})"
         )
         self.l_solve.setText(f"{v.solve_time_s:.1f} s  ({v.femm_binary})")
-        color = {"alta": pal.success, "média": pal.warning,
-                 "baixa": pal.danger}[v.confidence]
+        color = {"high": pal.success, "medium": pal.warning,
+                 "low": pal.danger}[v.confidence]
         self.l_confidence.setText(
             f'<span style="color:{color};font-weight:bold">{v.confidence}</span>'
         )

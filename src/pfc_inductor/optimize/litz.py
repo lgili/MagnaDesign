@@ -180,12 +180,12 @@ def _evaluate(
     try:
         r = design(spec, core, wire, material)
     except Exception as e:
-        cand.reason = f"design erro: {e}"
+        cand.reason = f"design error: {e}"
         return cand
     cand.result = r
     cand.feasible = r.is_feasible()
     if not cand.feasible:
-        cand.reason = "; ".join(r.warnings) if r.warnings else "Inviável"
+        cand.reason = "; ".join(r.warnings) if r.warnings else "Infeasible"
     cb = estimate_cost(core, wire, material, r.N_turns)
     cand.cost = cb.total_cost if cb is not None else None
     return cand

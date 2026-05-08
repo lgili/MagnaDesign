@@ -224,7 +224,7 @@ def test_top_n_table_widens_again_when_tier3_present(app):
                 "tier3": {
                     "L_relative_error_pct": 12.5,
                     "B_relative_error_pct": 3.0,
-                    "confidence": "média",
+                    "confidence": "medium",
                     "backend": "femmt",
                 },
             },

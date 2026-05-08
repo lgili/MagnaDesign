@@ -147,16 +147,16 @@ def validate_design_femmt(
         import femmt as ft
     except Exception as e:
         raise FEMMNotAvailable(
-            f"FEMMT não pôde ser importado: {type(e).__name__}: {e}"
-            "Instale com `uv pip install pfc-inductor-designer[fea]` "
-            "(requer Python 3.12 e scipy<1.14)."
+            f"FEMMT could not be imported: {type(e).__name__}: {e}"
+            "Install with `uv pip install pfc-inductor-designer[fea]` "
+            "(requires Python 3.12 and scipy<1.14)."
         ) from e
     if not _femmt_onelab_configured():
         raise FEMMSolveError(
-            "FEMMT está instalado mas o solver ONELAB não está configurado."
-            f"Edite `{Path(ft.__file__).parent}/config.json` adicionando "
-            '`{"onelab": "/caminho/para/pasta_onelab"}` (a pasta deve conter '
-            "`onelab.py`, `getdp` e `gmsh`)."
+            "FEMMT is installed but the ONELAB solver is not configured."
+            f"Edit `{Path(ft.__file__).parent}/config.json` adding "
+            '`{"onelab": "/path/to/onelab_folder"}` (the folder must contain '
+            "`onelab.py`, `getdp` and `gmsh`)."
         )
 
     kind = infer_shape(core)
@@ -168,7 +168,7 @@ def validate_design_femmt(
                 spec, core, wire, material, result, output_dir, timeout_s, ft, kind,
             )
     raise FEMMSolveError(
-        f"Forma de núcleo {kind!r} ainda não suportada pelo backend FEMMT."
+        f"Core shape {kind!r} not yet supported by the FEMMT backend."
     )
 
 
@@ -176,7 +176,7 @@ def _toroid_validation(spec, core, wire, material, result, output_dir, timeout_s
     """Toroidal axisymmetric magnetostatic problem in FEMMT."""
     dims = _toroid_dims(core)
     if dims is None:
-        raise FEMMSolveError("Toroide sem dimensões deriváveis (precisa Wa/le/Ae).")
+        raise FEMMSolveError("Toroid without derivable dimensions (needs Wa/le/Ae).")
     OD, ID, HT = dims  # mm
     cwd = _ensure_dir(output_dir)
     original_cwd = os.getcwd()
@@ -314,16 +314,16 @@ def _toroid_validation(spec, core, wire, material, result, output_dir, timeout_s
         fem_path=str(cwd),
         log_excerpt="(FEMMT log keys: " + ", ".join(sorted(map(str, log.keys())))[:300] + ")",
         notes=(
-            "⚠ FEMMT 0.5.x não tem primitiva nativa de toroide; usamos "
-            "CoreType.Single (PQ-style) com Ae/le do toroide. O caminho "
-            "magnético resultante difere do toroide real, então L_FEA e "
-            "B_pk_FEA podem divergir do analítico em fator ~1.5×–6×. "
-            "Para fidelidade FEA em toroide, prefira o backend FEMM "
-            "(PFC_FEA_BACKEND=femm). Para EE/ETD/PQ a equivalência é "
-            "exata. "
+            "⚠ FEMMT 0.5.x has no native toroid primitive; we use "
+            "CoreType.Single (PQ-style) with the toroid's Ae/le. The "
+            "resulting magnetic path differs from a real toroid, so "
+            "L_FEA and B_pk_FEA may diverge from the analytic value "
+            "by ~1.5×–6×. For high-fidelity toroidal FEA, prefer the "
+            "FEMM backend (PFC_FEA_BACKEND=femm). EE/ETD/PQ equivalence "
+            "is exact. "
             f"μ_eff(H={H_Oe:.0f} Oe)={mu_eff:.0f}. "
-            f"Window inflation {inflate:.2f}× para {result.N_turns} voltas. "
-            "Eddy/AC losses não modelados (single magnetostatic)."
+            f"Window inflation {inflate:.2f}× for {result.N_turns} turns. "
+            "Eddy/AC losses not modelled (single magnetostatic)."
         ),
     )
 
@@ -539,9 +539,9 @@ def _bobbin_validation(spec, core, wire, material, result, output_dir, timeout_s
         log_excerpt="(FEMMT log keys: " + ", ".join(sorted(map(str, log.keys())))[:300] + ")",
         notes=(
             notes_geom + " "
-            "Eddy/AC losses não modelados (single magnetostatic). "
-            "Para EE/ETD/PQ a equivalência geométrica é exata em PQ/ETD "
-            "(perna central redonda) e aproximada em EE (área-equivalente)."
+            "Eddy/AC losses not modelled (single magnetostatic). "
+            "For EE/ETD/PQ the geometric equivalence is exact in PQ/ETD "
+            "(round centre leg) and approximate in EE (area-equivalent)."
         ),
     )
 
@@ -608,7 +608,7 @@ def _extract_L_H(log: dict) -> float:
                 return f / i
     except (KeyError, IndexError, TypeError, ValueError):
         pass
-    raise FEMMSolveError("Não foi possível extrair L do log FEMMT.")
+    raise FEMMSolveError("Could not extract L from the FEMMT log.")
 
 
 def _extract_flux(log: dict) -> float:

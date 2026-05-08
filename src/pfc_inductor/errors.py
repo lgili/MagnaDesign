@@ -3,7 +3,7 @@
 The UI catches :class:`DesignError` (and subclasses) to show a user-facing
 message dialog. Anything that escapes this hierarchy is a real bug —
 let it propagate so the developer sees the traceback rather than a
-generic "Erro" QMessageBox.
+generic "Error" QMessageBox.
 
 Layering rule
 -------------
@@ -29,7 +29,7 @@ Pattern at the boundary
         spec = Spec(**user_inputs)
     except ValidationError as exc:
         raise SpecValidationError(
-            "Spec inválido. Verifique os campos destacados."
+            "Invalid spec. Check the highlighted fields."
         ) from exc
 """
 from __future__ import annotations
