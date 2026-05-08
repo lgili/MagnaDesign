@@ -90,6 +90,17 @@ def main() -> int:
 
     win = MainWindow()
     win.show()
+
+    # First-run onboarding tour — only shown until the user finishes
+    # or skips it (persisted in QSettings). Mounted *after* ``show``
+    # so the overlay anchors to the real geometry and the painter
+    # has a non-zero rect to fill. Headless / offscreen platforms
+    # are skipped because there's no human to orient.
+    from PySide6.QtGui import QGuiApplication
+    if QGuiApplication.platformName() not in ("offscreen", "minimal"):
+        from pfc_inductor.ui.widgets.onboarding_tour import OnboardingTour
+        OnboardingTour.maybe_show(win)
+
     return app.exec()
 
 
