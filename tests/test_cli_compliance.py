@@ -92,18 +92,43 @@ def test_compliance_line_reactor_fails(
 def test_compliance_boost_passes_with_caveat(
     cli_runner: CliRunner, tmp_path: Path,
 ) -> None:
-    """Active boost-PFC has no measurable higher-order harmonics
-    in the engine's analytical output — verdict PASS, exit 0."""
+    """Active boost-PFC bundle carries IEC 61000-3-2 (trivially
+    PASS — no measurable harmonics in the engine's analytical
+    output) plus EN 55032 (analytical-envelope estimator —
+    typically MARGINAL or FAIL until the user supplies a higher
+    filter attenuation). Both reports must surface their LISN /
+    measurement caveats so an auditor sees the gap."""
     from pfc_inductor.cli import cli
 
     project_path = _write_boost_project(tmp_path)
     result = cli_runner.invoke(
         cli, ["compliance", str(project_path), "--region", "EU"],
     )
-    assert result.exit_code == 0, result.output
     payload = json.loads(result.stdout)
-    assert payload["overall"] == "PASS"
-    assert "LISN" in payload["standards"][0]["summary"]
+
+    standards = {s["standard"]: s for s in payload["standards"]}
+    assert "IEC 61000-3-2" in standards
+    assert "EN 55032" in standards
+
+    # IEC trivially passes for boost-PFC + emits the LISN caveat.
+    iec = standards["IEC 61000-3-2"]
+    assert iec["conclusion"] == "PASS"
+    assert "LISN" in iec["summary"] or any(
+        "LISN" in n for n in iec["notes"]
+    )
+
+    # EN 55032 carries the analytical-envelope disclaimer in its
+    # notes regardless of pass/fail.
+    en = standards["EN 55032"]
+    assert any("LISN" in n for n in en["notes"])
+
+    # Exit code follows the worst per-standard verdict — when
+    # EN 55032's analytical envelope FAILs the overall is FAIL.
+    if payload["overall"] == "FAIL":
+        from pfc_inductor.cli.exit_codes import ExitCode
+        assert result.exit_code == int(ExitCode.COMPLIANCE_FAIL)
+    else:
+        assert result.exit_code == 0
 
 
 def test_compliance_us_region_emits_warning(

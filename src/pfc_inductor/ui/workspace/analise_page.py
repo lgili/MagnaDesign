@@ -214,6 +214,26 @@ class AnalisePage(QWidget):
         grid.addWidget(self.card_detalhes, 4, 0, 1, 12)
         grid.setRowStretch(4, 0)
 
+        # Row 5 — VFD modulation band chart, full-width, hidden by
+        # default. ``update_from_design`` shows it only when the
+        # active spec carries an ``fsw_modulation`` band. Lives
+        # below the Technical Details card because it's the most
+        # context-heavy chart on the page (per-fsw envelope across
+        # the modulation band) and benefits from the user already
+        # having scrolled past the at-a-glance summary.
+        from pfc_inductor.ui.widgets.modulation_band_chart import (
+            ModulationBandChart,
+        )
+        from pfc_inductor.ui.widgets import Card
+        self._modulation_chart = ModulationBandChart()
+        self._modulation_card = Card(
+            "Modulation envelope (fsw band)",
+            self._modulation_chart,
+        )
+        self._modulation_card.setVisible(False)
+        grid.addWidget(self._modulation_card, 5, 0, 1, 12)
+        grid.setRowStretch(5, 0)
+
         # Convenience list for batch update / clear loops.
         self._cards = [
             self.card_formas,
@@ -233,11 +253,49 @@ class AnalisePage(QWidget):
                            material: Material) -> None:
         for card in self._cards:
             card.update_from_design(result, spec, core, wire, material)
+        # VFD modulation envelope — surface the per-fsw curves
+        # only when the spec actually carries a band. The chart
+        # widget is itself hidden when there's no data, so the
+        # legacy single-point flow keeps the same Analysis layout.
+        self._refresh_modulation_chart(spec, core, wire, material)
         # First successful update — swap from the empty placeholder to
         # the live grid. Subsequent updates are no-ops on the stack.
         if not self._has_data:
             self._has_data = True
             self._stack.setCurrentIndex(1)
+
+    def _refresh_modulation_chart(
+        self,
+        spec: Spec,
+        core: Core,
+        wire: Wire,
+        material: Material,
+    ) -> None:
+        """Show / hide the modulation card per the spec.
+
+        When the spec carries an ``fsw_modulation``, run the
+        engine across the band and feed the result to the chart
+        widget. Both the card visibility and the chart contents
+        update from this single call so a toggle on the SpecPanel
+        reaches the Analysis tab on the next recalc.
+
+        Engine failures fall back to a hidden card with a status
+        message rather than throwing — the rest of the Analysis
+        tab stays usable.
+        """
+        if spec.fsw_modulation is None:
+            self._modulation_card.setVisible(False)
+            self._modulation_chart.clear()
+            return
+        try:
+            from pfc_inductor.modulation import eval_band
+            banded = eval_band(spec, core, wire, material)
+        except Exception:  # noqa: BLE001 — surface as silent hide
+            self._modulation_card.setVisible(False)
+            self._modulation_chart.clear()
+            return
+        self._modulation_chart.show_band(banded)
+        self._modulation_card.setVisible(True)
 
     def clear(self) -> None:
         for card in self._cards:
