@@ -187,6 +187,7 @@ class MainWindow(QMainWindow):
         self._build_shell()
         self._wire_signals()
         self._build_menu_bar()
+        self._build_command_palette()
 
         # Project file state — track current path + dirtiness so File →
         # Save knows whether to prompt for a path or write in place.
@@ -200,6 +201,105 @@ class MainWindow(QMainWindow):
         # Initial calculation + FEA setup probe.
         self._on_calculate()
         self._maybe_offer_fea_setup()
+
+    # ==================================================================
+    # Command palette — Cmd/Ctrl+K (P2.Q)
+    # ==================================================================
+    def _build_command_palette(self) -> None:
+        """Mount the Cmd+K command palette + register every action.
+
+        The palette is the single most-discoverable entry-point for
+        power users: instead of hunting through the sidebar / header
+        / menu bar / drawer, they hit ``Cmd+K`` and type the first
+        few characters of what they want. Each command's handler is
+        the same callable already wired to its UI button — no
+        duplicated behaviour, just duplicated discovery.
+        """
+        from PySide6.QtGui import QShortcut
+        from pfc_inductor.ui.widgets.command_palette import (
+            Command,
+            CommandPalette,
+        )
+        self._cmd_palette = CommandPalette(self)
+        self._cmd_palette.register_many([
+            # Project lifecycle
+            Command("project.new",     "Novo projeto",         "Ctrl+N",
+                    self._on_project_new,
+                    hint="Limpa a sessão atual após confirmação."),
+            Command("project.open",    "Abrir projeto…",       "Ctrl+O",
+                    self._on_project_open,
+                    hint="Lê um arquivo .pfc do disco."),
+            Command("project.save",    "Salvar projeto",       "Ctrl+S",
+                    self._on_project_save),
+            Command("project.save_as", "Salvar projeto como…", "Ctrl+Shift+S",
+                    self._on_project_save_as),
+
+            # Inner-loop actions
+            Command("calc",            "Recalcular",           "Ctrl+R",
+                    self._on_calculate,
+                    hint="Roda o engine com a spec + seleção atuais."),
+            Command("export.report",   "Exportar datasheet",   "",
+                    self._export_report,
+                    hint="Gera datasheet HTML (3 páginas, base64)."),
+            Command("export.compare",  "Exportar comparativo", "",
+                    self._export_compare,
+                    hint="Salva tabela comparativa em HTML/CSV."),
+            Command("compare.open",    "Abrir comparativo",    "",
+                    self._open_compare,
+                    hint="Acumule até 4 designs lado a lado."),
+
+            # Validation / dialogs
+            Command("validate.fea",    "Rodar validação FEM",  "",
+                    self._open_fea,
+                    hint="FEMM/FEMMT no operating point — leva minutos."),
+            Command("similar",         "Buscar componentes similares", "",
+                    self._open_similar_parts),
+            Command("litz",            "Otimizar Litz",        "",
+                    self._open_litz),
+
+            # Shell
+            Command("theme.toggle",    "Alternar tema (claro / escuro)", "",
+                    self._toggle_theme),
+            Command("about",           "Sobre o aplicativo",   "",
+                    self._open_about),
+
+            # Navigation — quick jumps so users don't reach for the
+            # mouse mid-flow.
+            Command("nav.projeto",     "Ir para Projeto",      "",
+                    lambda: self._goto_area("dashboard")),
+            Command("nav.otimizador",  "Ir para Otimizador",   "",
+                    lambda: self._goto_area("otimizador")),
+            Command("nav.cascade",     "Ir para Otimizador completo", "",
+                    lambda: self._goto_area("cascade")),
+            Command("nav.catalogo",    "Ir para Catálogo",     "",
+                    lambda: self._goto_area("catalogo")),
+            Command("nav.config",      "Ir para Configurações", "",
+                    lambda: self._goto_area("configuracoes")),
+        ])
+        # Bind the activator. Standard ``QKeySequence.StandardKey.Find``
+        # is ``Cmd+F`` on macOS — we want a separate chord. Hardcode
+        # ``Ctrl+K`` so it works the same on every platform; on macOS
+        # Qt translates ``Ctrl`` → ``Cmd`` automatically.
+        from PySide6.QtGui import QKeySequence
+        sc = QShortcut(QKeySequence("Ctrl+K"), self)
+        sc.activated.connect(self._cmd_palette.show)
+
+    def _goto_area(self, area_id: str) -> None:
+        """Navigate to a sidebar area programmatically.
+
+        Used by the command palette so "Ir para …" entries land on
+        the same tab the sidebar would, including updating the
+        sidebar's checked state.
+        """
+        try:
+            self.sidebar.set_active_area(area_id)
+        except Exception:
+            pass
+        try:
+            idx = AREA_PAGES.index(area_id)
+            self.stack.setCurrentIndex(idx)
+        except ValueError:
+            pass
 
     # ==================================================================
     # File menu — project save / load / recent (P0.A)
