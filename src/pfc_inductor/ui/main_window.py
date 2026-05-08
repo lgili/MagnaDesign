@@ -149,6 +149,16 @@ class MainWindow(QMainWindow):
             # Headless / offscreen: fall back to the canonical size.
             self.resize(1500, 900)
 
+        # Cap the absolute minimum so child widgets' minimumSizeHints
+        # don't cumulatively grow the window past the screen edge.
+        # Without this, the ResumoStrip (6 metric tiles) + workspace
+        # header (3 CTAs) summed to ~1540 px of mandatory width and
+        # the right edge fell off any 1366- or 1440-wide laptop.
+        # The (1100, 640) floor keeps all child layouts shrinkable
+        # via QScrollArea wrappers when the user *does* go narrower
+        # than 1100.
+        self.setMinimumSize(1100, 640)
+
         ensure_user_data()
         self._materials = load_materials()
         self._cores = load_cores()

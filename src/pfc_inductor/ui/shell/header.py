@@ -95,17 +95,22 @@ class WorkspaceHeader(QFrame):
         self._apply_dynamic_property_refresh(self._status_pill)
 
         # ---- right: CTA buttons ----------------------------------------
-        self._btn_compare = QPushButton("Compare solutions")
+        # Shorter labels — "Compare solutions" / "Generate report" each
+        # cost ~150 px in the header and were pushing the workspace
+        # minimum width past 800 px. Tooltips preserve the long form
+        # for first-time users.
+        self._btn_compare = QPushButton("Compare")
         self._btn_compare.setProperty("class", "Secondary")
         self._btn_compare.setIcon(
             ui_icon("compare", color=get_theme().palette.text, size=16)
         )
         self._btn_compare.setIconSize(QSize(16, 16))
         self._btn_compare.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_compare.setToolTip("Compare solutions side-by-side")
         self._btn_compare.clicked.connect(self.compare_requested.emit)
         self._apply_dynamic_property_refresh(self._btn_compare)
 
-        self._btn_report = QPushButton("Generate report")
+        self._btn_report = QPushButton("Report")
         # Demoted from Primary → Secondary so "Recalculate" can hold the
         # single Primary slot. Report is a one-shot end-of-flow action;
         # Recalculate is the inner-loop action the engineer hits dozens
@@ -116,6 +121,7 @@ class WorkspaceHeader(QFrame):
         )
         self._btn_report.setIconSize(QSize(16, 16))
         self._btn_report.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_report.setToolTip("Generate datasheet report (HTML)")
         self._btn_report.clicked.connect(self.report_requested.emit)
         self._apply_dynamic_property_refresh(self._btn_report)
 

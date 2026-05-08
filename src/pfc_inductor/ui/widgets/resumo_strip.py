@@ -124,7 +124,13 @@ class ResumoStrip(QFrame):
             self.m_L, self.m_I, self.m_dI, self.m_B, self.m_T, self.m_P,
         )
         for mc in self._tiles:
-            mc.setMinimumSize(*CARD_MIN.metric_compact)
+            # Width-only minimum so the strip can compress horizontally
+            # if the window is narrow. ``setMinimumSize`` would pin
+            # both axes and turn each row into an 80-px-tall block
+            # even on tablets. ``CARD_MIN.metric_compact`` is the
+            # canonical pair; we honour the width and let height stay
+            # elastic.
+            mc.setMinimumWidth(CARD_MIN.metric_compact[0])
             h.addWidget(mc, 1)
 
         # Vertical separator before the aggregate badge.
@@ -152,6 +158,13 @@ class ResumoStrip(QFrame):
         self.badge.setProperty("class", "Pill")
         self.badge.setProperty("pill", "neutral")
         self.badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # Cap the badge width so it doesn't push the strip past the
+        # window edge when ``_set_badge`` appends a long reason
+        # summary ("Reprovado — ΔT · Perdas"). 160 px holds
+        # "Preencha a especificação" comfortably; longer status
+        # strings get elided. The full text stays in the tooltip.
+        self.badge.setMaximumWidth(160)
+        self.badge.setMinimumWidth(110)
         # Make the badge clickable for the empty-state path (P0.B):
         # when the strip starts in "pending" mode, clicking the badge
         # emits ``spec_drawer_requested`` so the host can open the

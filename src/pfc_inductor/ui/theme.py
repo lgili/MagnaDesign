@@ -461,7 +461,12 @@ class CardMinSize:
     entreferro: tuple[int, int] = (180, 180)   # was (180, 200)
     proximos:   tuple[int, int] = (200, 200)   # was (200, 220)
     metric:     tuple[int, int] = (132, 80)
-    metric_compact: tuple[int, int] = (108, 64)
+    # Trimmed 108 → 84 px so the 6-tile ResumoStrip doesn't pin the
+    # MainWindow to a width past the laptop screen edge. At 84 the
+    # strip floors at ~640 px (6·84 + spacing + capped badge);
+    # the tiles still hold a 4-digit value + caption + unit at this
+    # width — verified at the smallest digit count the engine emits.
+    metric_compact: tuple[int, int] = (84, 64)
 
 
 CARD_MIN = CardMinSize()
