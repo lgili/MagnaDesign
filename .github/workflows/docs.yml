@@ -1,16 +1,26 @@
 name: Docs
 
-# Build the Sphinx site on every push to main + every PR. Push
-# to GitHub Pages only on main (PRs get a per-build preview via
-# the artifacts bundle).
+# Trigger model:
+# - On every release (the ``release: published`` event fires
+#   when a tag is published from a draft or directly from the
+#   GitHub UI / ``gh release create``). The published build
+#   re-renders all historical tags via sphinx-multiversion and
+#   pushes the result to GitHub Pages.
+# - On pull requests touching docs / Python sources / this
+#   workflow — runs the single-version Sphinx build only (no
+#   deploy) so reviewers can spot broken references in the PR
+#   without polluting the published site.
+# - Manually via ``workflow_dispatch`` for backfill / when a
+#   release was created without going through the workflow.
 on:
-  push:
-    branches: [main]
+  release:
+    types: [published]
   pull_request:
     paths:
       - "docs/**"
       - "src/pfc_inductor/**"
       - ".github/workflows/docs.yml"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -27,6 +37,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # ``sphinx-multiversion`` needs the full git history +
+          # every tag so it can render past releases. The default
+          # shallow clone strips them, leaving only ``main``.
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
@@ -50,41 +66,121 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[docs]"
 
-      - name: Build HTML
+      - name: Build single-version HTML (PR previews)
+        if: github.event_name == 'pull_request'
         env:
           QT_QPA_PLATFORM: offscreen
-        # ``-W`` was previously enabled (warnings → errors), but the
+        # ``--keep-going`` so warnings don't break the build (the
         # site has accumulated ~40 pre-existing autodoc / docstring
-        # warnings that would each fail the build. We surface them
-        # via ``-w warnings.log`` and ``--keep-going`` (Sphinx still
-        # exits non-zero when an *error* is logged) so the page
-        # renders end-to-end while the team can grep the log to
-        # work through the warnings incrementally.
+        # warnings that the team is working through incrementally).
         run: |
           sphinx-build -b html docs docs/_build/html \
             --keep-going -w docs/_build/warnings.log
           echo "Sphinx warnings captured in docs/_build/warnings.log"
 
-      - name: Upload Pages artifact
-        if: github.ref == 'refs/heads/main'
+      - name: Build multi-version HTML (releases + manual rebuilds)
+        if: github.event_name != 'pull_request'
+        env:
+          QT_QPA_PLATFORM: offscreen
+        # ``sphinx-multiversion`` re-runs Sphinx once per
+        # whitelisted ref (every ``v*.*.*`` tag + ``main``).
+        # Output lands at ``docs/_build/multi/<ref>/`` per the
+        # ``smv_outputdir_format`` setting in conf.py.
+        run: |
+          sphinx-multiversion docs docs/_build/multi
+          echo "Built versions:"
+          ls docs/_build/multi/
+
+      - name: Generate root redirect → latest tag
+        if: github.event_name != 'pull_request'
+        # ``sphinx-multiversion`` writes per-version subdirs but
+        # nothing at the bundle root. We synthesise a minimal
+        # ``index.html`` that redirects to the highest semver
+        # tag (the published release the build was triggered
+        # from). Falls back to ``main`` when no tags exist
+        # (first release before tags land).
+        run: |
+          python <<'PY'
+          import os
+          import re
+          import sys
+          from pathlib import Path
+
+          root = Path("docs/_build/multi")
+          if not root.is_dir():
+              sys.exit("multi-version build directory missing")
+
+          versions = [
+              p.name for p in root.iterdir()
+              if p.is_dir() and (p / "index.html").exists()
+          ]
+          if not versions:
+              sys.exit("no built versions found")
+
+          # Sort tags by semver so the redirect always points at
+          # the newest stable version, not whatever sorted last
+          # alphabetically (``v0.10.0`` would lose to ``v0.2.0``
+          # under a plain ``sorted`` call).
+          tag_re = re.compile(r"^v(\d+)\.(\d+)\.(\d+)$")
+          tagged = sorted(
+              [v for v in versions if tag_re.match(v)],
+              key=lambda v: tuple(int(x) for x in tag_re.match(v).groups()),
+              reverse=True,
+          )
+          target = tagged[0] if tagged else "main"
+          print(f"redirecting / → /{target}/")
+
+          (root / "index.html").write_text(
+              "<!doctype html>\n"
+              '<meta http-equiv="refresh" '
+              f'content="0; url={target}/">\n'
+              f'<link rel="canonical" href="{target}/">\n'
+              "<title>MagnaDesign documentation</title>\n"
+              f'<p>Redirecting to <a href="{target}/">'
+              f"the {target} docs</a>…</p>\n"
+          )
+
+          # Tell GitHub Pages not to run Jekyll over the bundle
+          # (Jekyll would mangle ``_static`` paths starting with
+          # an underscore).
+          (root / ".nojekyll").write_text("")
+
+          # Generate a tiny ``versions.json`` the version selector
+          # could read at runtime if we ever switch from server-
+          # rendered to client-rendered selectors.
+          import json
+          (root / "versions.json").write_text(
+              json.dumps(
+                  {"latest": target, "available": [target] + [v for v in versions if v != target]},
+                  indent=2,
+              )
+          )
+          PY
+
+      - name: Upload Pages artifact (releases + manual only)
+        if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3
         with:
+          path: docs/_build/multi
+
+      - name: Upload PR-preview artifact (PRs only)
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-preview-pr-${{ github.event.pull_request.number }}
           path: docs/_build/html
+          retention-days: 7
 
   deploy:
     needs: build
-    if: github.ref == 'refs/heads/main'
+    # Deploy is gated on the release event — PR builds never
+    # touch the public site, only their own per-build artifact.
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    # Marking the deploy step ``continue-on-error`` so the workflow
-    # surface stays green while GitHub Pages is being configured /
-    # waiting for repo-settings approval. Pre-fix the deploy step
-    # was the *only* failing step (the Sphinx HTML built fine and
-    # the artifact uploaded), but ``HttpError: Not Found … Ensure
-    # GitHub Pages has been enabled`` made the whole workflow red,
-    # which masked legitimate Sphinx breakage in subsequent pushes.
-    # Once Pages is enabled at
-    # https://github.com/<org>/<repo>/settings/pages this comment
-    # + the continue-on-error flag can be removed.
+    # Once GitHub Pages is enabled in the repo settings, drop
+    # ``continue-on-error``. Until then this lets the workflow
+    # surface as green even if Pages isn't configured (the build
+    # artifact is still uploaded for manual inspection).
     continue-on-error: true
     environment:
       name: github-pages

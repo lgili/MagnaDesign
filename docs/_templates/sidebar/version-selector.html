@@ -1,0 +1,36 @@
+{#-
+Version selector for the Furo sidebar.
+
+Rendered by sphinx-multiversion in every per-tag build:
+``versions`` is a list of ``Version`` objects (one per matched
+ref), and ``current_version`` is the ref the current page was
+built from. Each entry's ``url`` lands at the same RELATIVE
+path as the current page in the target version — so a reader
+on ``/v0.7/cli.html`` clicking "v0.5" lands on ``/v0.5/cli.html``
+without losing their place.
+
+When the build is not running under sphinx-multiversion (e.g.
+the dev's local ``sphinx-build`` preview) ``versions`` is
+undefined and the entire selector is skipped via the ``defined``
+guard, so the local preview doesn't show a broken empty dropdown.
+-#}
+{% if versions is defined and versions %}
+<div class="version-selector">
+  <label for="version-select" class="version-selector__label">Version</label>
+  <select
+    id="version-select"
+    class="version-selector__select"
+    onchange="if (this.value) window.location.href = this.value;"
+  >
+    {%- for item in versions %}
+    <option
+      value="{{ item.url }}"
+      {% if item.name == current_version.name %}selected{% endif %}
+    >
+      {{- item.name -}}
+      {% if item.is_released %}{% else %} (dev){% endif %}
+    </option>
+    {%- endfor %}
+  </select>
+</div>
+{% endif %}

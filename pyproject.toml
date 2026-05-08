@@ -84,8 +84,24 @@ fea = [
 # https://magnadesign.dev/docs (when DNS lands; until then check
 # the GitHub Pages URL surfaced in the workflow run summary).
 docs = [
-    "sphinx>=7.0",
-    "sphinx-rtd-theme>=2.0",
+    # Upper bound at <9 because ``sphinx-multiversion`` (the
+    # release-aware build driver) hasn't shipped a release that
+    # tracks Sphinx 9's Config API change. Pinning here keeps
+    # the multi-version build deterministic until upstream cuts
+    # a compatible release.
+    "sphinx>=7.0,<9",
+    # ``furo`` — modern Sphinx theme used by pip / urllib3 / attrs.
+    # Replaced ``sphinx-rtd-theme`` which still looks like 2014
+    # and lacks first-class dark mode. Furo ships its dark-mode
+    # toggle, mobile-friendly navigation, and a brand-colour
+    # variable system out of the box.
+    "furo>=2024.0",
+    # Multi-version builder — runs ``sphinx-build`` once per
+    # whitelisted git ref (release tags + ``main``) and stitches
+    # the outputs together with a version selector. The Pages
+    # site lands as ``/<version>/index.html`` so a customer pinned
+    # to v0.7 can read the v0.7 docs even after v1.0 ships.
+    "sphinx-multiversion>=0.2",
     "sphinx-autodoc-typehints>=2.0",
     "sphinx-copybutton>=0.5",
     "myst-parser>=2.0",

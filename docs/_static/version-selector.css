@@ -1,0 +1,49 @@
+/*
+ * Version-selector dropdown styles for the Furo sidebar.
+ *
+ * Loaded via ``html_css_files`` in ``conf.py``. Tuned to match
+ * Furo's existing sidebar typography (no custom font import).
+ * The colours derive from Furo's CSS variables so the selector
+ * automatically tracks the user's light / dark theme choice
+ * without us having to write a second rule for the dark mode.
+ */
+
+.version-selector {
+  margin: 0.75rem 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  background: var(--color-background-secondary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.version-selector__label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-foreground-secondary);
+  flex-shrink: 0;
+}
+
+.version-selector__select {
+  flex: 1;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--color-foreground-border);
+  border-radius: 4px;
+  background: var(--color-background-primary);
+  color: var(--color-foreground-primary);
+  font-size: 0.85rem;
+  font-family: inherit;
+  cursor: pointer;
+  /* Native dropdown caret looks fine across browsers; no need for
+     a custom SVG arrow. */
+}
+
+.version-selector__select:hover {
+  border-color: var(--color-brand-primary);
+}
+
+.version-selector__select:focus {
+  outline: 2px solid var(--color-brand-primary);
+  outline-offset: 1px;
+}
