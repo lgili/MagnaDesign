@@ -66,17 +66,25 @@ def _solve_N(
         if rl is not None:
             N, L_uH, mu = _SOLVE_N_KERNEL(
                 float(L_required_uH),
-                float(core.AL_nH), float(core.le_mm),
-                float(I_dc_pk_A), int(N_max),
-                float(rl.a), float(rl.b), float(rl.c),
+                float(core.AL_nH),
+                float(core.le_mm),
+                float(I_dc_pk_A),
+                int(N_max),
+                float(rl.a),
+                float(rl.b),
+                float(rl.c),
                 True,
             )
         else:
             N, L_uH, mu = _SOLVE_N_KERNEL(
                 float(L_required_uH),
-                float(core.AL_nH), float(core.le_mm),
-                float(I_dc_pk_A), int(N_max),
-                0.0, 0.0, 0.0,
+                float(core.AL_nH),
+                float(core.le_mm),
+                float(I_dc_pk_A),
+                int(N_max),
+                0.0,
+                0.0,
+                0.0,
                 False,
             )
         return int(N), float(L_uH), float(mu)
@@ -120,8 +128,15 @@ def _build_solve_n_kernel():
 
     @njit(fastmath=True, cache=True)
     def _kernel(
-        L_required_uH, AL_nH, le_mm, I_dc_pk_A, N_max,
-        rolloff_a, rolloff_b, rolloff_c, has_rolloff,
+        L_required_uH,
+        AL_nH,
+        le_mm,
+        I_dc_pk_A,
+        N_max,
+        rolloff_a,
+        rolloff_b,
+        rolloff_c,
+        has_rolloff,
     ):
         le_m = le_mm * 1e-3
         for N in range(1, N_max + 1):
@@ -129,7 +144,7 @@ def _build_solve_n_kernel():
                 H_Oe = N * I_dc_pk_A / le_m * _OE_PER_AM_KERNEL
                 if H_Oe < 1e-6:
                     H_Oe = 1e-6
-                val = 1.0 / (rolloff_a + rolloff_b * (H_Oe ** rolloff_c))
+                val = 1.0 / (rolloff_a + rolloff_b * (H_Oe**rolloff_c))
                 if val > 1.0:
                     val = 1.0
                 elif val < 0.0:
@@ -145,7 +160,7 @@ def _build_solve_n_kernel():
             H_Oe = N_max * I_dc_pk_A / le_m * _OE_PER_AM_KERNEL
             if H_Oe < 1e-6:
                 H_Oe = 1e-6
-            val = 1.0 / (rolloff_a + rolloff_b * (H_Oe ** rolloff_c))
+            val = 1.0 / (rolloff_a + rolloff_b * (H_Oe**rolloff_c))
             if val > 1.0:
                 val = 1.0
             elif val < 0.0:
@@ -214,7 +229,10 @@ def design(
     if spec.topology == "interleaved_boost_pfc":
         per_phase = interleaved_boost_pfc.per_phase_spec(spec)
         result = design(
-            per_phase, core, wire, material,
+            per_phase,
+            core,
+            wire,
+            material,
             Vin_design_Vrms=Vin_design_Vrms,
             T_init_rise_K=T_init_rise_K,
         )
@@ -230,9 +248,7 @@ def design(
             f"cancellation; the input filter sees ripple at "
             f"{n_phase} · f_sw."
         )
-        result.notes = (
-            f"{badge}\n{existing_notes}" if existing_notes else badge
-        )
+        result.notes = f"{badge}\n{existing_notes}" if existing_notes else badge
         return result
 
     warnings: list[str] = []
@@ -385,41 +401,84 @@ def design(
 
     # Thermal-coupled loss iteration
     A_surface = th.surface_area_m2(core)
+    T_init = T_amb + T_init_rise_K
 
-    def total_loss_at_T(T_C: float) -> float:
-        Rdc = cp.Rdc_ohm(N, core.MLT_mm, wire.A_cu_mm2, T_C)
-        Rac = cp.Rac_ohm(wire, fsw_Hz_for_skin, Rdc, layers, T_C)
-        P_cu_dc = cp.loss_dc_W(I_rms_line, Rdc)
-        P_cu_ac = cp.loss_ac_W(I_rip_rms, Rac)
+    # ── Fused Numba kernel fast path ──
+    # When the ``[performance]`` extra is installed, run the
+    # entire thermal-converge + per-leaf-loss pipeline in a
+    # single Numba kernel. Eliminates 6 thermal iterations × 5
+    # Python boundary crossings = 30 dispatch calls per
+    # ``engine.design()``. See ``physics/fused_kernel.py`` for
+    # the kernel internals.
+    fused_result = _try_fused_thermal(
+        spec=spec,
+        core=core,
+        wire=wire,
+        material=material,
+        N=N,
+        layers=layers,
+        fsw_Hz_for_skin=fsw_Hz_for_skin,
+        fsw_kHz_for_loss=fsw_kHz_for_loss,
+        I_rms_line=I_rms_line,
+        I_rip_rms=I_rip_rms,
+        B_pk_for_loss=B_pk_for_loss,
+        delta_B_avg_T=delta_B_avg_T,
+        delta_B_pp_T_array=delta_B_pp_T_array,
+        A_surface=A_surface,
+        T_amb=T_amb,
+        T_init=T_init,
+    )
+    if fused_result is not None:
+        T_final, P_total, P_cu_dc, P_cu_ac, P_line, P_ripple, conv = fused_result
+        Rdc_final = cp.Rdc_ohm(N, core.MLT_mm, wire.A_cu_mm2, T_final)
+        Rac_final = cp.Rac_ohm(wire, fsw_Hz_for_skin, Rdc_final, layers, T_final)
+    else:
+        # ── Per-leaf fallback (no Numba, or material lacks Steinmetz) ──
+        def total_loss_at_T(T_C: float) -> float:
+            Rdc = cp.Rdc_ohm(N, core.MLT_mm, wire.A_cu_mm2, T_C)
+            Rac = cp.Rac_ohm(wire, fsw_Hz_for_skin, Rdc, layers, T_C)
+            P_cu_dc = cp.loss_dc_W(I_rms_line, Rdc)
+            P_cu_ac = cp.loss_ac_W(I_rip_rms, Rac)
+            P_line, P_ripple = cl.core_loss_W_pfc(
+                material,
+                spec.f_line_Hz,
+                fsw_kHz_for_loss,
+                B_pk_for_loss,
+                delta_B_avg_T,
+                core.Ve_mm3,
+                delta_B_pp_T_array=delta_B_pp_T_array,
+            )
+            return P_cu_dc + P_cu_ac + P_line + P_ripple
+
+        T_final, conv, _ = th.converge_temperature(
+            total_loss_at_T,
+            A_surface,
+            T_amb,
+            T_init_C=T_init,
+        )
+        # Final breakdown at T_final
+        Rdc_final = cp.Rdc_ohm(N, core.MLT_mm, wire.A_cu_mm2, T_final)
+        Rac_final = cp.Rac_ohm(wire, fsw_Hz_for_skin, Rdc_final, layers, T_final)
+        P_cu_dc = cp.loss_dc_W(I_rms_line, Rdc_final)
+        P_cu_ac = cp.loss_ac_W(I_rip_rms, Rac_final)
+        # Pass ``delta_B_pp_T_array`` so the final-breakdown
+        # ``P_core_ripple_W`` uses the same iGSE that drove the
+        # thermal converge above. Pre-fix the final breakdown
+        # silently fell back to the naïve <ΔB>/2 Steinmetz path,
+        # making ``losses.P_total_W`` disagree with whatever loss
+        # the converged temperature was actually balancing — a
+        # subtle bug that surfaced when the fused Numba kernel
+        # (which is iGSE-consistent) parity-tested against this
+        # branch.
         P_line, P_ripple = cl.core_loss_W_pfc(
-            material,
-            spec.f_line_Hz,
-            fsw_kHz_for_loss,
-            B_pk_for_loss,
-            delta_B_avg_T,
-            core.Ve_mm3,
+            material, spec.f_line_Hz, fsw_kHz_for_loss,
+            B_pk_for_loss, delta_B_avg_T, core.Ve_mm3,
             delta_B_pp_T_array=delta_B_pp_T_array,
         )
-        return P_cu_dc + P_cu_ac + P_line + P_ripple
 
-    T_init = T_amb + T_init_rise_K
-    T_final, conv, _ = th.converge_temperature(
-        total_loss_at_T,
-        A_surface,
-        T_amb,
-        T_init_C=T_init,
-    )
     if not conv:
         warnings.append("Thermal solve did not fully converge")
 
-    # Final breakdown at T_final
-    Rdc_final = cp.Rdc_ohm(N, core.MLT_mm, wire.A_cu_mm2, T_final)
-    Rac_final = cp.Rac_ohm(wire, fsw_Hz_for_skin, Rdc_final, layers, T_final)
-    P_cu_dc = cp.loss_dc_W(I_rms_line, Rdc_final)
-    P_cu_ac = cp.loss_ac_W(I_rip_rms, Rac_final)
-    P_line, P_ripple = cl.core_loss_W_pfc(
-        material, spec.f_line_Hz, fsw_kHz_for_loss, B_pk_for_loss, delta_B_avg_T, core.Ve_mm3
-    )
     losses = LossBreakdown(
         P_cu_dc_W=P_cu_dc,
         P_cu_ac_W=P_cu_ac,
@@ -520,20 +579,29 @@ def design(
         Ip_rms_A = flyback.primary_rms_current(spec, L_actual, Ip_peak_A)
         Is_peak_A = flyback.secondary_peak_current(spec, Ip_peak_A, n_ratio)
         Is_rms_A = flyback.secondary_rms_current(
-            spec, L_actual, Ip_peak_A, n_ratio,
+            spec,
+            L_actual,
+            Ip_peak_A,
+            n_ratio,
         )
         # Leakage inductance — empirical sandwich-winding default.
         # Layer count tracks the engine's own ``layers`` estimate
         # because more bobbin layers → more flux that doesn't link.
         L_leak_uH_out = flyback.leakage_inductance_uH(
-            L_actual, layout="sandwich", n_layers=max(layers, 2),
+            L_actual,
+            layout="sandwich",
+            n_layers=max(layers, 2),
         )
         V_drain_pk_V, V_diode_pk_V = flyback.reflected_voltages(
-            spec, n_ratio,
+            spec,
+            n_ratio,
         )
         P_snubber_W = flyback.snubber_dissipation_W(
-            L_leak_uH_out, Ip_peak_A, spec.f_sw_kHz,
-            n=n_ratio, Vout=spec.Vout_V,
+            L_leak_uH_out,
+            Ip_peak_A,
+            spec.f_sw_kHz,
+            n=n_ratio,
+            Vout=spec.Vout_V,
         )
         # Surface the secondary-side trace separately so the Análise
         # card's stacked-trace plot has both currents.
@@ -588,3 +656,85 @@ def design(
         ),
     )
     return res
+
+
+# ─── Fused thermal-converge fast path (Numba) ────────────────────
+
+
+def _try_fused_thermal(
+    *,
+    spec: Spec,
+    core: Core,
+    wire: Wire,
+    material: Material,
+    N: int,
+    layers: int,
+    fsw_Hz_for_skin: float,
+    fsw_kHz_for_loss: float,
+    I_rms_line: float,
+    I_rip_rms: float,
+    B_pk_for_loss: float,
+    delta_B_avg_T: float,
+    delta_B_pp_T_array,
+    A_surface: float,
+    T_amb: float,
+    T_init: float,
+):
+    """Hand the thermal-converge + total-loss block to the Numba
+    fused kernel when it's available.
+
+    Returns ``(T_final, P_total, P_cu_dc, P_cu_ac, P_core_line,
+    P_core_ripple, converged)`` — or ``None`` to signal the
+    caller should use the per-leaf fallback (kernel not
+    installed, or material lacks Steinmetz coefficients).
+    """
+    try:
+        from pfc_inductor.physics.fused_kernel import (
+            WIRE_LITZ,
+            WIRE_OTHER,
+            WIRE_ROUND,
+            fused_converge,
+        )
+    except ImportError:
+        return None
+    if material.steinmetz is None:
+        return None
+    s = material.steinmetz
+
+    if wire.type == "round" and wire.d_cu_mm:
+        wire_kind = WIRE_ROUND
+        d_cu_m = float(wire.d_cu_mm) * 1e-3
+        d_strand_m = 0.0
+        n_strands = 0
+    elif wire.type == "litz" and wire.d_strand_mm and wire.n_strands:
+        wire_kind = WIRE_LITZ
+        d_cu_m = 0.0
+        d_strand_m = float(wire.d_strand_mm) * 1e-3
+        n_strands = int(wire.n_strands)
+    else:
+        wire_kind = WIRE_OTHER
+        d_cu_m = 0.0
+        d_strand_m = 0.0
+        n_strands = 0
+
+    return fused_converge(
+        spec_T_amb_C=float(T_amb),
+        spec_f_line_Hz=float(spec.f_line_Hz),
+        A_surface_m2=float(A_surface),
+        T_init_C=float(T_init),
+        N=int(N), MLT_mm=float(core.MLT_mm),
+        A_cu_mm2=float(wire.A_cu_mm2),
+        fsw_Hz_skin=float(fsw_Hz_for_skin),
+        fsw_kHz_loss=float(fsw_kHz_for_loss),
+        layers=int(layers), wire_kind=int(wire_kind),
+        d_cu_m=d_cu_m, d_strand_m=d_strand_m, n_strands=n_strands,
+        I_dc_line=float(I_rms_line), I_rip_rms=float(I_rip_rms),
+        B_pk_for_loss_T=float(B_pk_for_loss),
+        delta_B_avg_T=float(delta_B_avg_T),
+        delta_B_pp_T_array=delta_B_pp_T_array,
+        Ve_mm3=float(core.Ve_mm3),
+        Pv_ref=float(s.Pv_ref_mWcm3), alpha=float(s.alpha),
+        beta=float(s.beta), B_ref_mT=float(s.B_ref_mT),
+        f_ref_kHz=float(s.f_ref_kHz),
+        f_min_kHz=float(s.f_min_kHz),
+    )

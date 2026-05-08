@@ -82,32 +82,49 @@ For a 4-person team shipping every couple of weeks, it's not worth it.
 
 ## What gives bigger wins for less cost
 
-### Option 1 — Numba `@njit` (recommended)
+### Option 1 — Numba `@njit` (recommended, **shipped**)
 
-Drop-in `@numba.njit` decorator on the hot functions. **Verified
-proof of concept on a Steinmetz-style inner loop:**
+Drop-in `@numba.njit` decorator on the hot functions. **Real
+benchmark on the 600 W boost-PFC reference, MacBook M1:**
 
 ```text
-Pure Python (current):  48.98 µs/call  → 20 418 cand/s
-Numba JIT:               0.91 µs/call  → 1 101 064 cand/s
-Speedup:                 53.9×
+(0) ALL Numba OFF (pure numpy):      0.185 ms/call  →  5 401 cand/s
+(1) 5 per-leaf kernels:              0.098 ms/call  → 10 203 cand/s   (1.89×)
+(2) Fused thermal-converge kernel:   0.072 ms/call  → 13 858 cand/s   (2.57×)
 ```
 
-The 54× number is on a synthetic benchmark mimicking the inner loop.
-On the full `engine.design()`, the realistic speedup is around
-**3-5×** because the per-design overhead (Pydantic validation,
-catalogue lookups) doesn't move. That still translates to:
+The 6 kernels live in:
 
-- Tier 1 throughput: 4.6 k → ~20 k cand/s single-core.
-- Cascade wall time on 1 M candidates: ~10 s → ~3 s on 4 cores.
+- `physics/core_loss.py` — iGSE time-average + Steinmetz scalar
+- `physics/dowell.py` — Rac_over_Rdc_round + Rac_over_Rdc_litz
+- `design/engine.py` — _solve_N binary-search loop
+- `physics/fused_kernel.py` — **the big win** — collapses the
+  thermal-converge block (6 iterations × 5 leaf calls) into one
+  Numba kernel that runs in compiled native code without ever
+  returning to Python
+
+For a typical cascade sweep (1 M candidates × 4-core parallel
+pool):
+
+- Before Numba: 1 M / (5 401 × 4) = **~46 s**
+- After Numba:  1 M / (13 858 × 4) = **~18 s**
+
+Saved 28 s per million candidates per run. The per-leaf kernels
+alone (1.89×) are the conservative win; the fused kernel (1.36×
+on top of that) is the cherry.
 
 Cost:
 
-- One `@njit(cache=True)` decorator per hot function (~5 functions).
-- ~50 MB Numba+LLVM in the PyInstaller bundle (current bundle is
-  620 MB, so +8 %).
+- 6 `@njit(fastmath=True, cache=True)` decorators (~150 LOC of
+  factory + kernel code total).
+- ~50 MB Numba+LLVM in the PyInstaller bundle (+8 % on the
+  current 620 MB), gated behind the `[performance]` extra so
+  users on disk-constrained PCs can opt out.
 - First call after install pays ~500 ms JIT compile; cached on
   subsequent runs.
+- `fastmath=True` allows LLVM to reorder FP ops, which shifts
+  loss numbers by < 0.5 % relative — well within the engine's
+  own engineering precision (Steinmetz fit residual ≈ 5 %).
 
 ### Option 2 — Vectorize Tier 1 across candidates (orthogonal)
 

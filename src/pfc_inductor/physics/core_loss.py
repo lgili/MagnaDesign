@@ -31,10 +31,27 @@ from pfc_inductor.models import Material
 
 
 def steinmetz_volumetric_mWcm3(material: Material, f_kHz: float, B_pk_mT: float) -> float:
-    """Pv [mW/cm^3] anchored at (f_ref, B_ref, Pv_ref)."""
+    """Pv [mW/cm^3] anchored at (f_ref, B_ref, Pv_ref).
+
+    Hot scalar — called twice per ``core_loss_W_pfc`` invocation
+    (line band + ripple-band fallback) and once per
+    ``core_loss_W_sinusoidal``. The Numba kernel (when the
+    ``[performance]`` extra is installed) runs the same math
+    inline; the pure-Python branch below is the fallback.
+    """
     s = material.steinmetz
     if f_kHz < s.f_min_kHz:
         return 0.0
+    if _STEINMETZ_KERNEL is not None:
+        return _STEINMETZ_KERNEL(
+            float(f_kHz),
+            float(B_pk_mT),
+            float(s.Pv_ref_mWcm3),
+            float(s.f_ref_kHz),
+            float(s.B_ref_mT),
+            float(s.alpha),
+            float(s.beta),
+        )
     f = max(f_kHz, 1e-3)
     B = max(B_pk_mT, 1e-6)
     return s.Pv_ref_mWcm3 * (f / s.f_ref_kHz) ** s.alpha * (B / s.B_ref_mT) ** s.beta
@@ -50,6 +67,28 @@ def core_loss_W_sinusoidal(
     Pv_mW_cm3 = steinmetz_volumetric_mWcm3(material, f_kHz, B_pk_T * 1000.0)
     Ve_cm3 = Ve_mm3 * 1e-3
     return Pv_mW_cm3 * Ve_cm3 * 1e-3
+
+
+def _build_steinmetz_kernel():
+    """Compile :func:`steinmetz_volumetric_mWcm3` with Numba if
+    available. The kernel takes Pydantic-resolved coefficients
+    as scalars so attribute access is paid once (in the wrapper)
+    rather than per-call."""
+    try:
+        from numba import njit
+    except ImportError:
+        return None
+
+    @njit(fastmath=True, cache=True)
+    def _kernel(f_kHz, B_pk_mT, Pv_ref, f_ref_kHz, B_ref_mT, alpha, beta):
+        f = f_kHz if f_kHz > 1e-3 else 1e-3
+        B = B_pk_mT if B_pk_mT > 1e-6 else 1e-6
+        return Pv_ref * (f / f_ref_kHz) ** alpha * (B / B_ref_mT) ** beta
+
+    return _kernel
+
+
+_STEINMETZ_KERNEL = _build_steinmetz_kernel()
 
 
 def core_loss_W_pfc_ripple_iGSE(
@@ -77,9 +116,15 @@ def core_loss_W_pfc_ripple_iGSE(
     arr = np.asarray(delta_B_pp_T_array, dtype=float)
 
     if _NUMBA_KERNEL is not None:
-        Pv_avg_mW_cm3 = float(_NUMBA_KERNEL(
-            arr, s.Pv_ref_mWcm3, f_factor, s.B_ref_mT, s.beta,
-        ))
+        Pv_avg_mW_cm3 = float(
+            _NUMBA_KERNEL(
+                arr,
+                s.Pv_ref_mWcm3,
+                f_factor,
+                s.B_ref_mT,
+                s.beta,
+            )
+        )
     else:
         B_pk_mT = np.maximum(arr * 1000.0 / 2.0, 1e-6)
         Pv_per_t = s.Pv_ref_mWcm3 * f_factor * (B_pk_mT / s.B_ref_mT) ** s.beta
@@ -102,6 +147,7 @@ def core_loss_W_pfc_ripple_iGSE(
 # stays None and we use the pure-numpy fallback. Same numbers,
 # same accuracy — just slower.
 
+
 def _build_numba_kernel():
     """Compile the iGSE-mean kernel with Numba if available.
 
@@ -110,7 +156,7 @@ def _build_numba_kernel():
     cached in ``_NUMBA_KERNEL``.
     """
     try:
-        from numba import njit  # noqa: F401 (used inline below)
+        from numba import njit
     except ImportError:
         return None
 
