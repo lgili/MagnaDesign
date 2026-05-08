@@ -274,6 +274,17 @@ def _run_gui(argv: list[str]) -> int:
     app.setApplicationName(SETTINGS_APP)
     app.setOrganizationName(SETTINGS_ORG)
 
+    # Crash reporter — opt-in, no-op when consent isn't granted
+    # or the SDK / DSN aren't configured. Initialised right after
+    # the QApplication so it can read QSettings; before any
+    # heavy MainWindow construction so a crash during startup
+    # is still captured.
+    try:
+        from pfc_inductor.telemetry import init_crash_reporter
+        init_crash_reporter()
+    except Exception:  # noqa: BLE001 — telemetry must never crash boot
+        pass
+
     # ---- Cross-platform style normalisation ---------------------------
     # macOS defaults to the native ``macintosh`` style which IGNORES
     # large parts of QSS (QPushButton stays white-rounded, QToolButton

@@ -44,6 +44,13 @@ dev = [
     "mypy>=1.10",
     "black>=24.0",
 ]
+# Opt-in crash reporting + usage analytics — the runtime degrades
+# to a no-op when this extra isn't installed (defensive imports
+# in ``pfc_inductor.telemetry``). Enable with
+# ``uv pip install -e ".[telemetry]"`` on the maintainer build.
+telemetry = [
+    "sentry-sdk>=2.0",
+]
 # FEA validation backend (FEMMT). Pinned because FEMMT 0.5.x has hard
 # constraints on scipy and setuptools that conflict with newer wheels.
 # Install with `uv pip install -e ".[fea]"` on Python 3.12.
