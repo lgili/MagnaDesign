@@ -93,20 +93,20 @@ class ResultPanel(QWidget):
         return value
 
     def _build_inductance_box(self) -> QGroupBox:
-        box = QGroupBox("INDUTÂNCIA E VOLTAS")
+        box = QGroupBox("INDUCTANCE AND TURNS")
         form = QFormLayout(box)
         form.setHorizontalSpacing(10)
         form.setVerticalSpacing(3)
         form.setContentsMargins(4, 2, 4, 2)
-        self.l_required = self._kpi_row(form, "L necessária")
-        self.l_actual   = self._kpi_row(form, "L atual (rolloff)", strong=True)
-        self.l_n        = self._kpi_row(form, "Voltas N")
-        self.l_mu       = self._kpi_row(form, "μ% no pico DC")
+        self.l_required = self._kpi_row(form, "L required")
+        self.l_actual   = self._kpi_row(form, "L actual (rolloff)", strong=True)
+        self.l_n        = self._kpi_row(form, "Turns N")
+        self.l_mu       = self._kpi_row(form, "μ% at DC peak")
         # Line reactor extras (filled only when topology = line_reactor;
         # rows are hidden otherwise via row visibility toggle).
-        self.l_pctZ     = self._kpi_row(form, "% Z atual")
-        self.l_vdrop    = self._kpi_row(form, "Queda de tensão")
-        self.l_thd      = self._kpi_row(form, "THD estimada")
+        self.l_pctZ     = self._kpi_row(form, "% Z actual")
+        self.l_vdrop    = self._kpi_row(form, "Voltage drop")
+        self.l_thd      = self._kpi_row(form, "Estimated THD")
         self._lr_form = form
         self._lr_rows = (self.l_pctZ, self.l_vdrop, self.l_thd)
         for w in self._lr_rows:
@@ -117,45 +117,45 @@ class ResultPanel(QWidget):
         return box
 
     def _build_currents_box(self) -> QGroupBox:
-        box = QGroupBox("CORRENTES")
+        box = QGroupBox("CURRENTS")
         form = QFormLayout(box)
         form.setHorizontalSpacing(10)
         form.setVerticalSpacing(3)
         form.setContentsMargins(4, 2, 4, 2)
-        self.l_ipk_line   = self._kpi_row(form, "I pico de linha")
-        self.l_irms_line  = self._kpi_row(form, "I RMS de linha")
-        self.l_ripple_max = self._kpi_row(form, "Ripple máx pp")
-        self.l_ipk_total  = self._kpi_row(form, "I pico total")
-        self.l_irms_total = self._kpi_row(form, "I RMS total")
+        self.l_ipk_line   = self._kpi_row(form, "Line peak I")
+        self.l_irms_line  = self._kpi_row(form, "Line RMS I")
+        self.l_ripple_max = self._kpi_row(form, "Max ripple pp")
+        self.l_ipk_total  = self._kpi_row(form, "Total peak I")
+        self.l_irms_total = self._kpi_row(form, "Total RMS I")
         return box
 
     def _build_flux_box(self) -> QGroupBox:
-        box = QGroupBox("FLUXO MAGNÉTICO")
+        box = QGroupBox("MAGNETIC FLUX")
         form = QFormLayout(box)
         form.setHorizontalSpacing(10)
         form.setVerticalSpacing(3)
         form.setContentsMargins(4, 2, 4, 2)
-        self.l_h          = self._kpi_row(form, "H pico DC")
-        self.l_b          = self._kpi_row(form, "B pico", strong=True)
-        self.l_bsat       = self._kpi_row(form, "B limite (Bsat·(1−margem))")
-        self.l_satmargin  = self._kpi_row(form, "Margem de saturação")
+        self.l_h          = self._kpi_row(form, "Peak DC H")
+        self.l_b          = self._kpi_row(form, "Peak B", strong=True)
+        self.l_bsat       = self._kpi_row(form, "B limit (Bsat·(1−margin))")
+        self.l_satmargin  = self._kpi_row(form, "Saturation margin")
         return box
 
     def _build_loss_box(self) -> QGroupBox:
-        box = QGroupBox("PERDAS")
+        box = QGroupBox("LOSSES")
         form = QFormLayout(box)
         form.setHorizontalSpacing(10)
         form.setVerticalSpacing(3)
         form.setContentsMargins(4, 2, 4, 2)
         self.l_p_cu_dc      = self._kpi_row(form, "Cu DC")
         self.l_p_cu_ac      = self._kpi_row(form, "Cu AC (fsw)")
-        self.l_p_core_line  = self._kpi_row(form, "Núcleo (rede)")
-        self.l_p_core_ripple= self._kpi_row(form, "Núcleo (ripple)")
+        self.l_p_core_line  = self._kpi_row(form, "Core (line)")
+        self.l_p_core_ripple= self._kpi_row(form, "Core (ripple)")
         self.l_p_total      = self._kpi_row(form, "Total", strong=True)
         return box
 
     def _build_thermal_box(self) -> QGroupBox:
-        box = QGroupBox("TÉRMICO")
+        box = QGroupBox("THERMAL")
         form = QFormLayout(box)
         form.setHorizontalSpacing(10)
         form.setVerticalSpacing(3)
@@ -181,10 +181,10 @@ class ResultPanel(QWidget):
         form.setHorizontalSpacing(10)
         form.setVerticalSpacing(3)
         form.setContentsMargins(4, 2, 4, 2)
-        self.l_cost_core  = self._kpi_row(form, "Núcleo")
-        self.l_cost_wire  = self._kpi_row(form, "Cobre (fio)")
+        self.l_cost_core  = self._kpi_row(form, "Core")
+        self.l_cost_wire  = self._kpi_row(form, "Copper (wire)")
         self.l_cost_total = self._kpi_row(form, "Total", strong=True)
-        self.l_cost_meta  = self._kpi_row(form, "Comprim. · massa fio")
+        self.l_cost_meta  = self._kpi_row(form, "Wire length · mass")
         return box
 
     def _build_warnings_box(self) -> QGroupBox:
@@ -207,10 +207,10 @@ class ResultPanel(QWidget):
 
         # Header pill: feasibility status.
         if r.is_feasible():
-            self.l_pill.setText("FACTÍVEL")
+            self.l_pill.setText("FEASIBLE")
             self.l_pill.setProperty("pill", "success")
         else:
-            self.l_pill.setText(f"⚠ {len(r.warnings)} AVISO(S)")
+            self.l_pill.setText(f"⚠ {len(r.warnings)} WARNING(S)")
             self.l_pill.setProperty("pill", "danger")
         self._restyle(self.l_pill)
 

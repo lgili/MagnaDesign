@@ -29,14 +29,14 @@ from PySide6.QtCore import QObject, QSettings, Signal
 # 8-step linear PFC inductor design workflow. Order is significant — index
 # in this tuple is the canonical `current_step` integer.
 WORKFLOW_STEPS: tuple[tuple[str, str], ...] = (
-    ("topologia",   "Topologia"),
-    ("entrada",     "Entrada de Dados"),
-    ("calculo",     "Cálculo"),
-    ("nucleo",      "Núcleo"),
-    ("bobinamento", "Bobinamento"),
-    ("simulacao",   "Simulação FEM"),
-    ("mecanico",    "Mecânico"),
-    ("relatorio",   "Relatório"),
+    ("topologia",   "Topology"),
+    ("entrada",     "Data Entry"),
+    ("calculo",     "Calculation"),
+    ("nucleo",      "Core"),
+    ("bobinamento", "Winding"),
+    ("simulacao",   "FEM Simulation"),
+    ("mecanico",    "Mechanical"),
+    ("relatorio",   "Report"),
 )
 
 

@@ -100,8 +100,8 @@ class CalculationController:
     def find_core(self, core_id: str) -> Core:
         return _find_or_raise(
             self._cores, core_id,
-            label="Núcleo",
-            hint="Atualize o catálogo (toolbar → Atualizar) ou edite a base de dados.",
+            label="Core",
+            hint="Update the catalog (toolbar → Update) or edit the database.",
         )
 
     def find_wire(self, wire_id: str) -> Wire:

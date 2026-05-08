@@ -46,10 +46,10 @@ class PlotPanel(QWidget):
         self.canvas_rolloff = _Canvas(self, n_axes=1)
         self.view_3d = CoreView3D(self)
 
-        self.tabs.addTab(self.view_3d, "Núcleo 3D")
-        self.tabs.addTab(self.canvas_iL, "Corrente do indutor")
-        self.tabs.addTab(self.canvas_loss, "Perdas")
-        self.tabs.addTab(self.canvas_bh, "Loop B–H")
+        self.tabs.addTab(self.view_3d, "Core 3D")
+        self.tabs.addTab(self.canvas_iL, "Inductor current")
+        self.tabs.addTab(self.canvas_loss, "Losses")
+        self.tabs.addTab(self.canvas_bh, "B–H loop")
         self.tabs.addTab(self.canvas_rolloff, "μ% vs H (rolloff)")
 
     def update_plots(
@@ -81,15 +81,15 @@ class PlotPanel(QWidget):
             if r.waveform_t_s and r.waveform_iL_A:
                 t_ms = np.array(r.waveform_t_s) * 1000.0
                 iL_pk = np.array(r.waveform_iL_A)
-                ax.plot(t_ms, iL_pk, label="iL pico (envelope + ripple)", linewidth=1.5)
+                ax.plot(t_ms, iL_pk, label="iL peak (envelope + ripple)", linewidth=1.5)
                 ax.fill_between(t_ms, 0, iL_pk, alpha=0.15)
                 ax.set_xlabel("t [ms]")
                 ax.set_ylabel("iL [A]")
-                ax.set_title("Corrente no indutor — meio ciclo de rede")
+                ax.set_title("Inductor current — half line cycle")
                 ax.grid(True, alpha=0.4)
                 ax.legend(loc="upper right")
             else:
-                ax.text(0.5, 0.5, "Sem waveform (escolha boost CCM ou reator de linha)",
+                ax.text(0.5, 0.5, "No waveform (pick boost CCM or line reactor)",
                         ha="center", va="center", transform=ax.transAxes)
         self.canvas_iL.draw()
 
@@ -97,12 +97,12 @@ class PlotPanel(QWidget):
         ax = self.canvas_loss.ax
         ax.clear()
         L = r.losses
-        labels = ["Cu DC", "Cu AC", "Núcleo (rede)", "Núcleo (ripple)"]
+        labels = ["Cu DC", "Cu AC", "Core (line)", "Core (ripple)"]
         values = [L.P_cu_dc_W, L.P_cu_ac_W, L.P_core_line_W, L.P_core_ripple_W]
         colors = ["#3a78b5", "#7eaee0", "#b53a3a", "#e07e7e"]
         bars = ax.bar(labels, values, color=colors)
-        ax.set_ylabel("Perda [W]")
-        ax.set_title(f"Perdas (total = {L.P_total_W:.2f} W)")
+        ax.set_ylabel("Loss [W]")
+        ax.set_title(f"Losses (total = {L.P_total_W:.2f} W)")
         ax.grid(True, axis="y", alpha=0.4)
         for b, v in zip(bars, values, strict=False):
             ax.text(b.get_x() + b.get_width() / 2, v + 0.02, f"{v:.2f}",
@@ -117,13 +117,13 @@ class PlotPanel(QWidget):
                 tr = compute_bh_trajectory(r, core, material)
             except Exception as e:
                 tr = None
-                ax.text(0.5, 0.5, f"Não foi possível computar B–H:\n{e}",
+                ax.text(0.5, 0.5, f"Could not compute B–H:\n{e}",
                         ha="center", va="center", transform=ax.transAxes,
                         color="#a01818")
             if tr is not None:
                 # Static curve in light gray
                 ax.plot(tr["H_static_Oe"], tr["B_static_T"] * 1000.0,
-                        color="#bbb", linewidth=1.2, label="Curva estática")
+                        color="#bbb", linewidth=1.2, label="Static curve")
                 # Bsat horizontal line
                 ax.axhline(tr["Bsat_T"] * 1000.0, color="#a01818",
                            linestyle="--", alpha=0.6, linewidth=1.0,
@@ -131,7 +131,7 @@ class PlotPanel(QWidget):
                 # Slow envelope trace
                 ax.plot(tr["H_envelope_Oe"], tr["B_envelope_T"] * 1000.0,
                         color="#3a78b5", linewidth=1.8, alpha=0.9,
-                        label="Envelope de rede")
+                        label="Line envelope")
                 # Ripple overlay
                 if tr["H_ripple_Oe"] is not None:
                     ax.plot(tr["H_ripple_Oe"], tr["B_ripple_T"] * 1000.0,

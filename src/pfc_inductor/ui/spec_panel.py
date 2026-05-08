@@ -60,11 +60,11 @@ class SpecPanel(QWidget):
         body.setContentsMargins(12, 12, 12, 4)
         body.setSpacing(8)
 
-        title = QLabel("Especificação")
+        title = QLabel("Specification")
         title.setProperty("role", "title")
         body.addWidget(title)
 
-        # Topology lives in the SpecDrawer's "Alterar Topologia" header
+        # Topology lives in the SpecDrawer's "Change Topology" header
         # button (single source of truth). We hold the canonical state
         # here so ``get_spec()`` and the converter / line-reactor box
         # visibility remain reactive.
@@ -114,7 +114,7 @@ class SpecPanel(QWidget):
         self.sp_l_req = self._dspin(0.1, 1000, 10.0, 0.1, " mH")
         form.addRow("V de linha:", self.sp_vline)
         form.addRow("I nominal (RMS):", self.sp_irated)
-        form.addRow("Indutância alvo:", self.sp_l_req)
+        form.addRow("Target inductance:", self.sp_l_req)
         return box
 
     # ------------------------------------------------------------------
@@ -186,13 +186,13 @@ class SpecPanel(QWidget):
         self.sp_ripple = self._dspin(5, 100, 30.0, 1.0, " %")
         form.addRow("Vout (DC bus):", self.sp_vout)
         form.addRow("Pout:", self.sp_pout)
-        form.addRow("Eficiência:", self.sp_eta)
+        form.addRow("Efficiency:", self.sp_eta)
         form.addRow("fsw:", self.sp_fsw)
         form.addRow("Ripple pico-pico:", self.sp_ripple)
         return box
 
     def _build_thermal_box(self) -> QGroupBox:
-        box = QGroupBox("TÉRMICO / JANELA")
+        box = QGroupBox("THERMAL / WINDOW")
         form = QFormLayout(box)
         self.sp_tamb = self._dspin(-20, 80, 40.0, 1.0, " °C")
         self.sp_tmax = self._dspin(60, 180, 125.0, 1.0, " °C")

@@ -19,12 +19,12 @@ from pfc_inductor.ui.theme import get_theme, on_theme_changed
 
 # (icon-name, signal-attr, tooltip)
 _BUTTONS = (
-    ("maximize-2",   "fullscreen_requested",  "Tela cheia"),
+    ("maximize-2",   "fullscreen_requested",  "Fullscreen"),
     ("image",        "screenshot_requested",  "Screenshot (PNG)"),
-    ("layers",       None,                     "Camadas"),
-    ("crop",         "section_toggled",       "Corte"),
-    ("ruler",        "measure_toggled",       "Medidas"),
-    ("settings-2",   "settings_requested",    "Configurações"),
+    ("layers",       None,                     "Layers"),
+    ("crop",         "section_toggled",       "Section"),
+    ("ruler",        "measure_toggled",       "Measure"),
+    ("settings-2",   "settings_requested",    "Settings"),
 )
 
 
