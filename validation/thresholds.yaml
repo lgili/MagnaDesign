@@ -1,0 +1,31 @@
+# Acceptance thresholds — predicted vs. measured per-metric tolerance.
+#
+# Each entry sets the *signed* percentage band a measurement may sit
+# within while still counting as a PASS. A notebook overrides
+# project-locally when its design exercises a known physics edge
+# case; the override must cite the reason in the same commit.
+#
+# Loosen with care. Thresholds tighter than these mean the model
+# can be sharpened — file a bug. Thresholds looser than these mean
+# the model is admitting a gap; document the gap in the design's
+# build.md and create a follow-up issue.
+#
+# References for the band choices:
+#   - L: ±5 % matches Magnetics Inc. AL spread + leakage measurement
+#     uncertainty on a Keysight E4990.
+#   - Bsat: ±8 % covers IEC 60401-3 lot-to-lot Bsat variation plus
+#     B-coil integrator drift over a 60 Hz cycle.
+#   - dT: ±10 °C absolute, applied additively. Matches FLIR thermal
+#     repeatability + bench-air convection variability.
+#   - Pcu: ±15 % covers Dowell formula's known under-prediction of
+#     proximity loss in dense Litz at high I.
+#   - Pcore: ±20 % is the Steinmetz fit's typical per-material
+#     residual; we don't tighten until iGSE calibration data lets us.
+
+inductance_pct: 5.0       # |L_predicted - L_measured| / L_measured × 100
+flux_density_pct: 8.0     # |B_pk_predicted - B_pk_measured| / B_pk_measured × 100
+temperature_C: 10.0       # absolute °C delta on T_winding
+copper_loss_pct: 15.0     # |P_cu_predicted - P_cu_measured| / P_cu_measured × 100
+core_loss_pct: 20.0       # |P_core_predicted - P_core_measured| / P_core_measured × 100
+total_loss_pct: 15.0      # |P_total_predicted - P_total_measured| / P_total_measured × 100
+ac_resistance_pct: 25.0   # AC R at fsw — Dowell's roughest output

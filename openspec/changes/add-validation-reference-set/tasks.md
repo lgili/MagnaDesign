@@ -2,20 +2,36 @@
 
 ## Phase 1 — Software scaffolding (no bench needed)
 
-- [ ] `validation/README.md` — explain the directory's contract:
-      one folder per design, mandatory files, acceptance thresholds.
-- [ ] Define acceptance thresholds in `validation/thresholds.yaml`:
-      `L_pct: ±5`, `Bpk_pct: ±8`, `dT_C: ±10`, `Pcu_pct: ±15`,
-      `Pcore_pct: ±20`. Loosened where physics has known dispersion.
-- [ ] `validation/lib/measure_loader.py` — Pydantic model parsing
-      `measurements.csv` into a typed `MeasurementSet` (Z-vs-f
-      table, B-coil scope, thermal map, line-cycle waveforms).
-- [ ] `validation/lib/compare.py` — given a `MeasurementSet` and
-      a `DesignResult`, return per-metric (predicted, measured,
-      pct_delta, threshold, pass) tuples.
-- [ ] `validation/lib/notebook_template.ipynb` — copy-paste skeleton
-      that any new design can clone: load spec, run engine, run FEA,
-      load measurements, render plots, emit PASS/FAIL summary.
+- [x] `validation/README.md` — explain the directory's contract:
+      one folder per design, mandatory files, acceptance thresholds,
+      onboarding flow ("how to add a new reference").
+- [x] Define acceptance thresholds in `validation/thresholds.yaml`:
+      `L_pct: 5`, `Bpk_pct: 8`, `dT_C: 10` (absolute °C),
+      `Pcu_pct: 15`, `Pcore_pct: 20`, `total_loss_pct: 15`,
+      `R_ac_pct: 25`. Each tolerance carries an inline citation
+      explaining the band choice (Magnetics AL spread, IEC 60401-3
+      lot variation, Dowell residual, etc.).
+- [x] `validation/lib/measure_loader.py` — typed
+      `Measurement` + `MeasurementSet` containers parsing
+      long-form CSV (one row per metric × condition × frequency).
+      SI suffix tolerant (``510u``, ``65k``), defensive against
+      malformed rows (skip + stderr warning, never crash the load).
+      Plus `load_thresholds(yaml)` companion.
+- [x] `validation/lib/compare.py` — `compare(result,
+      measurements, thresholds)` returns
+      ``(list[MetricComparison], PassFailSummary)``. Built-in
+      DSL maps each threshold key to a `DesignResult` attribute
+      with optional unit-scaling (`L_actual_uH * 1e-6` to match
+      bench henries). Missing measurements surface as "no
+      measurement" entries — never silently dropped.
+- [x] `validation/lib/notebook_template.ipynb` — 5-cell skeleton
+      tagged ``load`` / ``engine`` / ``compare`` / ``plots`` /
+      ``summary``. The summary cell asserts ``summary.all_passed``
+      so papermill exit codes regress on regressions.
+- [x] `tests/test_validation_lib.py` — 11 tests covering SI-suffix
+      parsing, malformed-row skip, threshold YAML loader, exact-
+      match passes, 50 %-disagreement fails, missing-measurement
+      "skip" entries, render_summary verdict line.
 
 ## Phase 2 — First reference design (`boost-600w-magnetics`)
 
