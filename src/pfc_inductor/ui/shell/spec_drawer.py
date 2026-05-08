@@ -89,17 +89,29 @@ class SpecDrawer(QFrame):
         h.addWidget(self._toggle_btn, 0)
         outer.addWidget(self._header)
 
-        # ---- Topology shortcut row ---------------------------------------
+        # ---- Topology indicator row -- single source of truth ------------
+        # The button shows the *current* topology and acts as the only
+        # affordance for changing it. The combobox that used to live
+        # inside ``SpecPanel`` was removed; both widgets fronted the
+        # same Spec field and the user could desync them by editing
+        # the combobox directly without going through the picker
+        # dialog.
         self._topo_row = QFrame()
         self._topo_row.setStyleSheet(self._sub_qss())
         tr = QHBoxLayout(self._topo_row)
         tr.setContentsMargins(14, 8, 14, 8)
         tr.setSpacing(8)
-        self._btn_change_topo = QPushButton("Alterar Topologia")
+        self._btn_change_topo = QPushButton(self._topology_button_label(
+            "boost_ccm", 1,
+        ))
         self._btn_change_topo.setProperty("class", "Secondary")
         self._btn_change_topo.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_change_topo.setIcon(
             ui_icon("git-branch", color=get_theme().palette.text, size=14)
+        )
+        self._btn_change_topo.setToolTip(
+            "Topologia atual — clique para alterar (abre o seletor "
+            "com pré-visualização do esquemático).",
         )
         self._btn_change_topo.clicked.connect(self.topology_change_requested.emit)
         tr.addWidget(self._btn_change_topo, 1)
@@ -108,6 +120,12 @@ class SpecDrawer(QFrame):
         # ---- Embedded SpecPanel ------------------------------------------
         self._spec_panel = SpecPanel(parent=self)
         self._spec_panel.calculate_requested.connect(self.calculate_requested.emit)
+        # Keep the drawer's topology button label in sync whenever the
+        # panel's internal state changes (e.g. via ``set_topology`` from
+        # MainWindow after the picker dialog returns).
+        self._spec_panel.topology_changed.connect(
+            self._on_spec_topology_changed,
+        )
         outer.addWidget(self._spec_panel, 1)
 
         # Collapsed state has no extra body — the chevron toggle in the
@@ -126,6 +144,31 @@ class SpecDrawer(QFrame):
         self._apply_state()
 
         on_theme_changed(self._refresh_qss)
+
+    # ------------------------------------------------------------------
+    # Topology label — driven by the SpecPanel's state.
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _topology_button_label(topology: str, n_phases: int = 1) -> str:
+        """Pretty label for the Alterar-Topologia button.
+
+        Centralised so the picker dialog's options and this row read
+        the same set of names — see ``topology_picker_choices()`` for
+        the canonical English labels.
+        """
+        if topology == "boost_ccm":
+            return "Topologia: PFC ativo (boost CCM)"
+        if topology == "passive_choke":
+            return "Topologia: Choke passivo"
+        if topology == "line_reactor":
+            phase_label = "3φ" if n_phases == 3 else "1φ"
+            return f"Topologia: Reator de linha {phase_label}"
+        return f"Topologia: {topology}"
+
+    def _on_spec_topology_changed(self, topology: str, n_phases: int) -> None:
+        self._btn_change_topo.setText(
+            self._topology_button_label(topology, n_phases),
+        )
 
     # ------------------------------------------------------------------
     # Public API — accessors that proxy to the embedded SpecPanel so

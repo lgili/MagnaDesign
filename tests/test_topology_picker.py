@@ -86,7 +86,49 @@ def test_main_window_topology_picker_applies_to_spec_panel(app, monkeypatch):
     w._open_topology_picker()
 
     # The spec panel (now hosted inside the SpecDrawer) should reflect
-    # the chosen topology.
+    # the chosen topology via the new ``topology()`` accessor — the
+    # ``cmb_topology`` QComboBox was removed when the SpecDrawer's
+    # "Alterar Topologia" button became the single source of truth.
     sp = w.projeto_page.spec_panel
-    assert sp.cmb_topology.currentData() == "passive_choke"
+    assert sp.topology() == "passive_choke"
+    assert sp.get_spec().topology == "passive_choke"
+    # Drawer button label tracks the SpecPanel's ``topology_changed``.
+    assert "Choke passivo" in w.projeto_page.drawer._btn_change_topo.text()
     w.close()
+
+
+def test_spec_panel_set_topology_aliases_line_reactor_variants(app):
+    """``line_reactor_1ph`` / ``line_reactor_3ph`` from the picker map
+    to the canonical ``line_reactor`` Spec key + matching n_phases."""
+    from pfc_inductor.ui.spec_panel import SpecPanel
+
+    sp = SpecPanel()
+    sp.set_topology("line_reactor_3ph")
+    assert sp.topology() == "line_reactor"
+    assert sp.n_phases() == 3
+    sp.set_topology("line_reactor_1ph")
+    assert sp.topology() == "line_reactor"
+    assert sp.n_phases() == 1
+
+
+def test_spec_panel_set_topology_idempotent_on_same_value(app):
+    """Re-applying the same topology must not fire ``changed`` —
+    otherwise MainWindow's debounced recalc thrashes."""
+    from pfc_inductor.ui.spec_panel import SpecPanel
+
+    sp = SpecPanel()
+    sp.set_topology("boost_ccm")
+    n_emitted: list[None] = []
+    sp.changed.connect(lambda: n_emitted.append(None))
+    sp.set_topology("boost_ccm")  # no-op
+    assert n_emitted == []
+    sp.set_topology("passive_choke")
+    assert len(n_emitted) == 1
+
+
+def test_spec_panel_rejects_unknown_topology(app):
+    from pfc_inductor.ui.spec_panel import SpecPanel
+
+    sp = SpecPanel()
+    with pytest.raises(ValueError):
+        sp.set_topology("not_a_topology")
