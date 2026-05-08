@@ -34,6 +34,7 @@ from pfc_inductor.worst_case.engine import (
     WorstCaseConfig,
     WorstCaseSummary,
     evaluate_corners,
+    sensitivity_table,
 )
 from pfc_inductor.worst_case.monte_carlo import (
     YieldReport,
@@ -58,5 +59,6 @@ __all__ = [
     "YieldReport",
     "evaluate_corners",
     "load_tolerance_set",
+    "sensitivity_table",
     "simulate_yield",
 ]

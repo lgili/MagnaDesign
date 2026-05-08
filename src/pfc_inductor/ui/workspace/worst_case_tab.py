@@ -60,6 +60,7 @@ from pfc_inductor.worst_case import (
     WorstCaseSummary,
     YieldReport,
     evaluate_corners,
+    sensitivity_table,
     simulate_yield,
 )
 
@@ -266,6 +267,35 @@ class WorstCaseTab(QWidget):
 
         outer.addWidget(Card("Yield estimate (Monte-Carlo)", yield_body))
 
+        # ---- Sensitivity table -------------------------------------------
+        # Per-metric ranked sensitivity: which tolerance dominates
+        # the swing of T_winding / B_pk / P_total / T_rise. Lets the
+        # engineer answer "we're FAIL on ΔT — what tolerance should
+        # I tighten first?" without re-running with each axis
+        # individually. Populated from the same summary the worst-
+        # per-metric table consumes.
+        self._sensitivity_table = QTableWidget(0, 3)
+        self._sensitivity_table.setHorizontalHeaderLabels(
+            ["Metric", "Top tolerance", "Impact"],
+        )
+        self._sensitivity_table.setEditTriggers(
+            QTableWidget.EditTrigger.NoEditTriggers,
+        )
+        self._sensitivity_table.setSelectionMode(
+            QTableWidget.SelectionMode.NoSelection,
+        )
+        self._sensitivity_table.verticalHeader().setVisible(False)
+        self._sensitivity_table.setMinimumHeight(140)
+        sh = self._sensitivity_table.horizontalHeader()
+        sh.setSectionResizeMode(
+            0, QHeaderView.ResizeMode.ResizeToContents,
+        )
+        sh.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        sh.setSectionResizeMode(
+            2, QHeaderView.ResizeMode.ResizeToContents,
+        )
+        outer.addWidget(Card("Top tolerance per metric", self._sensitivity_table))
+
         outer.addStretch(1)
 
         on_theme_changed(self._refresh_qss)
@@ -367,6 +397,7 @@ class WorstCaseTab(QWidget):
 
     def _on_corners_done(self, summary: WorstCaseSummary) -> None:
         self._populate_worst_table(summary)
+        self._populate_sensitivity_table(summary)
         self._status.setText(
             f"Corner DOE: {summary.n_corners_evaluated} corners "
             f"({summary.n_corners_failed} engine failures).",
@@ -406,6 +437,52 @@ class WorstCaseTab(QWidget):
         self._thread = None
 
     # ------------------------------------------------------------------
+    def _populate_sensitivity_table(self, summary: WorstCaseSummary) -> None:
+        """One row per metric → top tolerance + impact magnitude.
+
+        Driven by :func:`pfc_inductor.worst_case.sensitivity_table`
+        which ranks tolerances by the absolute swing they cause in
+        each metric across the per-axis DOE rows. Shows only the
+        top-ranked tolerance per metric to keep the surface
+        scannable; full ranked dict is in the ``WorstCaseSummary``
+        for callers that want it.
+        """
+        table = sensitivity_table(summary)
+        metric_order = ("T_winding_C", "B_pk_T", "P_total_W", "T_rise_C")
+        rows: list[tuple[str, str, str]] = []
+        for metric in metric_order:
+            ranked = table.get(metric)
+            if not ranked:
+                continue
+            top_name, top_impact = ranked[0]
+            rows.append((
+                self._pretty_metric(metric),
+                top_name,
+                self._format_impact(metric, top_impact),
+            ))
+        self._sensitivity_table.setRowCount(len(rows))
+        for r, (metric, name, impact) in enumerate(rows):
+            self._sensitivity_table.setItem(r, 0, QTableWidgetItem(metric))
+            self._sensitivity_table.setItem(r, 1, QTableWidgetItem(name))
+            cell = QTableWidgetItem(impact)
+            cell.setTextAlignment(
+                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+            )
+            self._sensitivity_table.setItem(r, 2, cell)
+
+    @staticmethod
+    def _format_impact(metric: str, impact: float) -> str:
+        """Render the impact magnitude with the metric's natural
+        unit so the table reads correctly without a per-cell unit
+        column."""
+        if metric in ("T_winding_C", "T_rise_C"):
+            return f"±{impact:.1f} °C"
+        if metric == "B_pk_T":
+            return f"±{impact * 1000:.0f} mT"
+        if metric == "P_total_W":
+            return f"±{impact:.2f} W"
+        return f"±{impact:.3g}"
+
     def _populate_worst_table(self, summary: WorstCaseSummary) -> None:
         # Sorted so the most-engineered metric (T_winding) sits at the
         # top; the sweep result for boost / line-reactor differs in

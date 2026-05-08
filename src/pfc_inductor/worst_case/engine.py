@@ -363,6 +363,98 @@ def _delta_dict(
     return {tol.name: float(sign) for sign, tol in zip(signs, tols, strict=True)}
 
 
+def sensitivity_table(
+    summary: WorstCaseSummary,
+) -> dict[str, list[tuple[str, float]]]:
+    """Per-metric ranked sensitivity table.
+
+    For each tracked metric, computes ``∂metric / ∂tolerance`` by
+    finite differences across the corner DOE and returns the
+    tolerances ranked by absolute impact (largest first).
+
+    The "impact" is the metric range a single tolerance can swing
+    holding the others at zero — i.e. ``max(metric@+1) -
+    min(metric@-1)`` across corners where only the named tolerance
+    differs from nominal. With a fractional-factorial DOE this
+    isn't a perfect partial-derivative; it's a screening
+    sensitivity that surfaces the dominant contributors so the
+    engineer knows which tolerance to tighten when a design fails.
+
+    Returns ``{metric_key: [(tolerance_name, impact), …]}`` with
+    each list pre-sorted descending by impact.
+    """
+    if not summary.corners or not summary.worst_per_metric:
+        return {}
+
+    # Group corners by which tolerances are at non-zero positions.
+    # For the per-axis "+1" and "-1" rows in the fractional DOE,
+    # exactly one tolerance is non-zero; we pair those with the
+    # nominal centre to estimate per-tolerance swing.
+    nominal = summary.nominal
+    if nominal is None or nominal.result is None:
+        return {}
+
+    tolerance_names: set[str] = set()
+    for cr in summary.corners:
+        for name, sign in cr.deltas.items():
+            if sign != 0:
+                tolerance_names.add(name)
+
+    out: dict[str, list[tuple[str, float]]] = {}
+    metric_keys = list(summary.worst_per_metric.keys())
+
+    for metric in metric_keys:
+        nominal_value = _read_metric(nominal.result, metric)
+        if nominal_value is None:
+            continue
+        per_tolerance_impact: list[tuple[str, float]] = []
+        for tol_name in tolerance_names:
+            # Find the +1 and -1 corners for this tolerance with
+            # all other tolerances at 0 (the per-axis rows of the
+            # fractional DOE). When the DOE is full-factorial 3^N
+            # we get a perfect partial; for fractional we use
+            # any corner where this tolerance is the only signed
+            # axis.
+            plus_value: Optional[float] = None
+            minus_value: Optional[float] = None
+            for cr in summary.corners:
+                if cr.result is None:
+                    continue
+                non_zero = [
+                    (n, s) for n, s in cr.deltas.items() if s != 0
+                ]
+                if len(non_zero) != 1:
+                    continue
+                axis_name, axis_sign = non_zero[0]
+                if axis_name != tol_name:
+                    continue
+                v = _read_metric(cr.result, metric)
+                if v is None:
+                    continue
+                if axis_sign > 0:
+                    plus_value = v
+                elif axis_sign < 0:
+                    minus_value = v
+            if plus_value is None and minus_value is None:
+                continue
+            # Impact = max(|plus - nominal|, |minus - nominal|).
+            # For a missing branch we use the available one only.
+            impact_plus = (
+                abs(plus_value - nominal_value)
+                if plus_value is not None else 0.0
+            )
+            impact_minus = (
+                abs(minus_value - nominal_value)
+                if minus_value is not None else 0.0
+            )
+            impact = max(impact_plus, impact_minus)
+            if impact > 0:
+                per_tolerance_impact.append((tol_name, impact))
+        per_tolerance_impact.sort(key=lambda kv: -kv[1])
+        out[metric] = per_tolerance_impact
+    return out
+
+
 def _read_metric(result: DesignResult, metric: str) -> Optional[float]:
     """Pull a numeric metric off a DesignResult. Returns None for
     unknown metrics or non-finite values so the worst-case picker
