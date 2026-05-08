@@ -64,10 +64,10 @@ def generate_compare_html(slots: list[CompareSlot], output_path: str | Path) -> 
 
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
     html = f"""<!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Comparação de designs</title>
+<title>Design comparison</title>
 <style>
   body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
           max-width: 1400px; margin: 24px auto; padding: 0 24px; color: #222; }}
@@ -85,20 +85,20 @@ def generate_compare_html(slots: list[CompareSlot], output_path: str | Path) -> 
 </head>
 <body>
 
-<h1>Comparação de {n} designs</h1>
-<p class="meta">Gerado em {now}. Coluna 1 é a referência; verde = melhor,
-vermelho = pior.</p>
+<h1>Comparison of {n} designs</h1>
+<p class="meta">Generated on {now}. Column 1 is the reference;
+green = better, red = worse.</p>
 
-<h2>Especificações</h2>
+<h2>Specifications</h2>
 <table><thead><tr><th class="metric">Item</th>{head_cells}</tr></thead>
 <tbody>{spec_rows}</tbody></table>
 
-<h2>Seleção</h2>
+<h2>Selection</h2>
 <table><thead><tr><th class="metric">Item</th>{head_cells}</tr></thead>
 <tbody>{sel_rows}</tbody></table>
 
-<h2>Métricas comparadas</h2>
-<table><thead><tr><th class="metric">Métrica</th>{head_cells}</tr></thead>
+<h2>Compared metrics</h2>
+<table><thead><tr><th class="metric">Metric</th>{head_cells}</tr></thead>
 <tbody>{"".join(body_rows)}</tbody></table>
 
 </body>
@@ -114,18 +114,18 @@ def _spec_table(slots: list[CompareSlot]) -> str:
     # Define all possible fields and a function to get the value, returning "—"
     # for non-applicable fields.
     all_fields = [
-        ("Topologia", lambda s: s.spec.topology),
-        ("Vin (faixa)", lambda s: f"{s.spec.Vin_min_Vrms:.0f}–{s.spec.Vin_max_Vrms:.0f} Vrms"),
+        ("Topology", lambda s: s.spec.topology),
+        ("Vin (range)", lambda s: f"{s.spec.Vin_min_Vrms:.0f}–{s.spec.Vin_max_Vrms:.0f} Vrms"),
         # Boost/Passive fields
         ("Vout", lambda s: f"{s.spec.Vout_V:.0f} V" if s.spec.topology != 'line_reactor' else "—"),
         ("Pout", lambda s: f"{s.spec.Pout_W:.0f} W" if s.spec.topology != 'line_reactor' else "—"),
         ("fsw", lambda s: f"{s.spec.f_sw_kHz:.0f} kHz" if s.spec.topology != 'line_reactor' else "—"),
-        ("Ripple alvo", lambda s: f"{s.spec.ripple_pct:.0f} %" if s.spec.topology != 'line_reactor' else "—"),
+        ("Ripple target", lambda s: f"{s.spec.ripple_pct:.0f} %" if s.spec.topology != 'line_reactor' else "—"),
         # Line Reactor fields
-        ("Fases", lambda s: str(s.spec.n_phases) if s.spec.topology == 'line_reactor' else "—"),
-        ("V de linha", lambda s: f"{s.spec.Vin_nom_Vrms:.0f} Vrms" if s.spec.topology == 'line_reactor' else "—"),
-        ("I nominal", lambda s: f"{s.spec.I_rated_Arms:.1f} A" if s.spec.topology == 'line_reactor' else "—"),
-        ("Indutância alvo", lambda s: f"{s.spec.L_req_mH:.2f} mH" if s.spec.topology == 'line_reactor' else "—"),
+        ("Phases", lambda s: str(s.spec.n_phases) if s.spec.topology == 'line_reactor' else "—"),
+        ("Line V", lambda s: f"{s.spec.Vin_nom_Vrms:.0f} Vrms" if s.spec.topology == 'line_reactor' else "—"),
+        ("Rated I", lambda s: f"{s.spec.I_rated_Arms:.1f} A" if s.spec.topology == 'line_reactor' else "—"),
+        ("Target inductance", lambda s: f"{s.spec.L_req_mH:.2f} mH" if s.spec.topology == 'line_reactor' else "—"),
         # Common fields
         ("T amb", lambda s: f"{s.spec.T_amb_C:.0f} °C"),
     ]
@@ -145,10 +145,10 @@ def _spec_table(slots: list[CompareSlot]) -> str:
 def _selection_table(slots: list[CompareSlot]) -> str:
     rows = []
     fields = [
-        ("Núcleo", lambda s: f"{s.core.vendor} — {s.core.part_number} ({s.core.shape})"),
+        ("Core", lambda s: f"{s.core.vendor} — {s.core.part_number} ({s.core.shape})"),
         ("Material", lambda s: f"{s.material.vendor} — {s.material.name}  μ={s.material.mu_initial:.0f}"),
-        ("Fio", lambda s: f"{s.wire.id} ({s.wire.type})"),
-        ("Volume núcleo", lambda s: f"{s.core.Ve_mm3/1000:.1f} cm³"),
+        ("Wire", lambda s: f"{s.wire.id} ({s.wire.type})"),
+        ("Core volume", lambda s: f"{s.core.Ve_mm3/1000:.1f} cm³"),
     ]
     for name, fn in fields:
         cells = "".join(f"<td>{escape(str(fn(s)))}</td>" for s in slots)

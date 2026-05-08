@@ -29,6 +29,8 @@ def test_report_generates_self_contained_html():
         # Must contain embedded base64 images, not external file refs
         assert "data:image/png;base64," in text
         # Key sections must be present
-        for section in ("Especificações", "Seleção", "Resultados",
-                        "Forma de onda", "Distribuição de perdas"):
+        for section in ("Design specifications", "Selection",
+                        "Electrical / magnetic results",
+                        "Inductor current waveform",
+                        "Loss breakdown"):
             assert section in text

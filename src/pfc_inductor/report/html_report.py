@@ -37,8 +37,8 @@ def _waveform_plot(result: DesignResult) -> str:
         ax.plot(t_ms, iL, color="#3a78b5", linewidth=1.5)
         ax.fill_between(t_ms, 0, iL, alpha=0.15, color="#3a78b5")
         ax.set_xlabel("t [ms]")
-        ax.set_ylabel("iL pico [A]")
-        ax.set_title("Corrente do indutor — meio ciclo de rede")
+        ax.set_ylabel("iL peak [A]")
+        ax.set_title("Inductor current — half line cycle")
         ax.grid(True, alpha=0.4)
     return _plot_to_base64(fig)
 
@@ -46,12 +46,12 @@ def _waveform_plot(result: DesignResult) -> str:
 def _loss_plot(result: DesignResult) -> str:
     fig, ax = plt.subplots(figsize=(6, 3.5), tight_layout=True)
     L = result.losses
-    labels = ["Cu DC", "Cu AC", "Núcleo (rede)", "Núcleo (ripple)"]
+    labels = ["Cu DC", "Cu AC", "Core (line)", "Core (ripple)"]
     values = [L.P_cu_dc_W, L.P_cu_ac_W, L.P_core_line_W, L.P_core_ripple_W]
     colors = ["#3a78b5", "#7eaee0", "#b53a3a", "#e07e7e"]
     bars = ax.bar(labels, values, color=colors)
-    ax.set_ylabel("Perda [W]")
-    ax.set_title(f"Perdas (total = {L.P_total_W:.2f} W)")
+    ax.set_ylabel("Loss [W]")
+    ax.set_title(f"Losses (total = {L.P_total_W:.2f} W)")
     ax.grid(True, axis="y", alpha=0.4)
     for b, v in zip(bars, values, strict=False):
         ax.text(b.get_x() + b.get_width() / 2, v + 0.02, f"{v:.2f}",
@@ -67,12 +67,12 @@ def _rolloff_plot(material: Material, result: DesignResult) -> str | None:
     mu = np.array([rf.mu_pct(material, h) for h in H]) * 100
     ax.semilogx(H, mu, linewidth=1.8)
     ax.axvline(result.H_dc_peak_Oe, color="r", linestyle="--", alpha=0.6,
-               label=f"H operação = {result.H_dc_peak_Oe:.0f} Oe")
+               label=f"H operating = {result.H_dc_peak_Oe:.0f} Oe")
     ax.axhline(result.mu_pct_at_peak * 100, color="r", linestyle=":", alpha=0.6,
                label=f"μ% = {result.mu_pct_at_peak*100:.1f}%")
     ax.set_xlabel("H [Oe]")
-    ax.set_ylabel("μ% (% inicial)")
-    ax.set_title(f"Rolloff de permeabilidade — {material.name}")
+    ax.set_ylabel("μ% (% initial)")
+    ax.set_title(f"Permeability rolloff — {material.name}")
     ax.set_ylim(0, 105)
     ax.legend(loc="lower left")
     ax.grid(True, which="both", alpha=0.4)
@@ -90,7 +90,7 @@ def generate_html_report(
     wire: Wire,
     result: DesignResult,
     output_path: str | Path,
-    title: str = "Projeto de Indutor PFC",
+    title: str = "PFC Inductor Design",
 ) -> Path:
     """Write an HTML report and return its absolute path."""
     output_path = Path(output_path)
@@ -102,85 +102,85 @@ def generate_html_report(
 
     feasible = result.is_feasible()
     feasible_html = (
-        '<span class="badge ok">FACTÍVEL</span>'
+        '<span class="badge ok">FEASIBLE</span>'
         if feasible
-        else '<span class="badge bad">INFACTÍVEL</span>'
+        else '<span class="badge bad">INFEASIBLE</span>'
     )
 
     warnings_html = ""
     if result.warnings:
         items = "".join(f"<li>{escape(w)}</li>" for w in result.warnings)
-        warnings_html = f'<div class="warnings"><h3>Avisos</h3><ul>{items}</ul></div>'
+        warnings_html = f'<div class="warnings"><h3>Warnings</h3><ul>{items}</ul></div>'
 
     spec_rows = "".join([
-        _row("Topologia", spec.topology),
-        _row("Vin (faixa)", f"{spec.Vin_min_Vrms:.0f}–{spec.Vin_max_Vrms:.0f}", "Vrms"),
+        _row("Topology", spec.topology),
+        _row("Vin (range)", f"{spec.Vin_min_Vrms:.0f}–{spec.Vin_max_Vrms:.0f}", "Vrms"),
         _row("Vin nominal", f"{spec.Vin_nom_Vrms:.0f}", "Vrms"),
-        _row("f rede", f"{spec.f_line_Hz:.0f}", "Hz"),
+        _row("f line", f"{spec.f_line_Hz:.0f}", "Hz"),
         _row("Vout (DC bus)", f"{spec.Vout_V:.0f}", "V"),
         _row("Pout", f"{spec.Pout_W:.0f}", "W"),
-        _row("η assumida", f"{spec.eta:.2f}", ""),
+        _row("η assumed", f"{spec.eta:.2f}", ""),
         _row("fsw", f"{spec.f_sw_kHz:.0f}", "kHz"),
-        _row("Ripple alvo (pp)", f"{spec.ripple_pct:.0f}", "%"),
-        _row("T ambiente", f"{spec.T_amb_C:.0f}", "°C"),
-        _row("T máx winding", f"{spec.T_max_C:.0f}", "°C"),
-        _row("Ku máx", f"{spec.Ku_max*100:.0f}", "%"),
-        _row("Margem Bsat", f"{spec.Bsat_margin*100:.0f}", "%"),
+        _row("Ripple target (pp)", f"{spec.ripple_pct:.0f}", "%"),
+        _row("T ambient", f"{spec.T_amb_C:.0f}", "°C"),
+        _row("T max winding", f"{spec.T_max_C:.0f}", "°C"),
+        _row("Ku max", f"{spec.Ku_max*100:.0f}", "%"),
+        _row("Bsat margin", f"{spec.Bsat_margin*100:.0f}", "%"),
     ])
 
     sel_rows = "".join([
-        _row("Núcleo", f"{core.vendor} — {core.part_number} ({core.shape})"),
+        _row("Core", f"{core.vendor} — {core.part_number} ({core.shape})"),
         _row("Material", f"{material.vendor} — {material.name}  μ={material.mu_initial:.0f}"),
         _row("Bsat (25/100 °C)", f"{material.Bsat_25C_T*1000:.0f} / {material.Bsat_100C_T*1000:.0f}", "mT"),
         _row("Ae", f"{core.Ae_mm2:.1f}", "mm²"),
         _row("le", f"{core.le_mm:.1f}", "mm"),
         _row("Ve", f"{core.Ve_mm3/1000:.1f}", "cm³"),
-        _row("Wa (janela)", f"{core.Wa_mm2:.1f}", "mm²"),
+        _row("Wa (window)", f"{core.Wa_mm2:.1f}", "mm²"),
         _row("MLT", f"{core.MLT_mm:.1f}", "mm"),
         _row("AL nominal", f"{core.AL_nH:.0f}", "nH/N²"),
-        _row("Fio", f"{wire.id} ({wire.type}, A_cu={wire.A_cu_mm2:.3f} mm²)"),
+        _row("Wire", f"{wire.id} ({wire.type}, A_cu={wire.A_cu_mm2:.3f} mm²)"),
     ])
 
     res_rows = "".join([
-        _row("L necessária", f"{result.L_required_uH:.0f}", "µH"),
-        _row("L atual (com rolloff)", f"{result.L_actual_uH:.0f}", "µH"),
-        _row("N (voltas)", f"{result.N_turns}"),
-        _row("μ% no pico DC", f"{result.mu_pct_at_peak*100:.1f}", "%"),
-        _row("H pico DC", f"{result.H_dc_peak_Oe:.0f}", "Oe"),
-        _row("B pico", f"{result.B_pk_T*1000:.0f}", "mT"),
-        _row("B limite (Bsat·(1−margem))", f"{result.B_sat_limit_T*1000:.0f}", "mT"),
-        _row("Margem de saturação", f"{result.sat_margin_pct:.0f}", "%"),
-        _row("I pico de linha", f"{result.I_line_pk_A:.2f}", "A"),
-        _row("I RMS de linha", f"{result.I_line_rms_A:.2f}", "A"),
-        _row("Ripple máx pico-pico", f"{result.I_ripple_pk_pk_A:.2f}", "A"),
-        _row("I pico total", f"{result.I_pk_max_A:.2f}", "A"),
-        _row("I RMS total", f"{result.I_rms_total_A:.2f}", "A"),
-        _row("Ku atual", f"{result.Ku_actual*100:.1f}", "%"),
+        _row("L required", f"{result.L_required_uH:.0f}", "µH"),
+        _row("L actual (with rolloff)", f"{result.L_actual_uH:.0f}", "µH"),
+        _row("N (turns)", f"{result.N_turns}"),
+        _row("μ% at DC peak", f"{result.mu_pct_at_peak*100:.1f}", "%"),
+        _row("Peak DC H", f"{result.H_dc_peak_Oe:.0f}", "Oe"),
+        _row("Peak B", f"{result.B_pk_T*1000:.0f}", "mT"),
+        _row("B limit (Bsat·(1−margin))", f"{result.B_sat_limit_T*1000:.0f}", "mT"),
+        _row("Saturation margin", f"{result.sat_margin_pct:.0f}", "%"),
+        _row("Line peak I", f"{result.I_line_pk_A:.2f}", "A"),
+        _row("Line RMS I", f"{result.I_line_rms_A:.2f}", "A"),
+        _row("Max peak-to-peak ripple", f"{result.I_ripple_pk_pk_A:.2f}", "A"),
+        _row("Total peak I", f"{result.I_pk_max_A:.2f}", "A"),
+        _row("Total RMS I", f"{result.I_rms_total_A:.2f}", "A"),
+        _row("Ku actual", f"{result.Ku_actual*100:.1f}", "%"),
     ])
 
     L = result.losses
     loss_rows = "".join([
-        _row("P cobre DC", f"{L.P_cu_dc_W:.2f}", "W"),
-        _row("P cobre AC (fsw)", f"{L.P_cu_ac_W:.3f}", "W"),
-        _row("P núcleo (rede)", f"{L.P_core_line_W:.3f}", "W"),
-        _row("P núcleo (ripple, iGSE)", f"{L.P_core_ripple_W:.3f}", "W"),
+        _row("P copper DC", f"{L.P_cu_dc_W:.2f}", "W"),
+        _row("P copper AC (fsw)", f"{L.P_cu_ac_W:.3f}", "W"),
+        _row("P core (line)", f"{L.P_core_line_W:.3f}", "W"),
+        _row("P core (ripple, iGSE)", f"{L.P_core_ripple_W:.3f}", "W"),
         _row("P total", f"<b>{L.P_total_W:.2f}</b>", "W"),
-        _row("Rdc (a T final)", f"{result.R_dc_ohm*1000:.1f}", "mΩ"),
-        _row("Rac em fsw", f"{result.R_ac_ohm*1000:.1f}", "mΩ"),
+        _row("Rdc (at final T)", f"{result.R_dc_ohm*1000:.1f}", "mΩ"),
+        _row("Rac at fsw", f"{result.R_ac_ohm*1000:.1f}", "mΩ"),
         _row("ΔT", f"{result.T_rise_C:.0f}", "K"),
-        _row("T enrolamento", f"<b>{result.T_winding_C:.0f}</b>", "°C"),
+        _row("T winding", f"<b>{result.T_winding_C:.0f}</b>", "°C"),
     ])
 
     rolloff_section = ""
     if img_roll:
         rolloff_section = (
-            '<h2>Rolloff de permeabilidade</h2>'
+            '<h2>Permeability rolloff</h2>'
             f'<img src="data:image/png;base64,{img_roll}" alt="Rolloff curve" />'
         )
 
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
     html = f"""<!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <title>{escape(title)}</title>
@@ -207,26 +207,26 @@ def generate_html_report(
 <body>
 
 <h1>{escape(title)}</h1>
-<p class="meta">Gerado em {now} pelo PFC Inductor Designer · Status: {feasible_html}</p>
+<p class="meta">Generated on {now} by PFC Inductor Designer · Status: {feasible_html}</p>
 
 {warnings_html}
 
-<h2>Especificações de projeto</h2>
+<h2>Design specifications</h2>
 <table>{spec_rows}</table>
 
-<h2>Seleção</h2>
+<h2>Selection</h2>
 <table>{sel_rows}</table>
 
-<h2>Resultados elétricos / magnéticos</h2>
+<h2>Electrical / magnetic results</h2>
 <div class="grid">
   <table>{res_rows}</table>
   <table>{loss_rows}</table>
 </div>
 
-<h2>Forma de onda da corrente do indutor</h2>
+<h2>Inductor current waveform</h2>
 <img src="data:image/png;base64,{img_wave}" alt="Inductor current waveform" />
 
-<h2>Distribuição de perdas</h2>
+<h2>Loss breakdown</h2>
 <img src="data:image/png;base64,{img_loss}" alt="Loss breakdown" />
 
 {rolloff_section}

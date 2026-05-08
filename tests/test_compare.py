@@ -91,7 +91,7 @@ def test_html_compare_self_contained(two_slots):
     with tempfile.TemporaryDirectory() as td:
         out = generate_compare_html(two_slots, Path(td) / "cmp.html")
         text = out.read_text(encoding="utf-8")
-        assert "Comparação" in text
+        assert "Comparison" in text
         for slot in two_slots:
             # short_label has '\n', that's split in HTML; check parts.
             assert slot.material.name in text
