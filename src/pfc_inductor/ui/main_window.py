@@ -1011,15 +1011,23 @@ class MainWindow(QMainWindow):
 
         path, _ = QFileDialog.getSaveFileName(
             self, "Export comparison",
-            "comparison.html", "HTML (*.html);;CSV (*.csv)",
+            "comparison.pdf",
+            "PDF (*.pdf);;HTML (*.html);;CSV (*.csv)",
         )
         if not path:
             return
         try:
-            if path.lower().endswith(".csv"):
+            # Format chosen from the file extension. PDF is the
+            # default (most users want the print-grade artefact);
+            # CSV stays as the data-export option for spreadsheets;
+            # HTML is the screen preview.
+            lower = path.lower()
+            if lower.endswith(".csv"):
                 out = dlg.export_csv_to(path)
-            else:
+            elif lower.endswith(".html") or lower.endswith(".htm"):
                 out = dlg.export_html_to(path)
+            else:
+                out = dlg.export_pdf_to(path)
         except (OSError, ValueError, KeyError) as e:
             QMessageBox.critical(self, "Export failed", str(e))
             return

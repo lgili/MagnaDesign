@@ -150,6 +150,9 @@ class CompareDialog(QDialog):
         self.btn_clear.clicked.connect(self._on_clear)
         h.addWidget(self.btn_clear)
         h.addStretch(1)
+        self.btn_export_pdf = QPushButton("Export PDF")
+        self.btn_export_pdf.clicked.connect(self._on_export_pdf)
+        h.addWidget(self.btn_export_pdf)
         self.btn_export_html = QPushButton("Export HTML")
         self.btn_export_html.clicked.connect(self._on_export_html)
         h.addWidget(self.btn_export_html)
@@ -237,6 +240,14 @@ class CompareDialog(QDialog):
         from pfc_inductor.report.html_compare import generate_compare_html
         return str(generate_compare_html(self._slots, path))
 
+    def export_pdf_to(self, path: str) -> str:
+        """Write the current slots as a comparative PDF datasheet
+        (A4 landscape, vector text, embedded font, deterministic
+        page breaks). Customer-grade artefact alongside the HTML
+        preview."""
+        from pfc_inductor.report.pdf_compare import generate_compare_pdf
+        return str(generate_compare_pdf(self._slots, path))
+
     def export_csv_to(self, path: str) -> str:
         """Write the current slots as a CSV (one row per metric)."""
         self._write_csv(path)
@@ -254,6 +265,28 @@ class CompareDialog(QDialog):
         from pfc_inductor.report.html_compare import generate_compare_html
         try:
             out = generate_compare_html(self._slots, path)
+        except Exception as e:
+            QMessageBox.critical(self, "Export error", str(e))
+            return
+        QMessageBox.information(self, "Exported", f"Saved to:\n{out}")
+
+    def _on_export_pdf(self):
+        """Native PDF datasheet for the comparison.
+
+        Same data as the HTML export, A4 landscape, embedded Inter
+        font, deterministic page breaks. Print/customer artefact —
+        avoids the format/colour drift that browser-print produces.
+        """
+        if not self._slots:
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Save comparison (PDF)", "comparison.pdf",
+            "PDF (*.pdf)",
+        )
+        if not path:
+            return
+        try:
+            out = self.export_pdf_to(path)
         except Exception as e:
             QMessageBox.critical(self, "Export error", str(e))
             return
