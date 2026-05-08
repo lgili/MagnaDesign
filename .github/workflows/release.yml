@@ -233,8 +233,18 @@ jobs:
             test -f dist/pfc-inductor/pfc-inductor.exe || {
               echo "::error::missing executable"; exit 1; }
           fi
-          test -d dist/pfc-inductor/data || {
-            echo "::error::missing bundled data/ directory"; exit 1; }
+          # PyInstaller 6.x ships data under ``_internal/`` by default;
+          # the spec pins it back to flat (``contents_directory='.'``)
+          # so ``data/`` lives next to the executable. Accept both so
+          # an accidental layout regression doesn't silently ship a
+          # broken bundle.
+          if [[ -d dist/pfc-inductor/data ]]; then
+            echo "OK — flat layout (data/ next to executable)"
+          elif [[ -d dist/pfc-inductor/_internal/data ]]; then
+            echo "OK — _internal/ layout (PyInstaller 6.x default)"
+          else
+            echo "::error::missing bundled data/ directory"; exit 1
+          fi
           echo "OK — bundle layout looks sane"
 
       - name: Verify build outputs (macOS)

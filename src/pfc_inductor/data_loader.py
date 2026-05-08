@@ -75,12 +75,23 @@ def _bundled_data_root() -> Path:
             candidate = Path(meipass) / "data"
             if candidate.exists():
                 return candidate
-        # PyInstaller one-folder: ``data/`` ships alongside the
-        # executable in ``<dist>/pfc-inductor/``.
+        # PyInstaller one-folder. Two layouts exist depending on the
+        # PyInstaller version that produced the bundle:
+        #
+        # - Legacy / pinned ``contents_directory='.'`` (what the
+        #   release spec ships): ``<dist>/pfc-inductor/data/``.
+        # - PyInstaller 6.x default ``contents_directory='_internal'``:
+        #   ``<dist>/pfc-inductor/_internal/data/`` (the executable
+        #   stays directly under ``<dist>/pfc-inductor/``).
+        #
+        # We probe legacy first because the spec opts back into it,
+        # then fall through to ``_internal/data`` so a build that
+        # forgot to override the default still works.
         exe_dir = Path(sys.executable).resolve().parent
-        candidate = exe_dir / "data"
-        if candidate.exists():
-            return candidate
+        for sub in ("", "_internal"):
+            candidate = exe_dir / sub / "data" if sub else exe_dir / "data"
+            if candidate.exists():
+                return candidate
 
     # Editable / source checkout: ``<repo>/data``.
     repo_data = _PACKAGE_ROOT.parent.parent / "data"

@@ -263,6 +263,16 @@ coll = COLLECT(
     upx=False,
     upx_exclude=[],
     name=APP_NAME,
+    # PyInstaller 6.x defaults to ``contents_directory='_internal'``
+    # which moves every data file + shared lib under
+    # ``dist/<name>/_internal/`` and leaves only the executable next
+    # to it. That breaks ``data_loader._bundled_data_root`` (which
+    # probes ``Path(sys.executable).parent / data``) and the release
+    # workflow's existence check (``test -d dist/<name>/data``). The
+    # legacy flat layout (``contents_directory='.'``) is still
+    # supported and matches the assumptions encoded in the runtime
+    # data-loader and the verify step.
+    contents_directory=".",
 )
 
 # ---------------------------------------------------------------------------
