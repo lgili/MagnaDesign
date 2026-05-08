@@ -94,37 +94,73 @@ from pfc_inductor.report.pdf_report import (
 def _eqn_image(
     latex: str,
     *,
-    fontsize: int = 13,
-    dpi: int = 200,
+    fontsize: int = 14,
+    dpi: int = 220,
     color: str = "#1a1a1a",
 ) -> RLImage:
     """Render a LaTeX-style math string to a tight-cropped PNG flowable.
 
-    Uses matplotlib's mathtext backend (no external LaTeX install
-    required). The figure is sized minimally — ``bbox_inches="tight"``
-    crops to the actual equation extent — and saved with a
-    transparent background so the PDF page colour shows through.
+    Uses matplotlib's mathtext backend with the Computer Modern
+    fontset — the same family classic LaTeX uses, so equations look
+    indistinguishable from a real LaTeX render at the engineer's
+    desk. The fontset is set inside an ``rc_context`` so the
+    project report's typography choice doesn't leak into the
+    verification plots imported from ``pdf_report.py``.
+
+    The figure is sized minimally — ``bbox_inches="tight"`` crops
+    to the actual equation extent — and saved with a transparent
+    background so the PDF page colour shows through.
     """
-    fig = plt.figure(figsize=(0.01, 0.01))  # placeholder; tight-bbox resizes
-    fig.text(0.0, 0.0, f"${latex}$", fontsize=fontsize, color=color)
-    buf = io.BytesIO()
-    fig.savefig(
-        buf, format="png", dpi=dpi,
-        bbox_inches="tight", pad_inches=0.02,
-        transparent=True,
-    )
-    plt.close(fig)
+    with plt.rc_context({
+        "mathtext.fontset": "cm",          # Computer Modern (LaTeX look)
+        "mathtext.rm":      "serif",
+        "mathtext.it":      "serif:italic",
+        "mathtext.bf":      "serif:bold",
+        "font.family":      "serif",
+    }):
+        fig = plt.figure(figsize=(0.01, 0.01))
+        fig.text(0.0, 0.0, f"${latex}$", fontsize=fontsize, color=color)
+        buf = io.BytesIO()
+        fig.savefig(
+            buf, format="png", dpi=dpi,
+            bbox_inches="tight", pad_inches=0.04,
+            transparent=True,
+        )
+        plt.close(fig)
     buf.seek(0)
     img = RLImage(buf)
     # Scale down by the DPI ratio so the rendered size matches the
     # nominal point size we asked for. Without this, mathtext at
-    # 200 dpi prints physically large because matplotlib treats the
+    # 220 dpi prints physically large because matplotlib treats the
     # bitmap as 72-dpi-equivalent.
     iw, ih = img.imageWidth, img.imageHeight
     scale = 72.0 / dpi
     img.drawWidth = iw * scale
     img.drawHeight = ih * scale
     return img
+
+
+def _eqn_centered(latex: str, *, fontsize: int = 14):
+    """Return an equation flowable horizontally centred on the page.
+
+    The default ``_eqn_image`` is left-aligned because that's what
+    flowables do by default. For the standard ``equation → values
+    → result`` block centring the symbolic top line and indenting
+    the substituted lines reads more like a textbook derivation.
+    """
+    img = _eqn_image(latex, fontsize=fontsize)
+    # Wrap in a single-cell table to get HCENTER alignment without
+    # touching the Image flowable's geometry.
+    t = Table([[img]], colWidths=[_USABLE_WIDTH_MM * mm])
+    t.setStyle(TableStyle([
+        ("ALIGN",        (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN",       (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING",  (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING",   (0, 0), (-1, -1), 1),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
+    ]))
+    return t
 
 
 def _eqn_block(
@@ -156,7 +192,7 @@ def _eqn_block(
     setup on the previous page is the single biggest readability
     glitch of equation-heavy reports.
     """
-    flowables: list = [_eqn_image(latex, fontsize=14)]
+    flowables: list = [_eqn_centered(latex, fontsize=15)]
     if with_values:
         # Indent slightly so the eye reads it as a continuation of the
         # equation above, not as a new statement.
@@ -175,6 +211,231 @@ def _eqn_block(
         ))
     flowables.append(Spacer(1, 2 * mm))
     return KeepTogether(flowables)
+
+
+def _derivation_step(
+    label: str, latex: str, *,
+    note: Optional[str] = None,
+    fonts: dict[str, str],
+    styles: dict[str, ParagraphStyle],
+) -> KeepTogether:
+    """Single derivation step — a labelled equation without
+    substituted values. Used to walk a multi-step derivation
+    (volt-second balance → duty cycle → ripple → solve for L)
+    where each line builds on the previous; the substituted values
+    only land at the end.
+    """
+    flowables: list = [
+        Paragraph(f"<b>{label}.</b>", styles["body"]),
+        _eqn_centered(latex, fontsize=14),
+    ]
+    if note:
+        flowables.append(Paragraph(f"<i>{note}</i>", styles["note"]))
+    flowables.append(Spacer(1, 1 * mm))
+    return KeepTogether(flowables)
+
+
+# ---------------------------------------------------------------------------
+# Sizing helpers — implement the same engineering rules of thumb the
+# user would apply by hand (area product, energy storage, parallel
+# strands). Centralised here so every per-topology body can call into
+# them without duplicating the maths.
+# ---------------------------------------------------------------------------
+def _area_product_mm4(
+    L_uH: float, I_pk_A: float, I_rms_A: float,
+    *, K_u_target: float = 0.4, J_target: float = 5.0,
+    B_max_T: float,
+) -> float:
+    """Required core area-product A_p = W_a × A_e for the given
+    storage requirement.
+
+    Standard formula (Kazimierczuk, *High-Frequency Magnetic
+    Components*, eq. 4.62):
+
+        A_p = (L · I_pk · I_rms) / (K_u · J · B_max)
+
+    Inputs in their natural units, output in **mm⁴** so it can be
+    compared directly to ``core.Wa_mm2 * core.Ae_mm2``.
+    """
+    L_H = L_uH * 1e-6
+    # SI: L [H], I [A], B [T], J [A/m²] → A_p [m⁴].
+    J_A_per_m2 = J_target * 1e6  # A/mm² → A/m²
+    Ap_m4 = (L_H * I_pk_A * I_rms_A) / (K_u_target * J_A_per_m2 * B_max_T)
+    return Ap_m4 * 1e12  # m⁴ → mm⁴
+
+
+def _stored_energy_J(L_uH: float, I_pk_A: float) -> float:
+    """E = ½ L I². Used as a sanity check on the core volume."""
+    return 0.5 * (L_uH * 1e-6) * (I_pk_A ** 2)
+
+
+def _skin_depth_mm(f_Hz: float, T_C: float = 100.0) -> float:
+    """Copper skin depth at the given frequency and temperature.
+
+    δ = √(ρ_Cu(T) / (π · μ₀ · f))
+
+    Returns the depth in millimetres so the d_cu vs 2δ check reads
+    naturally against wire-gauge dimensions.
+    """
+    import math as _math
+    rho_20 = 1.724e-8  # Ω·m
+    rho = rho_20 * (1.0 + 3.93e-3 * (T_C - 20.0))
+    mu_0 = 4.0 * _math.pi * 1e-7
+    delta_m = _math.sqrt(rho / (_math.pi * mu_0 * max(f_Hz, 1.0)))
+    return delta_m * 1000.0  # m → mm
+
+
+def _parallel_strands_recommendation(
+    wire: Wire, I_rms_A: float, fsw_Hz: float, T_C: float,
+    *, J_target: float = 5.0,
+) -> dict:
+    """Return a dict with the wire-sizing verdict.
+
+    Keys:
+    - ``A_cu_required_mm2``: from current density target.
+    - ``A_cu_selected_mm2``: the chosen wire's copper area.
+    - ``J_actual_A_per_mm2``: actual current density at the chosen
+      wire.
+    - ``delta_mm``: skin depth at the operating frequency.
+    - ``two_delta_mm``: 2δ — the conventional limit for AC-effective
+      penetration.
+    - ``d_cu_mm``: chosen wire's copper diameter (or estimated from
+      A_cu if not on the wire record).
+    - ``n_strands_for_area``: parallel-strand count needed if the
+      chosen wire's A_cu is below the target (≥ 1).
+    - ``skin_limited``: True if d_cu > 2δ — single strand suffers
+      AC penalty even if its area is sufficient.
+    - ``advice``: one-line plain-English verdict.
+    """
+    import math as _math
+    A_cu_required = I_rms_A / max(J_target, 1e-6)
+    A_cu_selected = wire.A_cu_mm2
+    J_actual = I_rms_A / max(A_cu_selected, 1e-6)
+    delta_mm = _skin_depth_mm(fsw_Hz, T_C)
+    two_delta = 2.0 * delta_mm
+    d_cu = wire.d_cu_mm or 2.0 * _math.sqrt(A_cu_selected / _math.pi)
+    # Two distinct strand-count rules:
+    # - Area-based: ``n_area`` thinner strands are needed if the
+    #   chosen wire's A_cu falls short of the J target.
+    # - Skin-based: ``n_skin`` strands are needed if d_cu > 2δ —
+    #   each strand should be sized so its diameter is ≤ 2δ.
+    # When both bind, the engineer takes the larger.
+    n_area = max(1, _math.ceil(A_cu_required / max(A_cu_selected, 1e-6)))
+    n_skin = max(1, _math.ceil(d_cu / max(two_delta, 1e-6)))
+    skin_limited = d_cu > two_delta
+    n_recommend = max(n_area, n_skin)
+
+    if A_cu_selected >= A_cu_required and not skin_limited:
+        advice = (
+            f"Single strand of {wire.id} is sufficient "
+            f"(A_cu = {A_cu_selected:.3f} mm² ≥ required "
+            f"{A_cu_required:.3f} mm² and d_cu = {d_cu:.2f} mm "
+            f"≤ 2δ = {two_delta:.2f} mm)."
+        )
+    elif A_cu_selected >= A_cu_required and skin_limited:
+        advice = (
+            f"Single-strand area is sufficient but d_cu = "
+            f"{d_cu:.2f} mm exceeds 2δ = {two_delta:.2f} mm at "
+            f"f_sw = {fsw_Hz / 1000:.0f} kHz — proximity / skin "
+            f"losses penalty. Use Litz wire, or split into "
+            f"{n_skin} thinner parallel strands so each strand's "
+            "diameter stays within 2δ."
+        )
+    else:
+        advice = (
+            f"Single strand A_cu = {A_cu_selected:.3f} mm² is below "
+            f"the {A_cu_required:.3f} mm² target. Use "
+            f"{n_recommend} strands in parallel"
+            + (
+                " (also satisfies the skin-depth constraint)."
+                if n_recommend >= n_skin and skin_limited
+                else "."
+            )
+        )
+    return {
+        "A_cu_required_mm2": A_cu_required,
+        "A_cu_selected_mm2": A_cu_selected,
+        "J_actual_A_per_mm2": J_actual,
+        "delta_mm":         delta_mm,
+        "two_delta_mm":     two_delta,
+        "d_cu_mm":          d_cu,
+        "n_strands_for_area": n_area,
+        "n_strands_for_skin": n_skin,
+        "n_strands_recommend": n_recommend,
+        "skin_limited":     skin_limited,
+        "advice":           advice,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Sizing plots — show the design point in the context of the search
+# space. ``B_pk vs N`` traces the saturation knee the engine landed
+# on; ``Ku vs N`` shows the window-fill headroom.
+# ---------------------------------------------------------------------------
+def _fig_bpk_vs_N(spec: Spec, core: Core, material: Material,
+                    result: DesignResult, I_pk_A: float):
+    """B_pk(N) sweep with the design point marked. Engineer reads
+    the saturation knee and where the chosen N sits relative to it."""
+    import math as _math
+    import numpy as _np
+    from pfc_inductor.physics import rolloff as rf
+
+    Ns = _np.arange(5, max(result.N_turns + 30, 80))
+    B = _np.zeros_like(Ns, dtype=float)
+    for i, N in enumerate(Ns):
+        H_pk_Oe = rf.H_from_NI(int(N), I_pk_A, core.le_mm, units="Oe")
+        mu = rf.mu_pct(material, H_pk_Oe)
+        L_uH = rf.inductance_uH(int(N), core.AL_nH, mu)
+        Ae_m2 = core.Ae_mm2 * 1e-6
+        if N > 0 and Ae_m2 > 0:
+            B[i] = (L_uH * 1e-6) * I_pk_A / (N * Ae_m2)
+        else:
+            B[i] = 0.0
+    fig, ax = plt.subplots(figsize=(7.0, 3.0), dpi=110)
+    ax.plot(Ns, B * 1000.0, color="#3a78b5", linewidth=1.6,
+             label="B_pk(N) at I_pk")
+    Bsat_mT = result.B_sat_limit_T * 1000.0
+    ax.axhline(Bsat_mT, color="#a01818", linestyle="--", alpha=0.7,
+               label=f"Bsat limit = {Bsat_mT:.0f} mT")
+    ax.axvline(result.N_turns, color="#1c7c3b", linestyle=":",
+               alpha=0.8, label=f"Selected N = {result.N_turns}")
+    ax.plot([result.N_turns], [result.B_pk_T * 1000.0],
+             "o", color="#1c7c3b", markersize=7)
+    ax.set_xlabel("Number of turns N")
+    ax.set_ylabel("B_pk [mT]")
+    ax.set_title("Saturation envelope vs turn count",
+                  fontsize=10)
+    ax.grid(True, alpha=0.35)
+    ax.legend(loc="upper right", fontsize=8)
+    return fig
+
+
+def _fig_ku_vs_N(spec: Spec, core: Core, wire: Wire,
+                   result: DesignResult):
+    """K_u(N) sweep — window utilisation as a function of turn
+    count, with the design point and the spec's K_u_max line."""
+    import numpy as _np
+    from pfc_inductor.physics import copper as cp
+
+    Ns = _np.arange(5, max(result.N_turns + 30, 80))
+    Ku = _np.zeros_like(Ns, dtype=float)
+    for i, N in enumerate(Ns):
+        Ku[i] = cp.window_utilization(int(N), wire, core.Wa_mm2)
+    fig, ax = plt.subplots(figsize=(7.0, 3.0), dpi=110)
+    ax.plot(Ns, Ku * 100.0, color="#3a78b5", linewidth=1.6,
+             label="K_u(N) for selected wire")
+    ax.axhline(spec.Ku_max * 100.0, color="#a01818", linestyle="--",
+               alpha=0.7, label=f"K_u limit = {spec.Ku_max * 100:.0f}%")
+    ax.axvline(result.N_turns, color="#1c7c3b", linestyle=":",
+               alpha=0.8, label=f"Selected N = {result.N_turns}")
+    ax.plot([result.N_turns], [result.Ku_actual * 100.0],
+             "o", color="#1c7c3b", markersize=7)
+    ax.set_xlabel("Number of turns N")
+    ax.set_ylabel("Window utilisation K_u [%]")
+    ax.set_title("Window fill vs turn count", fontsize=10)
+    ax.grid(True, alpha=0.35)
+    ax.legend(loc="upper left", fontsize=8)
+    return fig
 
 
 # ---------------------------------------------------------------------------
@@ -526,12 +787,25 @@ def _body_boost_ccm(spec: Spec, core: Core, material: Material,
     I_pk = math.sqrt(2.0) * P_in / Vin_design
     I_rms_line = spec.Pout_W / (spec.eta * Vin_design)
     fsw_Hz = spec.f_sw_kHz * 1000.0
+    Tsw_us = 1e6 / fsw_Hz
     delta_max_A = (spec.ripple_pct / 100.0) * I_pk
     L_req_uH = result.L_required_uH
     # Wire current density actually achieved at the chosen wire.
-    J = result.I_rms_total_A / max(wire.A_cu_mm2, 1e-9)
+    J_actual = result.I_rms_total_A / max(wire.A_cu_mm2, 1e-9)
     # Mean-length wire length.
     l_wire_m = result.N_turns * core.MLT_mm * 1e-3
+    # Energy + area-product sizing requirements.
+    E_J = _stored_energy_J(L_req_uH, I_pk)
+    B_max_T = result.B_sat_limit_T  # the engine's Bsat × (1 − margin)
+    Ap_required_mm4 = _area_product_mm4(
+        L_uH=L_req_uH, I_pk_A=I_pk, I_rms_A=result.I_rms_total_A,
+        K_u_target=spec.Ku_max, J_target=5.0, B_max_T=B_max_T,
+    )
+    Ap_selected_mm4 = core.Wa_mm2 * core.Ae_mm2
+    Ap_margin_pct = (
+        (Ap_selected_mm4 - Ap_required_mm4) / Ap_required_mm4 * 100.0
+        if Ap_required_mm4 > 0 else 0.0
+    )
 
     flowables: list = []
 
@@ -543,18 +817,19 @@ def _body_boost_ccm(spec: Spec, core: Core, material: Material,
         "scaled image of the input voltage so the converter "
         "presents a near-resistive load to the mains. In "
         "continuous-conduction mode (CCM) the inductor never fully "
-        "demagnetises within a switching period, so the current is "
-        "the half-wave rectified line current riding on a "
-        "switching-frequency triangular ripple.",
+        "demagnetises within a switching period, so the inductor "
+        "current is the half-wave rectified line current riding on "
+        "a switching-frequency triangular ripple.",
         styles["body"],
     ))
     flowables.append(Paragraph(
-        "The inductor sizing problem reduces to choosing L large "
-        "enough that the worst-case peak-to-peak ripple "
-        "Δi<sub>L,pp</sub>(t) stays inside the designer's budget "
-        "(here, a fraction of the line peak current). The "
-        "derivation below follows Erickson &amp; Maksimovic, "
-        "<i>Fundamentals of Power Electronics</i>, ch. 18.",
+        "The derivation below follows Erickson &amp; Maksimovic, "
+        "<i>Fundamentals of Power Electronics</i>, ch. 18 (averaged "
+        "small-signal model of CCM PFC). The inductor sizing "
+        "problem reduces to choosing L large enough that the "
+        "worst-case peak-to-peak ripple Δi<sub>L,pp</sub>(t) stays "
+        "inside the designer's budget — here, "
+        f"{spec.ripple_pct:.0f}% of the line peak current.",
         styles["body"],
     ))
 
@@ -562,132 +837,223 @@ def _body_boost_ccm(spec: Spec, core: Core, material: Material,
     flowables.append(Paragraph("4. Worst-case input currents",
                                  styles["h2"]))
     flowables.append(Paragraph(
-        "Currents are computed at <b>low line</b>, which maximises "
-        "the input current for a given output power. The fundamental "
-        "line current is sinusoidal; its peak follows from input "
-        "power balance.",
+        "Currents are computed at <b>low line</b> (V<sub>in,min</sub> "
+        f"= {Vin_design:.0f} V<sub>rms</sub>), which maximises "
+        "the input current for the rated output power.",
         styles["body"],
     ))
     flowables.append(_eqn_block(
         r"P_{in} = \frac{P_{out}}{\eta}",
         with_values=f"{spec.Pout_W:.0f} W / {spec.eta:.2f}",
         result=f"{P_in:.1f} W",
-        note="Input power at low line, accounting for the assumed efficiency.",
         fonts=fonts, styles=styles,
     ))
     flowables.append(_eqn_block(
         r"I_{in,rms} = \frac{P_{in}}{V_{in,min}}",
         with_values=f"{P_in:.1f} W / {Vin_design:.0f} Vrms",
         result=f"{I_rms_line:.2f} Arms",
-        note="Fundamental line RMS current at the worst-case input voltage.",
         fonts=fonts, styles=styles,
     ))
     flowables.append(_eqn_block(
         r"I_{pk} = \sqrt{2}\,I_{in,rms}",
         with_values=f"√2 × {I_rms_line:.2f} A",
         result=f"{I_pk:.2f} A",
-        note="Peak of the rectified line current — sets the inductor's saturation envelope.",
+        note="Peak of the rectified line current — saturation envelope.",
         fonts=fonts, styles=styles,
     ))
 
-    # ----- 5. Required inductance -----
-    flowables.append(Paragraph("5. Required inductance",
-                                 styles["h2"]))
+    # ----- 5. Inductance derivation -----
     flowables.append(Paragraph(
-        "For the boost stage the instantaneous duty cycle is "
-        "d(t) = 1 − v<sub>in</sub>(t)/V<sub>out</sub>; the "
-        "inductor sees v<sub>in</sub>(t) during the ON interval. "
-        "The peak-to-peak ripple at line angle θ becomes:",
+        "5. Inductance derivation (from first principles)",
+        styles["h2"],
+    ))
+    flowables.append(Paragraph(
+        "Consider a single switching cycle near the line peak. "
+        "When the switch is ON, the inductor sees v<sub>in</sub>(t) "
+        "across it and its current ramps up; when the switch is "
+        "OFF, the inductor sees v<sub>in</sub>(t) − V<sub>out</sub> "
+        "and the current ramps down. Steady-state volt-second "
+        "balance over the switching period requires:",
         styles["body"],
     ))
-    flowables.append(_eqn_block(
-        r"\Delta i_{L,pp}(\theta) = \frac{V_{in,pk}\,|\sin\theta|"
-        r"\,(1 - V_{in,pk}|\sin\theta|/V_{out})}"
-        r"{L\,f_{sw}}",
-        note="Worst case occurs at v_in(t) = V_out/2, i.e. when the duty cycle is exactly 0.5.",
+    flowables.append(_derivation_step(
+        "5.1 Volt-second balance",
+        r"\langle v_L \rangle_{T_{sw}} = "
+        r"v_{in}(t)\,d - (V_{out} - v_{in}(t))\,(1-d) = 0",
+        note="Average inductor voltage over one switching period vanishes at steady state.",
         fonts=fonts, styles=styles,
     ))
-    flowables.append(_eqn_block(
-        r"\Delta i_{L,pp,max} = \frac{V_{out}}{4 \cdot L \cdot f_{sw}}",
-        note="Maximum ripple, taken at d = 0.5.",
+    flowables.append(_derivation_step(
+        "5.2 Solving for the duty cycle",
+        r"d(t) = 1 - \frac{v_{in}(t)}{V_{out}}",
+        note="With v_in(t) = V_in,pk · |sin θ|, the duty traces a smooth profile across the line cycle.",
+        fonts=fonts, styles=styles,
+    ))
+    flowables.append(_derivation_step(
+        "5.3 Per-cycle current ramp during the ON interval",
+        r"\Delta i_{L,pp}(t) = \frac{v_{in}(t)\,d(t)}"
+        r"{L\,f_{sw}}",
+        note="Linear-ramp approximation valid in CCM where Δi << I_avg.",
+        fonts=fonts, styles=styles,
+    ))
+    flowables.append(_derivation_step(
+        "5.4 Substituting d(t)",
+        r"\Delta i_{L,pp}(\theta) = \frac{V_{in,pk}|\sin\theta|"
+        r"\,(1 - V_{in,pk}|\sin\theta|/V_{out})}{L\,f_{sw}}",
+        note="Differentiating Δi vs θ shows the maximum at v_in = V_out/2, i.e. d = 0.5.",
+        fonts=fonts, styles=styles,
+    ))
+    flowables.append(_derivation_step(
+        "5.5 Worst-case ripple at d = 0.5",
+        r"\Delta i_{L,pp,max} = \frac{V_{out}}{4\,L\,f_{sw}}",
         fonts=fonts, styles=styles,
     ))
     flowables.append(Paragraph(
         f"Setting Δi<sub>L,pp,max</sub> ≤ "
-        f"{spec.ripple_pct:.0f}% × I<sub>pk</sub> "
-        f"= {delta_max_A:.2f} A and solving for L:",
+        f"{spec.ripple_pct:.0f}% × I<sub>pk</sub> = "
+        f"{delta_max_A:.2f} A (the design budget) and solving "
+        "for the minimum inductance:",
         styles["body"],
     ))
     flowables.append(_eqn_block(
-        r"L_{req} = \frac{V_{out}}{4 \cdot f_{sw} \cdot \Delta i_{L,pp,max}}",
+        r"L_{req} = \frac{V_{out}}{4\,f_{sw}\,\Delta i_{L,pp,max}}",
         with_values=(
             f"{spec.Vout_V:.0f} V / "
             f"(4 × {spec.f_sw_kHz:.0f} kHz × {delta_max_A:.2f} A)"
         ),
         result=f"{L_req_uH:.1f} µH",
-        note="Erickson eq. 18-22 (worst-case ripple at d = 0.5).",
+        note="Erickson eq. 18-22.",
         fonts=fonts, styles=styles,
     ))
 
-    # ----- 6. Number of turns -----
-    flowables.append(Paragraph("6. Number of turns",
-                                 styles["h2"]))
+    # ----- 6. Required core size (BEFORE selection) -----
     flowables.append(Paragraph(
-        "The inductance factor A<sub>L</sub> sets the no-bias "
-        "inductance per turn²; powder-core materials roll off "
-        "(μ% drops) under DC bias, so the effective A<sub>L</sub> "
-        "at the operating point is reduced by the rolloff factor "
-        "μ%(H<sub>pk</sub>). The engine searches the smallest N "
-        "satisfying L(N) ≥ L<sub>req</sub> with rolloff applied.",
+        "6. Required core size",
+        styles["h2"],
+    ))
+    flowables.append(Paragraph(
+        "Before picking a specific part, we estimate the smallest "
+        "core that can store the design's energy and host the "
+        "winding. The standard <i>area-product</i> "
+        "(A<sub>p</sub> = W<sub>a</sub> × A<sub>e</sub>) "
+        "metric ties together the four design knobs in a single "
+        "scalar, and lets us compare any candidate core's "
+        "datasheet number against a target.",
         styles["body"],
     ))
     flowables.append(_eqn_block(
-        r"L(N) = A_L \cdot N^2 \cdot \mu\%(H_{pk})",
+        r"E = \frac{1}{2}\,L\,I_{pk}^{2}",
+        with_values=(
+            f"½ × {L_req_uH:.1f} µH × ({I_pk:.2f} A)²"
+        ),
+        result=f"{E_J * 1000:.2f} mJ",
+        note="Stored energy at peak current — the irreducible volume the magnetic field needs to occupy.",
+        fonts=fonts, styles=styles,
+    ))
+    flowables.append(_eqn_block(
+        r"A_p = W_a \cdot A_e \,\geq\, "
+        r"\frac{L\,I_{pk}\,I_{rms}}"
+        r"{K_u\,J\,B_{max}}",
+        with_values=(
+            f"({L_req_uH:.1f} µH × {I_pk:.2f} A × "
+            f"{result.I_rms_total_A:.2f} A) / "
+            f"({spec.Ku_max:.2f} × 5 A/mm² × "
+            f"{B_max_T * 1000:.0f} mT)"
+        ),
+        result=f"{Ap_required_mm4 / 1e6:.2f} cm⁴",
+        note="Kazimierczuk eq. 4.62. Targets: K_u = "
+              f"{spec.Ku_max * 100:.0f}%, J = 5 A/mm², "
+              "B_max = Bsat with safety margin.",
+        fonts=fonts, styles=styles,
+    ))
+    flowables.append(Paragraph(
+        f"<b>Selected core's A<sub>p</sub></b> = W<sub>a</sub> × "
+        f"A<sub>e</sub> = {core.Wa_mm2:.0f} × "
+        f"{core.Ae_mm2:.1f} mm² = "
+        f"<b>{Ap_selected_mm4 / 1e6:.2f} cm⁴</b> "
+        f"(margin <b>{Ap_margin_pct:+.0f} %</b> over the "
+        "required minimum). "
+        + (
+            "Selected core fits with comfortable headroom."
+            if Ap_margin_pct >= 0
+            else "Selected core's A_p is below the target — expect "
+            "high winding fill or current density."
+        ),
+        styles["body"],
+    ))
+
+    # ----- 7. Number of turns + rolloff -----
+    flowables.append(Paragraph(
+        "7. Number of turns (with rolloff)",
+        styles["h2"],
+    ))
+    flowables.append(Paragraph(
+        "The inductance factor A<sub>L</sub> sets the no-bias "
+        "inductance per turn²; powder-core materials roll off "
+        "(μ%(H) drops with increasing DC bias), so the effective "
+        "A<sub>L</sub> at the operating point is reduced by the "
+        "rolloff factor μ%(H<sub>pk</sub>). The engine searches "
+        "the smallest N satisfying L(N) ≥ L<sub>req</sub> with "
+        "rolloff applied at the saturation peak.",
+        styles["body"],
+    ))
+    flowables.append(_derivation_step(
+        "7.1 Inductance with rolloff",
+        r"L(N) = A_L \cdot N^2 \cdot \mu\%(H_{pk}(N))",
+        fonts=fonts, styles=styles,
+    ))
+    flowables.append(_derivation_step(
+        "7.2 First-order estimate (no rolloff)",
+        r"N_{0} \approx \sqrt{L_{req} / A_L}",
         note=(
-            f"At N = {result.N_turns} turns, μ%(H<sub>pk</sub>) = "
-            f"{result.mu_pct_at_peak * 100:.1f}% with "
-            f"H<sub>pk</sub> = {result.H_dc_peak_Oe:.0f} Oe."
+            f"= √({L_req_uH:.1f} µH / {core.AL_nH:.0f} nH) ≈ "
+            f"{int(math.sqrt(L_req_uH * 1000.0 / max(core.AL_nH, 1.0)))} "
+            "turns; the iteration adds turns to compensate for "
+            "rolloff at I<sub>pk</sub>."
         ),
         fonts=fonts, styles=styles,
     ))
     flowables.append(_eqn_block(
-        r"H_{pk} = \frac{N \cdot I_{pk}}{l_e} \cdot 0.4\pi",
+        r"H_{pk} = 0.4\pi \cdot \frac{N\,I_{pk}}{l_e}",
         with_values=(
-            f"({result.N_turns} × {I_pk:.2f} A / "
-            f"{core.le_mm:.1f} mm) × 0.4π"
+            f"0.4π × ({result.N_turns} × {I_pk:.2f} A) / "
+            f"{core.le_mm:.1f} mm"
         ),
         result=f"{result.H_dc_peak_Oe:.0f} Oe",
-        note="0.4π converts A·turns/m to oersted (mixed-units convention used by powder-core vendors).",
+        note="Mixed-units convention used by powder-core vendors (Magnetics, ATM).",
         fonts=fonts, styles=styles,
     ))
     flowables.append(_eqn_block(
-        r"L_{actual} = A_L \cdot N^2 \cdot \mu\%",
+        r"L_{actual} = A_L\,N^{2}\,\mu\%",
         with_values=(
             f"{core.AL_nH:.0f} nH/N² × {result.N_turns}² × "
             f"{result.mu_pct_at_peak:.3f}"
         ),
         result=f"{result.L_actual_uH:.1f} µH",
         note=(
-            "L_actual ≥ L_req — design is feasible at the "
-            "saturation operating point."
-            if result.L_actual_uH >= result.L_required_uH
-            else "L_actual < L_req — see warnings."
+            f"L_actual ≥ L_req — feasible with "
+            f"{(result.L_actual_uH / L_req_uH - 1) * 100:.0f} % margin."
+            if result.L_actual_uH >= L_req_uH
+            else "L_actual < L_req — engine raised a warning."
         ),
         fonts=fonts, styles=styles,
     ))
 
-    # ----- 7. Peak flux density -----
-    flowables.append(Paragraph("7. Peak flux density",
-                                 styles["h2"]))
+    # ----- 8. Peak flux density verification -----
     flowables.append(Paragraph(
-        "From Φ = L·i / N and B = Φ / A<sub>e</sub>, the peak flux "
-        "density at the line-cycle envelope follows. The check "
-        "is against the hot saturation flux B<sub>sat</sub>(100°C) "
-        f"with a {spec.Bsat_margin * 100:.0f} % design margin.",
+        "8. Peak flux density verification",
+        styles["h2"],
+    ))
+    flowables.append(Paragraph(
+        "From Φ = L·i / N and B = Φ / A<sub>e</sub>, the peak "
+        "flux density at the line-cycle envelope follows. The "
+        "check is against the hot saturation flux "
+        "B<sub>sat</sub>(100 °C) with a "
+        f"{spec.Bsat_margin * 100:.0f}% design margin.",
         styles["body"],
     ))
     flowables.append(_eqn_block(
-        r"B_{pk} = \frac{L_{actual} \cdot I_{pk}}{N \cdot A_e}",
+        r"B_{pk} = \frac{L_{actual}\,I_{pk}}{N\,A_e}",
         with_values=(
             f"({result.L_actual_uH:.1f} µH × {I_pk:.2f} A) / "
             f"({result.N_turns} × {core.Ae_mm2:.1f} mm²)"
@@ -695,47 +1061,102 @@ def _body_boost_ccm(spec: Spec, core: Core, material: Material,
         result=f"{result.B_pk_T * 1000:.0f} mT",
         note=(
             f"Bsat limit (with margin) = "
-            f"{result.B_sat_limit_T * 1000:.0f} mT; "
-            f"saturation margin = {result.sat_margin_pct:.0f} %."
+            f"{result.B_sat_limit_T * 1000:.0f} mT; saturation "
+            f"margin = {result.sat_margin_pct:.0f} %."
         ),
         fonts=fonts, styles=styles,
     ))
+    # Saturation curve.
+    fig_b = _fig_bpk_vs_N(spec, core, material, result, I_pk_A=I_pk)
+    if fig_b is not None:
+        flowables.append(KeepTogether([
+            Paragraph("Saturation curve at I<sub>pk</sub>",
+                       styles["h3"]),
+            _mpl_flowable(fig_b, _USABLE_WIDTH_MM),
+            Paragraph(
+                "B<sub>pk</sub> as a function of N at the same "
+                "I<sub>pk</sub>. The selected N sits on the linear "
+                "side of the saturation knee; halving N would push "
+                "B above the limit.",
+                styles["note"],
+            ),
+        ]))
 
-    # ----- 8. Winding -----
-    flowables.append(Paragraph("8. Winding design",
-                                 styles["h2"]))
+    # ----- 9. Wire sizing (with parallel-strands check) -----
     flowables.append(Paragraph(
-        "Wire is sized to keep the current density J at a value "
-        "that the convection-cooled winding can sustain (5 – 8 "
-        "A/mm² typical for natural-convection chokes). The "
-        "selected wire's actual J is back-checked against the "
-        "engine's total-RMS current.",
+        "9. Wire sizing &amp; parallel-strands check",
+        styles["h2"],
+    ))
+    flowables.append(Paragraph(
+        "The wire is sized in two steps. First a target current "
+        "density picks the cross-section; then a skin-depth check "
+        "decides whether a single solid strand is acceptable or "
+        "whether the winding needs Litz / parallel strands to "
+        "avoid AC resistance penalties.",
+        styles["body"],
+    ))
+    pp = _parallel_strands_recommendation(
+        wire, result.I_rms_total_A, fsw_Hz, result.T_winding_C,
+        J_target=5.0,
+    )
+    flowables.append(_eqn_block(
+        r"A_{cu,req} = \frac{I_{rms,total}}{J_{target}}",
+        with_values=(
+            f"{result.I_rms_total_A:.2f} A / 5 A/mm²"
+        ),
+        result=f"{pp['A_cu_required_mm2']:.3f} mm²",
+        note=(
+            "J = 5 A/mm² is the natural-convection mid-range for "
+            "copper; reduce to 3 – 4 A/mm² for sealed enclosures."
+        ),
+        fonts=fonts, styles=styles,
+    ))
+    flowables.append(Paragraph(
+        f"Selected wire: <b>{wire.id}</b>, A<sub>cu</sub> = "
+        f"<b>{pp['A_cu_selected_mm2']:.3f} mm²</b>, d<sub>cu</sub> = "
+        f"<b>{pp['d_cu_mm']:.2f} mm</b>; actual current density "
+        f"J = <b>{pp['J_actual_A_per_mm2']:.2f} A/mm²</b>.",
         styles["body"],
     ))
     flowables.append(_eqn_block(
-        r"J = \frac{I_{rms,total}}{A_{cu}}",
+        r"\delta(f_{sw},T) = "
+        r"\sqrt{\frac{\rho_{Cu}(T)}{\pi\,\mu_0\,f_{sw}}}",
         with_values=(
-            f"{result.I_rms_total_A:.2f} A / "
-            f"{wire.A_cu_mm2:.3f} mm²"
+            f"√[ρ({result.T_winding_C:.0f}°C) / "
+            f"(π · µ₀ · {spec.f_sw_kHz:.0f} kHz)]"
         ),
-        result=f"{J:.2f} A/mm²",
-        note=(
-            "Total-RMS current includes the line-frequency RMS "
-            "and the line-cycle-average HF ripple RMS."
-        ),
+        result=f"{pp['delta_mm']:.3f} mm (2δ = {pp['two_delta_mm']:.3f} mm)",
+        note="Skin depth in copper at the switching frequency and converged winding temperature.",
         fonts=fonts, styles=styles,
+    ))
+    flowables.append(Paragraph(
+        f"<b>Verdict:</b> {pp['advice']}",
+        styles["body"],
     ))
     flowables.append(_eqn_block(
-        r"l_{wire} = N \cdot MLT",
+        r"l_{wire} = N \cdot \mathrm{MLT}",
         with_values=f"{result.N_turns} × {core.MLT_mm:.1f} mm",
         result=f"{l_wire_m:.2f} m",
-        note="Total winding length for the BOM cut-list.",
+        note="Total winding length for the BOM cut-list (single strand; multiply by n_strands if parallelled).",
         fonts=fonts, styles=styles,
     ))
+    # Window-fill curve.
+    fig_ku = _fig_ku_vs_N(spec, core, wire, result)
+    if fig_ku is not None:
+        flowables.append(KeepTogether([
+            Paragraph("Window-fill curve", styles["h3"]),
+            _mpl_flowable(fig_ku, _USABLE_WIDTH_MM),
+            Paragraph(
+                "K<sub>u</sub> as a function of N for the selected "
+                "wire — the design point sits below the limit, "
+                "leaving room for insulation and an outer wrap.",
+                styles["note"],
+            ),
+        ]))
 
-    # ----- 9-11. Common winding/losses/thermal -----
+    # ----- 10-12. Common winding/losses/thermal -----
     flowables.extend(_section_winding_losses_thermal(
-        spec, core, wire, result, section_num=9,
+        spec, core, wire, result, section_num=10,
         fonts=fonts, styles=styles,
     ))
     return flowables
@@ -1083,15 +1504,88 @@ def _body_line_reactor(spec: Spec, core: Core, material: Material,
         fonts=fonts, styles=styles,
     ))
 
-    # ----- 6. Number of turns -----
-    flowables.append(Paragraph("6. Number of turns",
+    # ----- 6. Required core size -----
+    I_pk_lr = math.sqrt(2.0) * spec.I_rated_Arms
+    E_lr = _stored_energy_J(L_req_mH * 1000.0, I_pk_lr)
+    Ap_required_lr = _area_product_mm4(
+        L_uH=L_req_mH * 1000.0,
+        I_pk_A=I_pk_lr,
+        I_rms_A=spec.I_rated_Arms,
+        K_u_target=spec.Ku_max, J_target=4.0,
+        B_max_T=result.B_sat_limit_T,
+    )
+    Ap_selected_lr = core.Wa_mm2 * core.Ae_mm2
+    Ap_margin_lr = (
+        (Ap_selected_lr - Ap_required_lr) / Ap_required_lr * 100.0
+        if Ap_required_lr > 0 else 0.0
+    )
+    flowables.append(Paragraph("6. Required core size",
                                  styles["h2"]))
     flowables.append(Paragraph(
-        "The reactor's flux swing is set by the fundamental "
-        "voltage across the winding, V<sub>L,rms</sub> = "
-        "(%Z/100) · V<sub>phase</sub>. From V = N · dΦ/dt the peak "
-        "flux density follows:",
+        "The line reactor stores the energy associated with its "
+        "fundamental flux swing. The area-product formula gives a "
+        "lower bound on the core size; the actual selection is "
+        "driven by saturation flux (silicon-steel: ~1.5 T) and "
+        "thermal headroom rather than window cramp.",
         styles["body"],
+    ))
+    flowables.append(_eqn_block(
+        r"E = \frac{1}{2}\,L\,I_{pk}^{2}",
+        with_values=f"½ × {L_req_mH:.3f} mH × ({I_pk_lr:.2f} A)²",
+        result=f"{E_lr * 1000:.1f} mJ",
+        note="Stored energy at peak line current.",
+        fonts=fonts, styles=styles,
+    ))
+    flowables.append(_eqn_block(
+        r"A_p = W_a \cdot A_e \,\geq\, "
+        r"\frac{L\,I_{pk}\,I_{rms}}{K_u\,J\,B_{max}}",
+        with_values=(
+            f"({L_req_mH:.3f} mH × {I_pk_lr:.2f} A × "
+            f"{spec.I_rated_Arms:.2f} A) / "
+            f"({spec.Ku_max:.2f} × 4 A/mm² × "
+            f"{result.B_sat_limit_T * 1000:.0f} mT)"
+        ),
+        result=f"{Ap_required_lr / 1e6:.2f} cm⁴",
+        note="Kazimierczuk eq. 4.62. J = 4 A/mm² for line-frequency operation (no skin penalty, more conservative thermal target).",
+        fonts=fonts, styles=styles,
+    ))
+    flowables.append(Paragraph(
+        f"<b>Selected core's A<sub>p</sub></b> = "
+        f"{core.Wa_mm2:.0f} × {core.Ae_mm2:.1f} mm² = "
+        f"<b>{Ap_selected_lr / 1e6:.2f} cm⁴</b> "
+        f"(margin <b>{Ap_margin_lr:+.0f} %</b>). "
+        + (
+            "Selected core fits with comfortable headroom."
+            if Ap_margin_lr >= 0
+            else "Core is below the area-product minimum — review."
+        ),
+        styles["body"],
+    ))
+
+    # ----- 7. Number of turns + flux verification -----
+    flowables.append(Paragraph(
+        "7. Number of turns &amp; peak flux verification",
+        styles["h2"],
+    ))
+    flowables.append(Paragraph(
+        "Silicon-steel cores have a well-defined air gap that "
+        "linearises L vs N (no powder-style bias rolloff), so the "
+        "turn count comes directly from L = A<sub>L</sub> · N². "
+        "The flux swing is set by the fundamental voltage across "
+        "the winding, V<sub>L,rms</sub> = (%Z/100) · "
+        "V<sub>phase</sub>; from V = N · dΦ/dt the peak flux "
+        "density follows.",
+        styles["body"],
+    ))
+    flowables.append(_eqn_block(
+        r"N \approx \sqrt{L_{req} / A_L}",
+        with_values=(
+            f"√({L_req_mH * 1000:.0f} µH / "
+            f"{core.AL_nH:.0f} nH/N²)"
+        ),
+        result=f"{result.N_turns} turns",
+        note="No bias rolloff for laminated silicon-steel; the engine's iteration converges in one step.",
+        fonts=fonts, styles=styles,
     ))
     flowables.append(_eqn_block(
         r"B_{pk} = \frac{\sqrt{2} \cdot V_{L,rms}}"
@@ -1104,17 +1598,27 @@ def _body_line_reactor(spec: Spec, core: Core, material: Material,
         result=f"{result.B_pk_T * 1000:.0f} mT",
         note=(
             f"Bsat limit = {result.B_sat_limit_T * 1000:.0f} mT; "
-            f"saturation margin = {result.sat_margin_pct:.0f} %. "
-            "Solving N from L = A_L · N² (silicon-steel materials "
-            "have negligible bias rolloff) gives "
-            f"N = {result.N_turns}."
+            f"saturation margin = {result.sat_margin_pct:.0f} %."
         ),
         fonts=fonts, styles=styles,
     ))
+    fig_b_lr = _fig_bpk_vs_N(spec, core, material, result, I_pk_A=I_pk_lr)
+    if fig_b_lr is not None:
+        flowables.append(KeepTogether([
+            Paragraph("Saturation curve at I<sub>pk</sub>",
+                       styles["h3"]),
+            _mpl_flowable(fig_b_lr, _USABLE_WIDTH_MM),
+            Paragraph(
+                "Without an air gap, B<sub>pk</sub>(N) follows the "
+                "1/N inverse curve closely. The selected N sits in "
+                "the linear region with the desired flux density.",
+                styles["note"],
+            ),
+        ]))
 
-    # ----- 7. Voltage drop & THD -----
+    # ----- 8. Voltage drop & THD -----
     flowables.append(Paragraph(
-        "7. Voltage drop &amp; THD prediction",
+        "8. Voltage drop &amp; THD prediction",
         styles["h2"],
     ))
     flowables.append(Paragraph(
@@ -1145,9 +1649,9 @@ def _body_line_reactor(spec: Spec, core: Core, material: Material,
         fonts=fonts, styles=styles,
     ))
 
-    # ----- 8. Commutation overlap -----
+    # ----- 9. Commutation overlap -----
     flowables.append(Paragraph(
-        "8. Commutation overlap (Mohan/Undeland)",
+        "9. Commutation overlap (Mohan/Undeland)",
         styles["h2"],
     ))
     flowables.append(Paragraph(
@@ -1173,9 +1677,52 @@ def _body_line_reactor(spec: Spec, core: Core, material: Material,
         fonts=fonts, styles=styles,
     ))
 
-    # ----- 9-11. Common winding/losses/thermal -----
+    # ----- 10. Wire sizing (no skin penalty at line frequency) -----
+    flowables.append(Paragraph(
+        "10. Wire sizing &amp; window-fill check",
+        styles["h2"],
+    ))
+    flowables.append(Paragraph(
+        "Line reactors carry only fundamental current; skin depth "
+        "at 50/60 Hz is ~9 mm so any reasonable solid wire is "
+        "fully penetrated. The wire is sized purely against a "
+        "current-density target.",
+        styles["body"],
+    ))
+    pp_lr = _parallel_strands_recommendation(
+        wire, spec.I_rated_Arms, spec.f_line_Hz, result.T_winding_C,
+        J_target=4.0,
+    )
+    flowables.append(_eqn_block(
+        r"A_{cu,req} = \frac{I_{rated}}{J_{target}}",
+        with_values=f"{spec.I_rated_Arms:.2f} A / 4 A/mm²",
+        result=f"{pp_lr['A_cu_required_mm2']:.3f} mm²",
+        note="J = 4 A/mm² is the conservative target for line-frequency operation.",
+        fonts=fonts, styles=styles,
+    ))
+    flowables.append(Paragraph(
+        f"Selected wire: <b>{wire.id}</b>, A<sub>cu</sub> = "
+        f"<b>{pp_lr['A_cu_selected_mm2']:.3f} mm²</b>; actual J "
+        f"= <b>{pp_lr['J_actual_A_per_mm2']:.2f} A/mm²</b>. "
+        f"<b>Verdict:</b> {pp_lr['advice']}",
+        styles["body"],
+    ))
+    fig_ku_lr = _fig_ku_vs_N(spec, core, wire, result)
+    if fig_ku_lr is not None:
+        flowables.append(KeepTogether([
+            Paragraph("Window-fill curve", styles["h3"]),
+            _mpl_flowable(fig_ku_lr, _USABLE_WIDTH_MM),
+            Paragraph(
+                "K<sub>u</sub>(N) for the selected wire — the "
+                "design point sits below the limit, leaving room "
+                "for inter-layer insulation.",
+                styles["note"],
+            ),
+        ]))
+
+    # ----- 11-13. Common winding/losses/thermal -----
     flowables.extend(_section_winding_losses_thermal(
-        spec, core, wire, result, section_num=9,
+        spec, core, wire, result, section_num=11,
         fonts=fonts, styles=styles,
     ))
     return flowables
@@ -1284,9 +1831,64 @@ def _body_passive_choke(spec: Spec, core: Core, material: Material,
         fonts=fonts, styles=styles,
     ))
 
-    # ----- 6. Number of turns + flux -----
-    flowables.append(Paragraph("6. Number of turns &amp; peak flux",
+    # ----- 6. Required core size -----
+    E_pc = _stored_energy_J(result.L_required_uH, I_pk)
+    Ap_required_pc = _area_product_mm4(
+        L_uH=result.L_required_uH, I_pk_A=I_pk, I_rms_A=I_rms,
+        K_u_target=spec.Ku_max, J_target=4.0,
+        B_max_T=result.B_sat_limit_T,
+    )
+    Ap_selected_pc = core.Wa_mm2 * core.Ae_mm2
+    Ap_margin_pc = (
+        (Ap_selected_pc - Ap_required_pc) / Ap_required_pc * 100.0
+        if Ap_required_pc > 0 else 0.0
+    )
+    flowables.append(Paragraph("6. Required core size",
                                  styles["h2"]))
+    flowables.append(Paragraph(
+        "Same energy-storage / area-product reasoning as a "
+        "line reactor: the choke must accommodate the peak flux "
+        "without saturating and host the winding without "
+        "exceeding K<sub>u,max</sub>.",
+        styles["body"],
+    ))
+    flowables.append(_eqn_block(
+        r"E = \frac{1}{2}\,L\,I_{pk}^{2}",
+        with_values=(
+            f"½ × {result.L_required_uH:.1f} µH × ({I_pk:.2f} A)²"
+        ),
+        result=f"{E_pc * 1000:.2f} mJ",
+        fonts=fonts, styles=styles,
+    ))
+    flowables.append(_eqn_block(
+        r"A_p = W_a \cdot A_e \,\geq\, "
+        r"\frac{L\,I_{pk}\,I_{rms}}{K_u\,J\,B_{max}}",
+        with_values=(
+            f"({result.L_required_uH:.1f} µH × {I_pk:.2f} A × "
+            f"{I_rms:.2f} A) / ({spec.Ku_max:.2f} × 4 A/mm² × "
+            f"{result.B_sat_limit_T * 1000:.0f} mT)"
+        ),
+        result=f"{Ap_required_pc / 1e6:.2f} cm⁴",
+        fonts=fonts, styles=styles,
+    ))
+    flowables.append(Paragraph(
+        f"<b>Selected core's A<sub>p</sub></b> = "
+        f"{core.Wa_mm2:.0f} × {core.Ae_mm2:.1f} mm² = "
+        f"<b>{Ap_selected_pc / 1e6:.2f} cm⁴</b> "
+        f"(margin <b>{Ap_margin_pc:+.0f} %</b>). "
+        + (
+            "Selected core fits with comfortable headroom."
+            if Ap_margin_pc >= 0
+            else "Core is below the area-product minimum — review."
+        ),
+        styles["body"],
+    ))
+
+    # ----- 7. Number of turns + flux -----
+    flowables.append(Paragraph(
+        "7. Number of turns &amp; peak flux",
+        styles["h2"],
+    ))
     flowables.append(_eqn_block(
         r"L = A_L \cdot N^2 \cdot \mu\%(H_{pk})",
         with_values=(
@@ -1314,10 +1916,17 @@ def _body_passive_choke(spec: Spec, core: Core, material: Material,
         ),
         fonts=fonts, styles=styles,
     ))
+    fig_b_pc = _fig_bpk_vs_N(spec, core, material, result, I_pk_A=I_pk)
+    if fig_b_pc is not None:
+        flowables.append(KeepTogether([
+            Paragraph("Saturation curve at I<sub>pk</sub>",
+                       styles["h3"]),
+            _mpl_flowable(fig_b_pc, _USABLE_WIDTH_MM),
+        ]))
 
-    # ----- 7. Voltage drop & THD -----
+    # ----- 8. Voltage drop & THD -----
     flowables.append(Paragraph(
-        "7. Voltage drop &amp; THD prediction",
+        "8. Voltage drop &amp; THD prediction",
         styles["h2"],
     ))
     flowables.append(_eqn_block(
@@ -1339,9 +1948,44 @@ def _body_passive_choke(spec: Spec, core: Core, material: Material,
         fonts=fonts, styles=styles,
     ))
 
-    # ----- 8-10. Common winding/losses/thermal -----
+    # ----- 9. Wire sizing -----
+    flowables.append(Paragraph(
+        "9. Wire sizing &amp; window-fill check",
+        styles["h2"],
+    ))
+    flowables.append(Paragraph(
+        "Passive chokes carry only the rectified line-current "
+        "envelope, no switching ripple, so sizing is purely "
+        "against a current-density target — no skin penalty.",
+        styles["body"],
+    ))
+    pp_pc = _parallel_strands_recommendation(
+        wire, I_rms, spec.f_line_Hz, result.T_winding_C,
+        J_target=4.0,
+    )
+    flowables.append(_eqn_block(
+        r"A_{cu,req} = \frac{I_{rms}}{J_{target}}",
+        with_values=f"{I_rms:.2f} A / 4 A/mm²",
+        result=f"{pp_pc['A_cu_required_mm2']:.3f} mm²",
+        fonts=fonts, styles=styles,
+    ))
+    flowables.append(Paragraph(
+        f"Selected wire: <b>{wire.id}</b>, A<sub>cu</sub> = "
+        f"<b>{pp_pc['A_cu_selected_mm2']:.3f} mm²</b>; actual J "
+        f"= <b>{pp_pc['J_actual_A_per_mm2']:.2f} A/mm²</b>. "
+        f"<b>Verdict:</b> {pp_pc['advice']}",
+        styles["body"],
+    ))
+    fig_ku_pc = _fig_ku_vs_N(spec, core, wire, result)
+    if fig_ku_pc is not None:
+        flowables.append(KeepTogether([
+            Paragraph("Window-fill curve", styles["h3"]),
+            _mpl_flowable(fig_ku_pc, _USABLE_WIDTH_MM),
+        ]))
+
+    # ----- 10-12. Common winding/losses/thermal -----
     flowables.extend(_section_winding_losses_thermal(
-        spec, core, wire, result, section_num=8,
+        spec, core, wire, result, section_num=10,
         fonts=fonts, styles=styles,
     ))
     return flowables
