@@ -150,14 +150,18 @@ class _FormasOndaBody(QWidget):
         # plotted waveforms.
         self.m_Irms.set_value(f"{result.I_rms_total_A:.2f}")
         self.m_Ipk.set_value(f"{result.I_pk_max_A:.2f}")
-        # THD: prefer the FFT-derived number from the synthesised
-        # waveform — it's available for **every** topology, while
-        # ``DesignResult.thd_estimate_pct`` is only populated by the
-        # line-reactor engine path (left blank for boost / passive).
-        if synth is not None and synth.thd_pct > 0:
-            self.m_THD.set_value(f"{synth.thd_pct:.0f}")
-        elif result.thd_estimate_pct is not None:
+        # THD priority: engine's calibrated value first (line_reactor
+        # only — the engine fits IEEE-519's 75/√%Z curve there), then
+        # the FFT-derived value from the synthesised waveform (the
+        # only source for boost / passive, where the engine doesn't
+        # produce a THD). The previous ordering preferred the FFT
+        # everywhere, which made line_reactor cards report ~196 %
+        # while the engine path said ~130 % — confusing engineers
+        # who saw two different "official" THD numbers per design.
+        if result.thd_estimate_pct is not None and result.thd_estimate_pct > 0:
             self.m_THD.set_value(f"{result.thd_estimate_pct:.0f}")
+        elif synth is not None and synth.thd_pct > 0:
+            self.m_THD.set_value(f"{synth.thd_pct:.0f}")
         else:
             self.m_THD.set_value("—")
         if result.I_rms_total_A > 1e-9:
@@ -266,7 +270,7 @@ class _FormasOndaBody(QWidget):
         ax_v.set_xlabel("t (ms)", fontsize=10, color=p.text_secondary)
 
         # ---- Bottom axis: harmonic spectrum (FFT) ----------------------
-        self._plot_harmonic_spectrum(ax_s, synth, p)
+        self._plot_harmonic_spectrum(ax_s, synth, p, result)
 
         self._canvas.draw_idle()
 
@@ -384,15 +388,18 @@ class _FormasOndaBody(QWidget):
 
     def _plot_harmonic_spectrum(self, ax,
                                 synth: Optional[RealisticWaveform],
-                                p) -> None:
+                                p,
+                                result: Optional[DesignResult] = None) -> None:
         """Bar chart of the iL harmonic spectrum.
 
         X-axis: harmonic number (h = 1, 2, …, 20).
         Y-axis: amplitude as a percentage of the fundamental.
-        Title: ``"Espectro · THD = X %"`` so the engineer reads the
-        same THD number twice (chart annotation + the THD metric tile
-        below the canvas) and can verify the synthesiser agrees with
-        itself.
+        Annotation: the same THD number the metric tile shows —
+        ``result.thd_estimate_pct`` (engine-calibrated, line-reactor
+        path) when available, otherwise the synthesis FFT's
+        ``synth.thd_pct``. Reading the same number twice (chart +
+        tile) lets the engineer cross-check that the visualisation is
+        coherent with the engine.
 
         Empty-state when ``synth`` is unavailable: a friendly hint
         instead of an axis full of zero bars.
@@ -437,11 +444,20 @@ class _FormasOndaBody(QWidget):
         # 1φ reactor with h3 ≈ 97 %) still fit.
         ax.set_ylim(0, max(105.0, float(pct.max()) * 1.05))
 
-        # THD annotation in the upper-right — matches the value
-        # surfaced in the THD metric tile.
+        # Pick the canonical THD: engine value (line_reactor) when
+        # populated, otherwise the synthesis FFT's. Same priority the
+        # metric tile uses, so the bar-chart annotation and the tile
+        # always agree.
+        thd_pct = synth.thd_pct
+        thd_source = "FFT"
+        if (result is not None and result.thd_estimate_pct is not None
+                and result.thd_estimate_pct > 0):
+            thd_pct = float(result.thd_estimate_pct)
+            thd_source = "engine"
+        # THD annotation in the upper-right.
         ax.text(
             0.98, 0.92,
-            f"THD = {synth.thd_pct:.0f} %",
+            f"THD = {thd_pct:.0f} %  ({thd_source})",
             ha="right", va="top",
             transform=ax.transAxes,
             color=p.text, fontsize=10, fontweight="bold",

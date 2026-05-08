@@ -371,60 +371,76 @@ def _passive_choke(spec: Spec, result: DesignResult,
 
 def _line_reactor_1ph(spec: Spec, result: DesignResult,
                       n_samples: int) -> RealisticWaveform | None:
-    """1φ line-reactor iL(t) — diode-bridge pulse train at line peaks.
+    """1φ line-reactor iL(t) — calibrated by the engine, not synthesised.
 
-    A series-L + diode bridge + bulk cap conducts only when the
-    rectified line peak exceeds the bus voltage. The signature
-    waveform: alternating-polarity pulses, each ~30°-90° wide,
-    centred on the positive and negative line-voltage peaks.
+    The engine's design path for ``line_reactor`` already runs
+    :func:`pfc_inductor.topology.line_reactor.line_current_waveform`
+    against the design's actual ``pct_impedance_actual`` and IEEE-519-
+    fit harmonic table; the result lives in ``result.waveform_iL_A``.
+    That waveform is the authoritative shape — synthesising our own
+    pulse train from a fudged ``atan2(ωL, R_eq)`` conduction angle
+    used to disagree with the engine's THD estimate (the engine said
+    ~130 % but we showed 196 %), making engineers wonder whether the
+    inductor was being modelled at all.
 
-    Closed-form approximation (raised-cosine pulse, conduction angle
-    derived from the L/R_load ratio):
-
-        θ_cond = clamp(arctan(2π·f·L / R_eq), 0.4, 1.4) rad
-        iL(t)  = sgn(sin(ωt)) · I_pk · max(cos(2(ωt−n·π)/θ_cond), 0)
-
-    The shape captures the engineer's mental model — pulsed currents
-    near the peaks of the line voltage — without committing to a
-    specific bridge convergence path.
+    Fix: trust the engine. Pull ``waveform_iL_A`` straight in. Only
+    fall back to the closed-form pulse train when the engine path
+    didn't populate the array (defensive).
     """
+    f_line = float(spec.f_line_Hz or 50.0)
+    if f_line <= 0:
+        return None
+
+    if result.waveform_iL_A and result.waveform_t_s:
+        # ---- Engine-calibrated path -----------------------------------
+        # The engine path for line_reactor topology populates the
+        # waveform from ``line_current_waveform(spec, L_actual_mH,
+        # n_cycles=2, n_points=1200)``, which already reflects the
+        # design's L_actual_uH via pct_impedance_actual. No further
+        # synthesis math needed.
+        t = np.array(result.waveform_t_s, dtype=float)
+        iL = np.array(result.waveform_iL_A, dtype=float)
+        pct_Z = float(result.pct_impedance_actual or 0.0)
+        label = (
+            f"Reator 1φ · forma calibrada pelo engine · "
+            f"pct_Z = {pct_Z:.2f}% · "
+            f"I_rms = {result.I_line_rms_A:.2f} A · "
+            f"I_pk = {result.I_line_pk_A:.2f} A"
+        )
+        base = RealisticWaveform(
+            topology="line_reactor", n_phases=1,
+            t_s=t, iL_A=iL, label=label,
+        )
+        return _attach_spectrum(base, fundamental_Hz=f_line)
+
+    # ---- Fallback: closed-form pulse train (engine waveform absent) ---
+    # Same math as before — kept so half-baked specs (Pout=0 etc.)
+    # still get *something* on screen instead of a blank axis.
     L_uH = float(result.L_actual_uH)
     if L_uH <= 0:
         return None
-    f_line = float(spec.f_line_Hz or 50.0)
     Vin_min = float(spec.Vin_min_Vrms or 0.0)
     Pout = float(spec.Pout_W or 0.0)
-    if f_line <= 0 or Vin_min <= 0 or Pout <= 0:
+    if Vin_min <= 0 or Pout <= 0:
         return None
 
     L = L_uH * 1e-6
     Vin_pk = math.sqrt(2.0) * Vin_min
-    Vbus = 0.95 * Vin_pk  # tight rectifier
+    Vbus = 0.95 * Vin_pk
     I_dc = Pout / max(Vbus, 1.0)
     R_eq = max(Vbus * Vbus / max(Pout, 1.0), 0.1)
     omega = 2.0 * math.pi * f_line
-
-    # Conduction angle widens with larger L; bounded to a realistic
-    # ±0.4–±1.4 rad window so the visual reads as a recognisable
-    # pulse train.
     theta_cond = max(min(math.atan2(omega * L, R_eq), 1.4), 0.4)
 
     period = 1.0 / f_line
     t = np.linspace(0.0, 2 * period, n_samples, endpoint=False)
     phase = (omega * t) % (2.0 * math.pi)
-    # Raised-cosine envelope for a pulse near 0 (positive peak),
-    # mirrored near π (negative peak).
     pos_pulse = np.cos(0.5 * np.pi * (phase - 0.5 * math.pi)
                        / (0.5 * theta_cond))
     pos_window = (np.abs(phase - 0.5 * math.pi) < 0.5 * theta_cond)
     neg_pulse = np.cos(0.5 * np.pi * (phase - 1.5 * math.pi)
                        / (0.5 * theta_cond))
     neg_window = (np.abs(phase - 1.5 * math.pi) < 0.5 * theta_cond)
-    # Peak current: spreading I_dc across one conduction window
-    # of width θ_cond / (π) of the half-cycle ⇒ I_pk ≈ I_dc · π /
-    # θ_cond. Mild 1.2× boost for visual margin. Clamped to ≤ 5·I_dc
-    # so an extreme L undersize doesn't make the display unreadable
-    # (real bridges are protected by saturating cores anyway).
     I_pk_raw = 1.2 * math.pi * I_dc / max(theta_cond, 0.1)
     I_pk = min(I_pk_raw, 5.0 * max(I_dc, 0.1))
     iL = np.zeros_like(t)
@@ -437,78 +453,101 @@ def _line_reactor_1ph(spec: Spec, result: DesignResult,
         t_s=t,
         iL_A=iL,
         label=(
-            f"Reator 1φ · I_dc = {I_dc:.2f} A · "
+            f"Reator 1φ (fallback) · I_dc = {I_dc:.2f} A · "
             f"θ_conduction ≈ {math.degrees(theta_cond):.0f}° · "
             f"I_pk ≈ {I_pk:.1f} A"
         ),
     )
-    # Line reactor's iL is the LINE current itself — fundamental is
-    # at f_line. The pulse-train signature produces high THD that
-    # an engineer can read off the spectrum directly.
     return _attach_spectrum(base, fundamental_Hz=f_line)
 
 
 def _line_reactor_3ph(spec: Spec, result: DesignResult,
                       n_samples: int) -> RealisticWaveform | None:
-    """3φ line-reactor iL_a/b/c(t) — three-phase pulse trains.
+    """3φ line-reactor iL_a/b/c(t) — engine-calibrated A + ±120° rotations.
 
-    Six-pulse bridge: each phase conducts during 120° of the line
-    cycle. Approximate the phase-A current as a windowed sinusoid
-    and rotate by ±120° for B and C.
+    The engine populates ``result.waveform_iL_A`` for one
+    representative phase using the same harmonic-decomposition path
+    1φ uses (fed with the 3-phase ``estimate_thd_pct`` ≈ 75/√%Z
+    formula). Phase B and C are *not* run independently — they are
+    the same waveform shifted by ±T/3 in time, since a balanced 3-
+    phase rectifier produces three time-translated copies of the
+    same shape.
+
+    Synthesising B and C as ``np.roll(iL_a, ±n_samples/3)`` honours
+    that physics exactly and avoids the previous fudge of
+    ``np.sin(ωt + φ)·suppress`` which produced an aggressive, square-
+    looking waveform that didn't match the engine's THD.
     """
+    f_line = float(spec.f_line_Hz or 50.0)
+    if f_line <= 0:
+        return None
+
+    if result.waveform_iL_A and result.waveform_t_s:
+        # ---- Engine-calibrated path -----------------------------------
+        t = np.array(result.waveform_t_s, dtype=float)
+        iL_a = np.array(result.waveform_iL_A, dtype=float)
+        # Time-shift by ±T/3 to recover phases B and C.
+        period = 1.0 / f_line
+        if t.size >= 2:
+            dt = float(t[1] - t[0])
+            shift_samples = int(round((period / 3.0) / dt))
+        else:
+            shift_samples = max(iL_a.size // 6, 1)
+        iL_b = np.roll(iL_a, -shift_samples)  # B lags A by 120°
+        iL_c = np.roll(iL_a, +shift_samples)  # C leads A by 120°
+
+        pct_Z = float(result.pct_impedance_actual or 0.0)
+        label = (
+            f"Reator 3φ · forma calibrada pelo engine · "
+            f"pct_Z = {pct_Z:.2f}% · "
+            f"I_rms = {result.I_line_rms_A:.2f} A · "
+            f"3 fases via shift ±T/3"
+        )
+        base = RealisticWaveform(
+            topology="line_reactor", n_phases=3,
+            t_s=t, iL_A=iL_a,
+            iL_extra=(iL_b, iL_c),
+            extra_labels=("iL_b", "iL_c"),
+            label=label,
+        )
+        return _attach_spectrum(base, fundamental_Hz=f_line)
+
+    # ---- Fallback: closed-form windowed sinusoid ---------------------
     L_uH = float(result.L_actual_uH)
     if L_uH <= 0:
         return None
-    f_line = float(spec.f_line_Hz or 50.0)
     Vin_min = float(spec.Vin_min_Vrms or 0.0)
     Pout = float(spec.Pout_W or 0.0)
-    if f_line <= 0 or Vin_min <= 0 or Pout <= 0:
+    if Vin_min <= 0 or Pout <= 0:
         return None
 
     L = L_uH * 1e-6
-    Vin_pk = math.sqrt(2.0) * Vin_min  # line-to-line peak
-    Vbus = 1.35 * Vin_min              # 6-pulse bridge: ~1.35·V_LL_rms
+    Vbus = 1.35 * Vin_min
     I_dc = Pout / max(Vbus, 1.0)
     omega = 2.0 * math.pi * f_line
-
-    # Smaller conduction angle than 1φ — each phase conducts in two
-    # 60° windows per half cycle (six-pulse bridge).
-    theta_cond_total = max(min(math.atan2(omega * L, Vbus / max(I_dc, 0.1)), 1.0), 0.4)
+    theta_cond_total = max(
+        min(math.atan2(omega * L, Vbus / max(I_dc, 0.1)), 1.0), 0.4,
+    )
 
     period = 1.0 / f_line
     t = np.linspace(0.0, 2 * period, n_samples, endpoint=False)
 
     def _phase_current(phi_offset: float) -> np.ndarray:
-        phase = (omega * t + phi_offset) % (2.0 * math.pi)
-        # Two conduction windows per cycle: near phase = π/2 and 3π/2.
-        # Use a smooth raised-sine envelope so the visualisation reads
-        # like a flattened sinusoid.
         env = np.sin(omega * t + phi_offset)
-        # Suppress the middle of each half-cycle (between conduction
-        # windows of this phase).
         suppress = np.abs(env) > math.cos(0.5 * theta_cond_total)
-        out = I_dc * 1.5 * env * suppress
-        return out
+        return I_dc * 1.5 * env * suppress
 
     iL_a = _phase_current(0.0)
     iL_b = _phase_current(-2.0 * math.pi / 3.0)
     iL_c = _phase_current(+2.0 * math.pi / 3.0)
 
     base = RealisticWaveform(
-        topology="line_reactor",
-        n_phases=3,
-        t_s=t,
-        iL_A=iL_a,
-        iL_extra=(iL_b, iL_c),
-        extra_labels=("iL_b", "iL_c"),
+        topology="line_reactor", n_phases=3, t_s=t, iL_A=iL_a,
+        iL_extra=(iL_b, iL_c), extra_labels=("iL_b", "iL_c"),
         label=(
-            f"Reator 3φ (6-pulse) · I_dc ≈ {I_dc:.2f} A · "
-            f"3 fases a 120°"
+            f"Reator 3φ (fallback) · I_dc ≈ {I_dc:.2f} A · 3 fases a 120°"
         ),
     )
-    # 3φ reactor: same fundamental (f_line) as the 1φ case — each
-    # phase current's magnitude spectrum is invariant under phase
-    # rotation, so we report one spectrum for the whole bundle.
     return _attach_spectrum(base, fundamental_Hz=f_line)
 
 
