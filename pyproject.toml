@@ -48,6 +48,11 @@ dev = [
     # imports the loader at collection time, so the dev install
     # needs PyYAML even though no production code path requires it.
     "pyyaml>=6.0",
+    # ``.pre-commit-config.yaml`` runs ruff-format + ruff --fix on
+    # every commit. Bundling pre-commit in [dev] means a fresh
+    # checkout only needs ``uv pip install -e ".[dev]"`` followed
+    # by ``pre-commit install`` to enable the hook locally.
+    "pre-commit>=3.5",
 ]
 # Opt-in crash reporting + usage analytics — the runtime degrades
 # to a no-op when this extra isn't installed (defensive imports

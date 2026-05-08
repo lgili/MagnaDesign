@@ -330,14 +330,23 @@ def validate_design_femmt(
         )
 
     return _run_validation_in_subprocess(
-        spec, core, wire, material, result,
-        output_dir=output_dir, timeout_s=timeout_s,
+        spec,
+        core,
+        wire,
+        material,
+        result,
+        output_dir=output_dir,
+        timeout_s=timeout_s,
     )
 
 
 def _run_validation_in_subprocess(
-    spec: Spec, core: Core, wire: Wire, material: Material,
-    result: DesignResult, *,
+    spec: Spec,
+    core: Core,
+    wire: Wire,
+    material: Material,
+    result: DesignResult,
+    *,
     output_dir: Optional[Path] = None,
     timeout_s: int = _FEMMT_DEFAULT_TIMEOUT_S,
 ) -> FEAValidation:
@@ -362,7 +371,7 @@ def _run_validation_in_subprocess(
     import multiprocessing as mp
 
     ctx = mp.get_context("spawn")
-    queue: "mp.Queue" = ctx.Queue()
+    queue: mp.Queue = ctx.Queue()
     proc = ctx.Process(
         target=_validation_subprocess_entry,
         args=(spec, core, wire, material, result, output_dir, queue),
@@ -407,13 +416,17 @@ def _run_validation_in_subprocess(
     exc_name, exc_message = payload
     if exc_name == "FEMMNotAvailable":
         raise FEMMNotAvailable(exc_message)
-    raise FEMMSolveError(
-        f"FEMMT subprocess error: {exc_name}: {exc_message}"
-    )
+    raise FEMMSolveError(f"FEMMT subprocess error: {exc_name}: {exc_message}")
 
 
 def _validation_subprocess_entry(
-    spec, core, wire, material, result, output_dir, queue,
+    spec,
+    core,
+    wire,
+    material,
+    result,
+    output_dir,
+    queue,
 ):
     """Subprocess target — runs the in-proc FEMMT validation and
     sends the result (or exception) back through the queue.
@@ -426,11 +439,15 @@ def _validation_subprocess_entry(
     """
     try:
         v = _validate_design_femmt_inproc(
-            spec, core, wire, material, result,
+            spec,
+            core,
+            wire,
+            material,
+            result,
             output_dir=output_dir,
         )
         queue.put(("ok", v))
-    except Exception as e:  # noqa: BLE001 — bridge to parent.
+    except Exception as e:
         queue.put(("error", (type(e).__name__, str(e))))
 
 
@@ -464,8 +481,7 @@ def _validate_design_femmt_inproc(
         import femmt as ft
     except Exception as e:
         raise FEMMNotAvailable(
-            f"FEMMT could not be imported in subprocess: "
-            f"{type(e).__name__}: {e}"
+            f"FEMMT could not be imported in subprocess: {type(e).__name__}: {e}"
         ) from e
     integrity = _femmt_integrity_check(ft)
     if not integrity["ok"]:
