@@ -3,9 +3,15 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from typing import Literal
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, model_validator
+
+# Direct import — ``modulation`` imports nothing from spec.py, so
+# this is acyclic. Required at runtime so Pydantic v2 can resolve
+# the ``Optional[FswModulation]`` field annotation when validating
+# a Spec from JSON.
+from pfc_inductor.models.modulation import FswModulation
 
 Topology = Literal["boost_ccm", "passive_choke", "line_reactor"]
 
@@ -59,6 +65,25 @@ class Spec(BaseModel):
     I_rated_Arms: float = Field(
         2.2, gt=0.0,
         description="Rated continuous RMS current at the reactor (line side).",
+    )
+
+    # --- Variable-frequency-drive (VFD) modulation envelope ---
+    # When a compressor inverter dithers fsw across a band — typical
+    # 4–25 kHz on appliance compressors — the engine must evaluate
+    # the design at multiple fsw points to surface the worst-case
+    # corner across the band, not just at a single nominal point.
+    # Default ``None`` keeps every existing `.pfc` round-trip-safe
+    # and routes through the single-point engine path. See
+    # :mod:`pfc_inductor.models.modulation` for the field details.
+    fsw_modulation: Optional[FswModulation] = Field(
+        None,
+        description=(
+            "Optional VFD switching-frequency band. When set, the "
+            "engine evaluates the design at every ``fsw_modulation."
+            "fsw_points_kHz()`` point and aggregates the worst-case "
+            "envelope. ``None`` (default) preserves single-point "
+            "behaviour."
+        ),
     )
 
     @model_validator(mode="before")

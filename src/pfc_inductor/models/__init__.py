@@ -14,6 +14,12 @@ from pfc_inductor.models.material import (
     RolloffParams,
     SteinmetzParams,
 )
+from pfc_inductor.models.modulation import (
+    FswModulation,
+    ModulationProfile,
+    from_rpm_band,
+    rpm_to_fsw,
+)
 from pfc_inductor.models.result import DesignResult, LossBreakdown
 from pfc_inductor.models.spec import Spec, Topology
 from pfc_inductor.models.wire import Wire, WireType
@@ -23,9 +29,11 @@ __all__ = [
     "Core",
     "DesignResult",
     "FeasibilityEnvelope",
+    "FswModulation",
     "LossBreakdown",
     "LossDatapoint",
     "Material",
+    "ModulationProfile",
     "RolloffParams",
     "Spec",
     "SteinmetzParams",
@@ -37,4 +45,6 @@ __all__ = [
     "Topology",
     "Wire",
     "WireType",
+    "from_rpm_band",
+    "rpm_to_fsw",
 ]

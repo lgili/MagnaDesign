@@ -2,37 +2,56 @@
 
 ## Phase 1 — Spec model
 
-- [ ] `pfc_inductor/models/modulation.py`:
-      - `FswModulation` Pydantic model (fsw_min_kHz, fsw_max_kHz,
-        profile, n_eval_points, optional rpm_min/max, pole_pairs).
-      - Helper `rpm_to_fsw(rpm, pole_pairs)` for `rpm_band` profile.
-      - Validators: max ≥ min, n_eval_points ∈ [2, 50].
-- [ ] Spec extension: `Spec.fsw_modulation: Optional[FswModulation]`.
+- [x] `pfc_inductor/models/modulation.py`:
+      - `FswModulation` Pydantic v2 model (fsw_min_kHz,
+        fsw_max_kHz, profile, n_eval_points, optional
+        rpm_min/max, pole_pairs).
+      - Helper `rpm_to_fsw(rpm, pole_pairs)` for ``rpm_band``
+        profile (bundled K_CARRIER_RATIO=200, the IEC-friendly
+        appliance-compressor default).
+      - `from_rpm_band(...)` convenience constructor.
+      - Validators: max > min, n_eval_points ∈ [2, 50],
+        ``rpm_band`` profile requires the three RPM fields.
+- [x] Spec extension: `Spec.fsw_modulation: Optional[FswModulation]`.
       Default `None` — every current `.pfc` round-trips unchanged.
-- [ ] `tests/test_spec_modulation_roundtrip.py`: backward-compat +
-      new-feature round-trip via `.pfc` save/load.
+      Re-exported from `pfc_inductor.models.__init__`.
+- [x] `tests/test_modulation_workflow.py` covers backward-compat +
+      new-feature round-trip via JSON serialisation.
 
 ## Phase 2 — BandedDesignResult
 
-- [ ] `pfc_inductor/models/banded_result.py`:
-      - `BandedDesignResult(spec, band: list[BandPoint], worst_case,
-         nominal, flagged_points)`.
-      - `BandPoint(fsw_kHz, design: DesignResult)`.
-      - Convenience accessors: `worst_loss`, `worst_dT`, `worst_Bpk`.
-- [ ] `tests/test_banded_result_aggregation.py`: hand-built band,
-      verify worst-case extraction.
+- [x] `pfc_inductor/models/banded_result.py`:
+      - `BandedDesignResult(spec, band, nominal,
+        worst_per_metric, flagged_points)` dataclass.
+      - `BandPoint(fsw_kHz, result, failure_reason)`.
+      - `aggregate_band()` builds it from a raw list, honouring
+        ``edge_weighted=True`` for the dither profile.
+      - `unwrap_for_kpi(result)` helper for legacy single-point
+        consumers.
+- [x] Tests cover hand-built bands, per-metric worst case, edge-
+      weighted dither restriction, engine-failure absorption,
+      ``unwrap_for_kpi`` shim on both shapes.
 
 ## Phase 3 — Engine integration
 
-- [ ] `pfc_inductor/topology/modulation.py`:
-      - `eval_band(spec, core, wire, material) → BandedDesignResult`
-        when `spec.fsw_modulation is not None`. Iterates fsw points,
-        calls `design()` per point, aggregates.
-- [ ] `design()` dispatcher: route to `eval_band` when modulation
-      is set; else single-point as today. Return type union.
-- [ ] All callers of `design()` audited: most accept either kind
-      via a `result.worst_case if banded else result` shim. Add a
-      `unwrap_for_kpi(result)` helper to centralise.
+- [x] `pfc_inductor/modulation/engine.py`:
+      - `eval_band(spec, core, wire, material)` iterates the
+        band's fsw points, calls ``design()`` per point with a
+        copy-and-update spec (immutable Pydantic), absorbs
+        DesignError + arithmetic errors per point.
+      - `design_or_band(spec, ...)` dispatcher routes to
+        ``design()`` (single-point) or ``eval_band()`` (banded)
+        based on ``spec.fsw_modulation``.
+- [~] Module lives at `pfc_inductor/modulation/` (top-level)
+      rather than `topology/modulation.py` — the wrapper is
+      topology-agnostic and ``topology/`` is actively expanding
+      with new topology files (buck, flyback, LCL); keeping the
+      wrapper outside avoids merge churn.
+- [~] Every caller of `design()` audited and migrated to
+      `design_or_band` via `unwrap_for_kpi`. *Today only the
+      modulation tests exercise both paths; UI callers continue
+      to use `design()` directly until the Spec drawer's
+      Modulation sub-form lands (Phase 4).*
 
 ## Phase 4 — Spec drawer UI
 
