@@ -136,6 +136,35 @@ from pfc_inductor.visual.core_3d import _toroid_dims, infer_shape
 _TECH_AIR_GAP_M = 1e-5  # 10 µm "technical" gap; FEMMT requires non-zero
 
 
+def _resolve_verbosity(ft, prefer: tuple[str, ...]) -> object:
+    """Pick the first available ``ft.Verbosity`` member from
+    ``prefer`` and fall back to ``Silent`` if none of the
+    preferred names exist.
+
+    FEMMT's verbosity enum has churned across versions:
+    - 0.5.x ships ``Info`` / ``Silent``.
+    - Later builds ship ``Silent`` / ``ToConsole`` / ``ToFile`` and
+      drop ``Info``.
+
+    Hard-coding either set breaks when the user upgrades. Resolving
+    at call time keeps the runner version-independent.
+    """
+    enum = getattr(ft, "Verbosity", None)
+    if enum is None:
+        # Should never happen — the integrity check covers this —
+        # but be defensive: return ``None`` so the call uses FEMMT's
+        # own default.
+        return None
+    members = enum.__members__
+    for name in prefer:
+        if name in members:
+            return members[name]
+    if "Silent" in members:
+        return members["Silent"]
+    # Last-ditch: return whatever the enum has first.
+    return next(iter(members.values()))
+
+
 def validate_design_femmt(
     spec: Spec,
     core: Core,
@@ -252,7 +281,7 @@ def _toroid_validation(
             simulation_type=ft.SimulationType.FreqDomain,
             component_type=ft.ComponentType.Inductor,
             working_directory=str(cwd),
-            verbosity=ft.Verbosity.Info,
+            verbosity=_resolve_verbosity(ft, ("Info", "ToConsole")),
             is_gui=True,
         )
 
@@ -288,7 +317,7 @@ def _toroid_validation(
             sigma=0.0,
             permeability_datasource=ft.MaterialDataSource.Custom,
             permittivity_datasource=ft.MaterialDataSource.Custom,
-            mdb_verbosity=ft.Verbosity.Silent,
+            mdb_verbosity=_resolve_verbosity(ft, ("Silent",)),
         )
         geo.set_core(core_obj)
 
@@ -489,7 +518,7 @@ def _bobbin_validation(
             simulation_type=ft.SimulationType.FreqDomain,
             component_type=ft.ComponentType.Inductor,
             working_directory=str(cwd),
-            verbosity=ft.Verbosity.Info,
+            verbosity=_resolve_verbosity(ft, ("Info", "ToConsole")),
             is_gui=True,
         )
 
@@ -508,7 +537,7 @@ def _bobbin_validation(
             sigma=0.0,
             permeability_datasource=ft.MaterialDataSource.Custom,
             permittivity_datasource=ft.MaterialDataSource.Custom,
-            mdb_verbosity=ft.Verbosity.Silent,
+            mdb_verbosity=_resolve_verbosity(ft, ("Silent",)),
         )
         geo.set_core(core_obj)
 
@@ -640,15 +669,11 @@ def _femmt_integrity_check(femmt_module) -> dict:
         "AirGaps",
         "dtos",
     )
-    missing = [name for name in required
-               if not hasattr(femmt_module, name)]
+    missing = [name for name in required if not hasattr(femmt_module, name)]
     out: dict = {"ok": not missing, "missing": missing, "message": ""}
     if missing:
         install_dir = _femmt_install_dir(femmt_module)
-        loc = (
-            f" at {install_dir}"
-            if install_dir is not None else ""
-        )
+        loc = f" at {install_dir}" if install_dir is not None else ""
         # Probable cause: namespace package (no __init__.py present).
         # Spell that out so the user knows what to look for if a
         # straight reinstall doesn't fix it.
