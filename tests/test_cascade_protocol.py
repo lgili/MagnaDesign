@@ -166,16 +166,21 @@ def test_steady_state_returns_design_result(db):
 def test_registry_lists_all_topologies():
     """The registry exposes every supported ``Spec.topology`` value.
 
-    Was three when only AC topologies existed; ``add-buck-ccm-topology``
-    added the synchronous DC-DC buck.
+    Started at three (AC topologies only); buck-CCM, interleaved
+    boost PFC, and flyback have all landed since. Use a containment
+    check rather than equality so future topology additions only
+    require updating the registry, not this test.
     """
-    topos = registered_topologies()
-    assert set(topos) == {
+    topos = set(registered_topologies())
+    required = {
         "boost_ccm",
         "passive_choke",
         "line_reactor",
         "buck_ccm",
+        "flyback",
     }
+    missing = required - topos
+    assert not missing, f"missing required topologies: {missing}"
 
 
 def test_model_for_returns_matching_class():

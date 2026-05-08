@@ -25,7 +25,14 @@ import math
 from typing import Literal
 
 from pfc_inductor.models import Core, Material, Spec, Wire
-from pfc_inductor.topology import boost_ccm, buck_ccm, line_reactor, passive_choke
+from pfc_inductor.topology import (
+    boost_ccm,
+    buck_ccm,
+    flyback,
+    interleaved_boost_pfc,
+    line_reactor,
+    passive_choke,
+)
 
 # Per-topology cap on the heuristic's estimated turn count. PFC
 # chokes are HF (≥ 50 kHz) so their L sits in the µH band — even a
@@ -43,6 +50,14 @@ N_HARD_CAP_BY_TOPOLOGY: dict[str, int] = {
     # Buck inductors at typical kHz–MHz f_sw rarely need more than
     # ~150 turns; cap at 200 to give the optimizer a healthy margin.
     "buck_ccm": 200,
+    # Flyback primaries on EFD/EE/RM ferrite at 65–250 kHz typically
+    # land at 30–80 turns. Cap at 200 (matches buck) — anything
+    # higher than that means the bobbin is already too small for
+    # the design and Tier 1 will catch it via window-fill anyway.
+    "flyback": 200,
+    # Interleaved boost: each phase carries Pout/N at boost-CCM's
+    # operating point, so per-phase turn counts hug the boost cap.
+    "interleaved_boost_pfc": 250,
 }
 N_HARD_CAP_DEFAULT = 250
 
@@ -75,8 +90,15 @@ def required_L_uH(spec: Spec) -> float:
         return line_reactor.required_inductance_uH(spec)
     if spec.topology == "boost_ccm":
         return boost_ccm.required_inductance_uH(spec, spec.Vin_min_Vrms)
+    if spec.topology == "interleaved_boost_pfc":
+        return interleaved_boost_pfc.required_inductance_uH(
+            spec,
+            spec.Vin_min_Vrms,
+        )
     if spec.topology == "buck_ccm":
         return buck_ccm.required_inductance_uH(spec)
+    if spec.topology == "flyback":
+        return flyback.required_primary_inductance_uH(spec)
     return passive_choke.required_inductance_uH(spec, spec.Vin_min_Vrms)
 
 
@@ -91,11 +113,22 @@ def peak_current_A(spec: Spec) -> float:
         return line_reactor.line_pk_current_A(spec)
     if spec.topology == "boost_ccm":
         return boost_ccm.line_peak_current_A(spec, spec.Vin_min_Vrms)
+    if spec.topology == "interleaved_boost_pfc":
+        return interleaved_boost_pfc.line_peak_current_A(
+            spec,
+            spec.Vin_min_Vrms,
+        )
     if spec.topology == "buck_ccm":
         # Pre-L sizing the heuristic uses Iout alone; the peak with
         # ripple comes once L is chosen. The cascade Tier-0 filter
         # only needs an order-of-magnitude figure, so Iout is fine.
         return buck_ccm.output_current_A(spec)
+    if spec.topology == "flyback":
+        # Pre-L estimate uses the primary peak at the design-time
+        # Lp boundary (D_max=0.45). The cascade Tier-1 pass refines
+        # this once Np is picked from the actual core's AL.
+        Lp_uH = flyback.required_primary_inductance_uH(spec)
+        return flyback.primary_peak_current(spec, Lp_uH)
     return passive_choke.line_peak_current_A(spec, spec.Vin_min_Vrms)
 
 
@@ -228,6 +261,15 @@ def rated_current_A(spec: Spec) -> float:
         # is the cleanest formula and doesn't depend on Vin (the input
         # current is on the FET / Cin path, not the inductor).
         return buck_ccm.output_current_A(spec)
+    if spec.topology == "flyback":
+        # Flyback: ``rated_current_A`` represents the *primary* RMS
+        # at low line / full load — that's what drives the J-density
+        # filter for the primary wire. The secondary wire is sized
+        # separately by the cascade orchestrator using
+        # ``flyback.secondary_rms_current``.
+        Lp_uH = flyback.required_primary_inductance_uH(spec)
+        Ip_pk = flyback.primary_peak_current(spec, Lp_uH)
+        return flyback.primary_rms_current(spec, Lp_uH, Ip_pk)
     if spec.Vin_min_Vrms <= 0 or spec.Pout_W <= 0:
         return 0.0
     eta = float(getattr(spec, "eta", 0.95) or 0.95)

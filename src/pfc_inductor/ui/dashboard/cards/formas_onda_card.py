@@ -196,6 +196,8 @@ class _FormasOndaBody(QWidget):
             prefix = f"Topologia: reator de linha {phase} — iL · v_phase · FFT"
         elif topology == "buck_ccm":
             prefix = "Topologia: buck CCM (sync DC-DC) — iL · v_sw · FFT @ f_sw"
+        elif topology == "flyback":
+            prefix = "Topologia: flyback (coupled inductor) — iL_p + iL_s · v_drain · FFT @ f_sw"
         else:
             prefix = f"Topologia: {topology}"
         if synth is not None and synth.label:
@@ -290,6 +292,8 @@ class _FormasOndaBody(QWidget):
                 p,
                 synth,
             )
+        elif topology == "flyback":
+            self._plot_flyback_currents(ax_i, t_ms, p, synth)
         else:
             self._plot_inductor_current(ax_i, t_ms, result, p, synth)
 
@@ -377,6 +381,55 @@ class _FormasOndaBody(QWidget):
         ax.plot(t_ms, i_c, color=p.warning, linewidth=1.3, alpha=0.85, label="C")
         ax.set_ylabel("iL (A)", fontsize=10, color=p.text_secondary)
         ax.legend(loc="upper right", fontsize=7, frameon=False, labelcolor=p.text_secondary, ncol=3)
+
+    def _plot_flyback_currents(
+        self,
+        ax,
+        t_ms: np.ndarray,
+        p,
+        synth: Optional[RealisticWaveform],
+    ) -> None:
+        """Stack ``Ip(t)`` (primary) and ``Is(t)`` (secondary) on the
+        top axis with the dot-convention colours: primary in the
+        brand accent, secondary in violet. The two pulses are
+        non-overlapping in DCM (primary during ``D · Tsw``,
+        secondary during ``D₂ · Tsw``); CCM has both currents
+        non-zero through the entire cycle. The axis label switches
+        from "iL (A)" (single-winding topologies) to "i_p / i_s
+        (A)" so the engineer can tell at a glance that two traces
+        share the axis.
+        """
+        if synth is None or not synth.iL_extra:
+            ax.text(
+                0.5,
+                0.5,
+                "Flyback waveform — recompute to populate",
+                ha="center",
+                va="center",
+                color=p.text_muted,
+                fontsize=10,
+                transform=ax.transAxes,
+            )
+            return
+        i_p = synth.iL_A
+        i_s = synth.iL_extra[0]
+        ax.plot(t_ms, i_p, color=p.accent, linewidth=1.5, label="i_p (primary)")
+        ax.plot(
+            t_ms,
+            i_s,
+            color=p.accent_violet,
+            linewidth=1.4,
+            alpha=0.85,
+            label="i_s (secondary)",
+        )
+        ax.set_ylabel("i_p / i_s (A)", fontsize=10, color=p.text_secondary)
+        ax.legend(
+            loc="upper right",
+            fontsize=7,
+            frameon=False,
+            labelcolor=p.text_secondary,
+            ncol=2,
+        )
 
     def _plot_source_voltage(
         self, ax, t_ms: np.ndarray, spec: Spec, topology: str, n_phases: int, p

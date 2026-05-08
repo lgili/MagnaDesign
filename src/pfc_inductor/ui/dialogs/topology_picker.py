@@ -38,6 +38,23 @@ _OPTIONS: list[tuple[str, str, Optional[int], str]] = [
         "Active PFC. Inductor + switch + diode + bus capacitor. Typical fsw 50–200 kHz.",
     ),
     (
+        "interleaved_boost_pfc_2ph",
+        "Interleaved Boost PFC (2 phases)",
+        2,
+        "Two parallel boost stages, PWM-shifted 180°. Per-phase Pout = "
+        "Total/2 → smaller cores; aggregate input ripple cancels at "
+        "2 · f_sw. Server PSUs, residential AC at 1.5–5 kW.",
+    ),
+    (
+        "interleaved_boost_pfc_3ph",
+        "Interleaved Boost PFC (3 phases)",
+        3,
+        "Three parallel boost stages, PWM-shifted 120°. Per-phase Pout "
+        "= Total/3 → smallest per-phase core; aggregate input ripple "
+        "cancels at 3 · f_sw. EV chargers, high-end industrial PSUs at "
+        "3–22 kW.",
+    ),
+    (
         "passive_choke",
         "Passive PFC Choke",
         None,
@@ -62,6 +79,13 @@ _OPTIONS: list[tuple[str, str, Optional[int], str]] = [
         None,
         "Synchronous DC-DC step-down. Output inductor sees triangle "
         "ripple on top of DC. POL, automotive 12→5 V, telecom 48→12 V.",
+    ),
+    (
+        "flyback",
+        "Flyback (DCM/CCM)",
+        None,
+        "Isolated DC-DC, coupled inductor on gapped ferrite. "
+        "5–150 W wall adapters, USB-PD bricks, LED drivers, aux supplies.",
     ),
 ]
 
@@ -152,6 +176,7 @@ class TopologyPickerDialog(QDialog):
         self,
         current: str = "boost_ccm",
         n_phases: int = 1,
+        n_interleave: int = 2,
         parent: Optional[QWidget] = None,
     ) -> None:
         super().__init__(parent)
@@ -174,6 +199,10 @@ class TopologyPickerDialog(QDialog):
         # Resolve which option matches the current selection.
         if current == "line_reactor":
             current_key = "line_reactor_3ph" if n_phases == 3 else "line_reactor_1ph"
+        elif current == "interleaved_boost_pfc":
+            current_key = (
+                "interleaved_boost_pfc_3ph" if n_interleave == 3 else "interleaved_boost_pfc_2ph"
+            )
         else:
             current_key = current
 
@@ -218,10 +247,16 @@ class TopologyPickerDialog(QDialog):
     # Public API
     # ------------------------------------------------------------------
     def selected_key(self) -> str:
-        """Canonical Spec.topology value: ``boost_ccm`` |
-        ``passive_choke`` | ``line_reactor``."""
+        """Canonical Spec.topology value.
+
+        Two schematic keys collapse: ``line_reactor_{1ph,3ph}`` →
+        ``line_reactor`` (n_phases differs); ``interleaved_boost_pfc_
+        {2ph,3ph}`` → ``interleaved_boost_pfc`` (n_interleave differs).
+        """
         if self._selected_key.startswith("line_reactor"):
             return "line_reactor"
+        if self._selected_key.startswith("interleaved_boost_pfc"):
+            return "interleaved_boost_pfc"
         return self._selected_key
 
     def selected_n_phases(self) -> int:
@@ -231,9 +266,16 @@ class TopologyPickerDialog(QDialog):
             return 3
         return 1
 
+    def selected_n_interleave(self) -> int:
+        """2 or 3 — meaningful only when ``selected_key() ==
+        "interleaved_boost_pfc"``."""
+        if self._selected_key == "interleaved_boost_pfc_3ph":
+            return 3
+        return 2
+
     def selected_schematic_key(self) -> str:
-        """The internal key including the 1ph/3ph suffix — useful for
-        the next dialog screen."""
+        """The internal key including the 1ph/3ph / 2ph/3ph suffix —
+        useful for the next dialog screen / schematic widget."""
         return self._selected_key
 
     # ------------------------------------------------------------------

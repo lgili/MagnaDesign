@@ -645,6 +645,76 @@ def _buck_ccm(spec: Spec, result: DesignResult, n_samples: int) -> RealisticWave
 
 
 # ---------------------------------------------------------------------------
+# Flyback synthesiser — primary + secondary current pair
+# ---------------------------------------------------------------------------
+
+
+def _flyback(spec: Spec, result: DesignResult, n_samples: int) -> RealisticWaveform | None:
+    """Flyback iL(t) — coupled-inductor pulse currents.
+
+    DCM (default): the primary ramps up linearly during ``D · T_sw``
+    from zero to ``Ip_pk``, drops to zero on switch-off, and the
+    secondary picks up at ``Is_pk = n · Ip_pk`` ramping back down to
+    zero during the demag interval ``D₂ · T_sw``. Both currents are
+    zero in the idle interval at the end of each switching period.
+
+    CCM: the primary current never quite reaches zero — it rides
+    on a non-zero floor with the secondary holding the demag current
+    over (1 − D)·T_sw.
+
+    The synthesised RealisticWaveform stacks the secondary trace in
+    ``iL_extra`` so the FormasOndaCard can overlay both currents on
+    its top axis (``Ip`` accent + ``Is`` violet, the convention the
+    other multi-trace topologies — line-reactor 3φ — already use).
+
+    Returns ``None`` for half-baked specs (no Lp, no fsw, no Pout).
+    """
+    from pfc_inductor.topology import flyback as _fb
+
+    Lp_uH = float(result.Lp_actual_uH or result.L_actual_uH)
+    if Lp_uH <= 0:
+        return None
+    f_sw_kHz = float(spec.f_sw_kHz or 0.0)
+    if f_sw_kHz <= 0:
+        return None
+
+    # Use the engine's chosen turns ratio when available — otherwise
+    # the helper picks the optimal one from the spec, matching the
+    # design-time decision.
+    if result.Np_turns is not None and result.Ns_turns:
+        n_ratio = result.Np_turns / max(result.Ns_turns, 1)
+    else:
+        n_ratio = _fb.optimal_turns_ratio(spec)
+
+    wf = _fb.waveforms(spec, Lp_uH, n_ratio, n_points=n_samples)
+    t = wf["t_s"]
+    iL_p = wf["iL_pk_A"]
+    iL_s = wf["is_pk_A"]
+    f_sw_Hz = f_sw_kHz * 1e3
+
+    Ip_pk = float(iL_p.max())
+    Is_pk = float(iL_s.max())
+    D = float(wf["duty"][0])
+    label = (
+        f"Flyback {_fb._flyback_mode(spec).upper()} · "
+        f"n={n_ratio:.2f} · D={D:.3f} · "
+        f"Ip_pk={Ip_pk:.2f} A · Is_pk={Is_pk:.2f} A"
+    )
+    base = RealisticWaveform(
+        topology="flyback",
+        n_phases=1,
+        t_s=t,
+        iL_A=iL_p,
+        iL_extra=(iL_s,),
+        extra_labels=("iL_secondary",),
+        label=label,
+    )
+    # Flyback's primary current is a triangular pulse repeating at
+    # f_sw; that's the natural fundamental of the spectrum.
+    return _attach_spectrum(base, fundamental_Hz=f_sw_Hz)
+
+
+# ---------------------------------------------------------------------------
 # Dispatch
 # ---------------------------------------------------------------------------
 
@@ -670,6 +740,8 @@ def synthesize_il_waveform(
         return _passive_choke(spec, result, n_samples)
     if topology == "buck_ccm":
         return _buck_ccm(spec, result, n_samples)
+    if topology == "flyback":
+        return _flyback(spec, result, n_samples)
     if topology == "line_reactor":
         if n_phases == 3:
             return _line_reactor_3ph(spec, result, n_samples)

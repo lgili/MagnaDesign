@@ -71,6 +71,10 @@ class SpecPanel(QWidget):
         # visibility remain reactive.
         self._topology: str = "boost_ccm"
         self._n_phases: int = 1
+        # Interleaved-boost-PFC phase count (2 or 3). Only meaningful
+        # when ``self._topology == "interleaved_boost_pfc"``; default
+        # 2 keeps round-trip compat with specs that don't carry it.
+        self._n_interleave: int = 2
 
         self._ac_input_box = self._build_input_box()
         body.addWidget(self._ac_input_box)
@@ -136,23 +140,37 @@ class SpecPanel(QWidget):
     # Topology — set from outside (TopologyPickerDialog), read here.
     # ------------------------------------------------------------------
     def topology(self) -> str:
-        """Canonical ``Spec.topology`` value: ``boost_ccm`` |
-        ``passive_choke`` | ``line_reactor``."""
+        """Canonical ``Spec.topology`` value."""
         return self._topology
 
     def n_phases(self) -> int:
         """1 or 3 — meaningful only when ``topology() == "line_reactor"``."""
         return self._n_phases
 
-    def set_topology(self, name: str, n_phases: int = 1) -> None:
+    def n_interleave(self) -> int:
+        """2 or 3 — meaningful only when ``topology() ==
+        "interleaved_boost_pfc"``."""
+        return self._n_interleave
+
+    def set_topology(
+        self,
+        name: str,
+        n_phases: int = 1,
+        n_interleave: int = 2,
+    ) -> None:
         """Replace the active topology.
 
-        Accepts both the canonical Spec keys (``boost_ccm`` /
-        ``passive_choke`` / ``line_reactor`` / ``buck_ccm``) and the
-        picker dialog's suffixed variants (``line_reactor_1ph`` /
-        ``line_reactor_3ph``). Emits :attr:`topology_changed` and
-        :attr:`changed` so the debounced recalc on MainWindow picks
-        up the new state.
+        Accepts both the canonical Spec keys and the picker dialog's
+        suffixed variants:
+
+        - ``line_reactor_1ph`` / ``line_reactor_3ph`` →
+          ``line_reactor`` with the appropriate ``n_phases``.
+        - ``interleaved_boost_pfc_2ph`` /
+          ``interleaved_boost_pfc_3ph`` → ``interleaved_boost_pfc``
+          with the appropriate ``n_interleave``.
+
+        Emits :attr:`topology_changed` and :attr:`changed` so the
+        debounced recalc on MainWindow picks up the new state.
         """
         if name == "line_reactor_1ph":
             name = "line_reactor"
@@ -160,11 +178,28 @@ class SpecPanel(QWidget):
         elif name == "line_reactor_3ph":
             name = "line_reactor"
             n_phases = 3
+        elif name == "interleaved_boost_pfc_2ph":
+            name = "interleaved_boost_pfc"
+            n_interleave = 2
+        elif name == "interleaved_boost_pfc_3ph":
+            name = "interleaved_boost_pfc"
+            n_interleave = 3
 
-        if name not in ("boost_ccm", "passive_choke", "line_reactor", "buck_ccm"):
+        if name not in (
+            "boost_ccm",
+            "passive_choke",
+            "line_reactor",
+            "buck_ccm",
+            "flyback",
+            "interleaved_boost_pfc",
+        ):
             raise ValueError(f"unsupported topology: {name!r}")
 
-        if name == self._topology and n_phases == self._n_phases:
+        if (
+            name == self._topology
+            and n_phases == self._n_phases
+            and n_interleave == self._n_interleave
+        ):
             return  # no change — avoid spurious recalcs
 
         # When entering buck mode from boost defaults (Vout=400, fsw=65)
@@ -178,9 +213,19 @@ class SpecPanel(QWidget):
             self._apply_buck_defaults_if_boostlike()
         elif prev == "buck_ccm" and name != "buck_ccm":
             self._apply_boost_defaults_if_bucklike()
+        # Flyback uses the same DC-input bus as buck (12 V → 5 V is the
+        # textbook case), so the same auto-fill heuristic applies. The
+        # set is broader than buck — flyback can also work at high-Vin
+        # (post-PFC 375 V) or low-Vin (12 V wall adapter), but the
+        # defaults need to be runnable, not optimal.
+        if name == "flyback" and prev not in ("flyback", "buck_ccm"):
+            self._apply_flyback_defaults_if_boostlike()
+        elif prev == "flyback" and name not in ("flyback", "buck_ccm"):
+            self._apply_boost_defaults_if_bucklike()
 
         self._topology = name
         self._n_phases = int(n_phases) if n_phases in (1, 3) else 1
+        self._n_interleave = int(n_interleave) if n_interleave in (2, 3) else 2
         self._apply_topology_visibility()
         self.topology_changed.emit(self._topology, self._n_phases)
         self.changed.emit()
@@ -189,16 +234,18 @@ class SpecPanel(QWidget):
         """Show/hide form blocks that don't apply to the active topology."""
         is_lr = self._topology == "line_reactor"
         is_buck = self._topology == "buck_ccm"
+        is_flyback = self._topology == "flyback"
+        is_dc_input = is_buck or is_flyback
         # Line-reactor block: visible only for line_reactor.
         self._line_reactor_box.setVisible(is_lr)
         # AC input block: hidden for line_reactor (it has its own
-        # V/I block) and for buck_ccm (DC input).
-        self._ac_input_box.setVisible(not is_lr and not is_buck)
-        # DC input block: only for buck_ccm.
-        self._dc_input_box.setVisible(is_buck)
+        # V/I block) and for any DC-input topology (buck / flyback).
+        self._ac_input_box.setVisible(not is_lr and not is_dc_input)
+        # DC input block: shown for both buck_ccm and flyback.
+        self._dc_input_box.setVisible(is_dc_input)
         # Converter block (Vout / Pout / η / fsw / ripple): visible
-        # for boost / passive / buck. Hidden only for line_reactor,
-        # which has its own electrical fields.
+        # for every topology except line_reactor (which has its own
+        # electrical fields).
         self._converter_box.setVisible(not is_lr)
 
     # ------------------------------------------------------------------
@@ -232,6 +279,17 @@ class SpecPanel(QWidget):
             self.sp_vout.setValue(400.0)
             self.sp_pout.setValue(800.0)
             self.sp_fsw.setValue(65.0)
+
+    def _apply_flyback_defaults_if_boostlike(self) -> None:
+        """Switch the converter box to a 12 V → 5 V, 10 W, 100 kHz
+        flyback preset (TI UCC28780 EVM ballpark) when entering
+        flyback from a boost-like spec. Mirrors the buck helper —
+        we don't overwrite if the user has already moved off the
+        boost defaults."""
+        if self._values_look_like_boost_defaults():
+            self.sp_vout.setValue(5.0)
+            self.sp_pout.setValue(10.0)
+            self.sp_fsw.setValue(100.0)
 
     def _build_input_box(self) -> QGroupBox:
         box = QGroupBox("ENTRADA AC")
@@ -437,6 +495,24 @@ class SpecPanel(QWidget):
             l_req = 10.0
             # Convert the % ripple field to a 0..1 ratio for buck.
             ripple_ratio = self.sp_ripple.value() / 100.0
+        elif topo == "flyback":
+            # Flyback shares the DC-input block with buck. Same
+            # legacy-field placeholder strategy.
+            vin_dc = self.sp_vin_dc.value()
+            vin_dc_min = self.sp_vin_dc_min.value()
+            vin_dc_max = self.sp_vin_dc_max.value()
+            v_nom = vin_dc
+            v_min_ac = vin_dc_min
+            v_max_ac = vin_dc_max
+            n_phases = 3
+            i_rated = 2.2
+            l_req = 10.0
+            # The flyback-specific fields (``flyback_mode``,
+            # ``turns_ratio_n``, ``window_split_primary``) are not
+            # exposed in the current spec panel — they default to the
+            # validator's ``None`` (engine picks the optimal turns
+            # ratio at design time). The advanced section that surfaces
+            # them is queued for the next UX pass.
         else:
             v_nom = self.sp_vin_nom.value()
             v_min_ac = self.sp_vin_min.value()
@@ -473,6 +549,7 @@ class SpecPanel(QWidget):
             Ku_max=self.sp_ku.value(),
             Bsat_margin=self.sp_bsat_margin.value(),
             n_phases=n_phases,
+            n_interleave=self._n_interleave,
             L_req_mH=l_req,
             I_rated_Arms=i_rated,
             Vin_dc_V=vin_dc,

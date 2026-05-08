@@ -59,8 +59,12 @@ def _waveform_plot(result: DesignResult, topology: str) -> Optional[str]:
         title = "Line Current — Phase A (steady state)"
         ax.plot(t_ms, iL, color="#a01818", linewidth=1.4)
         ax.axhline(0, color="#999", linewidth=0.5)
-    elif topology == "boost_ccm":
-        title = "Inductor Current — half line cycle"
+    elif topology in ("boost_ccm", "interleaved_boost_pfc"):
+        title = (
+            "Inductor Current — half line cycle (per phase)"
+            if topology == "interleaved_boost_pfc"
+            else "Inductor Current — half line cycle"
+        )
         ax.plot(t_ms, iL, color="#3a78b5", linewidth=1.4)
         ax.fill_between(t_ms, 0, iL, alpha=0.12, color="#3a78b5")
     elif topology == "buck_ccm":
@@ -493,7 +497,7 @@ def _test_plan_rows(spec: Spec, result: DesignResult, material: Material) -> str
         ("Hi-pot (winding-to-core)", "1 min", "5 kV hi-pot tester", "No flashover, leakage ≤ 5 mA"),
         ("Insulation resistance", "≥ 100 MΩ", "500 V megohmmeter", "≥ 100 MΩ"),
     ]
-    if spec.topology == "boost_ccm":
+    if spec.topology in ("boost_ccm", "interleaved_boost_pfc"):
         rows.append(
             (
                 "Saturation current Isat",
@@ -570,7 +574,7 @@ def _test_plan_rows(spec: Spec, result: DesignResult, material: Material) -> str
 # they sized L for.
 # ---------------------------------------------------------------------------
 def _switching_ripple_plot(spec: Spec, result: DesignResult) -> Optional[str]:
-    if spec.topology != "boost_ccm" or spec.f_sw_kHz <= 0:
+    if spec.topology not in ("boost_ccm", "interleaved_boost_pfc") or spec.f_sw_kHz <= 0:
         return None
     L_H = float(result.L_actual_uH) * 1e-6
     if L_H <= 0:
@@ -694,7 +698,7 @@ def _efficiency_curve_plot(
     material: Material,
     result: DesignResult,
 ) -> Optional[str]:
-    if spec.topology not in ("boost_ccm", "passive_choke", "buck_ccm"):
+    if spec.topology not in ("boost_ccm", "interleaved_boost_pfc", "passive_choke", "buck_ccm"):
         return None
     if float(spec.Pout_W) <= 0 or float(result.losses.P_total_W) <= 0:
         return None
@@ -872,14 +876,32 @@ _SAFETY_BUCK_CCM: dict[str, str] = {
     "Pollution degree": "2",
     "EMI screening": "Recommended on SW node — high dV/dt",
 }
+# Flyback is the *first* topology where galvanic isolation matters —
+# the primary winding sits on the line-side bus and the secondary
+# delivers a SELV / safety-extra-low-voltage rail. v1 ships a
+# checklist-only safety block (creepage / clearance numbers per
+# IEC 62368-1 reinforced insulation); the full per-design
+# calculation is queued for the compliance-report follow-up.
+_SAFETY_FLYBACK: dict[str, str] = {
+    "Insulation class": "F (155 °C) reinforced winding-to-winding",
+    "Hi-pot test": "3000 Vrms, 60 s, primary↔secondary (IEC 62368)",
+    "Dielectric strength": "≥ 4 kVrms, 1 min, primary↔secondary",
+    "Creepage (250 V working)": "≥ 6.4 mm reinforced (PD 2)",
+    "Clearance": "≥ 2× operating peak voltage",
+    "Overvoltage category": "II (residential) or III (industrial)",
+    "Pollution degree": "2",
+    "Tape between windings": "Required — 3M 1298 polyester or eq.",
+}
 
 
 def _safety_table_for(topology: str) -> dict[str, str]:
     return {
         "boost_ccm": _SAFETY_BOOST,
+        "interleaved_boost_pfc": _SAFETY_BOOST,
         "line_reactor": _SAFETY_LINE_REACTOR,
         "passive_choke": _SAFETY_PASSIVE_CHOKE,
         "buck_ccm": _SAFETY_BUCK_CCM,
+        "flyback": _SAFETY_FLYBACK,
     }.get(topology, _SAFETY_BOOST)
 
 
@@ -975,9 +997,11 @@ def _stamp(spec: Spec, core: Core, material: Material) -> str:
 def _topology_label(topology: str) -> str:
     return {
         "boost_ccm": "Boost-PFC CCM Inductor",
+        "interleaved_boost_pfc": "Interleaved Boost-PFC Inductor (per phase)",
         "passive_choke": "Passive Line Choke",
         "line_reactor": "AC Line Reactor (50/60 Hz)",
         "buck_ccm": "Synchronous Buck CCM Inductor",
+        "flyback": "Flyback Coupled Inductor (DC-DC, isolated)",
     }.get(topology, "Inductor")
 
 
@@ -985,18 +1009,41 @@ def _topology_label(topology: str) -> str:
 # Topology-specific specification rows
 # ---------------------------------------------------------------------------
 def _spec_rows_boost(spec: Spec, result: DesignResult) -> str:
-    return "".join(
+    is_interleaved = spec.topology == "interleaved_boost_pfc"
+    N = int(getattr(spec, "n_interleave", 2)) if is_interleaved else 1
+    topo_label = (
+        f"Interleaved Boost PFC, CCM ({N} phases, 360°/{N} PWM shift)"
+        if is_interleaved
+        else "Boost PFC, CCM"
+    )
+    rows = [
+        _row("Topology", topo_label),
+        _row("Vin range", f"{spec.Vin_min_Vrms:.0f} – {spec.Vin_max_Vrms:.0f}", "Vrms"),
+        _row("Vout (DC bus)", f"{spec.Vout_V:.0f}", "V"),
+    ]
+    if is_interleaved:
+        rows.append(_row("Pout (total, all phases)", f"{spec.Pout_W:.0f}", "W"))
+        rows.append(_row("Pout per phase", f"{spec.Pout_W / N:.0f}", "W"))
+        rows.append(_row("Number of phases", f"{N}"))
+    else:
+        rows.append(_row("Pout", f"{spec.Pout_W:.0f}", "W"))
+    rows.extend(
         [
-            _row("Topology", "Boost PFC, CCM"),
-            _row("Vin range", f"{spec.Vin_min_Vrms:.0f} – {spec.Vin_max_Vrms:.0f}", "Vrms"),
-            _row("Vout (DC bus)", f"{spec.Vout_V:.0f}", "V"),
-            _row("Pout", f"{spec.Pout_W:.0f}", "W"),
             _row("Switching freq.", f"{spec.f_sw_kHz:.0f}", "kHz"),
             _row("Line freq.", f"{spec.f_line_Hz:.0f}", "Hz"),
             _row("Ripple target (pp)", f"{spec.ripple_pct:.0f}", "%"),
             _row("Efficiency assumed", f"{spec.eta:.2f}"),
         ]
     )
+    if is_interleaved:
+        rows.append(
+            _row(
+                "Aggregate input ripple frequency",
+                f"{N * spec.f_sw_kHz:.0f}",
+                "kHz",
+            )
+        )
+    return "".join(rows)
 
 
 def _spec_rows_choke(spec: Spec, result: DesignResult, core: Optional[Core] = None) -> str:
@@ -1059,6 +1106,73 @@ def _spec_rows_buck(spec: Spec, result: DesignResult) -> str:
             _row("Efficiency assumed", f"{spec.eta:.2f}"),
         ]
     )
+
+
+def _spec_rows_flyback(spec: Spec, result: DesignResult) -> str:
+    """Flyback (coupled-inductor isolated DC-DC) spec table.
+
+    Surfaces both the *spec* inputs (DC bus, Vout, Pout, fsw,
+    flyback_mode) and the engine's *operating-point* outputs
+    (Lp_actual, Np / Ns, Ip_pk, Is_pk, V_drain_pk, V_diode_pk,
+    L_leak, P_snubber). The two-block layout is what flyback
+    designers expect — the spec and the resulting magnetics
+    constraints both live on the first page of the datasheet.
+    """
+    from pfc_inductor.topology import flyback
+
+    Vin_min = flyback._vin_min(spec)
+    Vin_max = flyback._vin_max(spec)
+    Vin_nom = flyback._vin_nom(spec)
+    Iout = flyback.output_current_A(spec)
+    n_ratio = (
+        result.Np_turns / max(result.Ns_turns, 1)
+        if (result.Np_turns and result.Ns_turns)
+        else flyback.optimal_turns_ratio(spec)
+    )
+    mode = (spec.flyback_mode or "dcm").upper()
+    rows = [
+        _row("Topology", f"Flyback ({mode}) — isolated coupled inductor"),
+        _row(
+            "Vin DC range",
+            f"{Vin_min:.2f} – {Vin_max:.2f} (nom {Vin_nom:.2f})",
+            "V_dc",
+        ),
+        _row("Vout (regulated)", f"{spec.Vout_V:.2f}", "V_dc"),
+        _row("Iout (full load)", f"{Iout:.2f}", "A_dc"),
+        _row("Pout", f"{spec.Pout_W:.1f}", "W"),
+        _row("Switching freq.", f"{spec.f_sw_kHz:.0f}", "kHz"),
+        _row("Turns ratio Np/Ns", f"{n_ratio:.2f}"),
+        _row("Efficiency assumed", f"{spec.eta:.2f}"),
+    ]
+    # Operating-point block — populated only when the engine wrote
+    # the flyback-specific output fields. Half-baked specs (Pout=0
+    # etc.) leave them ``None`` and we silently skip the section.
+    if result.Lp_actual_uH is not None:
+        rows.extend(
+            [
+                _row("Lp (primary inductance)", f"{result.Lp_actual_uH:.2f}", "µH"),
+                _row("Np · Ns", f"{result.Np_turns} · {result.Ns_turns}"),
+                _row(
+                    "Ip peak / RMS",
+                    f"{result.Ip_peak_A:.2f} · {result.Ip_rms_A:.2f}",
+                    "A",
+                ),
+                _row(
+                    "Is peak / RMS",
+                    f"{result.Is_peak_A:.2f} · {result.Is_rms_A:.2f}",
+                    "A",
+                ),
+                _row(
+                    "L_leak (estimate)",
+                    f"{result.L_leak_uH:.3f}",
+                    "µH ±30 %",
+                ),
+                _row("V_drain (FET stress)", f"{result.V_drain_pk_V:.0f}", "V"),
+                _row("V_diode (rectifier stress)", f"{result.V_diode_pk_V:.1f}", "V"),
+                _row("P_snubber (RCD clamp)", f"{result.P_snubber_W:.3f}", "W"),
+            ]
+        )
+    return "".join(rows)
 
 
 def _spec_rows_line_reactor(spec: Spec, result: DesignResult) -> str:
@@ -1151,7 +1265,13 @@ def _validation_status_rows(result: DesignResult) -> str:
     return _kv_table(status, extra_class="dim")
 
 
-def _bom_rows(core: Core, wire: Wire, material: Material, result: DesignResult) -> str:
+def _bom_rows(
+    core: Core,
+    wire: Wire,
+    material: Material,
+    result: DesignResult,
+    spec: Optional[Spec] = None,
+) -> str:
     wire_len_m = result.N_turns * core.MLT_mm * 1e-3
     # Prefer the catalog mass; fall back to copper-density × A_cu × L
     # so the BOM never reads "—" for a real magnet wire.
@@ -1161,25 +1281,34 @@ def _bom_rows(core: Core, wire: Wire, material: Material, result: DesignResult) 
         if (wire.mass_per_meter_g and wire.mass_per_meter_g > 0)
         else " (derived from Cu density)"
     )
-    rows = [
-        _row("Core", f"{core.vendor} — {core.part_number} ({core.shape})"),
-        _row(
-            "  Ae × le × Ve",
-            f"{core.Ae_mm2:.0f} mm² × {core.le_mm:.0f} mm × {core.Ve_mm3 / 1000:.1f} cm³",
-        ),
-        _row("  Wa × MLT", f"{core.Wa_mm2:.0f} mm² × {core.MLT_mm:.0f} mm"),
-        _row("  AL nominal", f"{core.AL_nH:.0f}", "nH/N²"),
-        _row("Material", f"{material.vendor} — {material.name}"),
-        _row(
-            "  μ initial / Bsat (25°C)",
-            f"{material.mu_initial:.0f} / {material.Bsat_25C_T * 1000:.0f} mT",
-        ),
-        _row("  Density", f"{material.rho_kg_m3:.0f}", "kg/m³"),
-        _row("Wire", f"{wire.id} ({wire.type})"),
-        _row("  A_cu / d_cu", f"{wire.A_cu_mm2:.3f} mm² / {wire.d_cu_mm or 0:.2f} mm"),
-        _row("  Wire length", f"{wire_len_m:.2f}", "m"),
-        _row("  Wire mass (est.)", f"{wire_mass:.0f}{mass_origin}", "g"),
-    ]
+    rows: list[str] = []
+    # If the design is interleaved, the BOM lists the per-phase part —
+    # but the production order is N of them. Surface that explicitly
+    # so wind-room / purchasing don't miss the multiplier.
+    if spec is not None and spec.topology == "interleaved_boost_pfc":
+        N = int(getattr(spec, "n_interleave", 2))
+        rows.append(_row("Quantity per converter", f"<b>{N}× this part</b> (one per phase)"))
+    rows.extend(
+        [
+            _row("Core", f"{core.vendor} — {core.part_number} ({core.shape})"),
+            _row(
+                "  Ae × le × Ve",
+                f"{core.Ae_mm2:.0f} mm² × {core.le_mm:.0f} mm × {core.Ve_mm3 / 1000:.1f} cm³",
+            ),
+            _row("  Wa × MLT", f"{core.Wa_mm2:.0f} mm² × {core.MLT_mm:.0f} mm"),
+            _row("  AL nominal", f"{core.AL_nH:.0f}", "nH/N²"),
+            _row("Material", f"{material.vendor} — {material.name}"),
+            _row(
+                "  μ initial / Bsat (25°C)",
+                f"{material.mu_initial:.0f} / {material.Bsat_25C_T * 1000:.0f} mT",
+            ),
+            _row("  Density", f"{material.rho_kg_m3:.0f}", "kg/m³"),
+            _row("Wire", f"{wire.id} ({wire.type})"),
+            _row("  A_cu / d_cu", f"{wire.A_cu_mm2:.3f} mm² / {wire.d_cu_mm or 0:.2f} mm"),
+            _row("  Wire length", f"{wire_len_m:.2f}", "m"),
+            _row("  Wire mass (est.)", f"{wire_mass:.0f}{mass_origin}", "g"),
+        ]
+    )
     return "".join(rows)
 
 
@@ -1239,7 +1368,7 @@ def _topology_section(
     )
     blocks.append("</div>")
 
-    if spec.topology == "boost_ccm":
+    if spec.topology in ("boost_ccm", "interleaved_boost_pfc"):
         # Switching-period zoom + roll-off + η-curve.
         switch = _switching_ripple_plot(spec, result)
         if switch:
@@ -1411,12 +1540,14 @@ def generate_datasheet(
     )
 
     # Topology-specific spec table
-    if spec.topology == "boost_ccm":
+    if spec.topology in ("boost_ccm", "interleaved_boost_pfc"):
         spec_rows = _spec_rows_boost(spec, result)
     elif spec.topology == "line_reactor":
         spec_rows = _spec_rows_line_reactor(spec, result)
     elif spec.topology == "buck_ccm":
         spec_rows = _spec_rows_buck(spec, result)
+    elif spec.topology == "flyback":
+        spec_rows = _spec_rows_flyback(spec, result)
     else:
         spec_rows = _spec_rows_choke(spec, result, core=core)
 
@@ -1449,7 +1580,7 @@ def generate_datasheet(
     perf_section = _topology_section(spec, core, wire, material, result)
 
     # Page 3 — BOM + notes
-    bom_rows = _bom_rows(core, wire, material, result)
+    bom_rows = _bom_rows(core, wire, material, result, spec=spec)
     res_rows = _result_rows(spec, result)
     loss_rows = _loss_rows(result)
 

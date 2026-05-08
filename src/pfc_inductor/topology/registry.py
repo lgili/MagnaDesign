@@ -13,6 +13,10 @@ from pfc_inductor.models import Spec
 from pfc_inductor.models.spec import Topology
 from pfc_inductor.topology.boost_ccm_model import BoostCCMModel
 from pfc_inductor.topology.buck_ccm_model import BuckCCMModel
+from pfc_inductor.topology.flyback_model import FlybackModel
+from pfc_inductor.topology.interleaved_boost_pfc_model import (
+    InterleavedBoostPFCModel,
+)
 from pfc_inductor.topology.line_reactor_model import LineReactorModel
 from pfc_inductor.topology.passive_choke_model import PassiveChokeModel
 from pfc_inductor.topology.protocol import ConverterModel
@@ -28,6 +32,8 @@ TOPOLOGY_MODELS: dict[Topology, ModelFactory] = {
     "passive_choke": PassiveChokeModel,
     "line_reactor": LineReactorModel,
     "buck_ccm": BuckCCMModel,
+    "flyback": FlybackModel,
+    "interleaved_boost_pfc": InterleavedBoostPFCModel,
 }
 
 

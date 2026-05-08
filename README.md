@@ -18,9 +18,10 @@ finite-element solver — all from one PySide6 desktop UI.
 
 The architecture is **topology-pluggable**: each converter family is
 implemented as a small adapter that maps the spec to required
-inductance and operating waveforms. Three topologies ship today; the
-physics, optimization, FEA, and UI layers are reused unchanged when
-new topologies are added.
+inductance and operating waveforms. Six topologies ship today (active
+boost PFC, interleaved boost PFC, buck CCM, flyback, passive line
+choke, line reactor); the physics, optimization, FEA, and UI layers
+are reused unchanged when new topologies are added.
 
 ## What is supported today
 
@@ -32,10 +33,11 @@ capabilities. Items marked *Planned* live on the roadmap.
 | Topology                 | Status      | Operating regime              | Typical use case                                   |
 |--------------------------|-------------|-------------------------------|----------------------------------------------------|
 | Active boost PFC         | Available   | Continuous Conduction Mode    | Single-phase universal-input PFC front-ends        |
+| Buck (sync DC-DC)        | Available   | Continuous Conduction Mode    | POL rails, automotive 12→5 V, telecom 48→12 V      |
+| Flyback (coupled)        | Available   | DCM and CCM                   | Wall adapters, USB-PD bricks, LED drivers (5–150 W)|
 | Passive line choke       | Available   | Line frequency (50/60 Hz)     | DC-bus or AC-side filtering, no switching          |
 | Line reactor (1Ø and 3Ø) | Available   | Line frequency, %Z sizing     | Diode-bridge + DC-link drives, THD reduction       |
-| Buck / Boost (DCM, BCM)  | Planned     | —                             | —                                                  |
-| Flyback (coupled)        | Planned     | —                             | —                                                  |
+| Interleaved boost PFC    | Available   | CCM × 2 / × 3 phases          | Server PSUs, EV chargers (1.5–22 kW)               |
 | LLC / resonant           | Planned     | —                             | —                                                  |
 
 ### Physics models

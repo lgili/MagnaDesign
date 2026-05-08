@@ -145,6 +145,25 @@ def generate_html_report(
             _row("Vin DC nominal", f"{Vin_nom:.2f}", "V_dc"),
             _row("Vout (regulated)", f"{spec.Vout_V:.2f}", "V_dc"),
         ]
+    elif spec.topology == "flyback":
+        from pfc_inductor.topology import flyback as _fb
+
+        Vin_min = _fb._vin_min(spec)
+        Vin_max = _fb._vin_max(spec)
+        Vin_nom = _fb._vin_nom(spec)
+        n_ratio = (
+            result.Np_turns / max(result.Ns_turns, 1)
+            if (result.Np_turns and result.Ns_turns)
+            else _fb.optimal_turns_ratio(spec)
+        )
+        mode = (spec.flyback_mode or "dcm").upper()
+        spec_rows_input = [
+            _row("Topology", f"flyback ({mode})"),
+            _row("Vin DC (range)", f"{Vin_min:.2f}–{Vin_max:.2f}", "V_dc"),
+            _row("Vin DC nominal", f"{Vin_nom:.2f}", "V_dc"),
+            _row("Vout (regulated)", f"{spec.Vout_V:.2f}", "V_dc"),
+            _row("Turns ratio Np/Ns", f"{n_ratio:.2f}"),
+        ]
     else:
         spec_rows_input = [
             _row("Topology", spec.topology),

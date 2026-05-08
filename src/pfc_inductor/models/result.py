@@ -71,6 +71,28 @@ class DesignResult(BaseModel):
     # 3-phase: √3·V_LL·I·pf. None for non-line-reactor designs.
     Pi_W: Optional[float] = None
 
+    # --- flyback only (coupled-inductor topology) ---
+    # The engine writes these for ``topology == "flyback"`` and
+    # leaves them ``None`` for every single-winding topology.
+    # Surfacing the secondary-winding metrics + reflected-voltage
+    # stress is what the report and Análise card need to render
+    # the flyback datasheet end-to-end.
+    Lp_actual_uH: Optional[float] = None
+    Np_turns: Optional[int] = None
+    Ns_turns: Optional[int] = None
+    Ip_peak_A: Optional[float] = None
+    Ip_rms_A: Optional[float] = None
+    Is_peak_A: Optional[float] = None
+    Is_rms_A: Optional[float] = None
+    L_leak_uH: Optional[float] = None
+    V_drain_pk_V: Optional[float] = None
+    V_diode_pk_V: Optional[float] = None
+    P_snubber_W: Optional[float] = None
+    # Secondary-winding waveform sample (DCM ramp during demag).
+    # Stored alongside ``waveform_iL_A`` (which carries the primary
+    # current); the FormasOndaCard stacks both on the top axis.
+    waveform_is_A: Optional[list[float]] = None
+
     def is_feasible(self) -> bool:
         return (
             self.converged

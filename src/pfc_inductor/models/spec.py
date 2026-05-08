@@ -13,7 +13,14 @@ from pydantic import BaseModel, Field, model_validator
 # a Spec from JSON.
 from pfc_inductor.models.modulation import FswModulation
 
-Topology = Literal["boost_ccm", "passive_choke", "line_reactor", "buck_ccm"]
+Topology = Literal[
+    "boost_ccm",
+    "passive_choke",
+    "line_reactor",
+    "buck_ccm",
+    "interleaved_boost_pfc",
+    "flyback",
+]
 
 
 class Spec(BaseModel):
@@ -67,6 +74,24 @@ class Spec(BaseModel):
         ge=1,
         le=3,
         description="1 or 3 — only used when topology == 'line_reactor'",
+    )
+
+    # --- interleaved boost PFC only ---
+    # Number of parallel boost stages, PWM-shifted by 360°/N. Each
+    # phase carries 1/N of the total input current; the engine sizes
+    # one inductor (per ``per_phase_spec``) and the BOM lists it
+    # ``×N`` times. 2-phase is the dominant choice (server PSUs,
+    # 3–10 kW residential AC); 3-phase appears in EV chargers and
+    # high-end industrial PSUs. The cancellation formulas only close
+    # for the symmetric N-phase case so we restrict to 2 or 3.
+    n_interleave: int = Field(
+        2,
+        ge=2,
+        le=3,
+        description=(
+            "Number of parallel interleaved boost phases (2 or 3). "
+            "Only used when topology == 'interleaved_boost_pfc'."
+        ),
     )
     L_req_mH: float = Field(
         10.0,
@@ -142,6 +167,49 @@ class Spec(BaseModel):
         ),
     )
 
+    # --- flyback (coupled-inductor isolated DC-DC) ---
+    # Design-time operating mode. DCM is the textbook starting
+    # point and works with every silicon controller; CCM gives
+    # lower peak currents at the cost of a RHP zero in the
+    # control loop. Ignored for non-flyback topologies.
+    flyback_mode: Optional[Literal["dcm", "ccm"]] = Field(
+        None,
+        description=(
+            "Flyback operating mode at design time. 'dcm' (default) "
+            "stores energy fully each cycle; 'ccm' keeps non-zero "
+            "primary current for lower peak stress. Ignored when "
+            "topology != 'flyback'."
+        ),
+    )
+    # Turns ratio Np/Ns. When None the engine picks the optimal
+    # ratio that equalises FET drain stress and diode reverse
+    # stress (V_drain_target ~ 600 V universal-input default).
+    turns_ratio_n: Optional[float] = Field(
+        None,
+        gt=0.0,
+        le=20.0,
+        description=(
+            "Primary-to-secondary turns ratio Np/Ns for flyback "
+            "designs. None lets the engine pick an optimal value "
+            "from the equal-stress design rule."
+        ),
+    )
+    # Window-split factor for the primary winding (rest goes to
+    # secondary). 0.45 is the textbook sandwich-winding default;
+    # raising toward 0.55 favours the primary at the cost of
+    # higher secondary fill.
+    window_split_primary: float = Field(
+        0.45,
+        ge=0.30,
+        le=0.65,
+        description=(
+            "Fraction of the bobbin window allocated to the primary "
+            "winding in a flyback design. 0.45 is the textbook "
+            "sandwich-winding default. Ignored for single-winding "
+            "topologies."
+        ),
+    )
+
     @model_validator(mode="before")
     @classmethod
     def _convert_legacy_pct_impedance(cls, data: object) -> object:
@@ -180,6 +248,20 @@ class Spec(BaseModel):
         if self.topology == "line_reactor":
             if self.n_phases not in (1, 3):
                 raise ValueError("line_reactor: n_phases must be 1 or 3")
+        if self.topology == "interleaved_boost_pfc":
+            # Same boost step-up rule per phase.
+            if self.Vout_V <= self.Vin_max_Vrms * 1.41:
+                raise ValueError(
+                    f"interleaved_boost_pfc: Vout_V={self.Vout_V} must exceed "
+                    f"Vin_max_pk={self.Vin_max_Vrms * 1.41:.1f} (each phase is "
+                    "still a boost stage)."
+                )
+            if self.n_interleave not in (2, 3):
+                raise ValueError(
+                    "interleaved_boost_pfc: n_interleave must be 2 or 3 "
+                    "(only the symmetric phase-shift case has closed-form "
+                    "ripple cancellation)."
+                )
         if self.topology == "buck_ccm":
             # Buck must step DOWN: Vout < Vin (with margin for duty
             # ratio < 0.99). Use ``Vin_dc_min_V`` if provided, else
@@ -194,6 +276,18 @@ class Spec(BaseModel):
                     f"Vin (got Vin={v_in}); buck is a step-down "
                     "converter — use boost_ccm if Vout > Vin."
                 )
+        if self.topology == "flyback":
+            # Flyback is a buck-boost dressed in a coupled inductor
+            # — Vout can be either above or below Vin. The only
+            # hard requirements are Vin > 0 and Vout > 0; the
+            # turns ratio handles whatever ratio the user picks.
+            v_in = self.Vin_dc_min_V or self.Vin_dc_V or self.Vin_min_Vrms
+            if v_in is None or v_in <= 0:
+                raise ValueError("flyback: Vin_dc_V (or Vin_dc_min_V) must be > 0")
+            if self.Vout_V <= 0:
+                raise ValueError("flyback: Vout_V must be > 0")
+            if self.flyback_mode is not None and self.flyback_mode not in ("dcm", "ccm"):
+                raise ValueError(f"flyback_mode must be 'dcm' or 'ccm', got {self.flyback_mode!r}")
         return self
 
     @property

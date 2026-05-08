@@ -1,0 +1,29 @@
+{
+  "version": "1.0",
+  "name": "3 kW interleaved boost PFC (2 phases)",
+  "spec": {
+    "topology": "interleaved_boost_pfc",
+    "n_interleave": 2,
+    "Vin_min_Vrms": 180.0,
+    "Vin_max_Vrms": 265.0,
+    "Vin_nom_Vrms": 230.0,
+    "f_line_Hz": 50.0,
+    "Vout_V": 400.0,
+    "Pout_W": 3000.0,
+    "eta": 0.96,
+    "f_sw_kHz": 100.0,
+    "ripple_pct": 30.0,
+    "T_amb_C": 40.0,
+    "T_max_C": 125.0,
+    "Ku_max": 0.4,
+    "Bsat_margin": 0.20,
+    "n_phases": 1,
+    "L_req_mH": 10.0,
+    "I_rated_Arms": 8.7
+  },
+  "selection": {
+    "material_id": "magnetics-kool-mµ-60",
+    "core_id": "magnetics-c058150a2-125_highflux",
+    "wire_id": "AWG14"
+  }
+}

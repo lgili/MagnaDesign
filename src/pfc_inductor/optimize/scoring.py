@@ -149,6 +149,23 @@ def _mu_band_score(topology: str, mu: float) -> float:
         if mu < 14:
             return 12.0
         return 6.0
+    if topology == "flyback":
+        # Flyback cores are nearly always **gapped power ferrite**
+        # (3F36 / N87 / N97 / 3C90, μᵢ ≈ 2 000–4 000). The gap
+        # drops the effective AL into the 50–500 nH/N² band; the
+        # designer cares about the gap, not the bulk μᵢ.
+        # High-μ ferrites (5 000+) get a small penalty because
+        # they're harder to gap consistently in production.
+        # Low-μ powder cores (< 100 µi) score worst — they don't
+        # have the energy-density needed for a flyback's high-Bpk
+        # excursions and their losses at 100 kHz+ are punishing.
+        if 1_500 <= mu <= 5_000:
+            return 35.0
+        if 800 <= mu < 1_500 or 5_000 < mu <= 10_000:
+            return 25.0
+        if 200 <= mu < 800:
+            return 15.0
+        return 6.0
     # passive_choke — somewhere in between; broad acceptance.
     if 60 <= mu <= 1_000:
         return 32.0
@@ -265,7 +282,7 @@ def score_wire(
     # line fundamental. Pre-buck this branched on ``boost_ccm``
     # alone, which silently dropped buck wires onto the line-freq
     # path and stopped favouring Litz — fixed below.
-    if spec.topology in ("boost_ccm", "buck_ccm"):
+    if spec.topology in ("boost_ccm", "buck_ccm", "flyback"):
         f_sw_kHz = spec.f_sw_kHz
     else:
         f_sw_kHz = spec.f_line_Hz / 1000.0

@@ -70,6 +70,9 @@ TopologyKind = Literal[
     "line_reactor_1ph",
     "line_reactor_3ph",
     "buck_ccm",
+    "interleaved_boost_pfc_2ph",
+    "interleaved_boost_pfc_3ph",
+    "flyback",
 ]
 
 
@@ -812,12 +815,167 @@ def _render_buck_ccm(p: _SchematicPainter, accent: QColor, neutral: QColor, glow
     p.load_block((880, 125), neutral)
 
 
+def _render_flyback(
+    p: _SchematicPainter,
+    accent: QColor,
+    neutral: QColor,
+    glow: QColor,
+) -> None:
+    """Flyback DC-DC: Vin → Q1 → primary winding (highlighted)
+    coupled to secondary winding (highlighted) → diode → Cout → load.
+
+    Layout (logical px, 1000 × 250 canvas):
+
+    - x = 80   Vin DC source (battery glyph)
+    - x = 380  primary winding (highlighted, vertical orientation
+               so it stacks beside the secondary)
+    - x = 480  vertical core line + dot-convention markers
+    - x = 580  secondary winding (highlighted, vertical)
+    - x = 240  primary-side switch Q1 to ground
+    - x = 760  rectifier diode
+    - x = 880  output capacitor + load
+
+    The two coupled windings sit side-by-side with a vertical
+    "core" frame between them so the coupled-inductor identity
+    reads at a glance. Dot-convention markers (small filled
+    circles at the *top* of each winding) show the relative
+    phasing — when current ramps INTO the dotted end of the
+    primary, current ramps OUT of the dotted end of the
+    secondary, which is the textbook flyback pulse direction.
+    """
+    y_top, y_bot = 60, 200
+
+    # ---- DC source: battery glyph at the left edge.
+    cx_src, cy_src = 80, (y_top + y_bot) / 2
+    p._qp.setPen(p._pen(neutral, p.STROKE_COMPONENT))
+    p._qp.setBrush(Qt.BrushStyle.NoBrush)
+    p._qp.drawLine(QPointF(cx_src - 12, cy_src - 6), QPointF(cx_src + 12, cy_src - 6))
+    p._qp.drawLine(QPointF(cx_src - 6, cy_src + 6), QPointF(cx_src + 6, cy_src + 6))
+    p.wire((cx_src, y_top), (cx_src, cy_src - 6), neutral)
+    p.wire((cx_src, cy_src + 6), (cx_src, y_bot), neutral)
+    p.label((cx_src, cy_src - 30), "Vin DC", neutral, size=10, weight=600)
+
+    # ---- Primary winding (vertical, highlighted).
+    pri_cx = 380
+    p.wire((cx_src, y_top), (pri_cx, y_top), neutral)
+    p.inductor(
+        (pri_cx, (y_top + y_bot) / 2),
+        length=130,
+        accent=accent,
+        glow_bg=glow,
+        highlighted=True,
+        vertical=True,
+    )
+    p.label((pri_cx - 22, y_top - 12), "Np", accent, size=11, weight=700)
+    # Dot-convention marker (filled circle) at the top of the primary.
+    p._qp.setPen(Qt.PenStyle.NoPen)
+    p._qp.setBrush(QBrush(accent))
+    p._qp.drawEllipse(QPointF(pri_cx - 14, y_top + 4), 3, 3)
+
+    # ---- Core line (vertical) between the two windings.
+    core_x = 480
+    p._qp.setPen(p._pen(neutral, p.STROKE_COMPONENT))
+    p._qp.drawLine(QPointF(core_x - 4, y_top + 2), QPointF(core_x - 4, y_bot - 2))
+    p._qp.drawLine(QPointF(core_x + 4, y_top + 2), QPointF(core_x + 4, y_bot - 2))
+    # Air-gap notch at the centre.
+    gap_y = (y_top + y_bot) / 2
+    p._qp.drawLine(QPointF(core_x - 6, gap_y - 2), QPointF(core_x + 6, gap_y - 2))
+    p._qp.drawLine(QPointF(core_x - 6, gap_y + 2), QPointF(core_x + 6, gap_y + 2))
+    p.label((core_x, gap_y - 20), "core (gap)", neutral, size=8, weight=400)
+
+    # ---- Secondary winding (vertical, highlighted).
+    sec_cx = 580
+    p.inductor(
+        (sec_cx, (y_top + y_bot) / 2),
+        length=130,
+        accent=accent,
+        glow_bg=glow,
+        highlighted=True,
+        vertical=True,
+    )
+    p.label((sec_cx + 22, y_top - 12), "Ns", accent, size=11, weight=700)
+    # Dot at the BOTTOM of the secondary (opposite phasing — that's
+    # what makes it a flyback rather than a forward).
+    p._qp.setPen(Qt.PenStyle.NoPen)
+    p._qp.setBrush(QBrush(accent))
+    p._qp.drawEllipse(QPointF(sec_cx + 14, y_bot - 4), 3, 3)
+
+    # ---- Primary-side switch Q1 from primary's bottom to ground.
+    q1_x = 240
+    p.wire((pri_cx, y_bot), (q1_x + 24, y_bot), neutral)
+    p.mosfet((q1_x, y_bot), neutral, "Q1")
+    p.wire((q1_x - 24, y_bot), (cx_src, y_bot), neutral)
+
+    # ---- Secondary-side rectifier diode + output filter cap.
+    diode_x = 760
+    p.wire((sec_cx, y_top), (diode_x - 14, y_top), neutral)
+    p.diode((diode_x, y_top), neutral, "D", orientation="right")
+    p.wire((diode_x + 14, y_top), (880, y_top), neutral)
+
+    # Cout vertical between Vout rail and secondary ground.
+    p.junction_dot((880, y_top), neutral)
+    p.junction_dot((880, y_bot), neutral)
+    p.capacitor((880, (y_top + y_bot) / 2), neutral, "Cout", polarised=True, vertical=True)
+    p.wire((880, y_top), (880, (y_top + y_bot) / 2 - 18), neutral)
+    p.wire((880, (y_top + y_bot) / 2 + 18), (880, y_bot), neutral)
+
+    # Secondary ground returns to bottom of secondary winding.
+    p.wire((sec_cx, y_bot), (880, y_bot), neutral)
+
+    # ---- +Vout label
+    p.label((830, y_top - 14), "+Vout", neutral, size=9, weight=600)
+
+
+def _render_interleaved_boost_pfc_2ph(
+    p: _SchematicPainter,
+    accent: QColor,
+    neutral: QColor,
+    glow: QColor,
+) -> None:
+    """Interleaved boost PFC (2 phases) — boost schematic with a
+    ``× 2 phases`` badge. The full per-phase diagram (bridge + L1 +
+    L2 + Q1 + Q2 + D1 + D2 stacked vertically) is busier than a 1-ph
+    boost without adding pedagogical value at this canvas size; the
+    badge makes the topology unambiguous and the cancellation chart
+    in the Analysis tab carries the visual story."""
+    _render_boost_ccm(p, accent, neutral, glow)
+    p.label(
+        (500, 30),
+        "× 2 phases (interleaved)",
+        accent,
+        size=11,
+        weight=700,
+    )
+
+
+def _render_interleaved_boost_pfc_3ph(
+    p: _SchematicPainter,
+    accent: QColor,
+    neutral: QColor,
+    glow: QColor,
+) -> None:
+    """Interleaved boost PFC (3 phases) — same boost-CCM with a
+    ``× 3 phases`` badge. See ``_render_interleaved_boost_pfc_2ph``
+    for the rationale."""
+    _render_boost_ccm(p, accent, neutral, glow)
+    p.label(
+        (500, 30),
+        "× 3 phases (interleaved)",
+        accent,
+        size=11,
+        weight=700,
+    )
+
+
 _TOPOLOGY_RENDERERS = {
     "boost_ccm": _render_boost_ccm,
     "passive_choke": _render_passive_choke,
     "line_reactor_1ph": _render_line_reactor_1ph,
     "line_reactor_3ph": _render_line_reactor_3ph,
     "buck_ccm": _render_buck_ccm,
+    "interleaved_boost_pfc_2ph": _render_interleaved_boost_pfc_2ph,
+    "interleaved_boost_pfc_3ph": _render_interleaved_boost_pfc_3ph,
+    "flyback": _render_flyback,
 }
 
 
@@ -894,7 +1052,11 @@ def topology_picker_choices() -> list[tuple[str, str]]:
     """Return ``(key, label)`` pairs for the topology picker dialog."""
     return [
         ("boost_ccm", "Boost CCM Active"),
+        ("interleaved_boost_pfc_2ph", "Interleaved Boost PFC (2 phases)"),
+        ("interleaved_boost_pfc_3ph", "Interleaved Boost PFC (3 phases)"),
         ("passive_choke", "Passive PFC Choke"),
         ("line_reactor_1ph", "Line Reactor (1ph)"),
         ("line_reactor_3ph", "Line Reactor (3ph)"),
+        ("buck_ccm", "Buck CCM (sync DC-DC)"),
+        ("flyback", "Flyback (DCM/CCM)"),
     ]
