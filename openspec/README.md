@@ -14,12 +14,12 @@ Estrutura de propostas e tarefas para evoluir o aplicativo. Convenção
 
 ### Mudanças ativas (May 2026)
 
-7 changes pendentes. Onze itens fecharam neste pass:
+6 changes pendentes. Doze itens fecharam neste pass:
 validation-reference-set software scaffolding, worst-case,
 mfg-spec, compliance, vfd-modulation, acoustic, theory-docs,
-buck-CCM, redesign-ui-flow-v3, ui-refactor-followups,
-cli-headless-runner, circuit-export, crash-reporting. Ver
-seção "Mudanças arquivadas" abaixo.
+buck-CCM, **flyback-topology**, redesign-ui-flow-v3,
+ui-refactor-followups, cli-headless-runner, circuit-export,
+crash-reporting. Ver seção "Mudanças arquivadas" abaixo.
 
 | Change ID                          | Prio | Tamanho | Estado |
 |------------------------------------|------|---------|--------|
@@ -29,23 +29,22 @@ seção "Mudanças arquivadas" abaixo.
 
 ¹ Operacional — sem isso não há adoção corporativa.
 
-Os 7 pendentes restantes são as 4 propostas de novas
-topologias (`add-flyback-topology`, `add-lcl-grid-tie-filter`,
-`add-interleaved-boost-pfc`, `add-psfb-output-choke`) que
-ainda não saíram do estado de proposta, mais os 3 itens
-acima.
+Os 6 pendentes restantes são as 3 propostas de novas
+topologias (`add-lcl-grid-tie-filter`, `add-interleaved-boost-pfc`,
+`add-psfb-output-choke`) que ainda não saíram do estado de
+proposta, mais os 3 itens infra acima.
 
-### Mudanças propostas — 5 novas topologias
+### Mudanças propostas — 3 novas topologias
 
-A app cobre hoje 5 topologias (boost-CCM PFC, passive choke,
-line reactor 1φ/3φ, buck-CCM DC-DC — buck shipped em `c90f2ee`).
-Estas 4 propostas restantes alargam o escopo para inversores e
-DC-DC isolados — cada uma é independente e pode entrar na
-sequência preferida pela engenharia.
+A app cobre hoje 6 topologias (boost-CCM PFC, passive choke,
+line reactor 1φ/3φ, buck-CCM DC-DC, **flyback DCM/CCM** —
+flyback shipped em `8cdeffe`, buck em `c90f2ee`). Estas 3
+propostas restantes alargam o escopo para inversores grid-tie
+e DC-DC isolados de média potência — cada uma é independente
+e pode entrar na sequência preferida pela engenharia.
 
 | Change ID                          | Tamanho | Descrição |
 |------------------------------------|---------|-----------|
-| `add-flyback-topology`             | XL      | Coupled-inductor isolado para 5–150 W (adaptadores, supplies auxiliares). Primeira **multi-winding magnetic** + primeira **isolation safety** (IEC 62368 checklist). Modos DCM e CCM. |
 | `add-lcl-grid-tie-filter`          | XL      | Filtro LCL trifásico para inversores grid-tie (PV / wind / V2G). Primeira topologia **multi-inductor** + primeira com **standards-as-design-constraint** (IEEE 1547, IEC 61727). Bode plot + Bode na aba Análise. |
 | `add-interleaved-boost-pfc`        | M       | Boost PFC interleaved 2φ / 3φ para 1.5–10 kW (server PSU, EV charger PFC, AC residencial). Reusa toda a math do `boost_ccm` por phase + ripple-cancellation Hwu-Yau analítico. |
 | `add-psfb-output-choke`            | M       | Output choke do phase-shifted full-bridge (telecom 1–5 kW, EV charger isolado). Primeira topologia **secondary-side**. Math é buck-CCM com `f_sw_eff = 2·f_sw`. |
@@ -53,19 +52,21 @@ sequência preferida pela engenharia.
 **Dependências cruzadas**:
 
 - `add-lcl-grid-tie-filter` introduz o wrapper multi-inductor
-  (``MultiInductorDesignResult`` + ``ConverterModel.inductor_roles()``);
-  `add-flyback-topology` e `add-interleaved-boost-pfc` reusam.
-  Ordem natural: LCL → flyback / interleaved em paralelo.
+  (``MultiInductorDesignResult`` + ``ConverterModel.inductor_roles()``).
+  `add-flyback-topology` shipou sem o wrapper (engine trata o
+  primário como "the inductor" e expõe o secundário via
+  campos Optional no DesignResult); `add-interleaved-boost-pfc`
+  segue o mesmo padrão. O wrapper só vira pré-requisito real
+  para LCL onde os 3 indutores têm papéis distintos.
 - `add-psfb-output-choke` depende implicitamente do
-  `add-buck-ccm-topology` (já arquivado, ver abaixo). Ordem:
+  `add-buck-ccm-topology` (já arquivado). Ordem:
   buck (✓) → PSFB.
 
-**Roadmap sugerido (60 dias)**: flyback (com wrapper mínimo) →
-interleaved → PSFB → LCL (full multi-inductor + standards).
-Após os 4, o app cobre ~80% do mercado de power-magnetics
-design.
+**Roadmap sugerido (60 dias)**: interleaved → PSFB → LCL (full
+multi-inductor + standards). Após os 3, o app cobre ~80% do
+mercado de power-magnetics design.
 
-### Mudanças arquivadas (32 em `archive/`)
+### Mudanças arquivadas (33 em `archive/`)
 
 **v2 (físico + UX)**
 - `add-bh-loop-visual` — trajetória B-H no operating point
@@ -107,6 +108,20 @@ design.
 - `add-buck-ccm-topology` — DC-DC step-down síncrono (POL,
   automotivo 12→5 V, telecom 48→12 V); primeira topologia
   DC-input do app
+- `add-flyback-topology` — coupled-inductor isolado DCM + CCM
+  (5–150 W: wall adapters, USB-PD bricks, LED drivers,
+  aux supplies). Primeira **multi-winding magnetic** do app
+  (Np / Ns + turns ratio + window split + L_leak + RCD
+  snubber). DesignResult ganha 11 campos Optional para
+  flyback-only metrics (Lp/Np/Ns/Ip/Is/V_drain/V_diode/
+  P_snubber/...). Schematic com dot convention + air-gap
+  notch; Análise card empilha Ip + Is no top axis. Datasheet
+  ``_SAFETY_FLYBACK`` (IEC 62368-1 reinforced insulation
+  checklist). 39 testes (TI UCC28780 EVM benchmark) + 13
+  leakage table tests. Itens deferidos: 4-D cartesian
+  optimizer (mat × core × pri_wire × sec_wire), full IEC
+  62368 calculation, manufacturing-spec winding-sequence —
+  cada um vira sua própria change.
 - `add-vfd-modulation-workflow` — `Spec.fsw_modulation` para
   inversores de compressor; engine avalia banda fsw com worst-
   case envelope, datasheet com página de modulação
