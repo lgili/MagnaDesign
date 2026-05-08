@@ -21,6 +21,35 @@ Estrutura de propostas e tarefas para evoluir o aplicativo. Convenção
 | `redesign-ui-flow-v3`    | XL      | Reescreve a shell em torno de Spec drawer persistente + 3 tabs no workspace + 4 áreas reais na sidebar; remove Modo Clássico e o stepper de 8 segmentos |
 | `ui-refactor-followups`  | M       | Tail-end items dos 5 refactors v2 — animations 3D, docs UI (Núcleo score table foi entregue) |
 
+### Mudanças propostas — caminho para uso industrial (May 2026)
+
+Levantamento "what's missing for industry adoption". Cada item
+endereça um gap concreto identificado na auditoria do app. Ordem
+reflete prioridade: **P0** (bloqueador para produção) → **P1**
+(diferenciador forte) → operacional (sem isso, IT corporativa
+não adota).
+
+| Change ID                          | Prio | Tamanho | Descrição |
+|------------------------------------|------|---------|-----------|
+| `add-validation-reference-set`     | P0   | L       | 3 protótipos físicos com bench data (impedância + B-coil + térmico) + notebooks Jupyter rodando em CI; predicted-vs-measured publicado em GitHub Pages. **O multiplicador de credibilidade #1.** |
+| `add-worst-case-tolerance-doe`     | P0   | M       | DOE de cantos (V_in × T × tolerâncias × Pout) + Monte-Carlo de yield. Crítico para auditoria IATF 16949 / IEC 60335. |
+| `add-manufacturing-spec-export`    | P0   | M       | PDF estilo IPC-A-610 + Excel com layer-by-layer winding, gap shim, hi-pot, plano de teste de aceitação. Fecha o loop design → fornecedor. |
+| `add-compliance-report-pdf`        | P0   | M       | PDF de compliance IEC 61000-3-2 / EN 55032 / UL 1411 / IEC 60335-1 com PASS/FAIL por harmônica. Reuse da física já existente. |
+| `add-cli-headless-runner`          | P1   | M       | `magnadesign sweep / cascade / report / mfg-spec / compliance / worst-case` para CI, batch overnight, integração com pipelines de fornecedor. |
+| `add-vfd-modulation-workflow`      | P1   | L       | `Spec.fsw_modulation` para inversores de compressor — engine avalia banda fsw em vez de ponto único; otimizador ranqueia por worst-case. |
+| `add-acoustic-noise-prediction`    | P1   | M       | Estimador analítico de SPL @ 1 m (magnetostricção + Lorentz + ressonância de bobina). Calibrado ±3 dB(A) contra bench. |
+| `add-code-signed-installers`       | P0¹  | M       | macOS notarized + Windows Authenticode + Sparkle/Squirrel auto-update. Remove o atrito de Gatekeeper / SmartScreen para IT corporativo. |
+| `add-crash-reporting`              | P1   | S       | Sentry opt-in + analytics opt-in. Privacy-first: scrubbing de PII, primeiro consent dialog. |
+| `add-theory-of-operation-docs`     | P1   | M       | Site Sphinx em GitHub Pages: 1 capítulo por módulo de física com derivação + citação + calibração + residual. Auditável para ISO 9001. |
+
+¹ Operacional, não engenharia — mas sem ele não há adoção corporativa.
+
+**Roadmap sugerido (90 dias)**: validation → worst-case →
+mfg-spec → cli → compliance → signed installers. Após esses 6,
+o app está em estado defensável diante de um auditor de
+qualidade — o resto (acoustic, VFD modulation, crash reporting,
+theory docs) entra na rodada seguinte.
+
 ### Mudanças arquivadas (17 em `archive/`)
 
 **v2 (físico + UX)**
