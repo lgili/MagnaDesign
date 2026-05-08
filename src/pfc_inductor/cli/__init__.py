@@ -37,6 +37,7 @@ from pfc_inductor.cli.exit_codes import EXIT_CODES, ExitCode
 # adding a new subcommand is "drop the file + import here".
 from pfc_inductor.cli import cascade as _cascade_cmd
 from pfc_inductor.cli import catalog as _catalog_cmd
+from pfc_inductor.cli import circuit as _circuit_cmd
 from pfc_inductor.cli import compliance as _compliance_cmd
 from pfc_inductor.cli import datasheet as _datasheet_cmd
 from pfc_inductor.cli import design as _design_cmd
@@ -94,6 +95,7 @@ _datasheet_cmd.register(cli)
 _catalog_cmd.register(cli)
 _report_cmd.register(cli)
 _mfg_spec_cmd.register(cli)
+_circuit_cmd.register(cli)
 
 
 # Names of registered subcommands. Used by ``__main__.main`` to
