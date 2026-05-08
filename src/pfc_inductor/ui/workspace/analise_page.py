@@ -234,7 +234,24 @@ class AnalisePage(QWidget):
         grid.addWidget(self._modulation_card, 5, 0, 1, 12)
         grid.setRowStretch(5, 0)
 
+        # Row 6 — Acoustic noise card, full-width, hidden by
+        # default. Self-mounting widget — it shows itself when
+        # the engine has enough data to run the estimator
+        # (B_pk + ripple > 0) and hides for unfeasible / zero
+        # designs. Especially useful for compressor-VFD users
+        # whose audible-noise budget is part of the customer
+        # spec.
+        from pfc_inductor.ui.dashboard.cards.acoustic_card import (
+            AcousticCard,
+        )
+        self.card_acoustic = AcousticCard()
+        grid.addWidget(self.card_acoustic, 6, 0, 1, 12)
+        grid.setRowStretch(6, 0)
+
         # Convenience list for batch update / clear loops.
+        # ``card_acoustic`` is included so its own self-show /
+        # self-hide logic runs on every recalc — it manages
+        # visibility based on engine data availability.
         self._cards = [
             self.card_formas,
             self.card_bh,
@@ -243,6 +260,7 @@ class AnalisePage(QWidget):
             self.card_bobinamento,
             self.card_entreferro,
             self.card_detalhes,
+            self.card_acoustic,
         ]
 
     # ------------------------------------------------------------------
