@@ -67,6 +67,7 @@ from pfc_inductor.optimize.cascade import (
 from pfc_inductor.optimize.cascade.store import RunRecord
 from pfc_inductor.optimize.cascade.tier3 import supports_tier3
 from pfc_inductor.ui.widgets import Card, wrap_scrollable
+from pfc_inductor.ui.widgets.optimizer_filters_bar import OptimizerFiltersBar
 
 # Qt UserRole carries the candidate_key on the first cell of each row.
 _USER_ROLE_KEY = 0x0100
@@ -105,10 +106,10 @@ class _SpecStrip(QFrame):
     @staticmethod
     def _caption(key: str) -> str:
         return {
-            "topology": "TOPOLOGIA",
-            "Pout": "POTÊNCIA",
-            "Vin": "ENTRADA",
-            "Vout": "SAÍDA",
+            "topology": "TOPOLOGY",
+            "Pout": "POWER",
+            "Vin": "INPUT",
+            "Vout": "OUTPUT",
             "fsw": "F_SW",
             "ripple": "RIPPLE",
         }[key]
@@ -166,7 +167,7 @@ class _RunConfigCard(QWidget):
         layout.addLayout(self._labelled("Workers", self.workers_spin))
 
         # FEA backend badge — informational; refresh on Run.
-        self.fea_badge = QLabel("Backend FEA: probing…")
+        self.fea_badge = QLabel("FEA backend: probing…")
         self.fea_badge.setProperty("class", "Pill")
         self.fea_badge.setProperty("pill", "neutral")
         layout.addStretch(1)
@@ -883,6 +884,17 @@ class CascadePage(QWidget):
         self._catalog_summary.setContentsMargins(0, 0, 0, 4)
         inner.addWidget(self._catalog_summary)
 
+        # ---- Filter bar — pick which materials/cores/wires to sweep
+        # plus the objective the top-N table is ordered by. Empty
+        # selection on each chip == include the whole topology-eligible
+        # catalogue, which matches the cascade's previous "sweep
+        # everything" default.
+        self._filters = OptimizerFiltersBar()
+        self._filters.objective_changed.connect(
+            lambda _key: self._refresh_dynamic(),
+        )
+        inner.addWidget(Card("Filters & objective", self._filters))
+
         # Run config + actions row, side by side.
         self._cfg = _RunConfigCard()
         inner.addWidget(Card("Run configuration", self._cfg))
@@ -975,6 +987,13 @@ class CascadePage(QWidget):
         self._wires = list(wires)
         self._spec_strip.update_from_spec(spec)
         self._update_catalog_summary()
+        # Push the topology-filtered catalogue into the filter bar so
+        # its chips show the right "All N" defaults; the user's
+        # current selection survives so long as the items are still
+        # in the new catalogue (set_items prunes ids that disappeared).
+        self._filters.set_catalogs(
+            self._materials, self._cores, self._wires,
+        )
         # Refresh the FEA badge so the user sees if FEMMT got
         # provisioned between sessions.
         self._cfg.refresh_fea_status()
@@ -1008,6 +1027,15 @@ class CascadePage(QWidget):
         self._orch.parallelism = self._cfg.workers()
         self._orch.reset_cancel()
 
+        # Resolve the user's filter selections. Empty chip == wildcard,
+        # so ``selected_*`` returns the full topology-eligible catalogue.
+        # The cascade engine receives whatever subset (or full set) the
+        # engineer asked for, with no extra plumbing changes required —
+        # ``CascadeOrchestrator.run`` already accepts arbitrary lists.
+        materials = self._filters.selected_materials()
+        cores = self._filters.selected_cores()
+        wires = self._filters.selected_wires()
+
         run_id = self._orch.start_run(self._spec, config)
         self._run_id = run_id
 
@@ -1034,7 +1062,7 @@ class CascadePage(QWidget):
         self._thread = QThread(self)
         self._worker = _CascadeWorker(
             self._orch, run_id, self._spec,
-            self._materials, self._cores, self._wires, config,
+            materials, cores, wires, config,
         )
         self._worker.moveToThread(self._thread)
         self._thread.started.connect(self._worker.run)
@@ -1137,18 +1165,110 @@ class CascadePage(QWidget):
         except Exception:  # noqa: BLE001
             pass
 
+    # Map ``OptimizerFiltersBar`` objective keys → store ``order_by``
+    # column names. Volume / score variants don't have a single column
+    # in the store, so we order by loss server-side and re-rank
+    # client-side with the volume / score weighting applied below.
+    _OBJECTIVE_TO_COLUMN = {
+        "loss":  "loss_t1_W",
+        "temp":  "temp_t1_C",
+        "cost":  "cost_t1_USD",
+    }
+
     def _refresh_dynamic(self) -> None:
         """Refresh the parts of the UI that read from the store."""
         if self._run_id is None:
             return
         self._stats.update_from_store(self._store, self._run_id)
-        rows = self._store.top_candidates(
-            self._run_id, n=self.TOP_N, order_by="loss_t1_W",
-        )
+
+        objective = self._filters.objective()
+        cores_by_id = {c.id: c for c in self._cores}
+
+        if objective in self._OBJECTIVE_TO_COLUMN:
+            rows = self._store.top_candidates(
+                self._run_id, n=self.TOP_N,
+                order_by=self._OBJECTIVE_TO_COLUMN[objective],
+            )
+        else:
+            # Volume / score / score_with_cost — fetch a wider set
+            # ranked by loss (the only stable ordering available
+            # server-side without a JOIN to the core table) and
+            # re-rank client-side with the user's chosen weighting.
+            # 5× ``TOP_N`` is enough to surface the volume / cost
+            # winners without paying for a full table scan.
+            wide = self._store.top_candidates(
+                self._run_id, n=self.TOP_N * 5, order_by="loss_t1_W",
+            )
+            rows = self._rerank_client_side(wide, cores_by_id, objective)[
+                : self.TOP_N
+            ]
+
         self._table.populate(rows)
         # Pareto chart needs core volumes — provide the live DB lookup.
-        cores_by_id = {c.id: c for c in self._cores}
         self._chart.populate(rows, cores_by_id)
+
+    @staticmethod
+    def _rerank_client_side(
+        rows: list[CandidateRow],
+        cores_by_id: dict[str, Core],
+        objective: str,
+    ) -> list[CandidateRow]:
+        """Sort ``rows`` by an objective the SQL store can't express.
+
+        ``volume`` reads ``Core.volume_cm3`` (or computes it from
+        OD × HT) for each row's ``core_id``. ``score`` and
+        ``score_with_cost`` apply the same min-max-normalised weighting
+        the simple optimizer's :func:`pfc_inductor.optimize.sweep.rank`
+        uses, so the cascade and Pareto sweep agree on ordering.
+        """
+        def vol_of(r: CandidateRow) -> float:
+            c = cores_by_id.get(r.core_id)
+            if c is None:
+                return float("inf")
+            v = getattr(c, "volume_cm3", None)
+            if v is not None:
+                return float(v)
+            # Fallback estimate when the catalogue entry lacks a
+            # pre-computed volume. Order is what matters here, not
+            # absolute magnitude.
+            try:
+                return float(c.OD_mm or 0) ** 2 * float(c.HT_mm or 0) * 1e-3
+            except (AttributeError, TypeError):
+                return float("inf")
+
+        if objective == "volume":
+            return sorted(rows, key=vol_of)
+
+        # Min-max normalise loss + volume (+ optionally cost) to [0, 1]
+        # then linearly combine. Matches sweep.rank()'s 60/40 and
+        # 40/30/30 presets so the cascade ranking agrees with the
+        # simple optimizer.
+        def norm(values: list[float]) -> list[float]:
+            finite = [v for v in values if v != float("inf")]
+            if not finite:
+                return [0.0] * len(values)
+            lo, hi = min(finite), max(finite)
+            span = hi - lo or 1.0
+            return [
+                (v - lo) / span if v != float("inf") else 1.0
+                for v in values
+            ]
+
+        losses = norm([r.loss_t1_W or float("inf") for r in rows])
+        vols   = norm([vol_of(r) for r in rows])
+        if objective == "score_with_cost":
+            costs = norm([r.cost_t1_USD or float("inf") for r in rows])
+            scores = [
+                0.4 * losses[i] + 0.3 * vols[i] + 0.3 * costs[i]
+                for i in range(len(rows))
+            ]
+        else:  # "score" (60/40 loss/vol) or unknown → behave as score
+            scores = [
+                0.6 * losses[i] + 0.4 * vols[i]
+                for i in range(len(rows))
+            ]
+        order = sorted(range(len(rows)), key=lambda i: scores[i])
+        return [rows[i] for i in order]
 
     def _on_chart_pick(self, candidate_key: str) -> None:
         """Sync the table selection with whatever the user clicked

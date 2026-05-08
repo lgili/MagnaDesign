@@ -20,9 +20,7 @@ from PySide6.QtCore import QObject, Qt, QThread, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QCheckBox,
-    QComboBox,
     QDialog,
-    QFormLayout,
     QGroupBox,
     QHBoxLayout,
     QHeaderView,
@@ -45,6 +43,7 @@ from pfc_inductor.models import Core, Material, Spec, Wire
 from pfc_inductor.optimize import SweepResult, pareto_front, sweep
 from pfc_inductor.optimize.sweep import rank
 from pfc_inductor.ui.theme import get_theme
+from pfc_inductor.ui.widgets.optimizer_filters_bar import OptimizerFiltersBar
 
 
 class _SweepWorker(QObject):
@@ -52,20 +51,23 @@ class _SweepWorker(QObject):
     done = Signal(list)
     failed = Signal(str)
 
-    def __init__(self, spec, cores, wires, materials, material_id, only_compat):
+    def __init__(self, spec, cores, wires, materials, only_compat):
         super().__init__()
         self.spec = spec
         self.cores = cores
         self.wires = wires
         self.materials = materials
-        self.material_id = material_id
         self.only_compat = only_compat
 
     def run(self):
         try:
+            # ``materials`` is now the *already-filtered* list from
+            # the OptimizerFiltersBar — no separate ``material_id``
+            # path. The single-id parameter on ``sweep()`` is kept
+            # for back-compat callers but we leave it unset; the
+            # engine iterates the full list we hand in.
             results = sweep(
                 self.spec, self.cores, self.wires, self.materials,
-                material_id=self.material_id,
                 only_compatible_cores=self.only_compat,
                 progress_cb=lambda d, t: self.progress.emit(d, t),
             )
@@ -143,52 +145,47 @@ class OptimizerEmbed(QWidget):
         self._materials = list(materials)
         self._cores = list(cores)
         self._wires = list(wires)
-        # Refresh the material combo with the new catalog.
-        self.cmb_material.blockSignals(True)
-        self.cmb_material.clear()
-        self.cmb_material.addItem("(sweep all)", None)
-        for m in self._materials:
-            self.cmb_material.addItem(f"{m.vendor} — {m.name}", m.id)
-        for i in range(self.cmb_material.count()):
-            if self.cmb_material.itemData(i) == current_material_id:
-                self.cmb_material.setCurrentIndex(i)
-                break
-        self.cmb_material.blockSignals(False)
+        # Hand the topology-filtered catalogue to the filter bar.
+        # ``current_material_id`` is *not* preselected on the chip —
+        # the engineer's intent is "consider this material now", not
+        # "exclude every other material from the sweep". Single-select
+        # behaviour can still be reproduced by manually checking only
+        # one row in the popup.
+        self.filters_bar.set_catalogs(
+            self._materials, self._cores, self._wires,
+        )
         self.btn_run.setEnabled(True)
         if not self._results:
             self.lbl_count.setText(
-                "Ready — pick material and ordering, then click "
+                "Ready — pick filters and an objective, then click "
                 "<b>Run sweep</b> to generate the Pareto front.",
             )
 
     def _build_controls(self, current_material_id: str) -> QGroupBox:
         box = QGroupBox("Sweep configuration")
-        h = QHBoxLayout(box)
-        f = QFormLayout()
-        self.cmb_material = QComboBox()
-        self.cmb_material.addItem("(sweep all)", None)
-        for m in self._materials:
-            self.cmb_material.addItem(f"{m.vendor} — {m.name}", m.id)
-        # Pre-select current material
-        for i in range(self.cmb_material.count()):
-            if self.cmb_material.itemData(i) == current_material_id:
-                self.cmb_material.setCurrentIndex(i)
-                break
-        f.addRow("Material:", self.cmb_material)
+        v = QVBoxLayout(box)
+        v.setSpacing(8)
 
-        self.cmb_rank = QComboBox()
-        for label, key in [
-            ("Lowest total loss", "loss"),
-            ("Smallest volume", "volume"),
-            ("Lowest temperature", "temp"),
-            ("Lowest cost", "cost"),
-            ("Score (60% loss + 40% volume)", "score"),
-            ("Score 40/30/30 (loss/volume/cost)", "score_with_cost"),
-        ]:
-            self.cmb_rank.addItem(label, key)
-        f.addRow("Sort by:", self.cmb_rank)
+        # ---- Multi-select filters + objective (shared widget) -----
+        self.filters_bar = OptimizerFiltersBar()
+        self.filters_bar.set_catalogs(
+            self._materials, self._cores, self._wires,
+        )
+        # Re-rank the visible table on objective change without a
+        # full re-sweep — the underlying ``self._results`` cache is
+        # already enough to ``rank()`` again client-side.
+        self.filters_bar.objective_changed.connect(
+            lambda _key: self._refresh_table(),
+        )
+        v.addWidget(self.filters_bar)
 
-        self.chk_compat = QCheckBox("Restrict to cores compatible with the material")
+        # ---- Secondary toggles + run button -----------------------
+        h = QHBoxLayout()
+        h.setSpacing(12)
+
+        self.chk_compat = QCheckBox(
+            "Restrict to cores compatible with the material",
+        )
         self.chk_compat.setChecked(True)
         self.chk_feasible = QCheckBox("Hide infeasible designs")
         # Default ON: show only candidates that satisfy Ku/Bsat/T limits.
@@ -199,26 +196,24 @@ class OptimizerEmbed(QWidget):
         self.chk_curated_only.setToolTip(
             "Limits the sweep to curated materials and wires, ignoring "
             "the OpenMagnetics catalog — avoids rankings dominated by "
-            "entries without Steinmetz/rolloff calibration."
+            "entries without Steinmetz/rolloff calibration.",
         )
-        h.addLayout(f)
+        h.addWidget(self.chk_compat)
+        h.addWidget(self.chk_feasible)
+        h.addWidget(self.chk_curated_only)
+        h.addStretch(1)
 
-        side = QVBoxLayout()
-        side.addWidget(self.chk_compat)
-        side.addWidget(self.chk_feasible)
-        side.addWidget(self.chk_curated_only)
         self.btn_run = QPushButton("Run sweep")
         self.btn_run.setStyleSheet("font-weight: bold; padding: 4px 10px;")
         self.btn_run.clicked.connect(self._run_sweep)
-        side.addWidget(self.btn_run)
+        h.addWidget(self.btn_run)
         self.progress = QProgressBar()
         self.progress.setRange(0, 100)
         self.progress.setValue(0)
-        side.addWidget(self.progress)
-        h.addLayout(side)
-        h.addStretch(1)
+        self.progress.setMaximumWidth(160)
+        h.addWidget(self.progress)
+        v.addLayout(h)
 
-        self.cmb_rank.currentIndexChanged.connect(self._refresh_table)
         self.chk_feasible.stateChanged.connect(self._refresh_table)
         return box
 
@@ -302,22 +297,31 @@ class OptimizerEmbed(QWidget):
             return
         self.btn_run.setEnabled(False)
         self.progress.setValue(0)
-        material_id = self.cmb_material.currentData()
         only_compat = self.chk_compat.isChecked()
 
+        # ``selected_*`` returns the full topology-filtered catalogue
+        # when the user hasn't picked anything (empty chip → wildcard).
+        mats = self.filters_bar.selected_materials()
+        cores = self.filters_bar.selected_cores()
+        wires = self.filters_bar.selected_wires()
+
+        # ``Curated only`` then narrows materials + wires further.
+        # We intersect with whatever the user already selected so the
+        # two filters compose predictably (curated *and* hand-picked).
         if self.chk_curated_only.isChecked():
             from pfc_inductor.data_loader import load_curated_ids
             cur_mats = load_curated_ids("materials")
             cur_wires = load_curated_ids("wires")
-            mats = [m for m in self._materials if m.id in cur_mats] or self._materials
-            wires = [w for w in self._wires if w.id in cur_wires] or self._wires
-        else:
-            mats = self._materials
-            wires = self._wires
+            filtered_mats = [m for m in mats if m.id in cur_mats]
+            filtered_wires = [w for w in wires if w.id in cur_wires]
+            # If the curated intersection is empty, fall back to the
+            # user's selection — better to honour their explicit pick
+            # than to silently sweep an empty set.
+            mats = filtered_mats or mats
+            wires = filtered_wires or wires
 
         self._worker = _SweepWorker(
-            self._spec, self._cores, wires, mats,
-            material_id, only_compat,
+            self._spec, cores, wires, mats, only_compat,
         )
         self._thread = QThread(self)
         self._worker.moveToThread(self._thread)
@@ -346,7 +350,7 @@ class OptimizerEmbed(QWidget):
         self.btn_run.setEnabled(True)
 
     def _refresh_table(self):
-        rank_key = self.cmb_rank.currentData()
+        rank_key = self.filters_bar.objective()
         feasible_only = self.chk_feasible.isChecked()
         n_total = len(self._results)
         n_feasible = sum(1 for x in self._results if x.feasible)
