@@ -131,6 +131,12 @@ class ProjetoPage(QWidget):
         kh.setContentsMargins(sp.lg, sp.md, sp.lg, 0)
         kh.setSpacing(0)
         self.kpi_strip = ResumoStrip()
+        # Empty-state CTA on the badge → opens the SpecDrawer. Until
+        # the first successful recalc the badge reads "Preencha a
+        # especificação" and clicking it wakes the drawer.
+        self.kpi_strip.spec_drawer_requested.connect(
+            lambda: self.drawer.set_collapsed(False),
+        )
         kh.addWidget(self.kpi_strip)
         col_v.addWidget(kpi_holder)
 

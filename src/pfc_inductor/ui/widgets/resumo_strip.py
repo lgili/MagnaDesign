@@ -14,7 +14,7 @@ from __future__ import annotations
 import math
 from typing import Optional
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -84,6 +84,10 @@ class ResumoStrip(QFrame):
     gets a predictable amount of vertical room.
     """
 
+    # Emitted when the "Preencha a especificação" empty-state badge is
+    # clicked — host (ProjetoPage) opens the SpecDrawer in response.
+    spec_drawer_requested = Signal()
+
     # 80 px is just tall enough for the metric_compact tiles (64 px
     # content + 8/8 padding) and lets ProjetoPage breathe on a 768 px
     # laptop screen. Was 96 px in v3.4.
@@ -125,13 +129,69 @@ class ResumoStrip(QFrame):
         h.addWidget(sep)
         h.addSpacing(8)
 
+        # Empty-state flag — strip starts in "pending" until the host
+        # calls ``update_from_design``. While pending, the badge shows
+        # the "fill spec" hint and is clickable. Initialised BEFORE
+        # ``installEventFilter`` so the polish/show events that fire
+        # during ``addWidget`` find the attribute defined.
+        self._pending: bool = True
+
         self.badge = QLabel("—")
         self.badge.setProperty("class", "Pill")
         self.badge.setProperty("pill", "neutral")
         self.badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # Make the badge clickable for the empty-state path (P0.B):
+        # when the strip starts in "pending" mode, clicking the badge
+        # emits ``spec_drawer_requested`` so the host can open the
+        # drawer. The cursor change is a discoverability cue.
+        self.badge.installEventFilter(self)
         h.addWidget(self.badge, 0, Qt.AlignmentFlag.AlignVCenter)
 
+        # Apply the empty-state look now that all widgets exist.
+        self.set_pending_state()
+
         on_theme_changed(self._refresh_qss)
+
+    # ------------------------------------------------------------------
+    # Empty-state path (P0.B)
+    # ------------------------------------------------------------------
+    def set_pending_state(self) -> None:
+        """Render the "no design yet" empty state.
+
+        Called once at construction and again whenever the host
+        explicitly clears the strip. Tiles show ``—`` with neutral
+        status; the badge becomes a clickable hint linking to the
+        SpecDrawer (host wires the signal).
+        """
+        self._pending = True
+        for mc in self._tiles:
+            mc.set_value("—")
+            mc.set_status("neutral")
+        self.badge.setText("Preencha a especificação")
+        self.badge.setProperty("pill", "neutral")
+        self.badge.setToolTip("Clique para abrir a Especificação à esquerda.")
+        self.badge.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._poke_badge_style()
+
+    def eventFilter(self, obj, event):
+        from PySide6.QtCore import QEvent
+        if (
+            obj is self.badge
+            and self._pending
+            and event.type() == QEvent.Type.MouseButtonRelease
+        ):
+            self.spec_drawer_requested.emit()
+            return True
+        return super().eventFilter(obj, event)
+
+    def _poke_badge_style(self) -> None:
+        """Force Qt to re-evaluate ``[pill="…"]`` selectors after a
+        property change. Without this the new variant only takes
+        effect after the next paint event."""
+        st = self.badge.style()
+        st.unpolish(self.badge)
+        st.polish(self.badge)
+        self.badge.update()
 
     # ------------------------------------------------------------------
     # Public API
@@ -139,6 +199,11 @@ class ResumoStrip(QFrame):
     def update_from_design(self, result: DesignResult, spec: Spec,
                            core: Core, wire: Wire,
                            material: Material) -> None:
+        # First successful update clears the "fill spec" empty-state.
+        if self._pending:
+            self._pending = False
+            self.badge.setCursor(Qt.CursorShape.ArrowCursor)
+            self.badge.setToolTip("")
         # Defensive formatting: when the engine produces non-finite
         # numbers (uninitialised spec, divergent solver) or absurd
         # magnitudes (η = -834 516 %, P > 1 MW), render '—' instead of

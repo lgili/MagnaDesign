@@ -47,7 +47,9 @@ def test_sidebar_click_emits_navigation_requested(app):
     received: list[str] = []
     sb.navigation_requested.connect(received.append)
 
-    for area_id, _label, _icon in SIDEBAR_AREAS:
+    # SIDEBAR_AREAS is a 4-tuple (area_id, label, icon, tooltip) since
+    # the v0.3 disambiguation pass — unpack the leading id only.
+    for area_id, *_rest in SIDEBAR_AREAS:
         sb._nav_buttons[area_id].click()
     assert received == [a[0] for a in SIDEBAR_AREAS]
 

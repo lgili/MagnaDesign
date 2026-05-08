@@ -50,12 +50,21 @@ from pfc_inductor.ui.theme import SIDEBAR, get_theme
 # ``area_id`` keys are kept stable for ``QSettings`` compatibility:
 # - ``dashboard`` → display label "Projeto" (ID preserved so saved
 #   geometry / state survives the rename)
-SIDEBAR_AREAS: tuple[tuple[str, str, str], ...] = (
-    ("dashboard",     "Projeto",             "layout-dashboard"),
-    ("otimizador",    "Otimizador",          "sliders"),
-    ("cascade",       "Otimizador profundo", "layers"),
-    ("catalogo",      "Catálogo",            "database"),
-    ("configuracoes", "Configurações",       "cog"),
+# 4-tuple: (area_id, label, icon, tooltip). Tooltips disambiguate the
+# two optimizer entries — without them, "Otimizador profundo" is
+# internal jargon that pushes a casual user toward the wrong choice.
+SIDEBAR_AREAS: tuple[tuple[str, str, str, str], ...] = (
+    ("dashboard",     "Projeto",     "layout-dashboard",
+     "Workspace principal — spec, seleção, análise, validação e exportação."),
+    ("otimizador",    "Otimizador",  "sliders",
+     "Sweep Pareto rápido (≈ 30 s) — perdas × volume × custo."),
+    ("cascade",       "Otimizador completo", "layers",
+     "Otimização multi-tier com transitório RK4 e validação FEM "
+     "(≈ 5–15 min). Use quando precisar do design final defensável."),
+    ("catalogo",      "Catálogo",    "database",
+     "Edite materiais, núcleos e fios. Importa do OpenMagnetics MAS."),
+    ("configuracoes", "Configurações", "cog",
+     "Tema, FEA, Litz e informações do projeto."),
 )
 
 # Overflow menu — kept lean for the few tools that don't deserve a
@@ -186,7 +195,7 @@ class Sidebar(QFrame):
             f"  color: {SIDEBAR.text_active};"
             f"  font-weight: {t.semibold}; }}"
         )
-        for area_id, label, icon_name in SIDEBAR_AREAS:
+        for area_id, label, icon_name, tooltip in SIDEBAR_AREAS:
             btn = QPushButton(label)
             btn.setProperty("class", "SidebarItem")
             btn.setCheckable(True)
@@ -196,6 +205,11 @@ class Sidebar(QFrame):
             btn.setSizePolicy(QSizePolicy.Policy.Expanding,
                               QSizePolicy.Policy.Fixed)
             btn.setStyleSheet(nav_item_qss)
+            # Tooltip disambiguates the two optimizer entries; also
+            # surfaces what each area does for first-time users.
+            btn.setToolTip(tooltip)
+            btn.setAccessibleName(label)
+            btn.setAccessibleDescription(tooltip)
             btn.clicked.connect(
                 lambda _checked=False, a=area_id: self._on_nav_clicked(a)
             )

@@ -11,6 +11,7 @@ inner-loop action is one chord away from anywhere in the workspace.
 """
 from __future__ import annotations
 
+import math
 from datetime import datetime
 from typing import Optional
 
@@ -28,6 +29,30 @@ from PySide6.QtWidgets import (
 from pfc_inductor.models import DesignResult, Spec
 from pfc_inductor.ui.icons import icon as ui_icon
 from pfc_inductor.ui.theme import get_theme, on_theme_changed
+
+
+def _finite_kpi(
+    name: str,
+    value: float,
+    fmt: str,
+    unit: str,
+    *,
+    clamp_max: float = 1e6,
+    clamp_min: float = -1e6,
+) -> str:
+    """Compose ``"name=val unit"`` with a defensive ``"—"`` fallback.
+
+    Mirrors ``resumo_strip._finite_or_dash`` — the scoreboard footer
+    needs the same protection because it's the second place a user
+    looks (after the top KPI strip) and a stray ``η = -834 516 %``
+    here erodes trust in everything above.
+
+    ``clamp_min`` is exposed so percentages can use a tighter window
+    than ±1 M (e.g. ``η`` is bound to roughly [-50, 100] %).
+    """
+    if not math.isfinite(value) or value > clamp_max or value < clamp_min:
+        return f"{name}=—"
+    return f"{name}={fmt.format(value)} {unit}"
 
 
 class Scoreboard(QFrame):
@@ -110,26 +135,29 @@ class Scoreboard(QFrame):
         #   line reactor   → THD    (Pout flow is two-way; THD is the
         #                            compliance metric IEC 61000-3-2
         #                            actually scores)
+        # Each slot uses ``_finite_kpi`` so non-finite or out-of-range
+        # values render as ``—`` instead of ``η = -834 516 %``. The
+        # ResumoStrip got this treatment in commit 491da51; the
+        # scoreboard footer was missed in that pass.
         try:
             parts = [
-                f"L={result.L_actual_uH:.0f} µH",
-                f"B={result.B_pk_T * 1000.0:.0f} mT",
-                f"ΔT={result.T_rise_C:.0f} °C",
+                _finite_kpi("L", result.L_actual_uH, "{:.0f}", "µH"),
+                _finite_kpi("B", result.B_pk_T * 1000.0, "{:.0f}", "mT"),
+                _finite_kpi("ΔT", result.T_rise_C, "{:.0f}", "°C"),
             ]
             topology = getattr(spec, "topology", None) if spec is not None else None
             if topology == "line_reactor":
-                # THD is the headline; fall through to %Z if THD wasn't
-                # estimated for this design.
                 thd = getattr(result, "thd_estimate_pct", None)
                 if thd is not None:
-                    parts.append(f"THD={thd:.0f} %")
+                    parts.append(_finite_kpi("THD", thd, "{:.0f}", "%"))
                 else:
                     pctz = getattr(result, "pct_impedance_actual", None)
                     if pctz is not None:
-                        parts.append(f"%Z={pctz:.1f} %")
+                        parts.append(_finite_kpi("%Z", pctz, "{:.1f}", "%"))
             elif spec is not None and spec.Pout_W > 0:
-                eta = 1.0 - result.losses.P_total_W / spec.Pout_W
-                parts.append(f"η={eta * 100:.1f} %")
+                eta_pct = (1.0 - result.losses.P_total_W / spec.Pout_W) * 100.0
+                parts.append(_finite_kpi("η", eta_pct, "{:.1f}", "%",
+                                         clamp_max=100.0, clamp_min=-50.0))
             self._kpi.setText(" · ".join(parts))
         except (AttributeError, ZeroDivisionError):
             self._kpi.setText("—")
