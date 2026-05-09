@@ -74,9 +74,11 @@ from pfc_inductor.ui.dashboard.cards import (
     DetalhesTecnicosCard,
     EntreferroCard,
     FormasOndaCard,
+    HarmonicSpectrumCard,
     LCurrentCard,
     PerdasCard,
     PFvsLCard,
+    PhaseOverlayCard,
     PowerInductanceCard,
     ThermalGaugeCard,
 )
@@ -286,6 +288,24 @@ class AnalisePage(QWidget):
         grid.addWidget(self.card_acoustic, 9, 0, 1, 12)
         grid.setRowStretch(9, 0)
 
+        # Row 10 — Topology-specific: phase-shifted current overlay
+        # for interleaved-boost designs (the 12 / 14.5 / 16 dB
+        # ripple-cancellation story this topology lives for).
+        # Self-hides via ``setVisible(False)`` for non-interleaved
+        # specs, so the row collapses on a regular boost-CCM
+        # design and the card never appears.
+        self.card_phase_overlay = PhaseOverlayCard()
+        grid.addWidget(self.card_phase_overlay, 10, 0, 1, 12)
+        grid.setRowStretch(10, 0)
+
+        # Row 11 — Topology-specific: IEC 61000-3-2 harmonic
+        # compliance for line-frequency filtering inductors
+        # (line_reactor / passive_choke / pfc_passive). Self-
+        # hides for switching topologies.
+        self.card_harmonics = HarmonicSpectrumCard()
+        grid.addWidget(self.card_harmonics, 11, 0, 1, 12)
+        grid.setRowStretch(11, 0)
+
         # Convenience list for batch update / clear loops.
         # ``card_acoustic`` is included so its own self-show /
         # self-hide logic runs on every recalc — it manages
@@ -302,6 +322,8 @@ class AnalisePage(QWidget):
             self.card_entreferro,
             self.card_detalhes,
             self.card_acoustic,
+            self.card_phase_overlay,
+            self.card_harmonics,
         ]
 
     # ------------------------------------------------------------------
