@@ -1,0 +1,31 @@
+% MagnaDesign palette — extracted from src/pfc_inductor/ui/theme.py.
+% Keeping a single source of truth here so all custom blocks read
+% from the same hex codes that the running app uses.
+\definecolor{md-violet}{HTML}{8B5CF6}      % accent_violet
+\definecolor{md-violet-dark}{HTML}{6D28D9} % accent_violet darker for emphasis
+\definecolor{md-amber}{HTML}{F59E0B}       % warning
+\definecolor{md-success}{HTML}{059669}     % success
+\definecolor{md-danger}{HTML}{DC2626}      % danger
+\definecolor{md-text}{HTML}{1F2937}        % text
+\definecolor{md-muted}{HTML}{6B7280}       % text_muted
+\definecolor{md-bg}{HTML}{F9FAFB}          % bg
+\definecolor{md-surface}{HTML}{FFFFFF}     % surface
+\definecolor{md-border}{HTML}{E5E7EB}      % border
+\definecolor{md-code-bg}{HTML}{F3F4F6}     % code background
+
+% Re-skin metropolis with our palette so the title bars / section
+% accents pick up the app's identity. Metropolis exposes these
+% style hooks for exactly this purpose.
+\setbeamercolor{normal text}{fg=md-text, bg=md-bg}
+\setbeamercolor{alerted text}{fg=md-danger}
+\setbeamercolor{example text}{fg=md-success}
+\setbeamercolor{frametitle}{fg=md-bg, bg=md-violet-dark}
+\setbeamercolor{title separator}{fg=md-violet}
+\setbeamercolor{progress bar}{fg=md-violet, bg=md-border}
+\setbeamercolor{progress bar in head/foot}{fg=md-violet, bg=md-border}
+\setbeamercolor{progress bar in section page}{fg=md-violet, bg=md-border}
+\setbeamercolor{section in toc}{fg=md-violet-dark}
+\setbeamercolor{block title}{bg=md-violet-dark, fg=md-bg}
+\setbeamercolor{block body}{bg=md-code-bg, fg=md-text}
+\setbeamercolor{block title alerted}{bg=md-danger, fg=md-bg}
+\setbeamercolor{block title example}{bg=md-success, fg=md-bg}

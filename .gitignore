@@ -15,3 +15,12 @@ htmlcov/
 .idea/
 _build/
 reference/
+# LaTeX build artefacts
+presentation/*.aux
+presentation/*.log
+presentation/*.out
+presentation/*.toc
+presentation/*.nav
+presentation/*.snm
+presentation/*.vrb
+presentation/*.synctex.gz
