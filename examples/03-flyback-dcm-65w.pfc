@@ -30,8 +30,8 @@
     "window_split_primary": 0.45
   },
   "selection": {
-    "material_id": "N97",
-    "core_id": "PQ20-16",
-    "wire_id": "AWG24"
+    "material_id": "tdk-n97",
+    "core_id": "mas-tdk-pq-pq-20-16---n97---ungapped",
+    "wire_id": "round-0475---grade-2"
   }
 }

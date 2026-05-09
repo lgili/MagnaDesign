@@ -30,8 +30,8 @@
     "window_split_primary": 0.45
   },
   "selection": {
-    "material_id": "M19_SiSteel",
-    "core_id": "MS-330",
-    "wire_id": "AWG12"
+    "material_id": "magnetics-xflux-26",
+    "core_id": "mas-magnetics-t-t-41-23-15---epoxy-coated---xflux-26---ungapped",
+    "wire_id": "round-200---grade-2"
   }
 }

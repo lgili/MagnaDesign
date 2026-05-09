@@ -30,8 +30,8 @@
     "window_split_primary": 0.45
   },
   "selection": {
-    "material_id": "60_KoolMu",
-    "core_id": "0077439A7",
-    "wire_id": "AWG16"
+    "material_id": "magnetics-kool-mµ-26",
+    "core_id": "mas-magnetics-t-t-41-23-15---epoxy-coated---kool-mµ-26---ungapped",
+    "wire_id": "round-125---grade-2"
   }
 }
