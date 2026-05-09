@@ -167,6 +167,18 @@ class FEAValidationDialog(QDialog):
         form.addRow("Confidence:", self.l_confidence)
         v.addLayout(form)
 
+        # Chart widget — analytic-vs-FEA bars + confidence gauge.
+        # Lives directly under the form so the user reads the
+        # numbers, then sees them visualised right below. Lazy
+        # import so the matplotlib backend doesn't pay startup
+        # cost for users who never open this dialog.
+        from pfc_inductor.ui.widgets.fea_validation_chart import (
+            FEAValidationChart,
+        )
+
+        self.chart = FEAValidationChart()
+        v.addWidget(self.chart)
+
         self.progress = QProgressBar()
         self.progress.setRange(0, 0)  # indeterminate
         self.progress.hide()
@@ -316,6 +328,11 @@ class FEAValidationDialog(QDialog):
         self.l_confidence.setText(
             f'<span style="color:{color};font-weight:bold">{v.confidence}</span>'
         )
+        # Render the bar chart + confidence gauge from the same
+        # validation payload. The widget caches it internally, so a
+        # subsequent theme toggle re-paints without us having to
+        # store anything here.
+        self.chart.show_validation(v)
         self.txt_log.appendPlainText("\nResults:")
         self.txt_log.appendPlainText(f"  fem: {v.fem_path}")
         self.txt_log.appendPlainText(f"  flux linkage: {v.flux_linkage_FEA_Wb:.6e} Wb")
