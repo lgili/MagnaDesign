@@ -581,7 +581,14 @@ class GeometryView(QWidget):
         # Title: short, technical.
         ax.set_title(title, fontsize=11, fontweight="bold",
                      color=pal.text, loc="left", pad=10)
-        # Bottom-right "datasheet-style" stamp.
+        # Datasheet-style stamp — top-right corner, stacked
+        # vertically. The previous bottom-right placement collided
+        # with the OD dimension-arrow label on the toroid path
+        # (both gravitated to the centre-bottom of the figure
+        # because the part-number string is long); putting it at
+        # the top-right corner keeps it clear of every dimension
+        # annotation, and stacking each field on its own line
+        # avoids horizontal sprawl across the figure width.
         bits = []
         if p.core_part:
             bits.append(p.core_part)
@@ -592,8 +599,9 @@ class GeometryView(QWidget):
         if p.lgap_mm > 0:
             bits.append(f"gap {p.lgap_mm:.2f} mm")
         if bits:
-            ax.text(0.99, 0.02, "  ·  ".join(bits),
+            ax.text(0.99, 0.99, "\n".join(bits),
                     transform=ax.transAxes,
-                    ha="right", va="bottom",
+                    ha="right", va="top",
                     fontsize=8, color=pal.text_muted,
-                    family="monospace")
+                    family="monospace",
+                    linespacing=1.4)

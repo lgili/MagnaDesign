@@ -227,10 +227,18 @@ def _categorise(path: Path) -> str:
 def _scan(fem_path: Path | str | None) -> list[_Artifact]:
     """Walk ``fem_path`` recursively for ``*.png`` files. Returns
     a list sorted by category-then-name so the gallery groups
-    related plots even when they live in different subfolders."""
+    related plots even when they live in different subfolders.
+
+    Tolerates ``fem_path`` pointing at either the working
+    directory **or** a single artefact inside it (the legacy
+    FEMM runner historically returned the ``.fem`` file path,
+    not the directory). When given a file, scan the parent.
+    """
     if not fem_path:
         return []
     root = Path(fem_path)
+    if root.is_file():
+        root = root.parent
     if not root.exists() or not root.is_dir():
         return []
     out: list[_Artifact] = []

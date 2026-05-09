@@ -162,7 +162,12 @@ def _validate_design_femm(
         test_current_A=float(raw["I_test_A"]),
         solve_time_s=out.elapsed_s,
         femm_binary=out.binary,
-        fem_path=str(inputs.fem_path),
+        # ``fem_path`` must point at the *directory* the FEA
+        # artefacts live in — the gallery recursively scans it
+        # for PNGs (Magb.png, centerline, histogram). Pointing
+        # at the .fem file itself made ``Path.is_dir()`` return
+        # False and collapsed the gallery to its empty state.
+        fem_path=str(inputs.output_dir),
         log_excerpt=(out.stdout or out.stderr)[-400:],
         notes=("Legacy FEMM backend. Static magnetostatic; AC/eddy not modelled in this v1."),
     )
