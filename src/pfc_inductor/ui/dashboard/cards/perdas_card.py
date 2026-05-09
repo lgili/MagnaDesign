@@ -21,9 +21,10 @@ from pfc_inductor.ui.widgets.stacked_bar import Segment
 class _PerdasBody(QWidget):
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
+        sp = get_theme().spacing
         v = QVBoxLayout(self)
         v.setContentsMargins(0, 0, 0, 0)
-        v.setSpacing(10)
+        v.setSpacing(sp.compact_gap)
 
         self._bar = HorizontalStackedBar(
             total_format="{:.2f}",

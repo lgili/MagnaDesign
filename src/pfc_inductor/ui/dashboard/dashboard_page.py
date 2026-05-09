@@ -116,10 +116,13 @@ class DashboardPage(QWidget):
         self.card_viz3d.setMinimumSize(*CARD_MIN.viz3d)
         grid.addWidget(self.card_nucleo, 1, 0, 1, 7)
         grid.addWidget(self.card_viz3d, 1, 7, 1, 5)
-        # Lowered 380 → 320 to match the new CARD_MIN.nucleo height.
-        # The cards still pin their own minimums; this row floor only
-        # mattered to keep stretching tall on bigger displays.
-        grid.setRowMinimumHeight(1, 320)
+        # Row floor pulled from theme.dashboard.row_kpi_min (320 px
+        # default) so dashboard density tweaks land in one place.
+        # The cards still pin their own minimums; this floor only
+        # matters when stretching tall on bigger displays.
+        from pfc_inductor.ui.theme import get_theme as _get_theme
+        _dl = _get_theme().dashboard
+        grid.setRowMinimumHeight(1, _dl.row_kpi_min)
         grid.setRowStretch(1, 2)
 
         # ---- row 2: Formas de Onda (full width) -----------------------

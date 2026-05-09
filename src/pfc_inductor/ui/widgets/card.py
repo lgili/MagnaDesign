@@ -73,15 +73,17 @@ class Card(QFrame):
         outer.setSpacing(0)
 
         # ---- header ---------------------------------------------------
-        # Margins trimmed top/bottom 14 → 8 to recover ~12 px of vertical
-        # space on the Análise tab. The 1 px CardHeader bottom border in
-        # QSS already creates enough visual separation; the extra 14 px
-        # padding was air, not hierarchy.
+        # Symmetric 20/12/20/12 padding — the previous 20/8/14/8 saved
+        # ~12 px on Análise but broke the horizontal + vertical rhythm
+        # (left ≠ right, top/bottom asymmetric versus body). The CardBody
+        # also got tightened so the same vertical-density win is
+        # preserved while restoring rhythm.
+        sp = get_theme().spacing
         self._header = QFrame()
         self._header.setObjectName("CardHeader")
         h = QHBoxLayout(self._header)
-        h.setContentsMargins(20, 8, 14, 8)
-        h.setSpacing(10)
+        h.setContentsMargins(sp.card_pad, sp.lg, sp.card_pad, sp.lg)
+        h.setSpacing(sp.compact_gap)
 
         self._title_label = QLabel(title)
         self._title_label.setObjectName("CardTitle")
@@ -102,10 +104,15 @@ class Card(QFrame):
                 ui_icon("more-horizontal", color=get_theme().palette.text_muted, size=16)
             )
             self._overflow.setCursor(Qt.CursorShape.PointingHandCursor)
+            # Overflow button — icon-only menu trigger. Inline QSS
+            # because the theme's QSS `QToolButton` rule expects a
+            # full text button shape; a 4-px-padded icon-only chip
+            # has no other home in the global stylesheet.
+            _r = get_theme().radius.md
             self._overflow.setStyleSheet(
-                "QToolButton { background: transparent; border: 0; padding: 4px; }"
-                "QToolButton:hover { background: "
-                f"{get_theme().palette.bg}; border-radius: 6px; }}"
+                "QToolButton { background: transparent; border: 0;"
+                f" padding: {sp.sm - 2}px; border-radius: {_r}px; }} "
+                f"QToolButton:hover {{ background: {get_theme().palette.bg}; }}"
                 "QToolButton::menu-indicator { image: none; width: 0; }"
             )
             menu = QMenu(self._overflow)
@@ -120,15 +127,15 @@ class Card(QFrame):
             self._overflow = None
 
         # ---- body -----------------------------------------------------
-        # Body padding tightened 16/20 → 12/14 (top/bottom). Saves another
-        # ~10 px per card without affecting the L/R rhythm. Internal
-        # widgets (DataTable, MetricCard, ScrollAreas) carry their own
-        # padding so the body chrome was double-counted.
+        # Symmetric 20/12/20/12 — internal widgets (DataTable,
+        # MetricCard, ScrollAreas) carry their own padding so this is
+        # the chrome-only gutter. Pulled from theme tokens so density
+        # tuning (e.g. a future "compact mode") lands in one place.
         self._body_frame = QFrame()
         self._body_frame.setObjectName("CardBody")
         body_lay = QVBoxLayout(self._body_frame)
-        body_lay.setContentsMargins(20, 12, 20, 14)
-        body_lay.setSpacing(12)
+        body_lay.setContentsMargins(sp.card_pad, sp.lg, sp.card_pad, sp.lg)
+        body_lay.setSpacing(sp.lg)
         body_lay.addWidget(body)
         self._body_widget = body
 

@@ -145,7 +145,7 @@ QLabel[class~="Pill"][pill="{variant}"] {{
     background: {bg};
     color: {fg};
     border-radius: {r.pill}px;
-    padding: 2px 10px;
+    padding: {s.spacing.xs}px {s.spacing.compact_gap}px;
     font-size: {t.caption}px;
     font-weight: {t.semibold};
     text-transform: uppercase;
@@ -188,7 +188,11 @@ QGroupBox {{
     border: 1px solid {p.border};
     border-radius: {r.md}px;
     margin-top: {s.spacing.md}px;
-    padding: 12px {s.spacing.md}px 6px {s.spacing.md}px;
+    /* Symmetric vertical padding — was 12/6 (top/bottom),
+       which broke rhythm against cards' 12/12 body padding.
+       Horizontal stays at sp.md to leave room for the float-
+       title overlay positioned via the rule below. */
+    padding: {s.spacing.lg}px {s.spacing.md}px {s.spacing.lg}px {s.spacing.md}px;
 }}
 
 QGroupBox::title {{
@@ -228,7 +232,7 @@ QPushButton {{
     color: {p.text};
     border: 1px solid {p.border_strong};
     border-radius: {r.md}px;
-    padding: 4px 10px;
+    padding: {s.spacing.xs * 2}px {s.spacing.compact_gap}px;
     font-weight: {t.medium};
     min-height: 18px;
 }}
@@ -303,7 +307,7 @@ QToolBar QToolButton {{
     color: {p.text_secondary};
     border: 1px solid transparent;
     border-radius: {r.md}px;
-    padding: 6px 10px;
+    padding: {s.spacing.sm}px {s.spacing.compact_gap}px;
     margin: 0 1px;
     font-weight: {t.medium};
 }}
@@ -442,7 +446,7 @@ def _legacy_pill_alias_qss(s: ThemeState) -> str:
 QLabel[pill="success"], QLabel[pill="warning"], QLabel[pill="danger"],
 QLabel[pill="info"], QLabel[pill="neutral"], QLabel[pill="violet"] {{
     border-radius: {r.pill}px;
-    padding: 2px 10px;
+    padding: {s.spacing.xs}px {s.spacing.compact_gap}px;
     font-size: {t.caption}px;
     font-weight: {t.semibold};
     text-transform: uppercase;
@@ -514,7 +518,7 @@ QHeaderView::section {{
     border: 0;
     border-bottom: 1px solid {p.border};
     border-right: 1px solid {p.border};
-    padding: 6px 10px;
+    padding: {s.spacing.sm}px {s.spacing.compact_gap}px;
     font-size: {t.caption}px;
     font-weight: {t.semibold};
     text-transform: uppercase;
@@ -540,7 +544,7 @@ QListWidget, QListView {{
     padding: 4px;
 }}
 QListWidget::item, QListView::item {{
-    padding: 6px 10px;
+    padding: {s.spacing.sm}px {s.spacing.compact_gap}px;
     border-radius: {r.sm}px;
 }}
 QListWidget::item:hover {{

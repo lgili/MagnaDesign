@@ -369,6 +369,41 @@ class Spacing:
     card_gap: int = 16  # between cards on the dashboard grid
     section: int = 32  # between major sections (header → stepper → grid)
 
+    # Legacy magic-number consolidator. Multiple cards / pills /
+    # canvases used a literal ``10`` for "between sub-elements
+    # inside a card". Hoisted here so future density tweaks land
+    # in one place.
+    compact_gap: int = 10
+
+
+@dataclass(frozen=True)
+class WindowGeometry:
+    """Top-level window sizing. Read by ``MainWindow.__init__`` so
+    a UI-density experiment doesn't require code edits."""
+
+    # Hard floor — under this width the bottom Scoreboard + KPI
+    # strip overflow even with the QScrollArea wrappers. 1100×640
+    # is the lowest common denominator that still shows every
+    # sidebar entry and the full Núcleo card without horizontal
+    # scrolling on a 1366×768 laptop.
+    min_w: int = 1100
+    min_h: int = 640
+    # Default open size — capped at the available screen by
+    # MainWindow with a 32 px margin for the OS taskbar / dock.
+    default_w: int = 1500
+    default_h: int = 900
+
+
+@dataclass(frozen=True)
+class DashboardLayout:
+    """Per-row minimum heights for the 3-row dashboard grid.
+    Tunable from one place so density adjustments don't require
+    walking through ``DashboardPage`` looking for the magic
+    320 px."""
+
+    row_kpi_min: int = 320
+    row_action_stretch: int = 1  # bottom action row, takes leftover
+
 
 @dataclass(frozen=True)
 class Radius:
@@ -515,6 +550,8 @@ class ThemeState:
     type: Typography = field(default_factory=Typography)
     sidebar: Sidebar = field(default_factory=lambda: SIDEBAR)
     viz3d: Viz3D = field(default_factory=lambda: VIZ3D)
+    window: WindowGeometry = field(default_factory=WindowGeometry)
+    dashboard: DashboardLayout = field(default_factory=DashboardLayout)
 
 
 _state = ThemeState()
@@ -534,6 +571,8 @@ def set_theme(name: ThemeName) -> ThemeState:
         type=_state.type,
         sidebar=SIDEBAR,  # invariant
         viz3d=VIZ3D,  # invariant
+        window=_state.window,  # invariant across themes
+        dashboard=_state.dashboard,  # invariant across themes
     )
     _broadcaster.theme_changed.emit()
     return _state

@@ -142,6 +142,10 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("MagnaDesign — Inductor Design Suite")
+        # Window geometry — sourced from ``theme.WindowGeometry`` so
+        # density / responsive experiments don't need code edits
+        # here. Defaults: 1500×900 open, 1100×640 minimum.
+        wg = get_theme().window
         # Cap the default size to the available screen so the window
         # never opens larger than the desktop on small laptops (e.g.
         # 1366×768) — that was hiding the bottom Scoreboard on first
@@ -152,24 +156,24 @@ class MainWindow(QMainWindow):
             screen = QGuiApplication.primaryScreen()
             if screen is not None:
                 avail = screen.availableGeometry()
-                w = min(1500, max(960, avail.width() - 64))
-                h = min(900, max(640, avail.height() - 64))
+                w = min(wg.default_w, max(960, avail.width() - 64))
+                h = min(wg.default_h, max(wg.min_h, avail.height() - 64))
                 self.resize(w, h)
             else:
-                self.resize(1500, 900)
+                self.resize(wg.default_w, wg.default_h)
         except Exception:
             # Headless / offscreen: fall back to the canonical size.
-            self.resize(1500, 900)
+            self.resize(wg.default_w, wg.default_h)
 
         # Cap the absolute minimum so child widgets' minimumSizeHints
         # don't cumulatively grow the window past the screen edge.
         # Without this, the ResumoStrip (6 metric tiles) + workspace
         # header (3 CTAs) summed to ~1540 px of mandatory width and
         # the right edge fell off any 1366- or 1440-wide laptop.
-        # The (1100, 640) floor keeps all child layouts shrinkable
-        # via QScrollArea wrappers when the user *does* go narrower
-        # than 1100.
-        self.setMinimumSize(1100, 640)
+        # The token-defaulted floor (1100×640) keeps all child layouts
+        # shrinkable via QScrollArea wrappers when the user *does* go
+        # narrower than the floor.
+        self.setMinimumSize(wg.min_w, wg.min_h)
 
         ensure_user_data()
         self._materials = load_materials()

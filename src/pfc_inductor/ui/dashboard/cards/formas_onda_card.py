@@ -85,18 +85,22 @@ class _FormasOndaBody(QWidget):
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         Canvas, Figure = _figure_imports()
-        p = get_theme().palette
+        theme = get_theme()
+        p = theme.palette
+        sp = theme.spacing
         # ``constrained_layout=True`` packs the stacked subplots more
         # tightly than the legacy ``tight_layout``; 3 stacked axes with
         # ``hspace=0.0`` look like a single multi-trace scope.
         self._fig = Figure(dpi=100, facecolor=p.surface, constrained_layout=True)
         self._canvas = Canvas(self._fig)
         self._canvas.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self._canvas.setMinimumHeight(280)
+        # Canvas floor scales with the theme's "formas" minimum
+        # row height plus 1 unit of breathing room.
+        self._canvas.setMinimumHeight(theme.dashboard.row_kpi_min - 40)
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
-        outer.setSpacing(8)
+        outer.setSpacing(sp.md)
 
         # Topology badge — small label so the user knows the trace
         # set is matched to the active spec.topology. Gets rewritten
@@ -120,7 +124,7 @@ class _FormasOndaBody(QWidget):
 
         # ---- 4 small metric tiles (unchanged from v1) -----------------
         row = QHBoxLayout()
-        row.setSpacing(8)
+        row.setSpacing(sp.md)
         self.m_Irms = MetricCard("Irms", "—", "A", compact=True)
         self.m_Ipk = MetricCard("Ipk", "—", "A", compact=True)
         self.m_THD = MetricCard("THD", "—", "%", compact=True)
