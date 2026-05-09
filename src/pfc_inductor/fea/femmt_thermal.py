@@ -305,13 +305,24 @@ def validate_design_thermal_femmt(
             ),
         )
 
-    # Extract scalars from FEMMT's results_thermal.json. Field
-    # names follow FEMMT 0.5.x convention.
-    T_peak = float(_dig(thermal_log, ["temperatures", "max"], default=0.0))
-    T_w_avg = float(_dig(thermal_log, ["temperatures", "winding_average"],
+    # Extract scalars from FEMMT's ``results_thermal.json``.
+    # Real schema (verified against femmt 0.5.x's
+    # ``thermal_simulation.run_thermal``): the JSON has
+    # ``core_parts`` and ``windings`` top-level keys, each a
+    # dict of region-name → ``{min, max, mean}`` plus a
+    # synthetic ``"total"`` aggregate the solver appends. The
+    # earlier path ``temperatures.{max,winding_average,
+    # core_average}`` produced 0.0 across the board because
+    # those keys don't exist in the file FEMMT actually writes.
+    T_w_avg = float(_dig(thermal_log, ["windings", "total", "mean"],
                           default=0.0))
-    T_c_avg = float(_dig(thermal_log, ["temperatures", "core_average"],
+    T_c_avg = float(_dig(thermal_log, ["core_parts", "total", "mean"],
                           default=0.0))
+    T_w_max = float(_dig(thermal_log, ["windings", "total", "max"],
+                          default=0.0))
+    T_c_max = float(_dig(thermal_log, ["core_parts", "total", "max"],
+                          default=0.0))
+    T_peak = max(T_w_max, T_c_max)
 
     return ThermalResult(
         T_peak_C=T_peak,

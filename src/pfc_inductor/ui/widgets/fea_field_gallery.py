@@ -73,6 +73,10 @@ _CATEGORY_RULES: tuple[tuple[str, str], ...] = (
     ("j2h_density", "Litz ohmic loss"),
     ("jh_density", "H-field magnitude"),
     ("raz", "Vector potential A_z"),
+    # FEMMT thermal solve outputs.
+    ("thermal_influx", "Heat flux"),
+    ("thermal_material", "Thermal conductivity map"),
+    ("thermal", "Temperature"),
     ("b_field", "B-field magnitude"),
     ("flux_density", "Flux density"),
     ("h_field", "H-field"),
@@ -184,9 +188,28 @@ _CATEGORY_HELP: dict[str, tuple[str, str]] = {
         "colour over a large volume can exceed a small bright spot.",
     ),
     "Temperature": (
-        "Predicted temperature distribution.",
-        "Solid-state thermal solve. Cross-check the peak against the "
-        "winding's insulation rating and the core's Curie temperature.",
+        "Steady-state temperature across the cross-section.",
+        "FEMMT's coupled thermal solve, run on the same mesh + loss "
+        "field the magnetostatic step produced. Cross-check the "
+        "peak against the winding's insulation rating (105 °C for "
+        "class B, 130 °C for class F) and the core's Curie "
+        "temperature. The brightest spots usually sit on the "
+        "winding nearest the gap.",
+    ),
+    "Heat flux": (
+        "Boundary heat flux density [W/m²].",
+        "How fast heat leaves through each modelled boundary "
+        "(top / right / bottom of the case). Useful to size the "
+        "potting / heatsink area: divide ``P_total`` by the "
+        "active-boundary area to compare against the cooling "
+        "scheme's continuous rating.",
+    ),
+    "Thermal conductivity map": (
+        "k(r, z) the thermal solver applied [W/(m·K)].",
+        "Sanity-check that core, winding, gap and potting regions "
+        "got the conductivities you expected. ``ThermalOptions`` "
+        "lets you override per-region k if the solver picked the "
+        "wrong defaults.",
     ),
     "B along gap centerline": (
         "1-D slice of |B| along z = 0 (gap line).",

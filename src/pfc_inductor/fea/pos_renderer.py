@@ -51,6 +51,18 @@ _VIEW_LABELS["raz"] = ("A_z [Wb/m]", "Magnetic vector potential")
 # current runner, but the labels live here so the gallery
 # auto-categorises them when a custom run drops them on disk).
 _VIEW_LABELS["temperature"] = ("Temperature [°C]", "Predicted temperature")
+# FEMMT 0.5.x writes its thermal field as ``thermal.pos`` rather
+# than ``temperature.pos`` (the ``View "thermal"`` block lives
+# inside the same file). Catch the FEMMT-native name so the
+# field-plots gallery surfaces the heatmap automatically after a
+# coupled magnetostatic + thermal solve.
+_VIEW_LABELS["thermal"] = ("Temperature [°C]", "Predicted temperature")
+_VIEW_LABELS["thermal_influx"] = (
+    "Heat flux [W/m²]", "Boundary heat flux",
+)
+_VIEW_LABELS["thermal_material"] = (
+    "Thermal conductivity [W/m·K]", "Material conductivity",
+)
 _VIEW_LABELS["thermal_total_loss_density"] = (
     "Loss density [W/m³]", "Coupled thermal loss density",
 )
