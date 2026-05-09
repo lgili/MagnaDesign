@@ -727,7 +727,37 @@ def _toroid_validation(
     try:
         from pfc_inductor.fea.pos_renderer import render_field_pngs
 
-        render_field_pngs(cwd)
+        pngs = render_field_pngs(cwd)
+        if not pngs:
+            # Diagnostic: list .pos files we expected to find.
+            pos_files = sorted(Path(cwd).rglob("*.pos"))
+            logger.warning(
+                "FEMMT backend: render_field_pngs(%s) returned 0 "
+                "PNGs. Expected Magb.pos / j2F_density.pos in "
+                "e_m/results/fields/. Found .pos files: %s. "
+                "Falling back to synthetic-analytical field render.",
+                cwd, [p.name for p in pos_files],
+            )
+            # Synthesise a heatmap from the analytical B_pk so the
+            # gallery isn't empty for the user.
+            try:
+                from pfc_inductor.fea.synthetic_field import (
+                    render_synthetic_field_pngs,
+                )
+
+                render_synthetic_field_pngs(
+                    cwd, B_pk_T=float(getattr(result, "B_pk_T", 0.0) or 0.0),
+                    core=core,
+                )
+            except Exception:
+                logger.exception(
+                    "synthetic field render failed; gallery empty",
+                )
+        else:
+            logger.info(
+                "FEMMT backend: rendered %d field PNGs (%s)",
+                len(pngs), ", ".join(p.name for p in pngs[:5]),
+            )
     except Exception:  # pragma: no cover — defensive
         logger.exception("Field-PNG rendering failed; continuing.")
 

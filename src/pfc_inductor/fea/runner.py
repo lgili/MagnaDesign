@@ -136,14 +136,60 @@ def _validate_design_femm(
     # These land in the same working directory as the .fem file
     # so the FEAFieldGallery's recursive PNG scan picks them up
     # automatically — same UX as the FEMMT backend.
-    try:
-        from pfc_inductor.fea.legacy.grid_renderer import (
-            render_legacy_field_pngs,
+    import logging
+    log = logging.getLogger(__name__)
+    csv_path = Path(output_dir) / "b_field_grid.csv"
+    if not csv_path.exists():
+        log.warning(
+            "legacy backend: %s was not written by the LUA script. "
+            "Falling back to synthetic-analytical field render so "
+            "the gallery isn't empty.\nWorking dir: %s\nFiles "
+            "present: %s",
+            csv_path.name,
+            output_dir,
+            sorted(p.name for p in Path(output_dir).iterdir()),
         )
+        # Synthesise a field render from the analytical B_pk —
+        # not an FEA result, but better than an empty gallery.
+        try:
+            from pfc_inductor.fea.synthetic_field import (
+                render_synthetic_field_pngs,
+            )
 
-        render_legacy_field_pngs(output_dir)
-    except Exception:  # pragma: no cover — defensive
-        pass
+            render_synthetic_field_pngs(
+                output_dir, B_pk_T=float(raw.get("B_pk_T", 0.0) or 0.0),
+                core=core,
+            )
+        except Exception:
+            log.exception(
+                "synthetic field render failed; gallery stays empty",
+            )
+    else:
+        try:
+            from pfc_inductor.fea.legacy.grid_renderer import (
+                render_legacy_field_pngs,
+            )
+
+            pngs = render_legacy_field_pngs(output_dir)
+            if not pngs:
+                log.warning(
+                    "legacy backend: render_legacy_field_pngs(%s) "
+                    "returned empty list (CSV existed but parse "
+                    "failed?). Gallery will be empty.",
+                    output_dir,
+                )
+            else:
+                log.info(
+                    "legacy backend: rendered %d field PNGs into %s "
+                    "(%s)",
+                    len(pngs), output_dir,
+                    ", ".join(p.name for p in pngs),
+                )
+        except Exception:
+            log.exception(
+                "legacy backend: render_legacy_field_pngs failed "
+                "(working dir %s)", output_dir,
+            )
 
     L_FEA_H = float(raw["L_H"])
     L_FEA_uH = L_FEA_H * 1e6
