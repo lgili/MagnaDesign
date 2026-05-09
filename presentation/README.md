@@ -1,127 +1,135 @@
-# MagnaDesign — Curso interno (apresentação)
+# MagnaDesign — Internal training deck
 
-Material de apresentação para o curso de uso do **MagnaDesign**:
-estrutura LaTeX em `beamer + metropolis`, três casos reais de
-referência (Boost PFC 1.5 kW, Reator de linha 22 kW, Flyback
-65 W), e harness Python que gera todas as screenshots dos
-widgets do app.
+Beamer-based slide deck for the internal course on the
+**MagnaDesign** desktop tool. Custom metropolis-style
+styling using only base beamer (no extra LaTeX packages
+to install). Three real-world reference designs (Boost
+PFC 1.5 kW, 3φ line reactor 22 kW, flyback DCM 65 W) feed
+two Python harnesses that auto-generate every figure in
+the deck.
 
-## Estrutura
+## Layout
 
 ```
 presentation/
-├── main.tex                 # Slide deck (LaTeX/Beamer)
-├── Makefile                 # build + screenshots
+├── main.tex                          Slide deck — 42 pages, English
+├── Makefile                          make / make screenshots / clean
+├── README.md                         this file
 ├── theme/
-│   └── magnadesign-colors.tex  # paleta sincronizada com a UI
-├── sections/                # (vazio por enquanto — slides em main.tex)
+│   └── magnadesign-colors.tex        palette synced with the app UI
+├── sections/                         (reserved — currently empty)
 ├── scripts/
-│   └── build_screenshots.py # harness que renderiza figures/
-└── figures/                 # PNGs/PDFs incluídos pelo .tex
+│   ├── build_screenshots.py          real-widget renders (3 RefDesigns)
+│   └── build_placeholders.py         analytic mock-ups for screens
+│                                     where the live widget needs
+│                                     more runtime than offscreen Qt
+│                                     can provide
+└── figures/                          all PNGs / PDFs the .tex includes
 ```
 
-## Como compilar
+## How to build
 
-### Pré-requisitos
+### Requirements
 
-* TeX Live 2023+ com `metropolis` (`tlmgr install metropolis
-  beamer fontspec`)
-* LuaLaTeX (vem com TeX Live; necessário pra fonte Fira Sans
-  do metropolis)
-* `latexmk` (também TeX Live)
-* Python 3.12 + venv do projeto em `../.venv/bin/python`
+* A working TeX install with `pdflatex`, `beamer`, `xcolor`,
+  `tikz`, `booktabs`, `listings`. BasicTeX is enough — no
+  extra packages required.
+* Python 3.12 with the project venv at `../.venv/bin/python`
+  (PySide6 + matplotlib + numpy + the `pfc_inductor` package
+  itself).
 
-### Build da apresentação
+### Compile the PDF
 
 ```bash
 cd presentation
-make           # → main.pdf
+make           # → main.pdf  (two pdflatex passes for the TOC)
+make clean     # → drop .aux/.log/.toc, keep main.pdf and figures/
+make distclean # → drop everything, including figures/
 ```
 
-### Regenerar todas as screenshots
+### Regenerate every figure
 
-Se você modificar os widgets do app ou os exemplos de
-referência no harness:
+If you change a widget in the app, the reference designs in
+the harness, or any of the synthetic placeholders:
 
 ```bash
-make screenshots
-make           # rebuild com as figuras novas
+make screenshots   # runs build_screenshots.py + build_placeholders.py
+make               # rebuild the PDF with the refreshed images
 ```
 
-### Modo watch (live preview enquanto edita)
+The two harnesses are chained in the Makefile so a single
+target refreshes everything.
 
-```bash
-make watch
-```
+## The three reference designs
 
-Recompila automaticamente cada `Ctrl-S` no `main.tex`.
-
-## Os três exemplos de referência
-
-| # | Topologia | Specs | Referência de mercado |
+| # | Topology | Spec | Market reference |
 |---|---|---|---|
-| 1 | **Boost PFC CCM** | 85–265 V$_{rms}$ → 400 V, 1.5 kW, 100 kHz | TI UCC28019 ref-design + Magnetics Kool-Mu 0077439A7 toroid |
-| 2 | **Line reactor 3φ** | 400 V$_{LL}$, 22 kW, 32 A, 3 % impedância | ABB MCB-32 / Schaffner FN3220 series |
+| 1 | **Boost PFC CCM** | 85–265 V$_{rms}$ → 400 V, 1.5 kW, 100 kHz | TI UCC28019 reference design + Magnetics Kool-Mu 0077439A7 toroid |
+| 2 | **3φ line reactor** | 400 V$_{LL}$, 22 kW, 32 A, 3 % impedance | ABB MCB-32 / Schaffner FN3220 series |
 | 3 | **Flyback DCM** | 85–265 V$_{rms}$ → 19 V/3.4 A, 65 W, 65 kHz | TI UCC28911 EVM (laptop adapter), PQ20/16 N97 |
 
-Os três foram escolhidos para exercitar as features
-distintas do app:
+The three were chosen so that the deck exercises every
+distinct capability of the app:
 
-* **Boost CCM** ativa as 5 abas do FEA dialog, o swept-FEA
-  L(I) e o B-H operacional — caso "completo" para a demo
-  inicial.
-* **Line reactor** ativa o card de **harmônicas IEC 61000-3-2**
-  e demonstra o auto-fallback FEMMT → FEMM legacy quando
-  N > 150 turns.
-* **Flyback** demonstra o render de **2 windings** (primary
-  + secondary com cores distintas) na geometry view, e o
-  comportamento DCM em formas de onda.
+* **Boost CCM** drives all five FEA-dialog tabs, the swept
+  FEA L(I) sweep, and the operating-point B-H curve. The
+  "complete" demo case.
+* **Line reactor** activates the IEC 61000-3-2 harmonics
+  card and demonstrates the FEMMT → FEMM legacy auto-
+  fallback for designs with N > 150 turns.
+* **Flyback** triggers the dual-winding render (primary +
+  secondary in distinct colours) on the geometry view and
+  the DCM-mode current waveform.
 
-## Substituindo screenshots por prints reais
+## Replacing rendered figures with live-app captures
 
-O harness emite **placeholders** (PNGs com texto `"[ screenshot
-pendente ]"`) para telas que precisam do app rodando ao vivo —
-SpecDrawer, Otimizador Pareto, Cascade page, Compare dialog,
-Export, viewer 3D, formas de onda do app real.
+Most figures are rendered automatically (real widgets via
+the harness, or analytic mock-ups). A few — Pareto front,
+Cascade Top-N table, Compare dialog, Export HTML preview,
+the 3D viewer — are mock-ups that approximate the real
+visuals. To replace them with real screenshots from the
+running app:
 
-Para substituir por prints reais:
+1. Open the app: `python -m pfc_inductor`
+2. Load (or recreate) one of the reference designs
+3. Capture with `Cmd-Shift-4` (macOS) or Snipping Tool
+   (Windows)
+4. Save the PNG into `figures/` using **the same filename**
+   as the existing mock-up
+5. Run `make` to rebuild — the LaTeX `\includegraphics`
+   picks up the new file by name
 
-1. Abra o app: `python -m pfc_inductor`
-2. Carregue um dos 3 exemplos (ou crie equivalente)
-3. Capture com `Cmd-Shift-4` (macOS) ou Snipping Tool (Windows)
-4. Salve como PNG no `figures/` com o **mesmo nome** que o
-   placeholder
-5. `make` rebuild — o LaTeX usa o arquivo novo automaticamente
-
-Lista de placeholders:
+Filenames the deck consumes:
 
 ```
-example1_spec.png            ← Spec drawer (boost)
-example1_formas_onda.png     ← FormasOndaCard (boost)
-example2_spec.png            ← Spec drawer (line reactor)
-example2_fea_dispatch.png    ← Log do auto-fallback
-example3_spec.png            ← Spec drawer (flyback)
-example3_formas_onda.png     ← FormasOndaCard (flyback)
-example3_fea_summary.png     ← FEA Summary (flyback)
-feature_otimizador_pareto.png ← Pareto front
-feature_cascade.png          ← Cascade Top-N table
-feature_compare.png          ← Compare designs dialog
-feature_export.png           ← Datasheet HTML render
-feature_3d.png               ← Qt3D viewer
-logo-placeholder.pdf         ← Logo institucional
+example1_spec.png             Spec drawer (boost)
+example1_formas_onda.png      Waveforms card (boost)
+example2_spec.png             Spec drawer (line reactor)
+example2_fea_dispatch.png     Auto-fallback flowchart
+example3_spec.png             Spec drawer (flyback)
+example3_formas_onda.png      Waveforms card (flyback)
+example3_fea_summary.png      FEA Summary tab (flyback)
+feature_otimizador_pareto.png Pareto front
+feature_cascade.png           Cascade Top-N table
+feature_compare.png           Compare-designs dialog
+feature_export.png            Datasheet HTML render
+feature_3d.png                Qt3D viewer
+logo-placeholder.pdf          App logo
 ```
 
-## Tema visual
+## Visual identity
 
-O arquivo `theme/magnadesign-colors.tex` redefine as cores do
-metropolis usando a paleta da UI (`accent_violet`, `warning`,
-`success`, `danger`, etc. — extraídos de
-`src/pfc_inductor/ui/theme.py`). Mudou paleta no app? Atualize
-aqui também — uma única source of truth.
+`theme/magnadesign-colors.tex` re-skins beamer with the
+exact palette the running app uses (`accent_violet`,
+`warning`, `success`, `danger`, etc., extracted from
+`src/pfc_inductor/ui/theme.py`). If you change the app's
+palette, refresh this file — it's the single source of
+truth for the deck's colours.
 
-## Tempo de talk estimado
+## Estimated talk length
 
-~ 30–45 minutos com Q&A (36 slides). Ajuste expandindo / cortando
-seções conforme necessário — `\section{...}` agrupa os
-slides para que o `\tableofcontents` no slide 2 mantenha-se
-limpo.
+~ 30–45 minutes with Q&A (36 content slides + section
+dividers, 42 pages total). Expand or compress sections by
+adding / removing frames within the relevant `\section{...}`
+group; the table of contents on slide 2 only lists section
+headings, so it stays clean as you iterate.

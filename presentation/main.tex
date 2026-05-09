@@ -1,16 +1,16 @@
 % !TEX TS-program = pdflatex
-% MagnaDesign — Curso de uso interno (Beamer, sem deps externas)
+% MagnaDesign — Internal training course (Beamer, no extra deps)
 %
 % Build:
-%   make           → produces main.pdf via pdflatex
+%   make           → produces main.pdf via pdflatex (2 passes)
 %   make screenshots
-%                  → regenerates figures/ from scripts/build_screenshots.py
+%                  → regenerates figures/ from
+%                    scripts/build_screenshots.py +
+%                    scripts/build_placeholders.py
 %
-% Why not metropolis? — keeps the deck portable across BasicTeX
-% installs that don't ship the metropolis theme. The custom
-% styling below replicates the metropolis aesthetic (sans-serif
-% body, coloured frame titles, slim progress bar, dark accents)
-% using only base beamer commands.
+% This deck uses base beamer + custom theme styling instead of
+% the metropolis package, so it builds on a stock BasicTeX
+% install with no extra ``tlmgr install`` step.
 
 \documentclass[11pt, aspectratio=169]{beamer}
 
@@ -21,40 +21,29 @@
 
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
-\usepackage[brazilian]{babel}
-\usepackage{lmodern}      % Latin Modern — readable sans + clean
-                          % at any zoom on screen
+\usepackage[english]{babel}
+\usepackage{lmodern}
 \usepackage{booktabs}
 \usepackage{xcolor}
 \usepackage{tikz}
-\usetikzlibrary{positioning, arrows.meta, shapes.geometric, fit, backgrounds, calc}
+\usetikzlibrary{positioning, arrows.meta, shapes.geometric, fit,
+                backgrounds, calc}
 \usepackage{listings}
 \usepackage{graphicx}
 \usepackage{xspace}
 
-% MagnaDesign palette — synced with src/pfc_inductor/ui/theme.py.
 \input{theme/magnadesign-colors.tex}
 
-% ─── Custom theme (metropolis-ish without the dependency) ───
-%
-% A minimalist look that survives any TeX install: sans-serif
-% body, a thin coloured rule under the frame title, a discrete
-% progress bar in the footer, and section pages with a coloured
-% background. Each \setbeamer* below is independently optional;
-% comment any out to dial back the styling.
-
-% Fonts — Latin Modern Sans for everything (replaces Computer
-% Modern Roman). Tighter line-height so each slide fits more
-% concise content without wrapping.
+% ── Custom metropolis-ish theme using only base beamer ──
 \renewcommand{\familydefault}{\sfdefault}
 \setbeamerfont{title}{size=\Large, series=\bfseries}
 \setbeamerfont{subtitle}{size=\small, series=\mdseries, shape=\itshape}
 \setbeamerfont{author}{size=\small}
 \setbeamerfont{date}{size=\footnotesize}
 \setbeamerfont{frametitle}{size=\large, series=\bfseries}
-\setbeamerfont{framesubtitle}{size=\small, series=\mdseries, shape=\itshape}
+\setbeamerfont{framesubtitle}{size=\small, series=\mdseries,
+                              shape=\itshape}
 
-% Frame title — coloured rule under it for the metropolis vibe.
 \setbeamertemplate{frametitle}{%
   \nointerlineskip
   \begin{beamercolorbox}[wd=\paperwidth, leftskip=0.6cm,
@@ -66,8 +55,6 @@
 }
 \setbeamercolor{frametitle}{fg=md-text, bg=md-bg}
 
-% Footer — small progress bar + section name on the left, slide
-% number on the right.
 \setbeamertemplate{footline}{%
   \leavevmode%
   \hbox{%
@@ -86,7 +73,6 @@
 }
 \setbeamertemplate{navigation symbols}{}
 
-% Section pages — coloured backdrop with the section name big.
 \setbeamertemplate{section page}{%
   \begin{centering}
     \vskip 1cm
@@ -103,7 +89,6 @@
   \end{frame}%
 }
 
-% Title page — clean, vertically centred.
 \setbeamertemplate{title page}{%
   \vfill
   {\color{md-violet}\rule{0.6\paperwidth}{2pt}}\par
@@ -118,11 +103,9 @@
   \vfill
 }
 
-% Bullets — square accent dots in the brand colour.
 \setbeamertemplate{itemize item}{\textcolor{md-violet}{\rule[0.4ex]{0.5em}{0.5em}}}
 \setbeamertemplate{itemize subitem}{\textcolor{md-violet}{\rule[0.5ex]{0.4em}{0.4em}}}
 
-% Block — coloured header strip + light fill body.
 \setbeamertemplate{block begin}{%
   \begin{beamercolorbox}[colsep*=.75ex]{block title}%
     \usebeamerfont*{block title}\insertblocktitle\par
@@ -133,7 +116,6 @@
 }
 \setbeamertemplate{block end}{\end{beamercolorbox}}
 
-% Standout-like frame — used for the closing "Q&A" slide.
 \newenvironment{standoutpage}{%
   \begin{frame}[plain, noframenumbering]%
   \centering\vfill\Huge\bfseries\color{md-violet-dark}%
@@ -141,7 +123,6 @@
   \vfill\end{frame}%
 }
 
-% Code listings.
 \lstdefinestyle{md}{
   basicstyle=\ttfamily\footnotesize\color{md-text},
   backgroundcolor=\color{md-code-bg},
@@ -158,103 +139,104 @@
 }
 \lstset{style=md}
 
-% Small helpers.
 \newcommand{\app}{\textbf{MagnaDesign}\xspace}
-\newcommand{\screenshot}[2][width=\linewidth]{%
+\newcommand{\screenshot}[2][width=\linewidth, keepaspectratio]{%
   \begin{center}\includegraphics[#1]{#2}\end{center}}
 \newcommand{\figcaption}[1]{{\footnotesize\color{md-muted}#1}}
 
 \title{\app}
-\subtitle{Engenharia de indutores PFC e reatores --- desktop tool}
-\author{Curso interno}
-\institute{Engenharia de Inversores de Frequência}
+\subtitle{Engineering tool for PFC inductors and reactors}
+\author{Internal training}
+\institute{Variable-frequency drive engineering}
 \date{\today}
 
 \begin{document}
 
 % ============================================================
-%  ABERTURA
+%  COVER
 % ============================================================
 \begin{frame}[plain, noframenumbering]
   \titlepage
 \end{frame}
 
-\begin{frame}{O que vamos cobrir hoje}
+\begin{frame}{What we will cover today}
   \tableofcontents
 \end{frame}
 
 % ============================================================
-\section{Visão geral do app}
+\section{App overview}
 % ============================================================
 
-\begin{frame}{O problema que motivou a ferramenta}
+\begin{frame}{The problem that motivated this tool}
   \begin{columns}[T,onlytextwidth]
     \column{0.55\textwidth}
-    Engenharia de indutores PFC envolve hoje:
+    PFC inductor engineering today involves:
     \begin{itemize}
-      \item \textbf{Várias planilhas} dispersas para cada topologia
-      \item Validação \textbf{só por FEMM} (operador especializado)
-      \item Difícil iterar sobre $L$, $N$, núcleo, fio sem refazer tudo
-      \item Compliance EMC (IEC 61000-3-2) é cálculo separado
-      \item Sem \textbf{rastro de design} entre projetos
+      \item \textbf{Scattered spreadsheets} per topology
+      \item Validation \textbf{only via FEMM} (specialist operator)
+      \item Hard to iterate over $L$, $N$, core, wire without
+            redoing everything
+      \item EMC compliance (IEC 61000-3-2) is a separate
+            calculation
+      \item No \textbf{design trail} between projects
     \end{itemize}
     \column{0.45\textwidth}
-    \app integra:
+    \app integrates:
     \begin{itemize}
-      \item Engine analítico calibrado contra catálogos
-      \item FEA automatizado (FEMMT/ONELAB + FEMM legacy)
-      \item Otimizador multi-tier (cascade)
-      \item Exportador estilo datasheet
-      \item GUI única para 6 topologias
+      \item Analytical engine, calibrated against catalogues
+      \item Automated FEA (FEMMT/ONELAB + FEMM legacy)
+      \item Multi-tier optimiser (cascade)
+      \item Datasheet-style exporter
+      \item Single GUI for 6 topologies
     \end{itemize}
   \end{columns}
 \end{frame}
 
-\begin{frame}{Topologias suportadas}
+\begin{frame}{Supported topologies}
   \begin{table}
     \centering\small
     \begin{tabular}{@{}lll@{}}
       \toprule
-      \textbf{Topologia} & \textbf{Faixa típica} & \textbf{Aplicações} \\
+      \textbf{Topology} & \textbf{Typical range} & \textbf{Applications} \\
       \midrule
-      Boost CCM & 200--2000 W & Server PSU, drives industriais \\
-      Buck CCM & 100--1500 W & Conversores DC--DC industriais \\
-      Interleaved Boost & 1--10 kW & PFC alta potência, ripple cancel.\\
-      Flyback (DCM/CCM) & 30--300 W & SMPS, adaptadores, auxiliares \\
-      Line reactor (3$\phi$) & 5--500 kW & VFD input, IEC 61000-3-2 \\
-      Passive choke & 100 W--10 kW & PFC passivo, retificador 1$\phi$ \\
+      Boost CCM & 200--2000 W & Server PSUs, industrial drives \\
+      Buck CCM & 100--1500 W & Industrial DC--DC converters \\
+      Interleaved Boost & 1--10 kW & High-power PFC, ripple cancel.\\
+      Flyback (DCM/CCM) & 30--300 W & SMPS, adapters, auxiliaries \\
+      Line reactor (3$\phi$) & 5--500 kW & VFD inputs, IEC 61000-3-2 \\
+      Passive choke & 100 W--10 kW & 1$\phi$ passive PFC \\
       \bottomrule
     \end{tabular}
   \end{table}
   \medskip
 
-  Cada topologia tem o próprio cálculo analítico mas compartilha o
-  mesmo motor de \textbf{perdas, térmica, FEA e otimização}.
+  Each topology has its own analytical computation but shares the
+  same engine for \textbf{losses, thermal, FEA and optimisation}.
 \end{frame}
 
-\begin{frame}{Arquitetura --- visão de blocos}
+\begin{frame}{Architecture --- block view}
   \begin{center}
   \begin{tikzpicture}[
     every node/.style={font=\small},
     block/.style={draw=md-violet-dark, thick, rounded corners=2pt,
-                  fill=white, minimum width=3cm, minimum height=0.8cm,
-                  align=center},
+                  fill=white, minimum width=3.2cm, minimum height=1.0cm,
+                  align=center, inner sep=4pt},
     arrow/.style={-Stealth, md-violet-dark, thick},
   ]
-    \node[block] (ui) at (0, 4)
-      {GUI (PySide6)\\\scriptsize ProjetoPage / Análise / FEA dialog};
-    \node[block] (eng) at (0, 2.5)
-      {Engine analítico\\\scriptsize Numba JIT --- perdas + térmica};
-    \node[block] (top) at (-3.2, 2.5)
-      {Topologias\\\scriptsize Boost / Flyback / Reactor / ...};
-    \node[block] (cat) at (3.2, 2.5)
-      {Catálogo\\\scriptsize Cores + materiais + fios};
-    \node[block] (fea) at (-3.2, 1.0)
-      {FEA\\\scriptsize FEMMT / FEMM legacy};
-    \node[block] (opt) at (0, 1.0)
-      {Otimizador\\\scriptsize Pareto + cascade};
-    \node[block] (exp) at (3.2, 1.0)
-      {Export\\\scriptsize HTML / PDF datasheet};
+    \node[block] (ui) at (0, 4.2)
+      {GUI (PySide6)\\\scriptsize ProjetoPage \textbar{} Analysis};
+    \node[block] (eng) at (0, 2.4)
+      {Analytical engine\\\scriptsize Numba JIT};
+    \node[block] (top) at (-4.2, 2.4)
+      {Topologies\\\scriptsize Boost / Flyback / ...};
+    \node[block] (cat) at (4.2, 2.4)
+      {Catalogue\\\scriptsize Cores / materials};
+    \node[block] (fea) at (-4.2, 0.6)
+      {FEA\\\scriptsize FEMMT / FEMM};
+    \node[block] (opt) at (0, 0.6)
+      {Optimiser\\\scriptsize Pareto / cascade};
+    \node[block] (exp) at (4.2, 0.6)
+      {Export\\\scriptsize HTML / PDF};
 
     \draw[arrow] (ui) -- (eng);
     \draw[arrow] (eng) -- (top);
@@ -266,435 +248,448 @@
   \end{center}
   \medskip
 
-  \figcaption{Engine no centro: cada superfície da UI fala com ele
-  via Pydantic models (\texttt{Spec}, \texttt{Core}, \texttt{Wire},
-  \texttt{Material}, \texttt{DesignResult}).}
+  \figcaption{The engine sits in the middle. Every UI surface
+  talks to it through Pydantic models (\texttt{Spec}, \texttt{Core},
+  \texttt{Wire}, \texttt{Material}, \texttt{DesignResult}).}
 \end{frame}
 
-\begin{frame}{Tela principal --- visão da Análise}
-  \screenshot{figures/example1_analise_overview.png}
-  \figcaption{Núcleo + 3D + formas de onda + perdas + bobinamento +
-  entreferro --- todos populando do mesmo \texttt{DesignResult}.}
+\begin{frame}{Main view --- the Analysis page (top portion)}
+  \screenshot[height=0.65\textheight, keepaspectratio]%
+            {figures/example1_analise_overview.png}
+  \figcaption{Core selection + 3D view + waveforms + losses +
+  winding + air gap. All cards populate from the same
+  \texttt{DesignResult} the engine emits.}
 \end{frame}
 
 % ============================================================
-\section{Exemplo 1 -- Boost PFC 1.5 kW}
+\section{Example 1 -- Boost PFC 1.5 kW}
 % ============================================================
 
-\begin{frame}{Exemplo 1 --- Boost PFC universal-input 1.5 kW}
+\begin{frame}{Example 1 --- universal-input boost PFC, 1.5 kW}
   \begin{columns}[T,onlytextwidth]
     \column{0.5\textwidth}
-    \textbf{Especificação}
+    \textbf{Specification}
     \begin{itemize}
       \item $V_\text{in} = 85$--$265$ V$_\text{rms}$
       \item $V_\text{out} = 400$ V (PFC bus)
       \item $P_\text{out} = 1500$ W
       \item $f_\text{sw} = 100$ kHz
-      \item Ripple alvo: 30 \% de $I_\text{pk}$
+      \item Ripple target: 30 \% of $I_\text{pk}$
     \end{itemize}
 
-    \textbf{Referência de mercado}
+    \textbf{Market reference}
     \begin{itemize}
       \item TI UCC28019 application note
-      \item Magnetics Kool-Mu 0077439A7 toroide
+      \item Magnetics Kool-Mu 0077439A7 toroid
       \item AWG 16 solid, 55--70 turns
     \end{itemize}
 
     \column{0.5\textwidth}
-    \textbf{Por que esse exemplo?}
+    \textbf{Why this example?}
     \begin{itemize}
-      \item Caso \textbf{mais comum} no mercado --- server PSU,
-            telecom, drives industriais
-      \item Bate com a janela de potência onde litz vs solid
-            ainda é decisão de projeto
-      \item Demonstra \textbf{rolloff de $\mu$} sob bias DC
-            (Kool-Mu a 50--70\% no peak)
-      \item Ativa todas as 5 abas de FEA
+      \item \textbf{Most common} case in the market --- server
+            PSU, telecom, industrial drives
+      \item Power range where litz vs solid is still a real
+            design decision
+      \item Demonstrates \textbf{$\mu$ rolloff} under DC bias
+            (Kool-Mu drops 50--70\% at peak)
+      \item Exercises every FEA-dialog tab
     \end{itemize}
   \end{columns}
 \end{frame}
 
-\begin{frame}{1.1 --- Spec drawer (entrada do usuário)}
-  \screenshot{figures/example1_spec.png}
-  \figcaption{O \texttt{SpecDrawer} valida cada campo via Pydantic e
-  já dispara o engine ao apertar \texttt{Enter}. Topologia +
-  faixa $V_\text{in}$ + $P_\text{out}$ + $f_\text{sw}$ ---
-  3 cliques.}
+\begin{frame}{1.1 --- Spec drawer (user input)}
+  \screenshot[height=0.65\textheight, keepaspectratio]%
+            {figures/example1_spec.png}
+  \figcaption{The \texttt{SpecDrawer} validates each field via
+  Pydantic and re-runs the engine on \texttt{Enter}. Topology +
+  $V_\text{in}$ range + $P_\text{out}$ + $f_\text{sw}$ ---
+  three clicks and a recalc.}
 \end{frame}
 
-\begin{frame}{1.2 --- Análise: formas de onda + perdas}
-  \begin{columns}[T,onlytextwidth]
-    \column{0.6\textwidth}
-    \screenshot{figures/example1_formas_onda.png}
-    \column{0.4\textwidth}
-    \textbf{Lê em segundos:}
-    \begin{itemize}
-      \item $i_L(t)$ no meio cycle de linha
-      \item $B(t)$ em mT, comparado com $B_\text{sat}$
-      \item Ripple peak-to-peak destacado
-    \end{itemize}
-    \figcaption{$P_\text{Cu,DC} \approx$ 1.1 W, $P_\text{Cu,AC}
-    \approx$ 0.55 W, $P_\text{core} \approx$ 1.5 W. Total
-    $\sim$ 3.15 W $\Rightarrow$ $\eta = 99.79\%$.}
-  \end{columns}
+\begin{frame}{1.2 --- Analysis: waveforms card}
+  \screenshot[height=0.55\textheight, keepaspectratio]%
+            {figures/example1_formas_onda.png}
+  \figcaption{$i_L(t)$ and $v_\text{in}$(t) over the line cycle,
+  with the harmonic FFT below and KPI tiles for
+  $I_\text{rms}$, $I_\text{pk}$, THD and crest. THD = 23 \%
+  is the inductor-only contribution; total system THD with
+  control loop is much lower.}
 \end{frame}
 
-\begin{frame}{1.3 --- Loss stacked bar (proporção)}
-  \screenshot[width=0.85\linewidth]{figures/example1_loss_stacked.png}
-  \figcaption{Card de barra empilhada --- mostra qual família de
-  perda domina. Cu DC concentra 35\%; revisar wire gauge vs Cu AC
-  (skin/proximity) é o próximo passo.}
+\begin{frame}{1.3 --- Loss breakdown (proportional bar)}
+  \screenshot[width=0.85\linewidth, keepaspectratio]%
+            {figures/example1_loss_stacked.png}
+  \figcaption{The stacked bar shows which loss family dominates
+  the design. Cu DC concentrates 35 \% of the losses --- review
+  wire gauge before chasing skin / proximity effect.}
 \end{frame}
 
-\begin{frame}{1.4 --- Curva B-H operacional}
-  \screenshot[width=0.78\linewidth]{figures/example1_bh_curve.png}
-  \figcaption{Operating point dot (verde) na curva estática $B(H)$;
-  linhas pontilhadas em $B_\text{sat}$ e a faixa vermelha de
-  $-20\%$ headroom. Margin reportada: 66\% --- design conservador.}
+\begin{frame}{1.4 --- Operating B-H curve}
+  \screenshot[height=0.62\textheight, keepaspectratio]%
+            {figures/example1_bh_curve.png}
+  \figcaption{Operating-point dot (green) on the static $B(H)$
+  curve. Dotted lines mark $B_\text{sat}$ and the $-20$\%
+  headroom band. Reported margin: 66 \% --- conservative
+  design, room to push it harder if cost matters.}
 \end{frame}
 
-\begin{frame}{1.5 --- Geometria (vista datasheet)}
-  \screenshot[width=0.65\linewidth]{figures/example1_geometry.png}
-  \figcaption{Cross-section top-down do toroide --- 55 turns AWG16
-  na bobbin radius, OD = 39.9 mm, ID = 24.0 mm. Datasheet stamp
-  embaixo: \texttt{0077439A7 \textbullet{} 60 KoolMu \textbullet{} N = 55}.}
+\begin{frame}{1.5 --- Geometry (datasheet-style cross section)}
+  \screenshot[height=0.65\textheight, keepaspectratio]%
+            {figures/example1_geometry.png}
+  \figcaption{Toroid top-down view --- 55 AWG-16 turns on the
+  bobbin radius, OD = 39.9 mm, ID = 24.0 mm. Datasheet stamp
+  at the bottom: \texttt{0077439A7 \textbullet{} 60 KoolMu
+  \textbullet{} N = 55}.}
 \end{frame}
 
-\begin{frame}{1.6 --- Validação FEA: aba Summary}
-  \screenshot{figures/example1_fea_summary.png}
-  \figcaption{Bar chart pareado \emph{analítico vs FEA} para $L$ e
-  $B_\text{pk}$. Confidence gauge embaixo (verde / amber / red)
-  com pointer no pior dos dois erros. Modelo analítico
-  \textbf{calibrado}.}
+\begin{frame}{1.6 --- FEA validation: Summary tab}
+  \screenshot[height=0.65\textheight, keepaspectratio]%
+            {figures/example1_fea_summary.png}
+  \figcaption{Paired bar chart \emph{analytic vs FEA} for $L$
+  and $B_\text{pk}$, with a confidence gauge below pointing at
+  the worst of the two errors. Calibrated analytical model.}
 \end{frame}
 
-\begin{frame}{1.7 --- FEA: heatmap do $|B|$ + 1D centerline}
+\begin{frame}{1.7 --- FEA: $|B|$ heatmap + 1D centerline}
   \begin{columns}[T,onlytextwidth]
     \column{0.5\textwidth}
-    \screenshot{figures/example1_fea_field_heatmap.png}
-    \begin{center}\scriptsize Cross-section r-z, viridis\end{center}
+    \screenshot[height=0.50\textheight, keepaspectratio]%
+              {figures/example1_fea_field_heatmap.png}
+    \begin{center}\scriptsize r-z, viridis\end{center}
     \column{0.5\textwidth}
-    \screenshot{figures/example1_fea_field_centerline.png}
-    \begin{center}\scriptsize $|B|$ ao longo do gap (z = 0)\end{center}
+    \screenshot[height=0.50\textheight, keepaspectratio]%
+              {figures/example1_fea_field_centerline.png}
+    \begin{center}\scriptsize $|B|$ along z = 0\end{center}
   \end{columns}
-  \figcaption{Cards do gallery --- clique abre lightbox com
-  explicação por categoria.}
+  \figcaption{Click any card to open the lightbox with the
+  per-category engineering context.}
 \end{frame}
 
-\begin{frame}{1.8 --- FEA: $L$ vs corrente (rolloff)}
-  \screenshot[width=0.85\linewidth]{figures/example1_fea_swept.png}
-  \figcaption{Tier-4 swept-FEA roda solver em N pontos do bias.
-  Linha violeta: $L(I)$. Tracejada: $B(I)$. Banda vermelha:
-  $B_\text{sat}$. Triângulo: \emph{knee at $-30\%$} de $L$.}
+\begin{frame}{1.8 --- FEA: $L$ vs current sweep}
+  \screenshot[height=0.65\textheight, keepaspectratio]%
+            {figures/example1_fea_swept.png}
+  \figcaption{Tier-4 swept-FEA runs the solver at N bias points.
+  Violet line: $L(I)$. Dashed: $B(I)$ (right axis). Red band:
+  $B_\text{sat}$. Triangle: $-30\%$ rolloff knee.}
 \end{frame}
 
 % ============================================================
-\section{Exemplo 2 -- Reator de linha 3$\phi$ 22 kW}
+\section{Example 2 -- 3$\phi$ line reactor, 22 kW}
 % ============================================================
 
-\begin{frame}{Exemplo 2 --- Reator de linha 3$\phi$ para VFD}
+\begin{frame}{Example 2 --- 3$\phi$ line reactor for a VFD}
   \begin{columns}[T,onlytextwidth]
     \column{0.5\textwidth}
-    \textbf{Especificação}
+    \textbf{Specification}
     \begin{itemize}
-      \item Rede: 400 V$_\text{LL}$, 60 Hz, 3 fases
-      \item Carga: 22 kW (drive de motor)
-      \item $I_\text{rms} \approx 32$ A por fase
-      \item Impedância alvo: \textbf{3 \%}
-      \item $L \approx 2.5$ mH por fase
+      \item Mains: 400 V$_\text{LL}$, 60 Hz, 3-phase
+      \item Load: 22 kW (motor drive)
+      \item $I_\text{rms} \approx 32$ A per phase
+      \item Target impedance: \textbf{3 \%}
+      \item $L \approx 2.5$ mH per phase
     \end{itemize}
 
-    \textbf{Referência}
+    \textbf{Reference}
     \begin{itemize}
       \item ABB MCB-32 / Schaffner FN3220
-      \item Núcleo ferro-silício M19
+      \item M19 silicon-steel core
       \item $\sim$ 250 turns AWG 12 solid
       \item IEC 61000-3-2 Class A
     \end{itemize}
 
     \column{0.5\textwidth}
-    \textbf{Por que esse exemplo?}
+    \textbf{Why this example?}
     \begin{itemize}
-      \item Topologia \textbf{line-frequency} (60 Hz, sem
-            comutação alta)
-      \item Ativa o card de \textbf{harmônicas IEC 61000-3-2}
-      \item N = 250 turns $\Rightarrow$ valida o auto-fallback
-            FEMMT $\to$ FEMM legacy
-      \item Sai na conformidade EMC ou não?
-            Decisão visual em segundos
+      \item \textbf{Line-frequency} topology (60 Hz, no high-
+            frequency switching)
+      \item Triggers the \textbf{IEC 61000-3-2 harmonics}
+            card
+      \item N = 250 turns $\Rightarrow$ exercises the
+            FEMMT $\to$ FEMM legacy auto-fallback
+      \item Pass or fail EMC compliance? Visual answer in
+            seconds
     \end{itemize}
   \end{columns}
 \end{frame}
 
-\begin{frame}{2.1 --- Spec do reator + análise inicial}
-  \screenshot{figures/example2_spec.png}
-  \figcaption{Topologia \texttt{line\_reactor} + \texttt{n\_phases =
-  3} altera o cálculo de $L$ requerido (Erickson Cap. 18) e
-  abre os campos específicos do reator (impedância, queda de
-  tensão).}
+\begin{frame}{2.1 --- Reactor spec + initial analysis}
+  \screenshot[height=0.62\textheight, keepaspectratio]%
+            {figures/example2_spec.png}
+  \figcaption{The \texttt{line\_reactor} topology with
+  \texttt{n\_phases = 3} switches the inductance equation
+  (Erickson Ch.~18) and exposes reactor-specific fields
+  (impedance, voltage drop).}
 \end{frame}
 
-\begin{frame}{2.2 --- Card de harmônicas + IEC 61000-3-2}
-  \screenshot[width=0.85\linewidth]{figures/example2_harmonics.png}
-  \figcaption{Spectrum por ordem (h = 5, 7, 11, 13, 15) com limite
-  IEC sobreposto como segmento vermelho. Bars verdes = abaixo
-  do limite, amber = at margin, vermelho = falha. Verdict no
-  título: \emph{PASSED} ou \emph{FAILED on h = X}. Triplens
-  cancelam por simetria 3$\phi$.}
+\begin{frame}{2.2 --- Harmonics card + IEC 61000-3-2}
+  \screenshot[width=0.78\linewidth, keepaspectratio]%
+            {figures/example2_harmonics.png}
+  \figcaption{Per-order spectrum with IEC limits as red
+  overlays. Green / amber / red coding by margin to limit;
+  title verdict is \emph{PASSED} or \emph{FAILED on h = X}.
+  Triplens vanish by 3$\phi$ symmetry.}
 \end{frame}
 
-\begin{frame}{2.3 --- Comparação antes/depois}
+\begin{frame}{2.3 --- Before / after the reactor}
   \begin{columns}[T,onlytextwidth]
     \column{0.5\textwidth}
-    \screenshot{figures/example2_harmonics_no_choke.png}
-    \begin{center}\scriptsize Sem reator\end{center}
+    \screenshot[height=0.50\textheight, keepaspectratio]%
+              {figures/example2_harmonics_no_choke.png}
+    \begin{center}\scriptsize No reactor\end{center}
     \column{0.5\textwidth}
-    \screenshot{figures/example2_harmonics_with_choke.png}
-    \begin{center}\scriptsize Com 3\% reator\end{center}
+    \screenshot[height=0.50\textheight, keepaspectratio]%
+              {figures/example2_harmonics_with_choke.png}
+    \begin{center}\scriptsize 3 \% reactor\end{center}
   \end{columns}
-  \figcaption{O $i(t)$ vira quase senoidal; a potência aparente
-  (kVA) cai $\sim$ 22 \% para a mesma kW útil.}
+  \figcaption{Apparent power (kVA) drops $\sim$ 22 \% for the
+  same useful kW.}
 \end{frame}
 
-\begin{frame}{2.4 --- FEA do reator (N = 250 turns)}
-  \begin{block}{Auto-fallback FEMMT $\to$ FEMM legacy}
-    $N = 250$ excede o teto FEMMT (150 turns). O orchestrator
-    \textbf{detecta automaticamente} e re-dispatcha para FEMM
-    legacy (toroide axisymmetric, N sem custo geométrico).
-    Usuário não vê erro --- só o resultado.
-  \end{block}
-  \medskip
-  \figcaption{O ceiling existe porque FEMMT modela cada turn como
-  curve loop separado em gmsh, que crashava em N alto. FEMM
-  legacy modela o winding como bulk-current region: zero custo
-  geométrico de $N$.}
+\begin{frame}{2.4 --- Reactor FEA (N = 250 turns)}
+  \screenshot[height=0.62\textheight, keepaspectratio]%
+            {figures/example2_fea_dispatch.png}
+  \figcaption{$N = 250$ exceeds the FEMMT ceiling (150 turns).
+  The orchestrator \textbf{detects automatically} and re-routes
+  to FEMM legacy (axisymmetric toroid, $N$ has no geometric
+  cost). The user never sees the error.}
 \end{frame}
 
 % ============================================================
-\section{Exemplo 3 -- Flyback DCM 65 W}
+\section{Example 3 -- Flyback DCM, 65 W}
 % ============================================================
 
-\begin{frame}{Exemplo 3 --- Flyback DCM 65 W}
+\begin{frame}{Example 3 --- DCM flyback, 65 W}
   \begin{columns}[T,onlytextwidth]
     \column{0.5\textwidth}
-    \textbf{Especificação}
+    \textbf{Specification}
     \begin{itemize}
       \item $V_\text{in} = 85$--$265$ V$_\text{rms}$
       \item $V_\text{out} = 19$ V (laptop)
       \item $I_\text{out} = 3.4$ A $\Rightarrow$ 65 W
-      \item $f_\text{sw} = 65$ kHz, modo DCM
+      \item $f_\text{sw} = 65$ kHz, DCM mode
       \item $L_\text{p} \approx 350~\mu$H
     \end{itemize}
 
-    \textbf{Referência}
+    \textbf{Reference}
     \begin{itemize}
       \item TI UCC28911 EVM (laptop adapter)
-      \item Núcleo PQ20/16 ferrite N97
+      \item PQ20/16 N97 ferrite core
       \item $N_\text{p} = 42$, $N_\text{s} = 12$ ($n = 3.5$)
-      \item Coupled inductor, 2-winding
+      \item Coupled inductor, 2 windings
     \end{itemize}
 
     \column{0.5\textwidth}
-    \textbf{Por que esse exemplo?}
+    \textbf{Why this example?}
     \begin{itemize}
-      \item Coupled-pair --- totalmente diferente
-            do single-winding choke
-      \item Ativa o render de \textbf{2 windings}
-            (primary + secondary com cores distintas)
-      \item Demonstra cálculo de \textbf{vazamento $L_\text{lk}$}
-            (Mohan/Erickson formula)
-      \item DCM --- current waveform triangular descontínuo
+      \item Coupled-pair --- entirely different from a
+            single-winding choke
+      \item Triggers the \textbf{2-winding render}
+            (primary + secondary in distinct colours) on
+            the geometry view
+      \item Exercises the \textbf{leakage $L_\text{lk}$}
+            calculation (Mohan / Erickson formula)
+      \item DCM --- discontinuous triangular current
+            waveform
     \end{itemize}
   \end{columns}
 \end{frame}
 
-\begin{frame}{3.1 --- Spec do flyback}
-  \screenshot{figures/example3_spec.png}
-  \figcaption{Campos extras vs. boost: \texttt{Vout},
-  \texttt{n\_turns ratio}, modo CCM/DCM inferido pela duty
+\begin{frame}{3.1 --- Flyback spec}
+  \screenshot[height=0.62\textheight, keepaspectratio]%
+            {figures/example3_spec.png}
+  \figcaption{Extra fields vs.\ boost: \texttt{Vout},
+  \texttt{n\_turns ratio}, CCM/DCM mode inferred when
   $D < 0.5$.}
 \end{frame}
 
-\begin{frame}{3.2 --- Geometry: cross-section coupled-pair}
-  \screenshot[width=0.65\linewidth]{figures/example3_geometry.png}
-  \figcaption{PQ20/16 com \textbf{primary em violeta} (42 turns,
-  metade inferior da janela) e \textbf{secondary em âmbar}
-  (12 turns, metade superior). Linha pontilhada divide as
-  metades.}
+\begin{frame}{3.2 --- Geometry: coupled-pair cross section}
+  \screenshot[height=0.65\textheight, keepaspectratio]%
+            {figures/example3_geometry.png}
+  \figcaption{PQ20/16 with \textbf{primary in violet} (42 turns,
+  bottom of the window) and \textbf{secondary in amber} (12
+  turns, top). Dotted line splits the halves.}
 \end{frame}
 
-\begin{frame}{3.3 --- Análise + perdas do flyback}
-  \begin{columns}[T,onlytextwidth]
-    \column{0.55\textwidth}
-    \screenshot{figures/example3_formas_onda.png}
-    \column{0.45\textwidth}
-    \begin{itemize}
-      \item $i_\text{p}(t)$: triangular DCM, peak $\approx$ 4.2 A
-      \item $i_\text{s}(t)$: refletida, peak $\approx$ 14.7 A
-      \item Tempo morto evidente (DCM)
-      \item $L_\text{lk} \approx 1.2~\mu$H (Mohan formula)
-    \end{itemize}
-    \figcaption{$V_\text{DS,pk} \approx 470$ V para FET 600 V padrão.}
-  \end{columns}
+\begin{frame}{3.3 --- Flyback waveforms + losses}
+  \screenshot[height=0.55\textheight, keepaspectratio]%
+            {figures/example3_formas_onda.png}
+  \figcaption{$i_\text{p}(t)$ triangular DCM, peak $\approx$ 4.2 A,
+  visible dead-time. $i_\text{s}(t)$ reflected, peak $\approx$
+  14.7 A. $L_\text{lk} \approx 1.2~\mu$H (Mohan).
+  $V_\text{DS,pk} \approx 470$ V $\Rightarrow$ 600 V FET fits.}
 \end{frame}
 
-\begin{frame}{3.4 --- FEA validation flyback}
+\begin{frame}{3.4 --- Flyback FEA validation}
   \begin{columns}[T,onlytextwidth]
     \column{0.5\textwidth}
-    \screenshot{figures/example3_fea_summary.png}
+    \screenshot[height=0.55\textheight, keepaspectratio]%
+              {figures/example3_fea_summary.png}
     \begin{center}\scriptsize Summary tab\end{center}
     \column{0.5\textwidth}
-    \screenshot{figures/example3_fea_bh.png}
-    \begin{center}\scriptsize B-H operacional\end{center}
+    \screenshot[height=0.55\textheight, keepaspectratio]%
+              {figures/example3_fea_bh.png}
+    \begin{center}\scriptsize Operating B-H\end{center}
   \end{columns}
-  \figcaption{Para coupled inductors o FEA valida o $L_\text{p}$
-  primário; o coupling $k$ é então derivado analiticamente do
+  \figcaption{For coupled inductors the FEA validates the primary
+  $L_\text{p}$; coupling $k$ is then derived analytically from
   $L_\text{lk}/L_\text{p}$.}
 \end{frame}
 
 % ============================================================
-\section{Recursos avançados}
+\section{Advanced features}
 % ============================================================
 
-\begin{frame}{Otimizador Pareto (single-tier)}
-  \screenshot[width=0.85\linewidth]{figures/feature_otimizador_pareto.png}
-  \figcaption{Sweep cartesiano sobre (\texttt{core}, \texttt{material},
-  \texttt{wire}, \texttt{N\_turns}) --- gera $\sim$ 1000--10000
-  candidatos. Elimina dominados em (perdas, $\Delta T$, custo).
-  Usuário inspeciona os 5--10 não-dominados.}
+\begin{frame}{Pareto optimiser (single-tier)}
+  \screenshot[height=0.65\textheight, keepaspectratio]%
+            {figures/feature_otimizador_pareto.png}
+  \figcaption{Cartesian sweep over (\texttt{core}, \texttt{material},
+  \texttt{wire}, \texttt{N\_turns}) --- generates 1\,000--10\,000
+  candidates. Dominated points faded; the front in violet; the
+  user's pick highlighted as a star.}
 \end{frame}
 
-\begin{frame}{Otimizador Cascade (multi-tier)}
+\begin{frame}{Cascade optimiser (multi-tier)}
   \begin{columns}[T,onlytextwidth]
-    \column{0.55\textwidth}
+    \column{0.5\textwidth}
     \begin{itemize}
-      \item \textbf{Tier 1} --- analítico puro (segundos)
-      \item \textbf{Tier 2} --- engine completo com skin/
-            proximity ajustados (minutos)
-      \item \textbf{Tier 3} --- FEA single-point no peak
-            ($\sim$ 30 s/candidato)
-      \item \textbf{Tier 4} --- swept-FEA $L(I)$ com rolloff
-            (vários min/candidato)
+      \item \textbf{Tier 1} --- pure analytical (seconds)
+      \item \textbf{Tier 2} --- full engine with skin /
+            proximity (minutes)
+      \item \textbf{Tier 3} --- single-point FEA at peak
+            ($\sim$ 30 s/candidate)
+      \item \textbf{Tier 4} --- swept-FEA $L(I)$ with rolloff
+            (several minutes/candidate)
     \end{itemize}
-    \column{0.45\textwidth}
-    \screenshot{figures/feature_cascade.png}
-    \figcaption{Top-N table mostra valores refinados de cada tier.
-    Coluna virtual $\text{COALESCE}(T4, T3, T2, T1)$ --- usuário
-    sempre vê o número mais recente.}
+    \column{0.5\textwidth}
+    \screenshot[height=0.55\textheight, keepaspectratio]%
+              {figures/feature_cascade.png}
+    \figcaption{The Top-N table shows each tier's refined
+    values. A virtual COALESCE column always shows the
+    most-recent number for every row.}
   \end{columns}
 \end{frame}
 
-\begin{frame}{FEA Validation dialog --- 5 abas}
-  \screenshot{figures/feature_fea_dialog_full.png}
-  \figcaption{Summary (analítico vs FEA) | Geometry | B-H curve |
-  Field plots (heatmap + 1D + histograma) | L vs current swept.}
+\begin{frame}{FEA validation dialog --- 5 tabs}
+  \screenshot[height=0.65\textheight, keepaspectratio]%
+            {figures/example1_fea_summary.png}
+  \figcaption{Five tabs share one solver result: \textbf{Summary}
+  (analytic vs FEA bars + confidence gauge) | \textbf{Geometry}
+  (datasheet cross-section) | \textbf{B-H} (operating point on
+  static curve) | \textbf{Field plots} (heatmap + 1D centerline
+  + histogram) | \textbf{L vs current} swept.}
 \end{frame}
 
-\begin{frame}{Cards específicos por topologia}
+\begin{frame}{Topology-specific cards}
   \begin{columns}[T,onlytextwidth]
     \column{0.5\textwidth}
-    \screenshot{figures/feature_phase_overlay_card.png}
+    \screenshot[height=0.55\textheight, keepaspectratio]%
+              {figures/feature_phase_overlay_card.png}
     \begin{center}\scriptsize Phase overlay (interleaved)\end{center}
     \column{0.5\textwidth}
-    \screenshot{figures/feature_harmonic_card.png}
-    \begin{center}\scriptsize Harmonics (line reactor / passive)\end{center}
+    \screenshot[height=0.55\textheight, keepaspectratio]%
+              {figures/feature_harmonic_card.png}
+    \begin{center}\scriptsize Harmonics (line reactor)\end{center}
   \end{columns}
-  \figcaption{Cards self-hide via \texttt{setVisible(False)} quando
-  a topologia não casa --- a row colapsa e o usuário só vê o
-  que importa pro design dele.}
+  \figcaption{Cards self-hide via \texttt{setVisible(False)} when
+  the topology doesn't apply --- the row collapses and the
+  user only sees what's relevant to their design.}
 \end{frame}
 
-\begin{frame}{Compare designs (lado a lado)}
-  \screenshot[width=0.85\linewidth]{figures/feature_compare.png}
-  \figcaption{Tabela diff entre 2--3 \texttt{DesignResult}s. Highlight
-  por tile de mudança. Útil pra justificar troca de núcleo ou
-  material num design review.}
+\begin{frame}{Compare designs (side by side)}
+  \screenshot[height=0.65\textheight, keepaspectratio]%
+            {figures/feature_compare.png}
+  \figcaption{Diff table across 2--3 \texttt{DesignResult}s.
+  Different values per metric highlighted in violet. Useful
+  to justify a core / material swap in a design review.}
 \end{frame}
 
-\begin{frame}{Export --- datasheet HTML / PDF}
+\begin{frame}{Export --- HTML / PDF datasheet}
   \begin{columns}[T,onlytextwidth]
-    \column{0.5\textwidth}
-    \screenshot{figures/feature_export.png}
-    \column{0.5\textwidth}
+    \column{0.55\textwidth}
+    \screenshot[height=0.55\textheight, keepaspectratio]%
+              {figures/feature_export.png}
+    \column{0.45\textwidth}
     \begin{itemize}
-      \item Layout TDK / Würth / Vishay style
-      \item Vista frontal/topo/lateral/iso (3D ortográfico)
-      \item Tabela completa de specs
-      \item Sessão de performance específica por topologia
-      \item HTML self-contained (offline) ou PDF
+      \item TDK / Würth / Vishay layout
+      \item Front / top / side / iso views
+      \item Full electrical-spec table
+      \item Topology-specific performance section
+      \item HTML self-contained (offline) or PDF
     \end{itemize}
   \end{columns}
 \end{frame}
 
-\begin{frame}{Visualização 3D}
-  \screenshot[width=0.6\linewidth]{figures/feature_3d.png}
-  \figcaption{Render PyQt + Qt3D do toroide / E-core com winding
-  visualizado. Útil pra confirmar montagem antes de mandar pro
-  fornecedor de bobinamento.}
+\begin{frame}{3D viewer}
+  \screenshot[height=0.65\textheight, keepaspectratio]%
+            {figures/feature_3d.png}
+  \figcaption{PyQt + Qt3D render of the toroid / E-core with
+  winding visualised. Useful to confirm the assembly before
+  sending to the bobbin manufacturer.}
 \end{frame}
 
 % ============================================================
-\section{Estado atual + roadmap}
+\section{Status and roadmap}
 % ============================================================
 
-\begin{frame}{Estado atual}
+\begin{frame}{Where we are today}
   \begin{columns}[T,onlytextwidth]
     \column{0.5\textwidth}
-    \textbf{Pronto e validado}
+    \textbf{Shipped \& validated}
     \begin{itemize}
-      \item 6 topologias com cálculo analítico
+      \item 6 topologies with analytical engine
       \item FEMMT + FEMM legacy backends
-      \item Otimizador single + cascade (4 tiers)
-      \item Cards específicos por topologia
-      \item Datasheet exporter (HTML)
-      \item 5-aba FEA validation
+      \item Single + cascade (4-tier) optimiser
+      \item Topology-specific cards
+      \item HTML datasheet exporter
+      \item 5-tab FEA validation dialog
     \end{itemize}
     \column{0.5\textwidth}
     \textbf{Performance}
     \begin{itemize}
-      \item Engine: \textbf{3.6$\times$ speedup} via Numba
-            kernel fundido
-      \item Tier-1 analítico: $\sim$ 1 ms
+      \item Engine: \textbf{3.6$\times$ speedup} via fused
+            Numba kernel
+      \item Tier-1 analytical: $\sim$ 1 ms
       \item Tier-3 FEA point: 30 s
       \item Tier-4 swept (5 pts): 2--3 min
-      \item Auto-update Sparkle-style + Ed25519 sig
+      \item Sparkle-style auto-update + Ed25519 sig
     \end{itemize}
   \end{columns}
 \end{frame}
 
-\begin{frame}{Roadmap próximas releases}
+\begin{frame}{Roadmap --- next releases}
   \begin{itemize}
-    \item \textbf{Eficiência vs $P_\text{out}$} sweep ---
-          validação cross-load (10--100\% de carga)
-    \item \textbf{Voltage stress} per-component (FET, diodo)
-    \item \textbf{Thermal coupled FEA} (FEMMT thermal solve)
-    \item \textbf{Histórico de projetos} --- git-like timeline
-          de iterações com diff visual
-    \item \textbf{Magnetics catalog auto-update} via API do
-          fornecedor (Magnetics, Micrometals, TDK)
+    \item \textbf{Efficiency vs $P_\text{out}$} sweep ---
+          cross-load validation (10--100 \% of load)
+    \item \textbf{Voltage stress} per component (FET, diode)
+    \item \textbf{Coupled thermal FEA} (FEMMT thermal solver)
+    \item \textbf{Project history} --- git-like timeline of
+          iterations with visual diffs
+    \item \textbf{Auto-updating magnetics catalogue} via the
+          vendors' APIs (Magnetics, Micrometals, TDK)
   \end{itemize}
 \end{frame}
 
 % ============================================================
-\section*{Encerramento}
+\section*{Closing}
 % ============================================================
 
 \begin{standoutpage}
-  Perguntas?
+  Questions?
   \\\medskip
   {\large\mdseries\color{md-muted}\app --- \today}
 \end{standoutpage}
 
-\begin{frame}{Referências bibliográficas}
+\begin{frame}{Bibliographic references}
   \footnotesize
   \begin{itemize}
     \item Erickson \& Maksimovi\'{c}, \emph{Fundamentals of
-          Power Electronics}, 3rd ed., Cap. 18 (PFC).
-    \item Mohan, \emph{Power Electronics}, 3rd ed., Cap. 4
+          Power Electronics}, 3rd ed., Ch.~18 (PFC).
+    \item Mohan, \emph{Power Electronics}, 3rd ed., Ch.~4
           (flyback leakage).
-    \item Hwu \& Yau, \emph{Resonance reduction in
-          interleaved boost PFC}, IEEE TPE 2009.
-    \item IEC 61000-3-2 Ed. 5 --- Harmonic emission limits.
+    \item Hwu \& Yau, \emph{Resonance reduction in interleaved
+          boost PFC}, IEEE TPE 2009.
+    \item IEC 61000-3-2 Ed.~5 --- Harmonic emission limits.
     \item Magnetics Inc., \emph{Powder cores design manual}
           (Kool-Mu, High-Flux).
     \item Würth Elektronik, \emph{Trilogy of Magnetics},

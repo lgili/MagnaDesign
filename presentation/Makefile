@@ -35,9 +35,14 @@ $(PDF): $(TEX_SOURCES) | $(FIGS)
 	$(PDFLATEX) $(PDFLATEX_FLAGS) $(MAIN).tex
 	$(PDFLATEX) $(PDFLATEX_FLAGS) $(MAIN).tex
 
-# Screenshots — driven by the Python harness.
+# Screenshots — driven by two Python harnesses chained:
+#   build_screenshots.py  → real widget renders (3 RefDesigns)
+#   build_placeholders.py → analytic mockups (Pareto, Cascade,
+#                            Compare, Export, 3D, Spec drawers)
+# Run as a single ``make screenshots`` so a refresh is one command.
 screenshots:
 	$(PYTHON) $(HARNESS)
+	$(PYTHON) scripts/build_placeholders.py
 
 # Treat figures/ as a directory dependency. The default target
 # doesn't run the harness automatically (some users will edit
