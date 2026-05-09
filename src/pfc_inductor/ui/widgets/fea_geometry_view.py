@@ -77,8 +77,30 @@ class GeometryPayload:
     core_part: str = ""
     material_name: str = ""
 
+    # ── Coupled-pair (flyback / forward) extension ──
+    # When ``Np_turns`` and ``Ns_turns`` are both > 0 the widget
+    # draws two distinct windings on the same core: primary in
+    # the project's accent_violet, secondary in accent_amber.
+    # The widget infers stack-side layout (primary on the left
+    # half of the window, secondary on the right) — engineers
+    # reading the schematic immediately see "this is a coupled
+    # inductor / transformer, not a single-winding choke".
+    Np_turns: int = 0
+    Ns_turns: int = 0
+    primary_d_iso_mm: float = 0.0
+    secondary_d_iso_mm: float = 0.0
+
     @classmethod
     def from_models(cls, core, wire, result) -> "GeometryPayload":
+        Np = int(getattr(result, "Np_turns", 0) or 0)
+        Ns = int(getattr(result, "Ns_turns", 0) or 0)
+        # For coupled-pair designs the project model usually
+        # carries primary wire info on the main ``Wire`` slot and
+        # the secondary as a separate field; if absent, fall
+        # back to the primary's diameter so both windings still
+        # render. Engineering signal lives in the colour split,
+        # not the exact wire-size delta.
+        d_iso = float(getattr(wire, "d_iso_mm", 0.0) or 0.0)
         return cls(
             shape=str(getattr(core, "shape", "")).lower(),
             OD_mm=float(getattr(core, "OD_mm", 0.0) or 0.0),
@@ -87,11 +109,21 @@ class GeometryPayload:
             le_mm=float(getattr(core, "le_mm", 0.0) or 0.0),
             lgap_mm=float(getattr(core, "lgap_mm", 0.0) or 0.0),
             N_turns=int(getattr(result, "N_turns", 0) or 0),
-            wire_d_iso_mm=float(getattr(wire, "d_iso_mm", 0.0) or 0.0),
+            wire_d_iso_mm=d_iso,
             Bobbin_fill_pct=float(getattr(result, "Ku_actual", 0.0) or 0.0) * 100,
             core_part=str(getattr(core, "part_number", "") or ""),
             material_name=str(getattr(result, "material_name", "") or ""),
+            Np_turns=Np,
+            Ns_turns=Ns,
+            primary_d_iso_mm=d_iso,
+            secondary_d_iso_mm=d_iso,
         )
+
+    @property
+    def is_coupled_pair(self) -> bool:
+        """``True`` when both windings have at least one turn —
+        triggers the dual-colour render path in the widgets."""
+        return self.Np_turns > 0 and self.Ns_turns > 0
 
 
 class GeometryView(QWidget):
@@ -285,9 +317,22 @@ class GeometryView(QWidget):
                     color=pal.danger, fontsize=9, fontweight="bold",
                     va="center", zorder=5)
 
-        # Winding dots in the right window (horizontal layers).
-        if p.N_turns > 0 and p.wire_d_iso_mm > 0:
-            d = p.wire_d_iso_mm
+        # Winding dots in the windows.
+        # ── Coupled-pair (flyback / forward) ──
+        # When Np > 0 and Ns > 0 we split the right window
+        # vertically: primary fills the BOTTOM half, secondary
+        # the TOP. Mirrors to the left window stay synced. Two
+        # colours so the engineer sees at a glance that this is
+        # a transformer-style design, not a single-winding choke.
+        # ── Single-winding choke ──
+        # Falls through to the original placement: one colour,
+        # both windows used.
+        d = p.wire_d_iso_mm
+        if p.is_coupled_pair and d > 0:
+            self._draw_coupled_pair_e_core(
+                ax, p, cl, ww, x0, ol, HT, d, pal,  # ww kept for signature symmetry
+            )
+        elif p.N_turns > 0 and d > 0:
             x_min = cl / 2 + d * 0.6
             x_max = x0 - d * 0.6
             y_min = -HT / 2 + ol + d * 0.6
@@ -376,6 +421,123 @@ class GeometryView(QWidget):
         ax.set_aspect("equal")
         ax.set_axis_off()
         self._title_block(ax, p, f"{p.shape.upper() or 'Core'} — schematic")
+
+    def _draw_coupled_pair_e_core(
+        self, ax, p: GeometryPayload,
+        cl: float, _ww: float, x0: float, ol: float, HT: float,
+        d: float, pal,
+    ) -> None:
+        """Two-colour winding render for flyback / coupled-pair.
+
+        Layout choice — primary on the BOTTOM half, secondary on
+        the TOP half of the right-side window (mirrored to the
+        left). Stacked-bobbin construction is the most common in
+        the 50–500 W flyback range; side-by-side construction is
+        more common at higher power but harder to read on a
+        small schematic. We pick stacked.
+
+        Each winding gets its own colour (primary = accent_violet,
+        secondary = accent_cyan-ish via warning) and its turn
+        count is rendered in the corresponding region with the
+        usual "showing X of Y" annotation when capped.
+        """
+        # Window bounds (right side; left is the mirror).
+        x_min = cl / 2 + d * 0.6
+        x_max = x0 - d * 0.6
+        y_full_min = -HT / 2 + ol + d * 0.6
+        y_full_max = HT / 2 - ol - d * 0.6
+        y_split = (y_full_min + y_full_max) / 2.0
+
+        # Primary on bottom half.
+        target_p = self._fill_winding(
+            ax, p.Np_turns, d,
+            x_min, x_max, y_full_min, y_split,
+            color=pal.accent_violet,
+            edge_color=pal.text,
+        )
+        # Secondary on top half — different colour.
+        target_s = self._fill_winding(
+            ax, p.Ns_turns, d,
+            x_min, x_max, y_split + d * 0.2, y_full_max,
+            color=pal.warning,
+            edge_color=pal.text,
+        )
+
+        # Note caps if either winding got truncated.
+        notes = []
+        if p.Np_turns > target_p:
+            notes.append(f"P showing {target_p}/{p.Np_turns}")
+        if p.Ns_turns > target_s:
+            notes.append(f"S showing {target_s}/{p.Ns_turns}")
+        if notes:
+            ax.text(0, -HT / 2 - HT * 0.08,
+                    "  ·  ".join(notes),
+                    ha="center", va="top", fontsize=8,
+                    color=pal.text_muted)
+
+        # Horizontal divider so the split is unambiguous.
+        ax.plot(
+            [x_min - d * 0.2, x_max + d * 0.2],
+            [y_split, y_split],
+            color=pal.text_muted, linestyle=":", linewidth=0.8,
+            zorder=7,
+        )
+        ax.plot(
+            [-x_max - d * 0.2, -x_min + d * 0.2],
+            [y_split, y_split],
+            color=pal.text_muted, linestyle=":", linewidth=0.8,
+            zorder=7,
+        )
+
+        # Inline winding-key in the top-left corner of the plot.
+        legend_x = -x0 - ol * 1.5
+        ax.scatter([legend_x], [y_full_max + d * 0.5],
+                    color=pal.accent_violet, s=90, zorder=8,
+                    edgecolors=pal.text, linewidths=0.5)
+        ax.text(legend_x + d * 1.2, y_full_max + d * 0.5,
+                f"primary  Np = {p.Np_turns}",
+                fontsize=8, color=pal.text, va="center")
+        ax.scatter([legend_x], [y_full_max - d * 0.5],
+                    color=pal.warning, s=90, zorder=8,
+                    edgecolors=pal.text, linewidths=0.5)
+        ax.text(legend_x + d * 1.2, y_full_max - d * 0.5,
+                f"secondary  Ns = {p.Ns_turns}",
+                fontsize=8, color=pal.text, va="center")
+
+    @staticmethod
+    def _fill_winding(
+        ax, n_turns: int, d: float,
+        x_min: float, x_max: float, y_min: float, y_max: float,
+        color, edge_color,
+    ) -> int:
+        """Pack ``n_turns`` insulated round conductors into the
+        rectangle. Mirror-to-left so both windows show. Returns
+        the number of turns actually drawn (capped by the
+        rectangle's capacity)."""
+        from matplotlib.patches import Circle
+
+        n_per_layer = max(1, int((x_max - x_min) / d))
+        n_layers = max(1, int((y_max - y_min) / d))
+        target = min(n_turns, n_per_layer * n_layers)
+        placed = 0
+        for ly in range(n_layers):
+            if placed >= target:
+                break
+            for lx in range(n_per_layer):
+                if placed >= target:
+                    break
+                cx = x_min + (lx + 0.5) * d
+                cy = y_min + (ly + 0.5) * d
+                ax.add_patch(Circle((cx, cy), d / 2,
+                                    facecolor=color, alpha=0.85,
+                                    edgecolor=edge_color,
+                                    linewidth=0.4, zorder=6))
+                ax.add_patch(Circle((-cx, cy), d / 2,
+                                    facecolor=color, alpha=0.85,
+                                    edgecolor=edge_color,
+                                    linewidth=0.4, zorder=6))
+                placed += 1
+        return placed
 
     # ── Helpers ──
     def _dim_arrow(self, ax, p1, p2, label: str, pal,

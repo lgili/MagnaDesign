@@ -216,6 +216,9 @@ class FEAValidationDialog(QDialog):
         """
         from pfc_inductor.ui.widgets.fea_bh_loop import BHLoopPayload
         from pfc_inductor.ui.widgets.fea_geometry_view import GeometryPayload
+        from pfc_inductor.ui.widgets.loss_stacked_bar import (
+            LossBreakdownPayload,
+        )
 
         try:
             self.geometry_view.show_payload(
@@ -233,6 +236,20 @@ class FEAValidationDialog(QDialog):
             self.bh_chart.show_payload(
                 BHLoopPayload.from_models(
                     self._material, self._result, hot=True
+                )
+            )
+        except Exception:
+            pass
+
+        try:
+            # Thermal limit defaults to 6 W — the project's typical
+            # spec for a 200–2000 W boost-PFC inductor sized for
+            # natural convection. ``Spec.T_max_C`` could be used to
+            # back-compute a thermal cap, but a fixed visual marker
+            # is fine for the proportional view.
+            self.loss_bar.show_payload(
+                LossBreakdownPayload.from_result(
+                    self._result, thermal_limit_W=6.0,
                 )
             )
         except Exception:
@@ -298,6 +315,7 @@ class FEAValidationDialog(QDialog):
         from pfc_inductor.ui.widgets.fea_validation_chart import (
             FEAValidationChart,
         )
+        from pfc_inductor.ui.widgets.loss_stacked_bar import LossStackedBar
 
         box = QGroupBox("Validation result")
         v = QVBoxLayout(box)
@@ -327,6 +345,14 @@ class FEAValidationDialog(QDialog):
 
         self.chart = FEAValidationChart()
         sv.addWidget(self.chart, 1)
+
+        # Compact loss-breakdown bar under the comparison chart.
+        # Same numbers the design page's "Perdas" card already
+        # shows tabular, but proportional — so the user sees
+        # which loss family dominates at a glance. Sized to fit
+        # under the bar chart without forcing a scroll.
+        self.loss_bar = LossStackedBar()
+        sv.addWidget(self.loss_bar)
 
         # ── Geometry tab — datasheet-style cross-section ──
         # Always available (analytical, no FEA needed). Acts as
@@ -600,7 +626,15 @@ class FEAValidationDialog(QDialog):
         self._thread.start()
 
     def _on_sweep_finished(self, payload):
-        """Render the swept-FEA payload and switch to that tab."""
+        """Render the swept-FEA payload and switch to that tab.
+
+        Also rebuilds the B-H tab's static curve with a *real*
+        AC trajectory overlaid: each Tier-4 sample point gives
+        us (I, B) directly; H = N · I / le translates the bias
+        current into the magnetising-force domain so the trace
+        sits naturally on top of the static curve.
+        """
+        from pfc_inductor.ui.widgets.fea_bh_loop import BHLoopPayload
         from pfc_inductor.ui.widgets.fea_swept_chart import SweptFEAPayload
 
         self.progress.hide()
@@ -612,12 +646,45 @@ class FEAValidationDialog(QDialog):
             )
             return
         self.swept_chart.show_payload(payload)
+
+        # Rebuild the B-H tab with the swept-FEA trajectory.
+        # The static curve still uses µ_initial (catalog value);
+        # the new red overlay is the actual measured H-B path
+        # the FEA sees as bias rises through one half-cycle.
+        # Where the trajectory falls below the static curve at a
+        # given H tells the user how much µ rolloff is active at
+        # that bias.
+        try:
+            le_m = float(getattr(self._core, "le_mm", 0.0)) * 1e-3
+            N = int(getattr(self._result, "N_turns", 0) or 0)
+            if le_m > 0 and N > 0 and payload.currents_A:
+                H_traj = tuple(N * I / le_m for I in payload.currents_A)
+                base = BHLoopPayload.from_models(
+                    self._material, self._result, hot=True
+                )
+                self.bh_chart.show_payload(BHLoopPayload(
+                    mu_initial=base.mu_initial,
+                    Bsat_T=base.Bsat_T,
+                    Bsat_margin=base.Bsat_margin,
+                    B_pk_T=base.B_pk_T,
+                    H_pk_A_per_m=base.H_pk_A_per_m,
+                    waveform_H_A_per_m=H_traj,
+                    waveform_B_T=tuple(payload.B_T),
+                    material_name=base.material_name,
+                    core_part=base.core_part,
+                ))
+        except Exception:
+            # B-H overlay is a nice-to-have; never fail the
+            # whole sweep flow if the conversion goes sideways.
+            pass
+
         # Auto-switch to the swept tab so the user sees the result
-        # without an extra click.
-        self.tabs.setCurrentIndex(2)
+        # without an extra click. Index 4 after Geometry + B-H tabs
+        # were inserted (Summary, Geometry, B-H, Field plots, L vs current).
+        self.tabs.setCurrentIndex(4)
         self.txt_log.appendPlainText(
             f"Swept FEA done — {payload.n_points} points "
-            f"({payload.backend})."
+            f"({payload.backend}). B-H tab now shows the trajectory."
         )
 
     def _on_sweep_failed(self, msg: str) -> None:
