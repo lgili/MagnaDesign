@@ -186,21 +186,32 @@ if math.abs(I_circuit) > 1e-12 then
     L_H = FluxLinkage / I_circuit
 end
 
--- Peak |B| in the core: sample a grid inside the core rectangle.
+-- Peak |B| in the core + dump the full grid to a CSV that the
+-- Python post-processor turns into a heatmap PNG (so the FEA
+-- gallery in the GUI shows a |B| field plot for the legacy
+-- backend the same way it does for FEMMT). Increased to 50 × 50
+-- so the heatmap stays readable; FEMM's ``mo_getb`` is fast at
+-- this density.
 local Bmax = 0
-local n_r = 25
-local n_z = 25
+local n_r = 50
+local n_z = 50
 local r_step = ({R_out:.4f} - {R_in:.4f}) / n_r
 local z_step = ({z_top:.4f} - {z_bot:.4f}) / n_z
+local grid_path = "{inputs.output_dir.as_posix()}/b_field_grid.csv"
+local gf = io.open(grid_path, "w")
+gf:write("r_m,z_m,Br,Bz,Bmag\\n")
 for ir = 0, n_r do
     for iz = 0, n_z do
         local r = {R_in:.4f} + ir * r_step
         local z = {z_bot:.4f} + iz * z_step
         local Br, Bz = mo_getb(r, z)
         local Bmag = math.sqrt(Br*Br + Bz*Bz)
+        gf:write(string.format("%.6e,%.6e,%.6e,%.6e,%.6e\\n",
+                               r, z, Br, Bz, Bmag))
         if Bmag > Bmax then Bmax = Bmag end
     end
 end
+gf:close()
 
 -- Write key=value results.
 local f = io.open("{inputs.results_path.as_posix()}", "w")

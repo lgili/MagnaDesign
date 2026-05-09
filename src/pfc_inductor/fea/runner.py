@@ -131,6 +131,20 @@ def _validate_design_femm(
     )
     raw = parse_results_file(inputs.results_path)
 
+    # Render the |B| heatmap, centerline and histogram from the
+    # ``b_field_grid.csv`` the LUA script wrote during the solve.
+    # These land in the same working directory as the .fem file
+    # so the FEAFieldGallery's recursive PNG scan picks them up
+    # automatically — same UX as the FEMMT backend.
+    try:
+        from pfc_inductor.fea.legacy.grid_renderer import (
+            render_legacy_field_pngs,
+        )
+
+        render_legacy_field_pngs(output_dir)
+    except Exception:  # pragma: no cover — defensive
+        pass
+
     L_FEA_H = float(raw["L_H"])
     L_FEA_uH = L_FEA_H * 1e6
     L_an_uH = result.L_actual_uH
