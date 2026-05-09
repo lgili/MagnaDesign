@@ -120,13 +120,17 @@ class MetricCard(QFrame):
         self._status: MetricStatus = status
         self._trend_pct = trend_pct
         self.set_trend(trend_pct)
+        # Initial value colour — same path ``set_status`` takes when
+        # the host updates the tile post-design.
+        self._apply_value_color(status)
         on_theme_changed(self._refresh_qss)
 
     def _refresh_qss(self) -> None:
         """Re-apply inline QSS after a theme toggle."""
         self.setStyleSheet(self._self_qss(self._status))
-        # Re-apply trend so colour follows the new palette.
+        # Re-apply trend + value colour so both follow the new palette.
         self.set_trend(self._trend_pct)
+        self._apply_value_color(self._status)
 
     # ------------------------------------------------------------------
     # Public API
@@ -139,6 +143,14 @@ class MetricCard(QFrame):
     def set_status(self, status: MetricStatus) -> None:
         self._status = status
         self.setStyleSheet(self._self_qss(status))
+        # Repaint the numeric value in the semantic colour. v3.x had
+        # a 3 px coloured ``border-left`` accent that visually bled
+        # into the strip's frame and read as full-tile coloured
+        # framing on HiDPI / offscreen Qt. Colouring the value text
+        # is the standard pattern (Linear / Notion / Datadog) — the
+        # number itself is the readout the engineer scans, so it's
+        # the right place for the status signal.
+        self._apply_value_color(status)
 
     def status(self) -> MetricStatus:
         """Current status. Public read accessor — prefer this over
@@ -175,31 +187,49 @@ class MetricCard(QFrame):
             f"font-weight: {get_theme().type.medium};"
         )
 
-    # ------------------------------------------------------------------
-    # Internals
-    # ------------------------------------------------------------------
-    @staticmethod
-    def _self_qss(status: MetricStatus) -> str:
+    def _apply_value_color(self, status: MetricStatus) -> None:
+        """Repaint the numeric value label in the status colour.
+
+        ``ok`` keeps the default ``text`` colour (no need to scream
+        "good" — the absence of a warning is itself the signal).
+        ``warn`` / ``err`` switch to amber / red respectively. The
+        ``unit`` label stays muted regardless of status — the colour
+        signal lives on the number, not the unit suffix.
+        """
         p = get_theme().palette
-        # Left accent bar 3 px when status is non-neutral.
-        if status == "ok":
-            color = p.success
-        elif status == "warn":
+        if status == "warn":
             color = p.warning
         elif status == "err":
             color = p.danger
         else:
-            color = "transparent"
-        # Card background uses ``surface`` (not ``bg``) so the tile
-        # sits *above* the page background — without this the entire
-        # KPI row blended into the page in dark mode and read as
-        # blank white blocks (the page bg leaked through). Same fix
-        # applied across other Card-like widgets that wrap this one.
+            # ok or neutral — text default, semibold weight already
+            # set via QFont.DemiBold above.
+            color = p.text
+        # Bare ``color`` rule on the label itself — no selector
+        # needed since ``setStyleSheet`` on a QLabel applies to the
+        # widget directly. The previous ``#MetricValue`` selector
+        # silently no-op'd for the inline-styled value because Qt
+        # doesn't bubble the stylesheet up the parent chain in the
+        # direction we wanted. Font size stays driven by the QFont
+        # set in ``__init__``; QSS overrides the colour only.
+        self._val.setStyleSheet(f"color: {color};")
+
+    # ------------------------------------------------------------------
+    # Internals
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _self_qss(_status: MetricStatus) -> str:
+        # The status hint moved to the numeric value (see
+        # ``_apply_value_color``). The card chrome is now uniformly
+        # neutral so a row of mixed-status tiles reads as a clean
+        # KPI strip instead of a Christmas-light frame collage.
+        # ``_status`` kept on the signature so callers don't have to
+        # change; underscore prefix advertises that we ignore it.
+        p = get_theme().palette
         return (
             f"QFrame#MetricCard {{"
             f"  background: {p.surface};"
             f"  border: 1px solid {p.border};"
-            f"  border-left: 3px solid {color};"
             f"  border-radius: 8px;"
             f"}}"
         )

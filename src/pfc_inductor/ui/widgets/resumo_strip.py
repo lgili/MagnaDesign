@@ -327,6 +327,15 @@ class ResumoStrip(QFrame):
         return "ok", []
 
     def _set_badge(self, status: MetricStatus, reasons: list[str]) -> None:
+        # Verdict-only label — short, scannable, fits the pill comfortably.
+        # The reason summary used to be inlined as
+        # ``"Failed — ΔT · Losses"`` which (a) made the badge balloon
+        # past the strip's right edge on narrow windows, (b) read as
+        # one continuous typographic block where "ΔT" and "Losses"
+        # competed with the verdict word, and (c) lost the colour
+        # punch (the reason names render in the danger fg, not muted
+        # text). Detail moves to the tooltip; the strip-side hint
+        # below carries the count when there's > 1 failure.
         if status == "ok":
             text, variant = "Approved", "success"
         elif status == "warn":
@@ -336,15 +345,20 @@ class ResumoStrip(QFrame):
         else:
             text, variant = "—", "neutral"
 
-        # Truncate the inline reason summary so the badge can't grow
-        # unbounded. Show up to 2 names + "+N" for the rest; the full
-        # list is preserved on hover via the tooltip below.
+        # Append a compact "+N" suffix when more than one metric is
+        # at fault — the user sees there's more than one issue
+        # without reading the full list. Two-issue case still gets
+        # the count so "Failed +1" tells you "Failed plus one more".
+        if len(reasons) > 1:
+            text += f"  +{len(reasons) - 1}"
+
+        # Tooltip carries the full ranked list — same content as
+        # before, just decoupled from the visible label.
         if reasons:
-            if len(reasons) <= 2:
-                text += " — " + " · ".join(reasons)
-            else:
-                text += " — " + " · ".join(reasons[:2]) + f" +{len(reasons) - 2}"
-            self.badge.setToolTip("Watch: " + ", ".join(reasons))
+            self.badge.setToolTip(
+                f"Watch: {', '.join(reasons)}\n"
+                "Click to jump to the failing metric."
+            )
         else:
             self.badge.setToolTip("")
 

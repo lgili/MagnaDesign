@@ -302,35 +302,85 @@ class OptimizerEmbed(QWidget):
         return box
 
     def _paint_empty_plot(self) -> None:
-        """Draw a clean empty state on the matplotlib canvas.
+        """Draw an instructional empty state on the matplotlib canvas.
 
         Called once at construction and again whenever ``set_inputs``
         runs without yet having results. Replaced with the real
         Pareto scatter as soon as a sweep produces data.
+
+        v3 was a 2-line text block on a blank axes — visually a huge
+        white slab that didn't tell the user what the chart will
+        look like. v4 ships a **silhouette preview**: ~30 ghost
+        candidates + a highlighted Pareto front + axis labels, so
+        the user sees the shape they'll get before clicking
+        "Run sweep". Greys are below WCAG AA against the surface so
+        nobody mistakes them for real data — they're decorative
+        scaffolding for the empty state.
         """
+        import numpy as np
+
         self.ax.clear()
+        # Ghost scatter — 30 random points along a downward-trending
+        # cloud (lower volume → higher loss for the worst designs;
+        # the Pareto front bends down-left). Seed pinned so the
+        # silhouette doesn't shift between paints.
+        rng = np.random.default_rng(seed=42)
+        n = 30
+        vol = rng.uniform(8, 70, n)
+        loss = 4.0 + 90.0 / vol + rng.uniform(-1.5, 1.5, n)
+        # Pareto front — sweep + sort by volume + carry running
+        # minimum loss to the right.
+        order = np.argsort(vol)
+        vol_s = vol[order]
+        loss_s = loss[order]
+        front_mask = np.minimum.accumulate(loss_s[::-1])[::-1] == loss_s
+
+        ghost = "#D4D4D8"  # zinc-300 — clearly decorative
+        front = "#A1A1AA"  # zinc-400 — slightly stronger
+        self.ax.scatter(vol, loss, s=26, color=ghost, alpha=0.7, edgecolors="none", zorder=2)
+        self.ax.plot(
+            vol_s[front_mask],
+            loss_s[front_mask],
+            color=front,
+            linewidth=1.4,
+            alpha=0.65,
+            zorder=3,
+        )
+
+        # Axis chrome — labels but no tick numbers (no data → no
+        # units to commit to). Spines stay visible so the user
+        # parses this as "a chart, but pending".
+        self.ax.set_xlabel("Volume → smaller", fontsize=9, color="#71717A")
+        self.ax.set_ylabel("Loss → lower", fontsize=9, color="#71717A")
         self.ax.set_xticks([])
         self.ax.set_yticks([])
-        for spine in ("top", "right", "bottom", "left"):
+        for spine in ("top", "right"):
             self.ax.spines[spine].set_visible(False)
+        for spine in ("bottom", "left"):
+            self.ax.spines[spine].set_color("#E4E4E7")
+
+        # Inline call-to-action sits in the empty corner where the
+        # winning Pareto designs will land — the user's eye goes
+        # there first when results arrive. Tight box, semibold
+        # verdict + 1-line hint underneath.
         self.ax.text(
-            0.5,
-            0.55,
-            "Multi-objective Pareto sweep",
-            ha="center",
-            va="center",
-            fontsize=11,
+            0.04,
+            0.10,
+            "Click Run sweep to populate",
+            ha="left",
+            va="bottom",
+            fontsize=10,
             fontweight="bold",
             transform=self.ax.transAxes,
             color="#52525B",
         )
         self.ax.text(
-            0.5,
-            0.42,
-            'Configure material and ordering above,\nthen click "Run sweep".',
-            ha="center",
-            va="center",
-            fontsize=9,
+            0.04,
+            0.04,
+            "Pareto front highlights designs that aren't beaten on both axes.",
+            ha="left",
+            va="bottom",
+            fontsize=8,
             transform=self.ax.transAxes,
             color="#71717A",
         )
