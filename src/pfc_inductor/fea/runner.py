@@ -10,7 +10,10 @@ from pfc_inductor.fea.legacy.femm_geometry import FEAJobInputs, write_lua_script
 from pfc_inductor.fea.legacy.femm_postprocess import parse_results_file
 from pfc_inductor.fea.legacy.femm_solver import solve_lua
 from pfc_inductor.fea.models import FEAValidation, FEMMNotAvailable
-from pfc_inductor.fea.probe import select_backend_for_shape
+from pfc_inductor.fea.probe import (
+    is_femm_available,
+    select_backend_for_shape,
+)
 from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
 from pfc_inductor.visual.core_3d import infer_shape
 
@@ -30,9 +33,43 @@ def validate_design(
     Toroid → prefers FEMM (native axisymmetric, high fidelity).
     EE/ETD/PQ → prefers FEMMT (exact mapping).
     Automatic fallback when the preferred backend is not installed.
+
+    High-N override
+    ---------------
+    FEMMT models each winding turn as a separate gmsh curve loop;
+    designs above ~150 turns are out of FEMMT's comfortable
+    geometric range. For toroids we transparently re-dispatch to
+    the legacy FEMM backend (which represents the winding as a
+    bulk-current region — no geometric cost from N). This means a
+    typical 121-turn high-AL Kool-Mu / High-Flux design no longer
+    surfaces the "FEA skipped: N exceeds gmsh ceiling" error: the
+    user gets a result, just from a different backend.
     """
     shape = infer_shape(core)
     backend = select_backend_for_shape(shape)
+
+    # Deferred import — keeps the FEMMT module out of the orchestrator's
+    # startup path when only the legacy FEMM backend is needed.
+    from pfc_inductor.fea.femmt_runner import _FEMMT_MAX_TURNS_FOR_FEA
+
+    # High-N toroid → re-route to legacy FEMM if available.
+    high_N_toroid = (
+        backend == "femmt"
+        and shape == "toroid"
+        and result.N_turns > _FEMMT_MAX_TURNS_FOR_FEA
+        and is_femm_available()
+    )
+    if high_N_toroid:
+        return _validate_design_femm(
+            spec,
+            core,
+            wire,
+            material,
+            result,
+            output_dir=output_dir,
+            timeout_s=timeout_s,
+        )
+
     if backend == "femmt":
         from pfc_inductor.fea.femmt_runner import validate_design_femmt
 

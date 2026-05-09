@@ -202,12 +202,18 @@ def _resolve_verbosity(ft, prefer: tuple[str, ...]) -> object:
 
 
 # How high N has to be before we expect gmsh to choke on the
-# winding-conductor primitives. The user hit a hard crash at
-# N = 121 (each turn becomes a separate geometric loop, so a
-# 121-turn coil generates 100+ subloops in a single curve loop and
-# overwhelms gmsh's mesher). Designs above this threshold get a
-# clean "skipped" message instead of a native crash.
-_FEMMT_MAX_TURNS_FOR_FEA = 80
+# winding-conductor primitives. Modern gmsh (4.10+) handles
+# substantially denser coils than the 80-turn cap that originally
+# tripped on a 4.7-era install — bumped to 150 so designs with
+# typical low-AL toroid cores (Magnetics Kool-Mu / High-Flux,
+# Micrometals iron-powder) clear the FEMMT validation path
+# without a manual fallback. The orchestrator
+# (:func:`pfc_inductor.fea.runner.validate_design`) intercepts
+# higher-N designs and routes toroids to the legacy FEMM backend
+# (which uses bulk-current regions, so N has no geometric cost),
+# and only raises the "FEA skipped" error if neither backend can
+# handle the design.
+_FEMMT_MAX_TURNS_FOR_FEA = 150
 
 # Default time budget for a FEMMT validation run. The cascade tier 4
 # spawns one validation per top candidate, so a generous timeout
@@ -318,7 +324,11 @@ def validate_design_femmt(
     # Bail before spawning the subprocess if the design is past
     # gmsh's safe geometric-complexity ceiling. Each winding turn
     # becomes a separate geometric primitive (curve loop), and gmsh
-    # crashes hard on coils above ~80–100 turns.
+    # crashes hard on coils above ~150–200 turns. The orchestrator
+    # (``validate_design``) intercepts toroid designs above this
+    # ceiling and routes them to legacy FEMM, so by the time we
+    # reach this branch the design is *not* a toroid (E-core / PQ /
+    # ETD) and FEMM legacy can't help — there's no fallback left.
     if result.N_turns > _FEMMT_MAX_TURNS_FOR_FEA:
         raise FEMMSolveError(
             f"FEA skipped: N = {result.N_turns} turns exceeds the "
@@ -327,9 +337,12 @@ def validate_design_femmt(
             "gmsh segfaults on dense coils). The analytic engine's "
             "results stand on their own — FEA cross-check is "
             "unavailable for this design.\n\n"
-            "Workarounds: reduce N (target a higher-AL core), or "
-            "switch to the legacy FEMM backend (toroid only) which "
-            "models the winding as a bulk current region."
+            "Toroid designs at this N would auto-route to the legacy "
+            "FEMM backend (bulk-current region, no geometric cost), "
+            "but this design uses an E-core / PQ shape that legacy "
+            "FEMM doesn't model. To get a FEA cross-check you need "
+            "to either reduce N (target a higher-AL core) or use a "
+            "toroid core."
         )
 
     return _run_validation_in_subprocess(
