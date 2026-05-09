@@ -114,10 +114,13 @@ class SweptFEAChart(QWidget):
             QSizePolicy.Policy.Expanding,
         )
 
-        self._fig = Figure(figsize=(7.0, 4.2), dpi=100)
+        self._fig = Figure(figsize=(7.0, 3.4), dpi=100)
         self._fig.set_facecolor(get_theme().palette.surface)
         self._canvas = FigureCanvas(self._fig)
-        self._canvas.setMinimumHeight(360)
+        # 280 px floor — fits the L(I) curve, the dual axis, the
+        # Bsat band and the operating-point markers without
+        # dwarfing the dialog's other surfaces.
+        self._canvas.setMinimumHeight(280)
 
         v = QVBoxLayout(self)
         v.setContentsMargins(0, 0, 0, 0)

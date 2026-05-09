@@ -14,6 +14,7 @@ from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QDialog,
     QFormLayout,
+    QFrame,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -21,6 +22,7 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QProgressBar,
     QPushButton,
+    QScrollArea,
     QTabWidget,
     QVBoxLayout,
     QWidget,
@@ -179,11 +181,22 @@ class FEAValidationDialog(QDialog):
     ):
         super().__init__(parent)
         self.setWindowTitle("FEA validation")
-        # Wider + taller than v3 because the tabbed layout houses
-        # 3 chart surfaces (Summary / Field plots / L vs current)
-        # + log + progress bar. 1080 × 820 fits all three on a
-        # 1366 × 768 laptop without scrolling.
-        self.resize(1080, 820)
+        # Default geometry tuned for a 1366 × 768 laptop: 1080 ×
+        # 720 leaves ~30 px below the bottom of the dialog after
+        # macOS / Win11 chrome (title-bar + dock), so the action
+        # buttons stay visible. The earlier 820-tall default
+        # clipped the button row on common laptops once the
+        # tabbed dialog gained the LossStackedBar tile.
+        # The Summary tab content also wraps in a scroll area
+        # (see _build_results_box) so the dialog is comfortable
+        # at this height even when every tab fills its content.
+        self.resize(1080, 720)
+        # Soft minimum — users can still shrink the dialog, but
+        # not below a size where the chart text becomes
+        # illegible. Without an explicit minimum Qt would let the
+        # user squeeze it to the layout's hint, which on macOS
+        # happens to be ~ 700 × 450.
+        self.setMinimumSize(960, 600)
         self._spec = spec
         self._core = core
         self._wire = wire
@@ -324,9 +337,14 @@ class FEAValidationDialog(QDialog):
         f.setStyleHint(QFont.StyleHint.Monospace)
         f.setFamily("Menlo")
 
-        # ── Summary tab — form + bar chart + gauge ──
-        summary_tab = QWidget()
-        sv = QVBoxLayout(summary_tab)
+        # ── Summary tab — form + bar chart + gauge + loss bar ──
+        # Wrapped in a QScrollArea so the dialog stays at a fixed
+        # vertical envelope no matter how tall the body grows.
+        # Without the scroll, each new metric (form rows + chart +
+        # loss bar) compounded the dialog height and pushed the
+        # action buttons off screen on 720p laptops.
+        summary_inner = QWidget()
+        sv = QVBoxLayout(summary_inner)
         sv.setContentsMargins(8, 8, 8, 8)
 
         form = QFormLayout()
@@ -349,10 +367,14 @@ class FEAValidationDialog(QDialog):
         # Compact loss-breakdown bar under the comparison chart.
         # Same numbers the design page's "Perdas" card already
         # shows tabular, but proportional — so the user sees
-        # which loss family dominates at a glance. Sized to fit
-        # under the bar chart without forcing a scroll.
+        # which loss family dominates at a glance.
         self.loss_bar = LossStackedBar()
         sv.addWidget(self.loss_bar)
+
+        summary_tab = QScrollArea()
+        summary_tab.setWidget(summary_inner)
+        summary_tab.setWidgetResizable(True)
+        summary_tab.setFrameShape(QFrame.Shape.NoFrame)
 
         # ── Geometry tab — datasheet-style cross-section ──
         # Always available (analytical, no FEA needed). Acts as

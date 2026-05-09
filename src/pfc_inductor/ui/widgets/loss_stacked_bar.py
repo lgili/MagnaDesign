@@ -117,10 +117,14 @@ class LossStackedBar(QWidget):
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Fixed,
         )
-        self._fig = Figure(figsize=(7.0, 2.4), dpi=100)
+        # 130 px is enough room for the bar + axis labels + title
+        # at the project's font sizes. The original 190 left blank
+        # padding above and below that pushed the FEA dialog past
+        # ~990 px tall, hiding the button row on 720p laptops.
+        self._fig = Figure(figsize=(7.0, 1.7), dpi=100)
         self._fig.set_facecolor(get_theme().palette.surface)
         self._canvas = FigureCanvas(self._fig)
-        self._canvas.setFixedHeight(190)
+        self._canvas.setFixedHeight(130)
 
         v = QVBoxLayout(self)
         v.setContentsMargins(0, 0, 0, 0)

@@ -65,10 +65,14 @@ class FEAValidationChart(QWidget):
         # 6.5 × 3.2 inches at 100 dpi → ~650 × 320 px display, fills
         # the dialog's results column without dwarfing the form rows
         # underneath. Two stacked subplots: bars on top, gauge below.
-        self._fig = Figure(figsize=(6.5, 3.2), dpi=100)
+        self._fig = Figure(figsize=(6.5, 2.6), dpi=100)
         self._fig.set_facecolor(get_theme().palette.surface)
         self._canvas = FigureCanvas(self._fig)
-        self._canvas.setMinimumHeight(280)
+        # 220 px floor — bar chart + chip + gauge fit at this
+        # height. The earlier 280 left blank top/bottom that
+        # combined with the new LossStackedBar pushed the FEA
+        # dialog past common laptop screen heights.
+        self._canvas.setMinimumHeight(220)
 
         v = QVBoxLayout(self)
         v.setContentsMargins(0, 0, 0, 0)

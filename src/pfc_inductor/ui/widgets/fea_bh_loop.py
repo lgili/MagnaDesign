@@ -129,10 +129,13 @@ class BHLoopChart(QWidget):
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Expanding,
         )
-        self._fig = Figure(figsize=(7.0, 4.4), dpi=100)
+        self._fig = Figure(figsize=(7.0, 3.6), dpi=100)
         self._fig.set_facecolor(get_theme().palette.surface)
         self._canvas = FigureCanvas(self._fig)
-        self._canvas.setMinimumHeight(360)
+        # 280 px floor — fits the BH curve, the operating-point
+        # annotation, and the secondary Oersted axis. 360 was
+        # over-budget for the dialog's vertical envelope.
+        self._canvas.setMinimumHeight(280)
 
         v = QVBoxLayout(self)
         v.setContentsMargins(0, 0, 0, 0)
