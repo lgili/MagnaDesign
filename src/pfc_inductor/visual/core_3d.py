@@ -35,15 +35,36 @@ ShapeKind = Literal["toroid", "ee", "etd", "pq", "generic"]
 
 
 def infer_shape(core: Core) -> ShapeKind:
-    """Map free-text core.shape to a known mesh kind."""
+    """Map free-text core.shape to a known mesh kind.
+
+    Recognises both human-readable forms (``"toroid"``, ``"E-core"``,
+    ``"PQ-core"``) and the single-letter / short codes the
+    OpenMagnetics MAS catalog uses (``"T"``, ``"E"``, ``"PQ"``,
+    ``"ETD"``, etc.). Anything we don't have a dedicated mesh /
+    FEA path for falls through to ``"generic"``.
+    """
     s = (core.shape or "").lower().strip()
+    # Bare MAS shape codes — exact match first so longer
+    # human-readable strings take precedence below if they
+    # contain a substring like "core".
+    if s == "t":
+        return "toroid"
+    if s == "etd":
+        return "etd"
+    if s == "pq":
+        return "pq"
+    if s == "e" or s == "ee" or s == "ei":
+        return "ee"
+    # Free-form fallbacks — preserve the legacy substring
+    # matching behaviour for entries that arrived via the
+    # curated database (``"toroid"``, ``"E-core"``, etc.).
     if "tor" in s:
         return "toroid"
     if "etd" in s:
         return "etd"
     if s.startswith("pq") or "pq" in s:
         return "pq"
-    if s.startswith("ee") or s.startswith("e ") or s == "e" or "nee" in s or "ei" in s:
+    if s.startswith("ee") or s.startswith("e ") or "nee" in s or "ei" in s:
         return "ee"
     return "generic"
 
