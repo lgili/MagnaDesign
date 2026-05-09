@@ -36,6 +36,7 @@ Worker-thread workaround:
 from __future__ import annotations
 
 import contextlib
+import logging
 import os
 import sys
 import tempfile
@@ -43,6 +44,8 @@ import threading
 import time
 from pathlib import Path
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 _NO_SPACE_LINK = Path("/tmp/femmt")
 
@@ -616,6 +619,24 @@ def _toroid_validation(
         )
         geo.set_winding_windows([winding_window])
 
+        # All three "show me a plot" flags are OFF on purpose:
+        #
+        #   * save_png  — would call gmsh.fltk.initialize() to
+        #                 export the mesh PNG, which flashes a
+        #                 GUI window on macOS even when DISPLAY
+        #                 is unset.
+        #   * plot_interpolation — would open a blocking
+        #                 matplotlib popup with the material B(H)
+        #                 interpolation curve.
+        #   * show_fem_simulation_results — would open the gmsh
+        #                 viewer GUI on the field results.
+        #
+        # We replace all of them with the headless ``pos_renderer``
+        # post-processor (called below) that parses gmsh's
+        # ``.pos`` ASCII output and writes coloured heatmaps +
+        # 1-D centerline + volumetric histogram PNGs straight to
+        # the working directory using matplotlib's Agg backend.
+        # Same content the user wanted; zero popup windows.
         geo.create_model(
             freq=fsw_Hz,
             pre_visualize_geometry=False,
@@ -631,6 +652,19 @@ def _toroid_validation(
         log = geo.read_log()
     finally:
         os.chdir(original_cwd)
+
+    # Render gmsh ``.pos`` field views as headless heatmap PNGs.
+    # FEMMT writes Magb / j2F_density / jH_density / raz files
+    # into ``e_m/results/fields`` after a successful solve; we
+    # turn them into matplotlib PNGs the FEAFieldGallery can show
+    # without depending on the gmsh GUI. Failures are logged but
+    # never raise — visualisation is a nice-to-have here.
+    try:
+        from pfc_inductor.fea.pos_renderer import render_field_pngs
+
+        render_field_pngs(cwd)
+    except Exception:  # pragma: no cover — defensive
+        logger.exception("Field-PNG rendering failed; continuing.")
 
     L_FEA_H = _extract_L_H(log)
     flux_FEA_Wb = _extract_flux(log)
@@ -853,6 +887,12 @@ def _bobbin_validation(
         )
         geo.set_winding_windows([winding_window])
 
+        # All "show me a plot" flags OFF — see toroid path above
+        # for the full rationale. The headless ``pos_renderer``
+        # call after the solve produces every visualisation we
+        # actually want (B-field heatmap, 1-D centerline,
+        # volumetric histogram, loss density), without ever
+        # opening a popup window.
         geo.create_model(
             freq=fsw_Hz,
             pre_visualize_geometry=False,
@@ -868,6 +908,15 @@ def _bobbin_validation(
         log = geo.read_log()
     finally:
         os.chdir(original_cwd)
+
+    # Render gmsh ``.pos`` field views as PNG heatmaps (see toroid
+    # path above for rationale).
+    try:
+        from pfc_inductor.fea.pos_renderer import render_field_pngs
+
+        render_field_pngs(cwd)
+    except Exception:  # pragma: no cover
+        logger.exception("Field-PNG rendering failed; continuing.")
 
     L_FEA_H = _extract_L_H(log)
     flux_FEA_Wb = _extract_flux(log)
