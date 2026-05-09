@@ -35,14 +35,28 @@ $(PDF): $(TEX_SOURCES) | $(FIGS)
 	$(PDFLATEX) $(PDFLATEX_FLAGS) $(MAIN).tex
 	$(PDFLATEX) $(PDFLATEX_FLAGS) $(MAIN).tex
 
-# Screenshots — driven by two Python harnesses chained:
-#   build_screenshots.py  → real widget renders (3 RefDesigns)
-#   build_placeholders.py → analytic mockups (Pareto, Cascade,
-#                            Compare, Export, 3D, Spec drawers)
-# Run as a single ``make screenshots`` so a refresh is one command.
+# Screenshots — three harnesses chained, in order:
+#   1. build_screenshots.py → real widget renders driven by the
+#                              three RefDesigns. Produces the
+#                              per-example geometry, B-H, swept,
+#                              loss-bar etc.
+#   2. build_placeholders.py → analytic mockups for the few
+#                              screens that no live widget covers
+#                              (FEA dispatch flowchart, app logo).
+#   3. build_gui_renders.py → real GUI captures of the remaining
+#                              widgets (SpecDrawer, OtimizadorPage,
+#                              CascadePage, CompareDialog,
+#                              Viz3DCard, ExportarTab). Runs last
+#                              so its captures **overwrite** any
+#                              matching placeholder PNGs from
+#                              step 2 — every covered widget ends
+#                              up showing a real screenshot.
+# A single ``make screenshots`` refreshes the whole figures/
+# directory.
 screenshots:
 	$(PYTHON) $(HARNESS)
 	$(PYTHON) scripts/build_placeholders.py
+	$(PYTHON) scripts/build_gui_renders.py
 
 # Treat figures/ as a directory dependency. The default target
 # doesn't run the harness automatically (some users will edit
