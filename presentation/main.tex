@@ -628,6 +628,55 @@
   sending to the bobbin manufacturer.}
 \end{frame}
 
+\begin{frame}{Coupled thermal FEA}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.55\textwidth}
+    \begin{itemize}
+      \item One click after the magnetostatic pass:
+            \emph{Run thermal FEA}
+      \item FEMMT reads the loss density the magnetostatic
+            step wrote and solves steady-state heat
+      \item Material-keyed thermal conductivity defaults:
+            ferrite 5, silicon-steel 25, powder 20,
+            nanocrystalline 10, amorphous 12 W/(m\,K)
+      \item \texttt{ThermalOptions} exposes
+            $T_\text{amb}$, case-gap dimensions and per-
+            material k overrides for users that need ±5 \%
+      \item Output: peak / winding-avg / core-avg
+            temperatures and a \texttt{temperature.pos}
+            field rendered as a heatmap PNG (auto-categorised
+            by the field-plots gallery)
+    \end{itemize}
+    \column{0.45\textwidth}
+    \begin{block}{Outcome}
+      \footnotesize
+      The dialog logs:
+      \begin{itemize}
+        \item \texttt{T\_peak}      \,---\, hottest cell
+        \item \texttt{T\_winding\_avg} vs the analytical $\Delta T$
+        \item \texttt{T\_core\_avg}
+        \item Verdict chip: \emph{passes} or
+              \emph{over 105 °C} (class-B insulation
+              budget)
+      \end{itemize}
+      Adds 10--25\,s on top of the magnetostatic solve.
+    \end{block}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Project history --- git-like timeline}
+  \screenshot[height=0.62\textheight, keepaspectratio]%
+            {figures/feature_history.png}
+  \figcaption{Every recalc is a snapshot. The History tab
+  shows the timeline (newest first); clicking any row diffs it
+  against the immediately-prior snapshot, with \textbf{green}
+  for changes that improved a metric (lower loss / lower
+  $\Delta T$ / higher $\eta$) and \textbf{red} for worsens.
+  \emph{Restore this snapshot} rebuilds the spec drawer +
+  selection from the chosen point and triggers a recalc ---
+  history stays append-only.}
+\end{frame}
+
 % ============================================================
 \section{Status and roadmap}
 % ============================================================
@@ -643,6 +692,9 @@
       \item Topology-specific cards
       \item HTML datasheet exporter
       \item 5-tab FEA validation dialog
+      \item \textbf{Coupled thermal FEA} (FEMMT thermal solver)
+      \item \textbf{Project history} --- git-like timeline +
+            visual diffs
     \end{itemize}
     \column{0.5\textwidth}
     \textbf{Performance}
@@ -662,11 +714,12 @@
     \item \textbf{Efficiency vs $P_\text{out}$} sweep ---
           cross-load validation (10--100 \% of load)
     \item \textbf{Voltage stress} per component (FET, diode)
-    \item \textbf{Coupled thermal FEA} (FEMMT thermal solver)
-    \item \textbf{Project history} --- git-like timeline of
-          iterations with visual diffs
     \item \textbf{Auto-updating magnetics catalogue} via the
           vendors' APIs (Magnetics, Micrometals, TDK)
+    \item \textbf{In-context cascade store} --- per-project
+          run history with bookmarked candidates
+    \item \textbf{Multi-design report bundle} ---
+          consolidated PDF for an entire bill-of-materials
   \end{itemize}
 \end{frame}
 

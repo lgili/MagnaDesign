@@ -648,6 +648,49 @@ class MainWindow(QMainWindow):
         self._on_calculate()
         self._workflow_state.mark_saved()
 
+    def _on_history_restore(self, snapshot) -> None:
+        """Restore a snapshot from the history timeline.
+
+        Builds an in-memory :class:`ProjectFile` from the snapshot's
+        recorded spec + selection IDs, then routes it through the
+        existing ``_apply_project`` machinery — same code path that
+        loads a ``.pfc`` file from disk. The recalc runs once,
+        appending a *new* snapshot to the timeline (so the user
+        can branch off the restored point and still walk back if
+        needed). The history feature stays append-only — restoring
+        never destroys earlier rows.
+        """
+        try:
+            from pfc_inductor.project import ProjectFile, ProjectSelection
+            from pfc_inductor.models import Spec
+
+            # ``snapshot.spec`` is a JSON-derived dict; rehydrate
+            # it through Pydantic so any partial / forward-compat
+            # field gets clamped to a valid Spec instance. Same
+            # safety net ``load_project`` provides for .pfc files.
+            spec = Spec(**snapshot.spec)
+            sel = snapshot.selection or {}
+            state = ProjectFile(
+                version="1.0",
+                name=snapshot.project or "Restored snapshot",
+                spec=spec,
+                selection=ProjectSelection(
+                    material_id=sel.get("material_id", ""),
+                    core_id=sel.get("core_id", ""),
+                    wire_id=sel.get("wire_id", ""),
+                ),
+            )
+            self._apply_project(state)
+        except Exception as e:
+            from PySide6.QtWidgets import QMessageBox
+
+            QMessageBox.warning(
+                self,
+                "Restore failed",
+                f"Could not restore snapshot {snapshot.id}: "
+                f"{type(e).__name__}: {e}",
+            )
+
     def _on_project_new(self) -> None:
         if not self._confirm_discard("New project"):
             return
@@ -839,6 +882,9 @@ class MainWindow(QMainWindow):
         )
         self.projeto_page.export_compare_requested.connect(
             self._export_compare,
+        )
+        self.projeto_page.history_restore_requested.connect(
+            self._on_history_restore,
         )
         self.projeto_page.selection_applied.connect(
             self._apply_optimizer_choice,

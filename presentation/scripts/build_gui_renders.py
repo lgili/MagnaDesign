@@ -191,6 +191,52 @@ def render_viz3d_card(d, out: Path) -> None:
 # -------------------------------------------------------------------
 # 6. ExportarTab — real tab.
 # -------------------------------------------------------------------
+def render_history_panel(out: Path) -> None:
+    """Render the HistoryPanel populated with five iterations of
+    the boost-PFC reference design — each with progressively
+    better losses and ΔT — so the diff pane shows the canonical
+    "this iteration improved 3 metrics" outcome a real session
+    produces. The store is in-memory (tempdir) so the slide
+    capture doesn't pollute the user's app-data history."""
+    import tempfile
+
+    from pfc_inductor.history import HistoryStore
+    from pfc_inductor.ui.history_panel import HistoryPanel
+
+    td = tempfile.mkdtemp(prefix="md_history_demo_")
+    store = HistoryStore(path=Path(td) / "history.db")
+    iterations = [
+        # (loss_W, ΔT_C, fsw_kHz)
+        (3.50, 22, 80),
+        (3.30, 21, 90),
+        (3.15, 19, 100),
+        (3.05, 18, 110),
+        (2.95, 18, 120),
+    ]
+    for i, (loss, dt, fsw) in enumerate(iterations):
+        store.append(
+            project="Boost PFC 1.5 kW",
+            spec={
+                "topology": "boost_ccm",
+                "Pout_W": 1500,
+                "f_sw_kHz": fsw,
+            },
+            selection={
+                "core_id": "0077439A7", "wire_id": "AWG16",
+                "material_id": "60_KoolMu",
+            },
+            summary={
+                "loss_W": loss, "T_rise_C": dt, "L_actual_uH": 406,
+                "eta_pct": 99.50 + i * 0.05,
+                "sat_margin_pct": 65 + i,
+            },
+        )
+
+    panel = HistoryPanel(store, project="Boost PFC 1.5 kW")
+    _grab(panel, out, 1080, 540, settle_ms=200)
+    store.close()
+
+
 def render_exportar_tab(d, out: Path) -> None:
     """Render the Export workspace tab. The tab itself is the
     GUI the user interacts with to trigger HTML / PDF datasheet
@@ -248,6 +294,9 @@ def main() -> None:
 
     print("[gui-renders] ExportarTab")
     render_exportar_tab(boost, FIGS / "feature_export.png")
+
+    print("[gui-renders] HistoryPanel (5-iteration timeline + diff)")
+    render_history_panel(FIGS / "feature_history.png")
 
     print(f"\nDone — replaced synthetic mocks with live GUI captures.")
 
