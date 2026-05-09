@@ -258,11 +258,51 @@ def validate_design_thermal_femmt(
             f"shape: {type(payload).__name__}"
         )
     em, thermal_log = payload
-    if thermal_log is None:
-        raise FEMMSolveError(
-            "Thermal solve returned no log — the magnetostatic "
-            "pass succeeded but ``read_thermal_log`` came back "
-            "empty. Check FEMMT's stderr in the working dir."
+    elapsed = time.monotonic() - started
+
+    # Re-render the .pos files so the new ``temperature.pos``
+    # gets a heatmap PNG; the gallery will pick it up. Always
+    # runs, even on a thermal failure, because the EM step
+    # already wrote magnetostatic field PNGs (or the synthetic
+    # fallback did).
+    try:
+        from pfc_inductor.fea.pos_renderer import render_field_pngs
+
+        render_field_pngs(Path(em.fem_path))
+    except Exception:
+        logger.exception("Field-PNG re-render after thermal failed.")
+
+    # Two paths from here:
+    #
+    # 1. ``thermal_log`` is a real FEMMT ``results_thermal.json``
+    #    dict — read peak / averages and return a normal result.
+    # 2. ``thermal_log`` carries a ``{"error": ...}`` payload
+    #    because ``geo.thermal_simulation`` raised inside the
+    #    subprocess (mesh / boundary condition / case-gap
+    #    issue). We *do not* raise — the EM result is still
+    #    valid + the gallery still has its magnetostatic PNGs;
+    #    we just surface the failure in the ThermalResult's
+    #    ``notes`` so the dialog can show a meaningful message
+    #    instead of a hard-stop error popup.
+    if thermal_log is None or "error" in (thermal_log or {}):
+        err = (thermal_log or {}).get(
+            "error", "thermal solver returned no log"
+        )
+        return ThermalResult(
+            T_peak_C=0.0,
+            T_winding_avg_C=0.0,
+            T_core_avg_C=0.0,
+            T_ambient_C=options.T_ambient_C,
+            rise_winding_C=0.0,
+            rise_core_C=0.0,
+            fem_path=str(em.fem_path),
+            solve_time_s=elapsed,
+            notes=(
+                "Thermal solve failed: " + err + ". The "
+                "magnetostatic L / B numbers and the field-plot "
+                "gallery are still valid; only the temperature "
+                "fields are missing."
+            ),
         )
 
     # Extract scalars from FEMMT's results_thermal.json. Field
@@ -272,16 +312,6 @@ def validate_design_thermal_femmt(
                           default=0.0))
     T_c_avg = float(_dig(thermal_log, ["temperatures", "core_average"],
                           default=0.0))
-    elapsed = time.monotonic() - started
-
-    # Re-render the .pos files so the new ``temperature.pos``
-    # gets a heatmap PNG; the gallery will pick it up.
-    try:
-        from pfc_inductor.fea.pos_renderer import render_field_pngs
-
-        render_field_pngs(Path(em.fem_path))
-    except Exception:
-        logger.exception("Field-PNG re-render after thermal failed.")
 
     return ThermalResult(
         T_peak_C=T_peak,

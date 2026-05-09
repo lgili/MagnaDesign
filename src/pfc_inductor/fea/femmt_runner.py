@@ -700,21 +700,35 @@ def _toroid_validation(
         # Optional thermal pass on the same geo. FEMMT's thermal
         # solver depends on the in-memory state the EM step
         # leaves behind, so it has to live in this same try-block
-        # before ``os.chdir`` restores cwd.
-        thermal_log = None
+        # before ``os.chdir`` restores cwd. We wrap the call in
+        # its own try/except so that a thermal-mesh / boundary-
+        # condition failure does NOT lose the magnetostatic
+        # result — the user still gets L / B numbers + the
+        # field-plot gallery, with a ``{"error": ...}`` payload
+        # the caller can render as a "thermal solve failed"
+        # message instead of a hard exception.
+        thermal_log: Optional[dict] = None
         if thermal_options is not None:
-            geo.thermal_simulation(
-                thermal_conductivity_dict=thermal_options["k_dict"],
-                boundary_temperatures_dict=thermal_options["temps"],
-                boundary_flags_dict=thermal_options["flags"],
-                case_gap_top=thermal_options["case_gap_top"],
-                case_gap_right=thermal_options["case_gap_right"],
-                case_gap_bot=thermal_options["case_gap_bot"],
-                show_thermal_simulation_results=False,
-                pre_visualize_geometry=False,
-                flag_insulation=True,
-            )
-            thermal_log = geo.read_thermal_log()
+            try:
+                geo.thermal_simulation(
+                    thermal_conductivity_dict=thermal_options["k_dict"],
+                    boundary_temperatures_dict=thermal_options["temps"],
+                    boundary_flags_dict=thermal_options["flags"],
+                    case_gap_top=thermal_options["case_gap_top"],
+                    case_gap_right=thermal_options["case_gap_right"],
+                    case_gap_bot=thermal_options["case_gap_bot"],
+                    show_thermal_simulation_results=False,
+                    pre_visualize_geometry=False,
+                    flag_insulation=True,
+                )
+                thermal_log = geo.read_thermal_log()
+            except Exception as e:
+                logger.exception(
+                    "thermal_simulation failed; EM result preserved",
+                )
+                thermal_log = {
+                    "error": f"{type(e).__name__}: {e}",
+                }
     finally:
         os.chdir(original_cwd)
 
@@ -1009,21 +1023,27 @@ def _bobbin_validation(
         log = geo.read_log()
 
         # Optional thermal pass on the same geo (same rationale
-        # as the toroid path).
-        thermal_log = None
+        # + same lenient error handling as the toroid path).
+        thermal_log: Optional[dict] = None
         if thermal_options is not None:
-            geo.thermal_simulation(
-                thermal_conductivity_dict=thermal_options["k_dict"],
-                boundary_temperatures_dict=thermal_options["temps"],
-                boundary_flags_dict=thermal_options["flags"],
-                case_gap_top=thermal_options["case_gap_top"],
-                case_gap_right=thermal_options["case_gap_right"],
-                case_gap_bot=thermal_options["case_gap_bot"],
-                show_thermal_simulation_results=False,
-                pre_visualize_geometry=False,
-                flag_insulation=True,
-            )
-            thermal_log = geo.read_thermal_log()
+            try:
+                geo.thermal_simulation(
+                    thermal_conductivity_dict=thermal_options["k_dict"],
+                    boundary_temperatures_dict=thermal_options["temps"],
+                    boundary_flags_dict=thermal_options["flags"],
+                    case_gap_top=thermal_options["case_gap_top"],
+                    case_gap_right=thermal_options["case_gap_right"],
+                    case_gap_bot=thermal_options["case_gap_bot"],
+                    show_thermal_simulation_results=False,
+                    pre_visualize_geometry=False,
+                    flag_insulation=True,
+                )
+                thermal_log = geo.read_thermal_log()
+            except Exception as e:
+                logger.exception(
+                    "thermal_simulation failed; EM result preserved",
+                )
+                thermal_log = {"error": f"{type(e).__name__}: {e}"}
     finally:
         os.chdir(original_cwd)
 

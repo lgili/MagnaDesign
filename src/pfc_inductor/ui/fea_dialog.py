@@ -705,33 +705,58 @@ class FEAValidationDialog(QDialog):
 
     def _on_thermal_finished(self, thermal) -> None:
         """Receive the :class:`ThermalResult`, refresh the gallery
-        (now containing the temperature.pos heatmap PNG), and log
-        the peak / average winding + core temperatures."""
+        (now containing the temperature.pos heatmap PNG when the
+        thermal solve succeeded; the magnetostatic Magb / centerline
+        / histogram PNGs always), and log the temperatures.
+
+        Handles both the happy path and the partial-failure path
+        the runner now returns when ``geo.thermal_simulation``
+        raises (the EM solve still ran and produced field PNGs;
+        only the temperature numbers are missing).
+        """
         self.progress.hide()
         self.btn_run.setEnabled(True)
         self.btn_thermal.setEnabled(True)
         self.btn_sweep.setEnabled(True)
-        # Repopulate the gallery so the temperature heatmap shows up.
+        # Repopulate the gallery — magnetostatic PNGs are always
+        # there (real or synthetic); the temperature heatmap is
+        # there only on a successful thermal solve.
         self.gallery.populate_from_path(thermal.fem_path)
-        # Switch to Field plots tab so the user sees the new heatmap
-        # without an extra click. Tab order: 0 Summary, 1 Geometry,
-        # 2 B-H, 3 Field plots, 4 L vs current.
+        # Switch to Field plots tab. Tab order: 0 Summary,
+        # 1 Geometry, 2 B-H, 3 Field plots, 4 L vs current.
         self.tabs.setCurrentIndex(3)
-        verdict = (
-            "<span style='color:#059669; font-weight: bold'>passes</span>"
-            if thermal.passed_thermal_budget
-            else "<span style='color:#DC2626; font-weight: bold'>over 105 °C</span>"
+
+        thermal_failed = (
+            thermal.T_peak_C == 0.0
+            and "failed" in (thermal.notes or "").lower()
         )
-        self.txt_log.appendPlainText(
-            f"\nThermal solve done in {thermal.solve_time_s:.1f} s:\n"
-            f"  T_peak       = {thermal.T_peak_C:.1f} °C\n"
-            f"  T_winding_avg= {thermal.T_winding_avg_C:.1f} °C "
-            f"(rise {thermal.rise_winding_C:.1f} °C, "
-            f"vs analytic ΔT = {self._result.T_rise_C:.1f} °C)\n"
-            f"  T_core_avg   = {thermal.T_core_avg_C:.1f} °C "
-            f"(rise {thermal.rise_core_C:.1f} °C)\n"
-            f"  T_ambient    = {thermal.T_ambient_C:.1f} °C"
-        )
+        if thermal_failed:
+            verdict = (
+                "<span style='color:#DC2626; font-weight: bold'>"
+                "thermal solve failed</span>"
+            )
+            self.txt_log.appendPlainText(
+                f"\nThermal solve FAILED in {thermal.solve_time_s:.1f} s:\n"
+                f"  {thermal.notes}\n"
+                f"  Magnetostatic L / B numbers and the field-plot "
+                f"gallery are still valid."
+            )
+        else:
+            verdict = (
+                "<span style='color:#059669; font-weight: bold'>passes</span>"
+                if thermal.passed_thermal_budget
+                else "<span style='color:#DC2626; font-weight: bold'>over 105 °C</span>"
+            )
+            self.txt_log.appendPlainText(
+                f"\nThermal solve done in {thermal.solve_time_s:.1f} s:\n"
+                f"  T_peak       = {thermal.T_peak_C:.1f} °C\n"
+                f"  T_winding_avg= {thermal.T_winding_avg_C:.1f} °C "
+                f"(rise {thermal.rise_winding_C:.1f} °C, "
+                f"vs analytic ΔT = {self._result.T_rise_C:.1f} °C)\n"
+                f"  T_core_avg   = {thermal.T_core_avg_C:.1f} °C "
+                f"(rise {thermal.rise_core_C:.1f} °C)\n"
+                f"  T_ambient    = {thermal.T_ambient_C:.1f} °C"
+            )
         self.l_confidence.setText(self.l_confidence.text() + " | " + verdict)
 
     def _on_thermal_failed(self, msg: str) -> None:
