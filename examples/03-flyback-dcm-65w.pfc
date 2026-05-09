@@ -1,0 +1,37 @@
+{
+  "version": "1.0",
+  "name": "Flyback DCM 65 W — laptop adapter",
+  "spec": {
+    "topology": "flyback",
+    "Vin_min_Vrms": 85.0,
+    "Vin_max_Vrms": 265.0,
+    "Vin_nom_Vrms": 230.0,
+    "f_line_Hz": 60.0,
+    "Vout_V": 19.0,
+    "Pout_W": 65.0,
+    "eta": 0.92,
+    "f_sw_kHz": 65.0,
+    "ripple_pct": 30.0,
+    "T_amb_C": 40.0,
+    "T_max_C": 125.0,
+    "Ku_max": 0.7,
+    "Bsat_margin": 0.2,
+    "n_phases": 3,
+    "n_interleave": 2,
+    "L_req_mH": 10.0,
+    "I_rated_Arms": 2.2,
+    "fsw_modulation": null,
+    "Vin_dc_V": null,
+    "Vin_dc_min_V": null,
+    "Vin_dc_max_V": null,
+    "ripple_ratio": null,
+    "flyback_mode": null,
+    "turns_ratio_n": null,
+    "window_split_primary": 0.45
+  },
+  "selection": {
+    "material_id": "N97",
+    "core_id": "PQ20-16",
+    "wire_id": "AWG24"
+  }
+}
