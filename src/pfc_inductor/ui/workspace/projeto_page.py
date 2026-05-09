@@ -94,6 +94,12 @@ class ProjetoPage(QWidget):
     export_project_pdf_requested = Signal()
     export_compare_requested = Signal()
     selection_applied = Signal(str, str, str)  # material_id, core_id, wire_id
+    # History feature — emitted when the user clicks "Restore" on a
+    # snapshot in the History tab. The payload is a
+    # :class:`pfc_inductor.history.Snapshot`; the main window catches
+    # it and rebuilds the spec drawer / current selection from the
+    # snapshot's recorded state.
+    history_restore_requested = Signal(object)
 
     def __init__(
         self,
@@ -228,6 +234,22 @@ class ProjetoPage(QWidget):
         )
         self.tabs.addTab(self._wrap_scrollable(self.exportar_tab), "Export")
 
+        # Tab 6 — History (git-like timeline of snapshots).
+        # The history store opens on the platform's app-data dir
+        # so iterations persist across app sessions; the panel
+        # auto-reloads when ``update_from_design`` fires below.
+        from pfc_inductor.history import HistoryStore
+        from pfc_inductor.ui.history_panel import HistoryPanel
+
+        self._history_store = HistoryStore()
+        self.history_panel = HistoryPanel(
+            self._history_store, project="",
+        )
+        self.history_panel.restore_requested.connect(
+            self.history_restore_requested.emit,
+        )
+        self.tabs.addTab(self.history_panel, "History")
+
         self.tabs.currentChanged.connect(self._on_tab_changed)
 
         # Scoreboard (slim status bar at the bottom)
@@ -266,6 +288,41 @@ class ProjetoPage(QWidget):
     def update_from_design(
         self, result: DesignResult, spec: Spec, core: Core, wire: Wire, material: Material
     ) -> None:
+        # Persist this iteration to the history store before the
+        # cards consume the result. The store dedupes nothing —
+        # every recalc is a snapshot, matching git-commit
+        # semantics. Failures are silenced (history is a nice-
+        # to-have, not a critical path).
+        try:
+            from pfc_inductor.history import summary_from_result
+
+            # Read the project name from the header's editable
+            # field. The header uses a ``QLineEdit`` named
+            # ``_name_edit``; we tolerate the attribute being
+            # absent (older shell variants) and fall back to
+            # ``Untitled Project``.
+            project_name = (
+                getattr(getattr(self.header, "_name_edit", None),
+                        "text", lambda: "")()
+                or "Untitled Project"
+            )
+            self._history_store.append(
+                project=project_name,
+                spec=spec,
+                selection={
+                    "material_id": material.id,
+                    "core_id": core.id,
+                    "wire_id": wire.id,
+                },
+                summary=summary_from_result(result),
+            )
+            # Re-load the timeline so the new snapshot appears
+            # at the top with its diff vs the previous one.
+            self.history_panel.set_project(project_name)
+            self.history_panel.reload()
+        except Exception:
+            pass
+
         self.kpi_strip.update_from_design(result, spec, core, wire, material)
         self.nucleo_tab.update_from_design(result, spec, core, wire, material)
         self.analise_tab.update_from_design(result, spec, core, wire, material)
