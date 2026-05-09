@@ -42,6 +42,7 @@ slower.
 from __future__ import annotations
 
 import math
+from typing import Callable, Optional
 
 import numpy as np
 
@@ -58,57 +59,63 @@ WIRE_LITZ = 1
 WIRE_OTHER = 2  # foil, unsupported — Fr falls back to 1.0
 
 
-def _build_fused_kernel():
+def _build_fused_kernel() -> Optional[Callable[..., tuple]]:
     """Compile the thermal-converge + total-loss fused kernel
-    with Numba if available."""
+    with Numba if available.
+
+    Returns the JIT-compiled function or ``None`` when Numba
+    isn't installed. The ``Callable`` return type is loose —
+    the kernel signature is large (20+ scalars) and opaque to
+    Python; the caller passes a fixed argument bundle.
+    """
     try:
-        from numba import njit
+        from numba import njit  # type: ignore[import-untyped]
     except ImportError:
         return None
 
     @njit(fastmath=True, cache=True, nogil=True)
     def _kernel(
         # Thermal solver setup
-        T_amb_C,
-        A_surface_m2,
-        T_init_C,
-        max_iter,
-        tol_K,
-        relax_factor,
-        T_hard_max_C,
-        h_conv,
+        T_amb_C: float,
+        A_surface_m2: float,
+        T_init_C: float,
+        max_iter: int,
+        tol_K: float,
+        relax_factor: float,
+        T_hard_max_C: float,
+        h_conv: float,
         # Cu loss geometry
-        N,
-        MLT_mm,
-        A_cu_mm2,
+        N: int,
+        MLT_mm: float,
+        A_cu_mm2: float,
         # Rac inputs
-        fsw_Hz_skin,
-        layers,
-        wire_kind,
-        d_cu_m,
-        d_strand_m,
-        n_strands,
+        fsw_Hz_skin: float,
+        layers: int,
+        wire_kind: int,
+        d_cu_m: float,
+        d_strand_m: float,
+        n_strands: int,
         # Currents
-        I_dc_line,
-        I_rip_rms,
+        I_dc_line: float,
+        I_rip_rms: float,
         # Core loss line band
-        f_line_Hz,
+        f_line_Hz: float,
         # Core loss ripple band
-        fsw_kHz_loss,
+        fsw_kHz_loss: float,
         # Flux densities
-        B_pk_for_loss_T,
-        delta_B_avg_T,
-        delta_B_pp_T_array,
+        B_pk_for_loss_T: float,
+        delta_B_avg_T: float,
+        delta_B_pp_T_array: np.ndarray,
         # Core volume
-        Ve_mm3,
+        Ve_mm3: float,
         # Steinmetz coefficients (Pv_ref @ f_ref, B_ref)
-        Pv_ref,
-        alpha,
-        beta,
-        B_ref_mT,
-        f_ref_kHz,
-        f_min_kHz,
-    ):
+        Pv_ref: float,
+        alpha: float,
+        beta: float,
+        B_ref_mT: float,
+        f_ref_kHz: float,
+        f_min_kHz: float,
+    ) -> tuple:
         # Pre-compute factors that don't depend on temperature.
         L_wire_m = N * MLT_mm * 1e-3
         A_cu_m2 = A_cu_mm2 * 1e-6

@@ -1,3 +1,38 @@
+"""Design-spec data model — the engineer-facing input.
+
+:class:`Spec` is the full set of inputs every ``design()`` call
+takes. The fields are partitioned by topology family:
+
+- **Universal fields** — ``Pout_W``, ``eta``, ``T_amb_C``,
+  ``T_max_C``, ``Ku_max``, ``Bsat_margin`` apply to every
+  topology.
+- **AC input** (boost-CCM, passive choke, line reactor,
+  interleaved boost) — ``Vin_min_Vrms`` / ``Vin_max_Vrms`` /
+  ``Vin_nom_Vrms`` + ``f_line_Hz``.
+- **DC input** (buck-CCM, flyback) — ``Vin_dc_V`` (+ optional
+  ``Vin_dc_min_V`` / ``Vin_dc_max_V`` for worst-case envelope).
+- **Switching converter** (boost, buck, flyback, interleaved) —
+  ``Vout_V`` + ``f_sw_kHz`` + ``ripple_pct`` /
+  ``ripple_ratio``.
+- **Line reactor** (1-phase / 3-phase) — ``n_phases``,
+  ``L_req_mH``, ``I_rated_Arms``.
+- **Interleaved boost PFC** — ``n_interleave`` (2 or 3 phases).
+- **Flyback** (coupled-inductor isolated) — ``flyback_mode``
+  (DCM / CCM), ``turns_ratio_n``, ``window_split_primary``.
+- **VFD modulation** — ``fsw_modulation`` (optional band, used
+  by compressor-inverter designs to evaluate the worst-case
+  point across a switching-frequency dither range).
+
+The ``model_validator(mode="after")`` enforces topology-specific
+sanity (Vout > Vin·1.41 for boost; Vout < Vin for buck; non-zero
+Vin for flyback; n_phases ∈ {1, 3} for line reactor; etc.).
+
+:meth:`canonical_hash` returns a stable SHA-256 over the full
+field set — used by the cascade ``RunStore`` to detect that a
+resumed run is being attempted against a different spec than the
+one it was started with.
+"""
+
 from __future__ import annotations
 
 import hashlib

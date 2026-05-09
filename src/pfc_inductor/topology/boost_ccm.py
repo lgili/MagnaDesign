@@ -16,6 +16,7 @@ At that point delta_iL_pp_max = Vout / (4 * L * fsw).
 from __future__ import annotations
 
 import math
+from typing import Callable, Optional
 
 import numpy as np
 
@@ -75,11 +76,15 @@ def waveforms(
     omega = 2 * math.pi * spec.f_line_Hz
 
     if _WAVEFORMS_KERNEL is not None:
-        t, iL_avg, delta_iL, iL_pk, iL_min, vin_inst, duty = (
-            _WAVEFORMS_KERNEL(
-                half_period, omega, n_points_per_half_cycle,
-                I_pk, Vin_pk, float(spec.Vout_V), L_H, fsw_Hz,
-            )
+        t, iL_avg, delta_iL, iL_pk, iL_min, vin_inst, duty = _WAVEFORMS_KERNEL(
+            half_period,
+            omega,
+            n_points_per_half_cycle,
+            I_pk,
+            Vin_pk,
+            float(spec.Vout_V),
+            L_H,
+            fsw_Hz,
         )
     else:
         t = np.linspace(0.0, half_period, n_points_per_half_cycle)
@@ -125,7 +130,7 @@ def rms_inductor_current_A(wf: dict) -> float:
 # ─── Numba kernels for the boost-CCM waveform synthesis (opt-in) ──
 
 
-def _build_waveforms_kernel():
+def _build_waveforms_kernel() -> Optional[Callable[..., tuple]]:
     """Compile the per-instant ``iL_avg`` / ``ΔiL_pp`` / ``vin_inst``
     / ``duty`` array generator with Numba if available.
 
@@ -135,13 +140,21 @@ def _build_waveforms_kernel():
     work in ~5 µs.
     """
     try:
-        from numba import njit
+        from numba import njit  # type: ignore[import-untyped]
     except ImportError:
         return None
 
     @njit(fastmath=True, cache=True, nogil=True)
-    def _kernel(half_period, omega, n_points, I_pk, Vin_pk,
-                Vout, L_H, fsw_Hz):
+    def _kernel(
+        half_period: float,
+        omega: float,
+        n_points: int,
+        I_pk: float,
+        Vin_pk: float,
+        Vout: float,
+        L_H: float,
+        fsw_Hz: float,
+    ) -> tuple:
         t = np.empty(n_points)
         iL_avg = np.empty(n_points)
         delta_iL = np.empty(n_points)
@@ -178,7 +191,7 @@ def _build_waveforms_kernel():
     return _kernel
 
 
-def _build_rms_kernel():
+def _build_rms_kernel() -> Optional[Callable[[np.ndarray, np.ndarray], float]]:
     """Compile the total-RMS computation. Hand-rolled mean
     (sum + divide) avoids the ~3.5 µs ``np.mean`` dispatch
     overhead, called twice per ``engine.design()``."""
@@ -188,7 +201,7 @@ def _build_rms_kernel():
         return None
 
     @njit(fastmath=True, cache=True, nogil=True)
-    def _kernel(iL_avg, delta):
+    def _kernel(iL_avg: np.ndarray, delta: np.ndarray) -> float:
         n_a = iL_avg.shape[0]
         n_d = delta.shape[0]
         if n_a == 0 or n_d == 0:

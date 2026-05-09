@@ -1,3 +1,27 @@
+"""Magnetic-material data model — saturation, rolloff, core-loss.
+
+A :class:`Material` carries everything the engine needs to model
+the magnetic behavior of a chosen core, regardless of geometry:
+
+- **Saturation flux density** (``Bsat_25C_T`` / ``Bsat_100C_T``)
+  with the temperature-derated value used as the design ceiling.
+- **Initial permeability** (``mu_initial``) — bulk-µᵢ at zero
+  DC bias; the design point uses :class:`RolloffParams` to
+  derate as H grows.
+- **Rolloff curve** (:class:`RolloffParams`) — power-law fit
+  per material family (Kool Mu, MPP, High Flux, XFlux, …)
+  calibrated against vendor µ-vs-H data.
+- **Core-loss model** — :class:`SteinmetzParams` for the
+  classic Pv = k·fᵅ·Bᵝ form, and the iGSE coefficients
+  (Mühlethaler) for non-sinusoidal flux.
+- **Density** (``rho_kg_m3``) for the BOM mass × $/kg cost.
+
+The catalog ships ~470 materials from Magnetics, TDK, Ferroxcube,
+Thornton, Magmattec and OpenMagnetics. See
+:mod:`pfc_inductor.data_loader` for the JSON schema and
+:mod:`pfc_inductor.physics.rolloff` for the rolloff math.
+"""
+
 from __future__ import annotations
 
 from typing import Literal, Optional

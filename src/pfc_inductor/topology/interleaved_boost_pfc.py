@@ -153,7 +153,9 @@ def ripple_cancellation_factor(D: float, N: int) -> float:
         return 0.0
     # Pick the cancellation cell. ``k`` in the Hwu-Yau paper is
     # the integer part of N·D + 1 (so D ∈ (0, 1/N] uses k=1, etc.).
-    k = int(math.floor(N * D)) + 1
+    # ``math.floor`` already returns an int — the explicit ``int()``
+    # cast was redundant.
+    k = math.floor(N * D) + 1
     if k > N:
         return 0.0
     num = (1.0 - k * D + (k - 1)) * (k * D - (k - 1))

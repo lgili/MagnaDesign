@@ -24,6 +24,8 @@ magnetic components employed in power electronic systems," IEEE TPE, 2012.
 
 from __future__ import annotations
 
+from typing import Callable, Optional
+
 import numpy as np
 from numpy.typing import ArrayLike
 
@@ -69,18 +71,26 @@ def core_loss_W_sinusoidal(
     return Pv_mW_cm3 * Ve_cm3 * 1e-3
 
 
-def _build_steinmetz_kernel():
+def _build_steinmetz_kernel() -> Optional[Callable[..., float]]:
     """Compile :func:`steinmetz_volumetric_mWcm3` with Numba if
     available. The kernel takes Pydantic-resolved coefficients
     as scalars so attribute access is paid once (in the wrapper)
     rather than per-call."""
     try:
-        from numba import njit
+        from numba import njit  # type: ignore[import-untyped]
     except ImportError:
         return None
 
     @njit(fastmath=True, cache=True, nogil=True)
-    def _kernel(f_kHz, B_pk_mT, Pv_ref, f_ref_kHz, B_ref_mT, alpha, beta):
+    def _kernel(
+        f_kHz: float,
+        B_pk_mT: float,
+        Pv_ref: float,
+        f_ref_kHz: float,
+        B_ref_mT: float,
+        alpha: float,
+        beta: float,
+    ) -> float:
         f = f_kHz if f_kHz > 1e-3 else 1e-3
         B = B_pk_mT if B_pk_mT > 1e-6 else 1e-6
         return Pv_ref * (f / f_ref_kHz) ** alpha * (B / B_ref_mT) ** beta
@@ -148,22 +158,25 @@ def core_loss_W_pfc_ripple_iGSE(
 # same accuracy — just slower.
 
 
-def _build_numba_kernel():
+def _build_numba_kernel() -> Optional[Callable[..., float]]:
     """Compile the iGSE-mean kernel with Numba if available.
 
     Returns the compiled function, or ``None`` when Numba isn't
     installed. Called once at module import; the result is
-    cached in ``_NUMBA_KERNEL``.
+    cached in ``_NUMBA_KERNEL``. The ``Callable`` return type is
+    deliberately loose — the kernel's exact signature is decided
+    at compile time by Numba and we treat it as opaque from
+    Python.
     """
     try:
         from numba import njit
     except ImportError:
         return None
 
-    from numba import njit
-
     @njit(fastmath=True, cache=True, nogil=True)
-    def _kernel(arr, Pv_ref, f_factor, B_ref_mT, beta):
+    def _kernel(
+        arr: np.ndarray, Pv_ref: float, f_factor: float, B_ref_mT: float, beta: float
+    ) -> float:
         n = arr.shape[0]
         if n == 0:
             return 0.0

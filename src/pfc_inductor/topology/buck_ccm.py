@@ -29,41 +29,30 @@ import math
 import numpy as np
 
 from pfc_inductor.models import Spec
+from pfc_inductor.topology._dc_input import vin_max, vin_min, vin_nom
 
 # ---------------------------------------------------------------------------
-# Spec accessors — handle the "DC topology" Vin fields gracefully
+# Spec accessors — DC-input Vin handling shared with flyback (and any
+# future DC-input topology) lives in ``topology._dc_input``. We re-export
+# under the legacy ``_``-prefixed names so existing call sites
+# (``buck_ccm._vin_min``, picked up by the engine + report layers) keep
+# working without a wide rename.
 # ---------------------------------------------------------------------------
 
 
 def _vin_min(spec: Spec) -> float:
-    """Worst-case low input voltage for current calculations.
-
-    Order of preference: explicit ``Vin_dc_min_V`` if set, else the
-    nominal ``Vin_dc_V``, else fall back to the legacy
-    ``Vin_min_Vrms`` (treated as DC) so callers that haven't
-    migrated their specs keep working.
-    """
-    return float(
-        getattr(spec, "Vin_dc_min_V", None)
-        or getattr(spec, "Vin_dc_V", None)
-        or getattr(spec, "Vin_min_Vrms", 0.0)
-        or 0.0
-    )
+    """Worst-case low input voltage (alias for ``_dc_input.vin_min``)."""
+    return vin_min(spec)
 
 
 def _vin_max(spec: Spec) -> float:
-    """Worst-case high input voltage for ripple calculations."""
-    return float(
-        getattr(spec, "Vin_dc_max_V", None)
-        or getattr(spec, "Vin_dc_V", None)
-        or getattr(spec, "Vin_max_Vrms", 0.0)
-        or 0.0
-    )
+    """Worst-case high input voltage (alias for ``_dc_input.vin_max``)."""
+    return vin_max(spec)
 
 
 def _vin_nom(spec: Spec) -> float:
-    """Nominal input voltage for waveform sampling."""
-    return float(getattr(spec, "Vin_dc_V", None) or _vin_max(spec) or _vin_min(spec))
+    """Nominal input voltage (alias for ``_dc_input.vin_nom``)."""
+    return vin_nom(spec)
 
 
 def _ripple_ratio(spec: Spec) -> float:

@@ -86,10 +86,7 @@ class _PFvsLBody(QWidget):
         # Boost-PFC and interleaved boost-PFC keep the strip
         # deliberately blank — PF ≈ 1 by active control, so it is
         # not meaningful as a "design metric" the user is choosing.
-        if (
-            spec.topology in ("boost_ccm", "interleaved_boost_pfc")
-            or result.L_actual_uH <= 0
-        ):
+        if spec.topology in ("boost_ccm", "interleaved_boost_pfc") or result.L_actual_uH <= 0:
             self._lbl_pf.setText("PF  —")
             self._lbl_S.setText("S  —")
             self._lbl_thd.setText("THD  —")

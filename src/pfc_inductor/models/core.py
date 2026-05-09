@@ -1,3 +1,22 @@
+"""Magnetic-core data model.
+
+The :class:`Core` Pydantic model holds the geometry + reference
+inductance index for one core part as it appears in the curated
+catalog. Two flavors of fields:
+
+- **Geometry** (``Ae_mm2``, ``le_mm``, ``Ve_mm3``, ``Wa_mm2``,
+  ``MLT_mm``, etc.) — the dimensions the engine reads to size
+  windings and compute flux density.
+- **Manufacturer index** (``AL_nH``) — inductance per N² at
+  zero DC bias, with the manufacturer's default material. Powder
+  cores additionally need the rolloff curve from
+  :class:`Material` to derate ``AL`` at the operating H.
+
+The catalog ships ~10 000 cores from Magnetics, TDK, Ferroxcube,
+Thornton, Pulse, Coilcraft, Würth and Micrometals — see
+:mod:`pfc_inductor.data_loader` for the JSON-on-disk schema.
+"""
+
 from __future__ import annotations
 
 from typing import Optional

@@ -121,6 +121,7 @@ class DashboardPage(QWidget):
         # The cards still pin their own minimums; this floor only
         # matters when stretching tall on bigger displays.
         from pfc_inductor.ui.theme import get_theme as _get_theme
+
         _dl = _get_theme().dashboard
         grid.setRowMinimumHeight(1, _dl.row_kpi_min)
         grid.setRowStretch(1, 2)

@@ -17,7 +17,7 @@ Workflow:
 from __future__ import annotations
 
 import math
-from typing import Optional
+from typing import Callable, Optional
 
 import numpy as np
 
@@ -114,30 +114,32 @@ def _solve_N(
 _OE_PER_AM_KERNEL = 1.0 / 79.5774715459  # mirrors ``rolloff.OE_PER_AM``
 
 
-def _build_solve_n_kernel():
-    """Compile the _solve_N inner loop with Numba if available.
+def _build_solve_n_kernel() -> Callable[..., tuple[int, float, float]] | None:
+    """Compile the ``_solve_N`` inner loop with Numba if available.
 
     Returns the compiled function or ``None`` if Numba isn't
     installed (the public API falls back to pure Python in that
-    case).
+    case). The ``Callable`` return type is intentionally loose —
+    the kernel's exact JIT-compiled signature is opaque to Python
+    and we only ever ``call`` it with a fixed argument bundle.
     """
     try:
-        from numba import njit
+        from numba import njit  # type: ignore[import-untyped]
     except ImportError:
         return None
 
     @njit(fastmath=True, cache=True, nogil=True)
     def _kernel(
-        L_required_uH,
-        AL_nH,
-        le_mm,
-        I_dc_pk_A,
-        N_max,
-        rolloff_a,
-        rolloff_b,
-        rolloff_c,
-        has_rolloff,
-    ):
+        L_required_uH: float,
+        AL_nH: float,
+        le_mm: float,
+        I_dc_pk_A: float,
+        N_max: int,
+        rolloff_a: float,
+        rolloff_b: float,
+        rolloff_c: float,
+        has_rolloff: bool,
+    ) -> tuple[int, float, float]:
         le_m = le_mm * 1e-3
         for N in range(1, N_max + 1):
             if has_rolloff:
@@ -429,7 +431,11 @@ def design(
         T_init=T_init,
     )
     if fused_result is not None:
-        T_final, P_total, P_cu_dc, P_cu_ac, P_line, P_ripple, conv = fused_result
+        # ``P_total`` is reconstructed from the per-leaf components
+        # below (sum into ``losses.P_total_W``), so the kernel's
+        # composite return is unpacked into ``_`` to avoid a
+        # shadowing ``RUF059`` warning.
+        T_final, _, P_cu_dc, P_cu_ac, P_line, P_ripple, conv = fused_result
         Rdc_final = cp.Rdc_ohm(N, core.MLT_mm, wire.A_cu_mm2, T_final)
         Rac_final = cp.Rac_ohm(wire, fsw_Hz_for_skin, Rdc_final, layers, T_final)
     else:
@@ -471,8 +477,12 @@ def design(
         # (which is iGSE-consistent) parity-tested against this
         # branch.
         P_line, P_ripple = cl.core_loss_W_pfc(
-            material, spec.f_line_Hz, fsw_kHz_for_loss,
-            B_pk_for_loss, delta_B_avg_T, core.Ve_mm3,
+            material,
+            spec.f_line_Hz,
+            fsw_kHz_for_loss,
+            B_pk_for_loss,
+            delta_B_avg_T,
+            core.Ve_mm3,
             delta_B_pp_T_array=delta_B_pp_T_array,
         )
 
@@ -573,8 +583,11 @@ def design(
         # "the inductor"); Ns falls out from the turns ratio.
         n_ratio = flyback.optimal_turns_ratio(spec)
         Lp_actual_uH = float(L_actual)
-        Np_turns = int(N)
-        Ns_turns = max(1, int(round(N / max(n_ratio, 1e-3))))
+        # ``N`` is already an int (engine's ``_solve_N`` returns
+        # the smallest integer turn-count); ``Np_turns`` is just an
+        # alias for clarity in the flyback context.
+        Np_turns = N
+        Ns_turns = max(1, round(N / max(n_ratio, 1e-3)))
         Ip_peak_A = flyback.primary_peak_current(spec, L_actual)
         Ip_rms_A = flyback.primary_rms_current(spec, L_actual, Ip_peak_A)
         Is_peak_A = flyback.secondary_peak_current(spec, Ip_peak_A, n_ratio)
@@ -675,11 +688,11 @@ def _try_fused_thermal(
     I_rip_rms: float,
     B_pk_for_loss: float,
     delta_B_avg_T: float,
-    delta_B_pp_T_array,
+    delta_B_pp_T_array: Optional[np.ndarray],
     A_surface: float,
     T_amb: float,
     T_init: float,
-):
+) -> Optional[tuple[float, float, float, float, float, float, bool]]:
     """Hand the thermal-converge + total-loss block to the Numba
     fused kernel when it's available.
 
@@ -697,8 +710,8 @@ def _try_fused_thermal(
         )
     except ImportError:
         return None
-    if material.steinmetz is None:
-        return None
+    # ``Material.steinmetz`` is a required field (see ``models.material``);
+    # the kernel is callable for any catalog entry that loaded successfully.
     s = material.steinmetz
 
     if wire.type == "round" and wire.d_cu_mm:
@@ -722,19 +735,26 @@ def _try_fused_thermal(
         spec_f_line_Hz=float(spec.f_line_Hz),
         A_surface_m2=float(A_surface),
         T_init_C=float(T_init),
-        N=int(N), MLT_mm=float(core.MLT_mm),
+        N=int(N),
+        MLT_mm=float(core.MLT_mm),
         A_cu_mm2=float(wire.A_cu_mm2),
         fsw_Hz_skin=float(fsw_Hz_for_skin),
         fsw_kHz_loss=float(fsw_kHz_for_loss),
-        layers=int(layers), wire_kind=int(wire_kind),
-        d_cu_m=d_cu_m, d_strand_m=d_strand_m, n_strands=n_strands,
-        I_dc_line=float(I_rms_line), I_rip_rms=float(I_rip_rms),
+        layers=int(layers),
+        wire_kind=int(wire_kind),
+        d_cu_m=d_cu_m,
+        d_strand_m=d_strand_m,
+        n_strands=n_strands,
+        I_dc_line=float(I_rms_line),
+        I_rip_rms=float(I_rip_rms),
         B_pk_for_loss_T=float(B_pk_for_loss),
         delta_B_avg_T=float(delta_B_avg_T),
         delta_B_pp_T_array=delta_B_pp_T_array,
         Ve_mm3=float(core.Ve_mm3),
-        Pv_ref=float(s.Pv_ref_mWcm3), alpha=float(s.alpha),
-        beta=float(s.beta), B_ref_mT=float(s.B_ref_mT),
+        Pv_ref=float(s.Pv_ref_mWcm3),
+        alpha=float(s.alpha),
+        beta=float(s.beta),
+        B_ref_mT=float(s.B_ref_mT),
         f_ref_kHz=float(s.f_ref_kHz),
         f_min_kHz=float(s.f_min_kHz),
     )

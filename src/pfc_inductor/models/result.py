@@ -1,3 +1,28 @@
+"""Design-result data model — the engine's canonical output.
+
+:class:`DesignResult` is what every ``design()`` call returns.
+Two-tier shape:
+
+- **Required scalars** — every topology populates these (L, N,
+  currents, B_pk, losses, temperature, window utilization).
+- **Optional fields** — populated only by topologies that need
+  the extra metrics. Line-reactor: ``pct_impedance_actual``,
+  ``thd_estimate_pct``, ``Pi_W``. Flyback: 11 fields covering
+  the secondary winding (``Lp_actual_uH``, ``Np_turns``,
+  ``Ns_turns``, ``Ip_*``, ``Is_*``), the leakage estimate
+  (``L_leak_uH``), reflected voltages (``V_drain_pk_V``,
+  ``V_diode_pk_V``), and snubber dissipation
+  (``P_snubber_W``).
+
+:class:`LossBreakdown` splits the total power into copper-DC,
+copper-AC, core (line-band), and core (ripple-band) so the
+report layer can show a stacked bar without re-deriving the
+breakdown from scalars.
+
+:meth:`is_feasible` is the headline boolean every UI tile
+reads to decide whether to flip its colour to green.
+"""
+
 from __future__ import annotations
 
 from typing import Optional

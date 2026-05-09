@@ -47,35 +47,29 @@ import numpy as np
 
 from pfc_inductor.models import Spec
 from pfc_inductor.physics.leakage import leakage_estimate_uH
+from pfc_inductor.topology._dc_input import vin_max, vin_min, vin_nom
 
 # ---------------------------------------------------------------------------
-# Spec accessors — Vin handling shared with buck_ccm (DC-input topology)
+# Spec accessors — DC-input Vin handling shared with buck_ccm (and any
+# future DC-input topology) lives in ``topology._dc_input``. The legacy
+# ``_``-prefixed names are kept as thin aliases so existing call sites
+# (engine, reports, tests) keep working.
 # ---------------------------------------------------------------------------
 
 
 def _vin_min(spec: Spec) -> float:
-    """Worst-case low input voltage for current calculations."""
-    return float(
-        getattr(spec, "Vin_dc_min_V", None)
-        or getattr(spec, "Vin_dc_V", None)
-        or getattr(spec, "Vin_min_Vrms", 0.0)
-        or 0.0
-    )
+    """Worst-case low input voltage (alias for ``_dc_input.vin_min``)."""
+    return vin_min(spec)
 
 
 def _vin_max(spec: Spec) -> float:
-    """Worst-case high input voltage for FET-stress calculations."""
-    return float(
-        getattr(spec, "Vin_dc_max_V", None)
-        or getattr(spec, "Vin_dc_V", None)
-        or getattr(spec, "Vin_max_Vrms", 0.0)
-        or 0.0
-    )
+    """Worst-case high input voltage (alias for ``_dc_input.vin_max``)."""
+    return vin_max(spec)
 
 
 def _vin_nom(spec: Spec) -> float:
-    """Nominal input voltage for waveform sampling."""
-    return float(getattr(spec, "Vin_dc_V", None) or _vin_max(spec) or _vin_min(spec))
+    """Nominal input voltage (alias for ``_dc_input.vin_nom``)."""
+    return vin_nom(spec)
 
 
 def _flyback_mode(spec: Spec) -> Literal["dcm", "ccm"]:

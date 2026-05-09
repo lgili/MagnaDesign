@@ -132,9 +132,7 @@ def test_schematic_topology_picker_choices(app):
         "line_reactor_1ph",
         "line_reactor_3ph",
     }
-    assert expected_subset.issubset(keys), (
-        f"missing canonical entries: {expected_subset - keys}"
-    )
+    assert expected_subset.issubset(keys), f"missing canonical entries: {expected_subset - keys}"
     # Every label is non-empty.
     for _key, label in choices:
         assert label.strip()

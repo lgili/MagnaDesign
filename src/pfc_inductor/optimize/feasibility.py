@@ -22,7 +22,7 @@ positives (showing one that turns out infeasible after the user clicks
 from __future__ import annotations
 
 import math
-from typing import Literal
+from typing import Callable, Literal
 
 from pfc_inductor.models import Core, Material, Spec, Wire
 from pfc_inductor.topology import (
@@ -79,27 +79,71 @@ def _n_hard_cap(spec: Spec) -> int:
 Verdict = Literal["ok", "too_small_L", "window_overflow", "saturates"]
 
 
+# ---------------------------------------------------------------------------
+# Topology dispatch — one table per cheap query
+# ---------------------------------------------------------------------------
+# Each ``required_L_uH`` / ``peak_current_A`` call used to be a 6-arm
+# ``if/elif`` chain. Adding a new topology meant editing every one of
+# those chains, and missing a branch was an easy mistake (the spec
+# validator + topology registry would happily accept the new key, but
+# the cascade Tier-0 filter would silently fall through to the
+# passive-choke default and reject every candidate). Centralising the
+# dispatch in two small tables makes the registration site explicit
+# and any miss surfaces as a ``KeyError`` with the spec topology
+# name instead of a wrong number.
+
+_RequiredLFn = Callable[[Spec], float]
+_PeakCurrentFn = Callable[[Spec], float]
+
+
+def _flyback_peak_at_design_lp(spec: Spec) -> float:
+    """Cheap pre-L peak primary current for flyback.
+
+    Uses the design-time ``Lp_max`` (D_max = 0.45) since the cascade
+    Tier-0 filter runs before the actual core is picked.
+    """
+    Lp_uH = flyback.required_primary_inductance_uH(spec)
+    return flyback.primary_peak_current(spec, Lp_uH)
+
+
+_REQUIRED_L_BY_TOPOLOGY: dict[str, _RequiredLFn] = {
+    "line_reactor": line_reactor.required_inductance_uH,
+    "boost_ccm": lambda s: boost_ccm.required_inductance_uH(s, s.Vin_min_Vrms),
+    "interleaved_boost_pfc": lambda s: interleaved_boost_pfc.required_inductance_uH(
+        s, s.Vin_min_Vrms
+    ),
+    "buck_ccm": buck_ccm.required_inductance_uH,
+    "flyback": flyback.required_primary_inductance_uH,
+    "passive_choke": lambda s: passive_choke.required_inductance_uH(s, s.Vin_min_Vrms),
+}
+
+
+_PEAK_CURRENT_BY_TOPOLOGY: dict[str, _PeakCurrentFn] = {
+    "line_reactor": line_reactor.line_pk_current_A,
+    "boost_ccm": lambda s: boost_ccm.line_peak_current_A(s, s.Vin_min_Vrms),
+    "interleaved_boost_pfc": lambda s: interleaved_boost_pfc.line_peak_current_A(s, s.Vin_min_Vrms),
+    # Buck pre-L: ``Iout`` alone (no ripple yet). The cascade Tier-1
+    # pass refines this once L is sized.
+    "buck_ccm": buck_ccm.output_current_A,
+    # Flyback pre-L: primary peak at D_max=0.45 — see helper.
+    "flyback": _flyback_peak_at_design_lp,
+    "passive_choke": lambda s: passive_choke.line_peak_current_A(s, s.Vin_min_Vrms),
+}
+
+
 def required_L_uH(spec: Spec) -> float:
     """Pre-design L target (no rolloff, just topology math).
 
     Public helper used by both the feasibility filter and the scoring
     layer. Dispatches to the topology module that owns the analytical
-    formula for the requested topology.
+    formula for the requested topology. Falls back to passive-choke
+    semantics for any unmapped topology — the historical default
+    before the dispatch table was extracted.
     """
-    if spec.topology == "line_reactor":
-        return line_reactor.required_inductance_uH(spec)
-    if spec.topology == "boost_ccm":
-        return boost_ccm.required_inductance_uH(spec, spec.Vin_min_Vrms)
-    if spec.topology == "interleaved_boost_pfc":
-        return interleaved_boost_pfc.required_inductance_uH(
-            spec,
-            spec.Vin_min_Vrms,
-        )
-    if spec.topology == "buck_ccm":
-        return buck_ccm.required_inductance_uH(spec)
-    if spec.topology == "flyback":
-        return flyback.required_primary_inductance_uH(spec)
-    return passive_choke.required_inductance_uH(spec, spec.Vin_min_Vrms)
+    fn = _REQUIRED_L_BY_TOPOLOGY.get(spec.topology)
+    if fn is None:
+        return passive_choke.required_inductance_uH(spec, spec.Vin_min_Vrms)
+    return fn(spec)
 
 
 def peak_current_A(spec: Spec) -> float:
@@ -109,27 +153,10 @@ def peak_current_A(spec: Spec) -> float:
     any caller that needs a quick I_pk estimate without spinning the
     full ``design()`` pipeline.
     """
-    if spec.topology == "line_reactor":
-        return line_reactor.line_pk_current_A(spec)
-    if spec.topology == "boost_ccm":
-        return boost_ccm.line_peak_current_A(spec, spec.Vin_min_Vrms)
-    if spec.topology == "interleaved_boost_pfc":
-        return interleaved_boost_pfc.line_peak_current_A(
-            spec,
-            spec.Vin_min_Vrms,
-        )
-    if spec.topology == "buck_ccm":
-        # Pre-L sizing the heuristic uses Iout alone; the peak with
-        # ripple comes once L is chosen. The cascade Tier-0 filter
-        # only needs an order-of-magnitude figure, so Iout is fine.
-        return buck_ccm.output_current_A(spec)
-    if spec.topology == "flyback":
-        # Pre-L estimate uses the primary peak at the design-time
-        # Lp boundary (D_max=0.45). The cascade Tier-1 pass refines
-        # this once Np is picked from the actual core's AL.
-        Lp_uH = flyback.required_primary_inductance_uH(spec)
-        return flyback.primary_peak_current(spec, Lp_uH)
-    return passive_choke.line_peak_current_A(spec, spec.Vin_min_Vrms)
+    fn = _PEAK_CURRENT_BY_TOPOLOGY.get(spec.topology)
+    if fn is None:
+        return passive_choke.line_peak_current_A(spec, spec.Vin_min_Vrms)
+    return fn(spec)
 
 
 # Back-compat aliases — leading underscore previously implied "private",

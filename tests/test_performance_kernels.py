@@ -298,12 +298,9 @@ def test_boost_ccm_waveforms_kernel_matches_numpy() -> None:
     finally:
         boost_ccm._WAVEFORMS_KERNEL = saved_w
 
-    for key in ("t_s", "iL_avg_A", "delta_iL_pp_A", "iL_pk_A",
-                "iL_min_A", "vin_inst_V", "duty"):
+    for key in ("t_s", "iL_avg_A", "delta_iL_pp_A", "iL_pk_A", "iL_min_A", "vin_inst_V", "duty"):
         diff = np.max(np.abs(np.asarray(wf_nb[key]) - np.asarray(wf_py[key])))
-        assert diff < 1e-9, (
-            f"waveforms kernel parity broken on {key!r}: max Δ = {diff:.3e}"
-        )
+        assert diff < 1e-9, f"waveforms kernel parity broken on {key!r}: max Δ = {diff:.3e}"
 
 
 def test_boost_ccm_rms_kernel_matches_numpy() -> None:
@@ -331,8 +328,7 @@ def test_boost_ccm_rms_kernel_matches_numpy() -> None:
     finally:
         boost_ccm._RMS_KERNEL = saved_r
     assert abs(rms_nb - rms_py) < 1e-9, (
-        f"RMS kernel parity broken: {rms_nb} vs {rms_py} (Δ = "
-        f"{abs(rms_nb - rms_py):.3e})"
+        f"RMS kernel parity broken: {rms_nb} vs {rms_py} (Δ = {abs(rms_nb - rms_py):.3e})"
     )
 
 
