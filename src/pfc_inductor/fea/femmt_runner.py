@@ -365,7 +365,8 @@ def _run_validation_in_subprocess(
     *,
     output_dir: Optional[Path] = None,
     timeout_s: int = _FEMMT_DEFAULT_TIMEOUT_S,
-) -> FEAValidation:
+    thermal_options: Optional[dict] = None,
+):
     """Spawn a subprocess that runs ``_validate_design_femmt_inproc``
     and stream the result back through a queue.
 
@@ -390,7 +391,8 @@ def _run_validation_in_subprocess(
     queue: mp.Queue = ctx.Queue()
     proc = ctx.Process(
         target=_validation_subprocess_entry,
-        args=(spec, core, wire, material, result, output_dir, queue),
+        args=(spec, core, wire, material, result, output_dir, queue,
+              thermal_options),
         daemon=False,
     )
     proc.start()
@@ -443,6 +445,7 @@ def _validation_subprocess_entry(
     result,
     output_dir,
     queue,
+    thermal_options=None,
 ):
     """Subprocess target — runs the in-proc FEMMT validation and
     sends the result (or exception) back through the queue.
@@ -452,6 +455,12 @@ def _validation_subprocess_entry(
     parent process reads the result via the queue, and an
     unhandled exception in the child would just silently drop the
     result.
+
+    When ``thermal_options`` is supplied (a dict picklable across
+    process boundaries with thermal-conductivity / boundary /
+    case-gap fields), the in-proc function additionally runs a
+    thermal solve and returns a ``(FEAValidation, dict)`` tuple;
+    we forward the tuple unchanged.
     """
     try:
         v = _validate_design_femmt_inproc(
@@ -461,6 +470,7 @@ def _validation_subprocess_entry(
             material,
             result,
             output_dir=output_dir,
+            thermal_options=thermal_options,
         )
         queue.put(("ok", v))
     except Exception as e:
@@ -475,13 +485,26 @@ def _validate_design_femmt_inproc(
     result: DesignResult,
     output_dir: Optional[Path] = None,
     timeout_s: int = _FEMMT_DEFAULT_TIMEOUT_S,
-) -> FEAValidation:
+    thermal_options: Optional[dict] = None,
+):
     """In-process FEMMT validation. Use ``validate_design_femmt``
     instead — that wraps this in a subprocess to survive gmsh
     segfaults.
 
     Re-runs the import / integrity prechecks (cheap; idempotent) so
     the subprocess sees the same FEMMT module state as the parent.
+
+    When ``thermal_options`` is set (the dict produced by
+    :func:`pfc_inductor.fea.femmt_thermal._marshal_thermal`), the
+    function runs an additional thermal pass on the same
+    ``MagneticComponent`` instance — FEMMT's thermal solver
+    requires the in-memory state from the EM step, so doing both
+    in one process is the only architecture that works. The
+    return value flips from ``FEAValidation`` to a 2-tuple
+    ``(FEAValidation, dict)`` where the dict is the raw
+    ``read_thermal_log()`` output. The caller-side helper
+    :func:`pfc_inductor.fea.femmt_thermal.validate_design_thermal_femmt`
+    builds a typed ``ThermalResult`` from the dict.
     """
     _install_no_space_femmt_shim()
     try:
@@ -506,7 +529,10 @@ def _validate_design_femmt_inproc(
     kind = infer_shape(core)
     with _silence_signal_in_worker_thread():
         if kind == "toroid":
-            return _toroid_validation(spec, core, wire, material, result, output_dir, timeout_s, ft)
+            return _toroid_validation(
+                spec, core, wire, material, result, output_dir,
+                timeout_s, ft, thermal_options=thermal_options,
+            )
         if kind in ("ee", "etd", "pq"):
             return _bobbin_validation(
                 spec,
@@ -518,14 +544,21 @@ def _validate_design_femmt_inproc(
                 timeout_s,
                 ft,
                 kind,
+                thermal_options=thermal_options,
             )
     raise FEMMSolveError(f"Core shape {kind!r} not yet supported by the FEMMT backend.")
 
 
 def _toroid_validation(
-    spec, core, wire, material, result, output_dir, timeout_s, ft
-) -> FEAValidation:
-    """Toroidal axisymmetric magnetostatic problem in FEMMT."""
+    spec, core, wire, material, result, output_dir, timeout_s, ft,
+    *, thermal_options: Optional[dict] = None,
+):
+    """Toroidal axisymmetric magnetostatic problem in FEMMT.
+
+    When ``thermal_options`` is set, returns a 2-tuple
+    ``(FEAValidation, dict)`` where the dict is FEMMT's raw
+    ``read_thermal_log()`` output.
+    """
     dims = _toroid_dims(core)
     if dims is None:
         raise FEMMSolveError("Toroid without derivable dimensions (needs Wa/le/Ae).")
@@ -663,6 +696,25 @@ def _toroid_validation(
         )
 
         log = geo.read_log()
+
+        # Optional thermal pass on the same geo. FEMMT's thermal
+        # solver depends on the in-memory state the EM step
+        # leaves behind, so it has to live in this same try-block
+        # before ``os.chdir`` restores cwd.
+        thermal_log = None
+        if thermal_options is not None:
+            geo.thermal_simulation(
+                thermal_conductivity_dict=thermal_options["k_dict"],
+                boundary_temperatures_dict=thermal_options["temps"],
+                boundary_flags_dict=thermal_options["flags"],
+                case_gap_top=thermal_options["case_gap_top"],
+                case_gap_right=thermal_options["case_gap_right"],
+                case_gap_bot=thermal_options["case_gap_bot"],
+                show_thermal_simulation_results=False,
+                pre_visualize_geometry=False,
+                flag_insulation=True,
+            )
+            thermal_log = geo.read_thermal_log()
     finally:
         os.chdir(original_cwd)
 
@@ -693,7 +745,7 @@ def _toroid_validation(
     L_FEA_uH = L_FEA_H * 1e6
     B_an = float(result.B_pk_T)
 
-    return FEAValidation(
+    fea = FEAValidation(
         L_FEA_uH=L_FEA_uH,
         L_analytic_uH=L_an_uH,
         L_pct_error=_pct(L_an_uH, L_FEA_uH),
@@ -719,12 +771,18 @@ def _toroid_validation(
             "Eddy/AC losses not modelled (single magnetostatic)."
         ),
     )
+    return (fea, thermal_log) if thermal_options is not None else fea
 
 
 def _bobbin_validation(
-    spec, core, wire, material, result, output_dir, timeout_s, ft, kind
-) -> FEAValidation:
+    spec, core, wire, material, result, output_dir, timeout_s, ft, kind,
+    *, thermal_options: Optional[dict] = None,
+):
     """EE/ETD/PQ axisymmetric magnetostatic problem in FEMMT.
+
+    When ``thermal_options`` is set, returns a 2-tuple
+    ``(FEAValidation, dict)`` where the dict is FEMMT's raw
+    ``read_thermal_log()`` output.
 
     For these cores FEMMT's ``CoreType.Single`` is the natural fit: PQ
     and ETD have round center legs (exact), and E-cores can be mapped
@@ -919,6 +977,23 @@ def _bobbin_validation(
         )
 
         log = geo.read_log()
+
+        # Optional thermal pass on the same geo (same rationale
+        # as the toroid path).
+        thermal_log = None
+        if thermal_options is not None:
+            geo.thermal_simulation(
+                thermal_conductivity_dict=thermal_options["k_dict"],
+                boundary_temperatures_dict=thermal_options["temps"],
+                boundary_flags_dict=thermal_options["flags"],
+                case_gap_top=thermal_options["case_gap_top"],
+                case_gap_right=thermal_options["case_gap_right"],
+                case_gap_bot=thermal_options["case_gap_bot"],
+                show_thermal_simulation_results=False,
+                pre_visualize_geometry=False,
+                flag_insulation=True,
+            )
+            thermal_log = geo.read_thermal_log()
     finally:
         os.chdir(original_cwd)
 
@@ -951,7 +1026,7 @@ def _bobbin_validation(
         f"({gap_origin}). μ_eff(H={H_Oe:.0f} Oe)={mu_eff:.0f}."
     )
 
-    return FEAValidation(
+    fea = FEAValidation(
         L_FEA_uH=L_FEA_uH,
         L_analytic_uH=L_an_uH,
         L_pct_error=_pct(L_an_uH, L_FEA_uH),
@@ -971,6 +1046,7 @@ def _bobbin_validation(
             "(round centre leg) and approximate in EE (area-equivalent)."
         ),
     )
+    return (fea, thermal_log) if thermal_options is not None else fea
 
 
 def _femmt_integrity_check(femmt_module) -> dict:

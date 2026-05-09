@@ -213,18 +213,18 @@ def validate_design_thermal_femmt(
 ) -> ThermalResult:
     """Magnetostatic + thermal coupled solve.
 
-    Runs the same FEMMT geometry the magnetostatic-only path
-    builds (so the L / B numbers stay consistent), adds a
-    thermal-conductivity dict and boundary conditions, and
-    invokes FEMMT's ``thermal_simulation``. Reads the
-    ``results_thermal.json`` log FEMMT writes and returns peak /
-    average temperatures.
+    Both passes run in a **single subprocess** on the same
+    ``MagneticComponent`` instance — FEMMT's thermal solver
+    depends on the EM step's in-memory state, so a "EM in
+    subprocess A, thermal in subprocess B" architecture won't
+    work. Marshals the thermal options as a plain pickle-safe
+    dict, hands it to ``_run_validation_in_subprocess``, and
+    receives a ``(FEAValidation, dict)`` tuple.
 
-    The ``temperature.pos`` field FEMMT writes lands in the same
-    ``e_m/results/fields`` folder as the magnetostatic ``.pos``
-    files; the existing :func:`pos_renderer.render_field_pngs`
-    sweep picks it up automatically and produces a heatmap PNG
-    for the gallery.
+    The ``temperature.pos`` field that FEMMT writes lands in
+    the same ``e_m/results/fields`` folder as the magnetostatic
+    ``.pos`` outputs and is rendered as a heatmap PNG by the
+    existing :func:`pos_renderer.render_field_pngs` post-pass.
 
     Raises :class:`FEMMNotAvailable` / :class:`FEMMSolveError`
     on the same conditions the magnetostatic path raises.
@@ -234,117 +234,55 @@ def validate_design_thermal_femmt(
     options = options or ThermalOptions()
     started = time.monotonic()
 
-    # Run the existing magnetostatic path first — the thermal
-    # solve depends on the loss file the EM solve writes, and
-    # we want the user to also get the magnetostatic L / B
-    # numbers as part of the answer.
-    from pfc_inductor.fea.femmt_runner import (
-        _run_validation_in_subprocess,
-        validate_design_femmt,
-    )
+    from pfc_inductor.fea.femmt_runner import _run_validation_in_subprocess
 
-    em = validate_design_femmt(
+    # Marshal the thermal options as a flat pickle-safe dict.
+    # Booleans + floats only — no FEMMT enum / dataclass refs.
+    thermal_payload = {
+        "k_dict": _resolve_k_dict(material, options),
+        "temps": _resolve_boundaries(options)[0],
+        "flags": _resolve_boundaries(options)[1],
+        "case_gap_top": float(options.case_gap_top_m),
+        "case_gap_right": float(options.case_gap_right_m),
+        "case_gap_bot": float(options.case_gap_bot_m),
+    }
+
+    payload = _run_validation_in_subprocess(
         spec, core, wire, material, result,
         output_dir=output_dir, timeout_s=timeout_s,
+        thermal_options=thermal_payload,
     )
-
-    # Run the thermal pass directly in-process. We don't bother
-    # with a separate subprocess because the magnetostatic call
-    # already isolated the gmsh state via its own subprocess —
-    # by the time we reach here we know the FEMMT install is
-    # healthy. If the thermal pass crashes, the user gets the
-    # magnetostatic results either way.
-    fem_path = Path(em.fem_path)
-    if not fem_path.exists():
+    if not isinstance(payload, tuple) or len(payload) != 2:
         raise FEMMSolveError(
-            f"Thermal solve cannot run: magnetostatic working "
-            f"directory {fem_path} is missing."
+            "Thermal subprocess returned an unexpected payload "
+            f"shape: {type(payload).__name__}"
         )
-
-    # Defensive shape check. FEMMT's thermal solver only handles
-    # Single-core types in the tested code path — toroides via
-    # the PQ-equivalent shim work, but bespoke geometries don't.
-    # If the EM step succeeded the geometry passed muster; we
-    # just re-instantiate the component pointing at the same
-    # working dir so the loss file is in place.
-    try:
-        from pfc_inductor.fea.femmt_runner import _install_no_space_femmt_shim
-
-        _install_no_space_femmt_shim()
-        import femmt as ft
-    except Exception as e:
-        raise FEMMNotAvailable(
-            f"FEMMT could not be re-imported for the thermal "
-            f"pass: {type(e).__name__}: {e}"
-        ) from e
-
-    k_dict = _resolve_k_dict(material, options)
-    temps, flags = _resolve_boundaries(options)
-
-    # The thermal_simulation API takes ``flag_insulation`` as
-    # the last positional + ``show_thermal_simulation_results``
-    # as a keyword. We keep show_=False to stay headless.
-    original_cwd = os.getcwd()
-    os.chdir(fem_path)
-    try:
-        # Re-load the geometry exactly as the EM step set it up.
-        # FEMMT persists the model topology in the working
-        # directory, so a second instantiation with the same
-        # working_directory picks up where the EM call left off.
-        from pfc_inductor.fea.femmt_runner import _silence_signal_in_worker_thread
-
-        with _silence_signal_in_worker_thread():
-            geo = ft.MagneticComponent(
-                component_type=ft.ComponentType.Inductor,
-                working_directory=str(fem_path),
-                simulation_name="thermal",
-                onelab_verbosity=ft.Verbosity.Silent,
-                verbosity=ft.Verbosity.Silent,
-            )
-
-            # Re-create the model so FEMMT has the geometry
-            # tree in memory; this is fast (no second EM solve).
-            geo.create_model(
-                freq=spec.f_sw_kHz * 1000.0,
-                pre_visualize_geometry=False,
-                save_png=False,
-            )
-            # Run the thermal pass. show_ flags stay False so
-            # nothing pops a GUI window.
-            geo.thermal_simulation(
-                thermal_conductivity_dict=k_dict,
-                boundary_temperatures_dict=temps,
-                boundary_flags_dict=flags,
-                case_gap_top=options.case_gap_top_m,
-                case_gap_right=options.case_gap_right_m,
-                case_gap_bot=options.case_gap_bot_m,
-                show_thermal_simulation_results=False,
-                pre_visualize_geometry=False,
-                flag_insulation=True,
-            )
-            log = geo.read_thermal_log()
-    except Exception as e:
+    em, thermal_log = payload
+    if thermal_log is None:
         raise FEMMSolveError(
-            f"FEMMT thermal solve failed: {type(e).__name__}: {e}"
-        ) from e
-    finally:
-        os.chdir(original_cwd)
-
-    # Re-render the .pos files including the new ``temperature.pos``
-    # so the gallery picks up the thermal heatmap automatically.
-    try:
-        from pfc_inductor.fea.pos_renderer import render_field_pngs
-
-        render_field_pngs(fem_path)
-    except Exception:
-        logger.exception("Field-PNG re-render after thermal failed.")
+            "Thermal solve returned no log — the magnetostatic "
+            "pass succeeded but ``read_thermal_log`` came back "
+            "empty. Check FEMMT's stderr in the working dir."
+        )
 
     # Extract scalars from FEMMT's results_thermal.json. Field
     # names follow FEMMT 0.5.x convention.
-    T_peak = float(_dig(log, ["temperatures", "max"], default=0.0))
-    T_w_avg = float(_dig(log, ["temperatures", "winding_average"], default=0.0))
-    T_c_avg = float(_dig(log, ["temperatures", "core_average"], default=0.0))
+    T_peak = float(_dig(thermal_log, ["temperatures", "max"], default=0.0))
+    T_w_avg = float(_dig(thermal_log, ["temperatures", "winding_average"],
+                          default=0.0))
+    T_c_avg = float(_dig(thermal_log, ["temperatures", "core_average"],
+                          default=0.0))
     elapsed = time.monotonic() - started
+
+    # Re-render the .pos files so the new ``temperature.pos``
+    # gets a heatmap PNG; the gallery will pick it up.
+    try:
+        from pfc_inductor.fea.pos_renderer import render_field_pngs
+
+        render_field_pngs(Path(em.fem_path))
+    except Exception:
+        logger.exception("Field-PNG re-render after thermal failed.")
+
     return ThermalResult(
         T_peak_C=T_peak,
         T_winding_avg_C=T_w_avg,
@@ -352,12 +290,13 @@ def validate_design_thermal_femmt(
         T_ambient_C=options.T_ambient_C,
         rise_winding_C=max(T_w_avg - options.T_ambient_C, 0.0),
         rise_core_C=max(T_c_avg - options.T_ambient_C, 0.0),
-        fem_path=str(fem_path),
+        fem_path=str(em.fem_path),
         solve_time_s=elapsed,
         notes=(
             "Steady-state thermal solve from the magnetostatic loss "
-            "file. Use ThermalOptions to override material k or "
-            "boundary temperatures."
+            "file (single-subprocess architecture). Use "
+            "ThermalOptions to override material k or boundary "
+            "temperatures."
         ),
     )
 
