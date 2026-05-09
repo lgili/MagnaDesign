@@ -91,6 +91,50 @@ class _ValidationWorker(QObject):
             )
 
 
+class _ThermalWorker(QObject):
+    """Worker thread for the coupled magnetostatic + thermal solve.
+
+    Wraps :func:`validate_design_thermal_femmt` so the GUI stays
+    responsive during the ~30 s solve. The output payload bundles
+    both the magnetostatic ``FEAValidation`` and the thermal
+    ``ThermalResult`` so the receiver can refresh the field-plots
+    gallery (now containing the temperature heatmap) and surface
+    the peak-T number in the log.
+    """
+
+    finished = Signal(object)  # (FEAValidation, ThermalResult)
+    failed = Signal(str)
+
+    def __init__(self, spec, core, wire, material, result):
+        super().__init__()
+        self.spec = spec
+        self.core = core
+        self.wire = wire
+        self.material = material
+        self.result = result
+
+    def run(self) -> None:
+        import traceback
+
+        try:
+            from pfc_inductor.fea.femmt_thermal import (
+                ThermalOptions, validate_design_thermal_femmt,
+            )
+
+            thermal = validate_design_thermal_femmt(
+                self.spec, self.core, self.wire, self.material,
+                self.result,
+                options=ThermalOptions(
+                    T_ambient_C=float(getattr(self.spec, "T_amb_C", 40.0)),
+                ),
+                timeout_s=420,
+            )
+            self.finished.emit(thermal)
+        except Exception as e:
+            self.failed.emit(f"{type(e).__name__}: {e}\n\n"
+                              f"{traceback.format_exc()}")
+
+
 class _SweepWorker(QObject):
     """Worker thread for the Tier-4 swept-FEA evaluation.
 
@@ -435,6 +479,21 @@ class FEAValidationDialog(QDialog):
         # the single-point validation uses; just multi-shot.
         # Disabled state mirrors the validate button (FEMMT not
         # configured → both off).
+        # Thermal button — runs the magnetostatic + thermal
+        # coupled FEMMT solve. Adds 10–25 s to the magnetostatic
+        # cost; output is a temperature.pos field that the
+        # ``pos_renderer`` post-processor turns into a coloured
+        # heatmap PNG, picked up automatically by the Field
+        # plots gallery via the temperature category rules.
+        self.btn_thermal = QPushButton("Run thermal FEA")
+        self.btn_thermal.setToolTip(
+            "Run the coupled magnetostatic + thermal FEMMT solve. "
+            "Adds the temperature heatmap to the Field plots tab and "
+            "reports peak / average winding + core temperatures in "
+            "the log."
+        )
+        self.btn_thermal.clicked.connect(self._run_thermal)
+
         self.btn_sweep = QPushButton("Run swept FEA")
         self.btn_sweep.setToolTip(
             "Run the Tier-4 swept-magnetostatic FEA at multiple "
@@ -442,21 +501,17 @@ class FEAValidationDialog(QDialog):
             "Cost: ~N × the single-point solve time."
         )
         self.btn_sweep.clicked.connect(self._run_sweep)
+        h.addWidget(self.btn_thermal)
         h.addWidget(self.btn_sweep)
         self.btn_close = QPushButton("Close")
         self.btn_close.clicked.connect(self.reject)
         h.addWidget(self.btn_close)
 
         # Disable Qt's auto-default button promotion on every
-        # action button. Without this, when ``btn_run`` is
-        # disabled during a long solve, Qt promotes the next
-        # enabled push-button (``btn_sweep``) to "default" — and
-        # macOS paints default buttons with the system-blue
-        # accent, making it look selected even when the user
-        # never touched it. We don't want any button to be the
-        # implicit Enter-key target on this dialog (Close-on-
-        # Enter is too dangerous mid-solve), so flat is correct.
-        for btn in (self.btn_run, self.btn_sweep, self.btn_close):
+        # action button (see :meth:`_run` for the macOS-blue
+        # accent rationale).
+        for btn in (self.btn_run, self.btn_thermal,
+                    self.btn_sweep, self.btn_close):
             btn.setAutoDefault(False)
             btn.setDefault(False)
         return h
@@ -612,6 +667,80 @@ class FEAValidationDialog(QDialog):
             self.txt_log.appendPlainText(v.log_excerpt)
         if v.notes:
             self.txt_log.appendPlainText(f"\nNotes: {v.notes}")
+
+    # ------------------------------------------------------------------
+    # Coupled magnetostatic + thermal solve
+    # ------------------------------------------------------------------
+    def _run_thermal(self) -> None:
+        """Kick off the magnetostatic + thermal coupled solve on
+        a worker thread. The thermal pass adds 10–25 s on top of
+        the magnetostatic cost; once it returns we re-render the
+        ``temperature.pos`` field into a heatmap PNG (the
+        ``pos_renderer`` does this) and the Field plots gallery
+        repopulates with the new artefact.
+        """
+        if self._thread is not None and self._thread.isRunning():
+            return
+        # Park focus before disabling — same rationale as ``_run``.
+        self.txt_log.setFocus()
+        self.btn_run.setEnabled(False)
+        self.btn_thermal.setEnabled(False)
+        self.btn_sweep.setEnabled(False)
+        self.progress.show()
+        self.txt_log.appendPlainText(
+            "\nRunning coupled magnetostatic + thermal FEA…")
+
+        self._thermal_worker = _ThermalWorker(
+            self._spec, self._core, self._wire,
+            self._material, self._result,
+        )
+        self._thread = QThread(self)
+        self._thermal_worker.moveToThread(self._thread)
+        self._thread.started.connect(self._thermal_worker.run)
+        self._thermal_worker.finished.connect(self._on_thermal_finished)
+        self._thermal_worker.failed.connect(self._on_thermal_failed)
+        self._thermal_worker.finished.connect(self._thread.quit)
+        self._thermal_worker.failed.connect(self._thread.quit)
+        self._thread.start()
+
+    def _on_thermal_finished(self, thermal) -> None:
+        """Receive the :class:`ThermalResult`, refresh the gallery
+        (now containing the temperature.pos heatmap PNG), and log
+        the peak / average winding + core temperatures."""
+        self.progress.hide()
+        self.btn_run.setEnabled(True)
+        self.btn_thermal.setEnabled(True)
+        self.btn_sweep.setEnabled(True)
+        # Repopulate the gallery so the temperature heatmap shows up.
+        self.gallery.populate_from_path(thermal.fem_path)
+        # Switch to Field plots tab so the user sees the new heatmap
+        # without an extra click. Tab order: 0 Summary, 1 Geometry,
+        # 2 B-H, 3 Field plots, 4 L vs current.
+        self.tabs.setCurrentIndex(3)
+        verdict = (
+            "<span style='color:#059669; font-weight: bold'>passes</span>"
+            if thermal.passed_thermal_budget
+            else "<span style='color:#DC2626; font-weight: bold'>over 105 °C</span>"
+        )
+        self.txt_log.appendPlainText(
+            f"\nThermal solve done in {thermal.solve_time_s:.1f} s:\n"
+            f"  T_peak       = {thermal.T_peak_C:.1f} °C\n"
+            f"  T_winding_avg= {thermal.T_winding_avg_C:.1f} °C "
+            f"(rise {thermal.rise_winding_C:.1f} °C, "
+            f"vs analytic ΔT = {self._result.T_rise_C:.1f} °C)\n"
+            f"  T_core_avg   = {thermal.T_core_avg_C:.1f} °C "
+            f"(rise {thermal.rise_core_C:.1f} °C)\n"
+            f"  T_ambient    = {thermal.T_ambient_C:.1f} °C"
+        )
+        self.l_confidence.setText(self.l_confidence.text() + " | " + verdict)
+
+    def _on_thermal_failed(self, msg: str) -> None:
+        self.progress.hide()
+        self.btn_run.setEnabled(True)
+        self.btn_thermal.setEnabled(True)
+        self.btn_sweep.setEnabled(True)
+        self.txt_log.appendPlainText(f"\nTHERMAL ERROR: {msg}")
+        QMessageBox.warning(self, "Thermal solve failed", msg)
 
     # ------------------------------------------------------------------
     # Swept-FEA path (Tier-4 evaluator from the cascade orchestrator)
