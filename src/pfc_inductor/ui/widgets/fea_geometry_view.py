@@ -101,8 +101,22 @@ class GeometryPayload:
         # render. Engineering signal lives in the colour split,
         # not the exact wire-size delta.
         d_iso = float(getattr(wire, "d_iso_mm", 0.0) or 0.0)
+        # Resolve the shape via the project's canonical inferer
+        # rather than ``core.shape.lower()`` directly. The MAS
+        # catalog uses single-letter codes (``"T"`` for toroid,
+        # ``"PQ"`` for PQ, etc.) that don't exact-match the
+        # widget's painters; the inferer maps both the legacy
+        # human-readable forms and the MAS short codes to the
+        # same canonical kind ("toroid", "pq", "ee", "etd",
+        # "generic").
+        try:
+            from pfc_inductor.visual.core_3d import infer_shape
+
+            shape_kind = infer_shape(core)
+        except Exception:
+            shape_kind = str(getattr(core, "shape", "")).lower()
         return cls(
-            shape=str(getattr(core, "shape", "")).lower(),
+            shape=shape_kind,
             OD_mm=float(getattr(core, "OD_mm", 0.0) or 0.0),
             ID_mm=float(getattr(core, "ID_mm", 0.0) or 0.0),
             HT_mm=float(getattr(core, "HT_mm", 0.0) or 0.0),
