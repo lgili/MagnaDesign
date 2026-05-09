@@ -41,8 +41,10 @@ from pfc_inductor.ui.dashboard.cards import (
     BobinamentoCard,
     EntreferroCard,
     FormasOndaCard,
+    HarmonicSpectrumCard,
     NucleoCard,
     PerdasCard,
+    PhaseOverlayCard,
     ProximosPassosCard,
     Viz3DCard,
 )
@@ -146,6 +148,22 @@ class DashboardPage(QWidget):
         grid.addWidget(self.card_entreferro, 3, 6, 1, 3)
         grid.addWidget(self.card_proximos, 3, 9, 1, 3)
 
+        # ---- row 4: topology-specific full-width cards ----------------
+        # Both cards live on the same row at full width; only one is
+        # ever visible at a time because their topology guards are
+        # disjoint (interleaved_boost_pfc vs line_reactor /
+        # passive_choke / pfc_passive). The card that hides itself
+        # via setVisible(False) releases its grid geometry so the
+        # row collapses on topologies that don't need either.
+        self.card_phase_overlay = PhaseOverlayCard()
+        self.card_harmonics = HarmonicSpectrumCard()
+        # Stack vertically by placing both at row=4, col=0..12. Qt
+        # paints the visible one and skips the hidden one; if both
+        # are shown (won't happen with the current guards) they
+        # would overlap and the second-added wins.
+        grid.addWidget(self.card_phase_overlay, 4, 0, 1, 12)
+        grid.addWidget(self.card_harmonics, 5, 0, 1, 12)
+
         # ---- forward Próximos-Passos signals --------------------------
         self.card_proximos.fea_requested.connect(self.fea_requested.emit)
         self.card_proximos.compare_requested.connect(self.compare_requested.emit)
@@ -168,6 +186,8 @@ class DashboardPage(QWidget):
             self.card_bobinamento,
             self.card_entreferro,
             self.card_proximos,
+            self.card_phase_overlay,
+            self.card_harmonics,
         ]
 
     # ------------------------------------------------------------------

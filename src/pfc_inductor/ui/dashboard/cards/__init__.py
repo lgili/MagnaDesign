@@ -10,10 +10,16 @@ from pfc_inductor.ui.dashboard.cards.bobinamento_card import BobinamentoCard
 from pfc_inductor.ui.dashboard.cards.detalhes_tecnicos_card import DetalhesTecnicosCard
 from pfc_inductor.ui.dashboard.cards.entreferro_card import EntreferroCard
 from pfc_inductor.ui.dashboard.cards.formas_onda_card import FormasOndaCard
+from pfc_inductor.ui.dashboard.cards.harmonic_spectrum_card import (
+    HarmonicSpectrumCard,
+)
 from pfc_inductor.ui.dashboard.cards.l_current_card import LCurrentCard
 from pfc_inductor.ui.dashboard.cards.nucleo_card import NucleoCard
 from pfc_inductor.ui.dashboard.cards.perdas_card import PerdasCard
 from pfc_inductor.ui.dashboard.cards.pf_inductance_card import PFvsLCard
+from pfc_inductor.ui.dashboard.cards.phase_overlay_card import (
+    PhaseOverlayCard,
+)
 from pfc_inductor.ui.dashboard.cards.power_inductance_card import PowerInductanceCard
 from pfc_inductor.ui.dashboard.cards.proximos_passos_card import ProximosPassosCard
 from pfc_inductor.ui.dashboard.cards.resumo_card import ResumoCard
@@ -27,10 +33,12 @@ __all__ = [
     "DetalhesTecnicosCard",
     "EntreferroCard",
     "FormasOndaCard",
+    "HarmonicSpectrumCard",
     "LCurrentCard",
     "NucleoCard",
     "PFvsLCard",
     "PerdasCard",
+    "PhaseOverlayCard",
     "PowerInductanceCard",
     "ProximosPassosCard",
     "ResumoCard",
