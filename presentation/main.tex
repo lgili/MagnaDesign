@@ -203,7 +203,7 @@
       Buck CCM & 100--1500 W & Industrial DC--DC converters \\
       Interleaved Boost & 1--10 kW & High-power PFC, ripple cancel.\\
       Flyback (DCM/CCM) & 30--300 W & SMPS, adapters, auxiliaries \\
-      Line reactor (3$\phi$) & 5--500 kW & VFD inputs, IEC 61000-3-2 \\
+      Line reactor (1$\phi$/3$\phi$) & 100 W--500 kW & VFD inputs, IEC 61000-3-2 \\
       Passive choke & 100 W--10 kW & 1$\phi$ passive PFC \\
       \bottomrule
     \end{tabular}
@@ -277,11 +277,12 @@
       \item Ripple target: 30 \% of $I_\text{pk}$
     \end{itemize}
 
-    \textbf{Market reference}
+    \textbf{Engine output}
     \begin{itemize}
-      \item TI UCC28019 application note
-      \item Magnetics Kool-Mu 0077439A7 toroid
-      \item AWG 16 solid, 55--70 turns
+      \item Magnetics 0058735A2 toroid, High-Flux 26\,$\mu$
+      \item Round-65 heavy-build, $d_\text{Cu} = 3.88$ mm
+      \item $N = 39$ turns, $L = 134~\mu$H
+      \item $T_\text{w} = 66$\,$^\circ$C, sat margin 82\,\%, $K_u = 0.31$
     \end{itemize}
 
     \column{0.5\textwidth}
@@ -292,7 +293,7 @@
       \item Power range where litz vs solid is still a real
             design decision
       \item Demonstrates \textbf{$\mu$ rolloff} under DC bias
-            (Kool-Mu drops 50--70\% at peak)
+            (High-Flux 26 drops $\sim$ 40\,\% at peak)
       \item Exercises every FEA-dialog tab
     \end{itemize}
   \end{columns}
@@ -329,18 +330,22 @@
   \screenshot[height=0.62\textheight, keepaspectratio]%
             {figures/example1_bh_curve.png}
   \figcaption{Operating-point dot (green) on the static $B(H)$
-  curve. Dotted lines mark $B_\text{sat}$ and the $-20$\%
-  headroom band. Reported margin: 66 \% --- conservative
-  design, room to push it harder if cost matters.}
+  curve. Dotted lines mark $B_\text{sat}$ and the $-20$\,\%
+  headroom band. Reported sat margin: \textbf{82\,\%} ---
+  conservative on purpose so the design tolerates a 50\,\%
+  load surge without crossing $B_\text{sat}$.}
 \end{frame}
 
 \begin{frame}{1.5 --- Geometry (datasheet-style cross section)}
   \screenshot[height=0.65\textheight, keepaspectratio]%
             {figures/example1_geometry.png}
-  \figcaption{Toroid top-down view --- 55 AWG-16 turns on the
-  bobbin radius, OD = 39.9 mm, ID = 24.0 mm. Datasheet stamp
-  at the bottom: \texttt{0077439A7 \textbullet{} 60 KoolMu
-  \textbullet{} N = 55}.}
+  \figcaption{Toroid top-down view --- 39 turns of round-65
+  wire wrapped around the donut. OD = 72.7\,mm, ID =
+  44.4\,mm, HT = 35.1\,mm. Datasheet stamp:
+  \texttt{0058735A2 \textbullet{} High-Flux 26 \textbullet{}
+  N = 39}. Dimensions are derived from the catalog's
+  $A_\text{e} / l_\text{e} / W_\text{a}$ when the vendor
+  doesn't ship explicit OD/ID/HT.}
 \end{frame}
 
 \begin{frame}{1.6 --- FEA validation: Summary tab}
@@ -375,41 +380,51 @@
 \end{frame}
 
 % ============================================================
-\section{Example 2 -- 3$\phi$ line reactor, 22 kW}
+\section{Example 2 -- 1$\phi$ line reactor, 600 W}
 % ============================================================
 
-\begin{frame}{Example 2 --- 3$\phi$ line reactor for a VFD}
+\begin{frame}{Example 2 --- 1$\phi$ line-frequency reactor (VFD input)}
   \begin{columns}[T,onlytextwidth]
     \column{0.5\textwidth}
     \textbf{Specification}
     \begin{itemize}
-      \item Mains: 400 V$_\text{LL}$, 60 Hz, 3-phase
-      \item Load: 22 kW (motor drive)
-      \item $I_\text{rms} \approx 32$ A per phase
-      \item Target impedance: \textbf{3 \%}
-      \item $L \approx 2.5$ mH per phase
+      \item Mains: 230 V$_\text{rms}$, 60 Hz, 1-phase
+      \item Load: 600 W
+      \item $I_\text{rms} \approx 2.6$ A
+      \item Target impedance: \textbf{3 \%} of source
+      \item $L \approx 5$ mH
     \end{itemize}
 
-    \textbf{Reference}
+    \textbf{Engine output}
     \begin{itemize}
-      \item ABB MCB-32 / Schaffner FN3220
-      \item M19 silicon-steel core
-      \item $\sim$ 250 turns AWG 12 solid
+      \item Magnetics 0058340A2 toroid, High-Flux 125\,$\mu$
+      \item Round-75 heavy-build, $d_\text{Cu} = 3.46$ mm
+      \item $N = 124$ turns, $L = 5060~\mu$H
+      \item $T_\text{w} = 40$\,$^\circ$C, sat margin 78\,\%,
+            total loss \textbf{0.27 W}
       \item IEC 61000-3-2 Class A
     \end{itemize}
 
     \column{0.5\textwidth}
     \textbf{Why this example?}
     \begin{itemize}
-      \item \textbf{Line-frequency} topology (60 Hz, no high-
-            frequency switching)
+      \item \textbf{Line-frequency} topology (60 Hz, no
+            high-frequency switching)
       \item Triggers the \textbf{IEC 61000-3-2 harmonics}
-            card
-      \item N = 250 turns $\Rightarrow$ exercises the
-            FEMMT $\to$ FEMM legacy auto-fallback
-      \item Pass or fail EMC compliance? Visual answer in
+            card --- the engine grades each order against
+            the limit
+      \item Powder core proves itself: $\rho_\text{loss}
+            < 1$ W in a 220 g toroid
+      \item Pass / fail EMC compliance answered visually in
             seconds
     \end{itemize}
+
+    \medskip
+    \footnotesize\color{md-muted}
+    A 22 kW 3$\phi$ variant requires silicon-steel
+    laminations (M19), which our MAS catalog does not yet
+    ship; powder cores can't reach 22 kW at 60 Hz with
+    sensible saturation budgets, so this slot was rescaled.
   \end{columns}
 \end{frame}
 
@@ -417,9 +432,10 @@
   \screenshot[height=0.62\textheight, keepaspectratio]%
             {figures/example2_spec.png}
   \figcaption{The \texttt{line\_reactor} topology with
-  \texttt{n\_phases = 3} switches the inductance equation
+  \texttt{n\_phases = 1} switches the inductance equation
   (Erickson Ch.~18) and exposes reactor-specific fields
-  (impedance, voltage drop).}
+  (impedance, voltage drop). Spec drawer recalculates on
+  every \texttt{Enter}.}
 \end{frame}
 
 \begin{frame}{2.2 --- Harmonics card + IEC 61000-3-2}
@@ -428,7 +444,8 @@
   \figcaption{Per-order spectrum with IEC limits as red
   overlays. Green / amber / red coding by margin to limit;
   title verdict is \emph{PASSED} or \emph{FAILED on h = X}.
-  Triplens vanish by 3$\phi$ symmetry.}
+  At 600 W the front-end's $5^\text{th}$ and $7^\text{th}$
+  drop well under Class A.}
 \end{frame}
 
 \begin{frame}{2.3 --- Before / after the reactor}
@@ -442,17 +459,18 @@
               {figures/example2_harmonics_with_choke.png}
     \begin{center}\scriptsize 3 \% reactor\end{center}
   \end{columns}
-  \figcaption{Apparent power (kVA) drops $\sim$ 22 \% for the
-  same useful kW.}
+  \figcaption{Apparent power drops $\sim$ 18\,\% for the
+  same useful watts; THD goes from 80\,\% to under 10\,\%.}
 \end{frame}
 
-\begin{frame}{2.4 --- Reactor FEA (N = 250 turns)}
+\begin{frame}{2.4 --- Reactor geometry (toroid view)}
   \screenshot[height=0.62\textheight, keepaspectratio]%
-            {figures/example2_fea_dispatch.png}
-  \figcaption{$N = 250$ exceeds the FEMMT ceiling (150 turns).
-  The orchestrator \textbf{detects automatically} and re-routes
-  to FEMM legacy (axisymmetric toroid, $N$ has no geometric
-  cost). The user never sees the error.}
+            {figures/example2_geometry.png}
+  \figcaption{Top-down view of the 0058340A2 donut, OD
+  128.8 mm, ID 77.4 mm, HT 26.4 mm, with 124 turns of round-75
+  wire wrapped around the ring. The schematic painter derives
+  the ring dimensions from $A_\text{e}/l_\text{e}/W_\text{a}$
+  when the catalog leaves OD/ID/HT empty.}
 \end{frame}
 
 % ============================================================
@@ -468,15 +486,16 @@
       \item $V_\text{out} = 19$ V (laptop)
       \item $I_\text{out} = 3.4$ A $\Rightarrow$ 65 W
       \item $f_\text{sw} = 65$ kHz, DCM mode
-      \item $L_\text{p} \approx 350~\mu$H
+      \item $L_\text{p} = 165~\mu$H (engine output)
     \end{itemize}
 
-    \textbf{Reference}
+    \textbf{Engine output}
     \begin{itemize}
-      \item TI UCC28911 EVM (laptop adapter)
-      \item PQ20/16 N97 ferrite core
-      \item $N_\text{p} = 42$, $N_\text{s} = 12$ ($n = 3.5$)
-      \item Coupled inductor, 2 windings
+      \item Thornton NPQ 32/20 ferrite (IP12E, gapped)
+      \item Round-185 single-build, $d_\text{Cu} = 0.97$ mm
+      \item $N_\text{p} = 26$, $N_\text{s} = 6$ ($n = 4.0$)
+      \item $T_\text{w} = 54$\,$^\circ$C, sat margin 41\,\%,
+            $K_u = 0.26$
     \end{itemize}
 
     \column{0.5\textwidth}
@@ -506,18 +525,22 @@
 \begin{frame}{3.2 --- Geometry: coupled-pair cross section}
   \screenshot[height=0.65\textheight, keepaspectratio]%
             {figures/example3_geometry.png}
-  \figcaption{PQ20/16 with \textbf{primary in violet} (42 turns,
-  bottom of the window) and \textbf{secondary in amber} (12
-  turns, top). Dotted line splits the halves.}
+  \figcaption{NPQ 32/20 with \textbf{primary in violet}
+  (26 turns, bottom of each window) and \textbf{secondary in
+  amber} (6 turns, top). Centre-leg air gap of 1.5\,mm shown
+  in red. Both windows are mirrored — a real bobbin uses a
+  single window split horizontally.}
 \end{frame}
 
 \begin{frame}{3.3 --- Flyback waveforms + losses}
   \screenshot[height=0.55\textheight, keepaspectratio]%
             {figures/example3_formas_onda.png}
-  \figcaption{$i_\text{p}(t)$ triangular DCM, peak $\approx$ 4.2 A,
-  visible dead-time. $i_\text{s}(t)$ reflected, peak $\approx$
-  14.7 A. $L_\text{lk} \approx 1.2~\mu$H (Mohan).
-  $V_\text{DS,pk} \approx 470$ V $\Rightarrow$ 600 V FET fits.}
+  \figcaption{Primary $i_\text{p}(t)$: triangular DCM with a
+  visible dead-time. The reflected secondary current $i_\text{s}
+  = n \cdot i_\text{p}$ peaks $4 \times$ higher. $L_\text{lk}$
+  estimated via Mohan's window-split formula. $V_\text{DS,pk} =
+  V_\text{in,pk} + n V_\text{out} \approx 450$\,V $\Rightarrow$
+  a 600 V FET still fits.}
 \end{frame}
 
 \begin{frame}{3.4 --- Flyback FEA validation}
@@ -634,18 +657,22 @@
     \begin{itemize}
       \item One click after the magnetostatic pass:
             \emph{Run thermal FEA}
-      \item FEMMT reads the loss density the magnetostatic
-            step wrote and solves steady-state heat
-      \item Material-keyed thermal conductivity defaults:
-            ferrite 5, silicon-steel 25, powder 20,
-            nanocrystalline 10, amorphous 12 W/(m\,K)
-      \item \texttt{ThermalOptions} exposes
-            $T_\text{amb}$, case-gap dimensions and per-
-            material k overrides for users that need ±5 \%
-      \item Output: peak / winding-avg / core-avg
-            temperatures and a \texttt{temperature.pos}
-            field rendered as a heatmap PNG (auto-categorised
-            by the field-plots gallery)
+      \item Single FEMMT subprocess that runs the
+            magnetostatic + thermal pair on the same
+            \texttt{geo} instance (FEMMT 0.5.x requires
+            the in-memory loss density from EM)
+      \item Material-keyed conductivity defaults: ferrite
+            5, silicon-steel 25, powder 20, nanocrystalline
+            10, amorphous 12 W/(m\,K)
+      \item \texttt{ThermalOptions} exposes $T_\text{amb}$,
+            case-gap dimensions and per-material k overrides
+      \item Three field views auto-render into the gallery:
+            \emph{Temperature} ($T$), \emph{Heat flux}
+            (\texttt{influx}) and \emph{Thermal conductivity
+            map} (\texttt{material})
+      \item Partial-failure path: if the thermal solve
+            crashes the EM result \textbf{and} the field
+            PNGs are preserved
     \end{itemize}
     \column{0.45\textwidth}
     \begin{block}{Outcome}
@@ -656,10 +683,17 @@
         \item \texttt{T\_winding\_avg} vs the analytical $\Delta T$
         \item \texttt{T\_core\_avg}
         \item Verdict chip: \emph{passes} or
-              \emph{over 105 °C} (class-B insulation
+              \emph{over 105\,$^\circ$C} (class-B insulation
               budget)
       \end{itemize}
       Adds 10--25\,s on top of the magnetostatic solve.
+    \end{block}
+    \begin{block}{Renderer (under the hood)}
+      \footnotesize
+      gmsh's MSH 2.2 ASCII (\$Nodes / \$Elements /
+      \$ElementNodeData) is parsed directly into a
+      matplotlib \texttt{tripcolor} heatmap. No popup
+      windows, no DISPLAY required.
     \end{block}
   \end{columns}
 \end{frame}
