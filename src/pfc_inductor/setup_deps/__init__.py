@@ -46,8 +46,43 @@ __all__ = [
     "UnsupportedPlatform",
     "VerifyReport",
     "check_fea_setup",
+    "ensure_onelab_on_path",
     "setup_fea",
 ]
+
+
+def ensure_onelab_on_path() -> Optional[Path]:
+    """Add the configured ONELAB folder to ``sys.path`` if needed.
+
+    FEMMT 0.5.x's ``femmt/component.py`` does ``from onelab import
+    onelab`` at module load — it expects the ONELAB helper module
+    ``onelab.py`` to be importable as a top-level package. ONELAB is
+    a binary distribution (gmsh + getdp + a small ``onelab.py``
+    Python helper) we install separately into the user's home, so
+    Python doesn't find it on ``sys.path`` unless we put it there.
+
+    Without this call, the bundled .app crashes with
+    ``ModuleNotFoundError: No module named 'onelab'`` the moment any
+    code path touches ``femmt`` — which is exactly the user-reported
+    "fala que nao escontra o modulo onelab" symptom.
+
+    Idempotent: returns the path that was added (or already present)
+    on success, ``None`` if no configured ONELAB was found. Always
+    safe to call multiple times — the second call short-circuits.
+    """
+    import sys
+
+    onelab_dir = read_configured_onelab()
+    if onelab_dir is None:
+        return None
+    onelab_dir = Path(onelab_dir).expanduser()
+    if not (onelab_dir / "onelab.py").exists():
+        return None
+    onelab_str = str(onelab_dir)
+    if onelab_str in sys.path:
+        return onelab_dir
+    sys.path.insert(0, onelab_str)
+    return onelab_dir
 
 
 @dataclass

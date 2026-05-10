@@ -28,16 +28,21 @@ from pathlib import Path
 # Python import system still picks them up for the GUI codepath
 # while every CLI subcommand exits without paying the ~500 ms /
 # 50 MB cost of pulling in PySide6.
-def _import_qt_runtime() -> None:
-    """Load the Qt + theme stack into module globals.
+def _import_qt_runtime_minimal() -> None:
+    """Load JUST the Qt + theme bits the splash screen needs.
 
-    Called from :func:`_run_gui` exactly once. Splitting the
-    imports into a helper means the CLI path never touches Qt —
-    important for headless servers (CI, vendor-quoting pipelines)
-    that don't have a display.
+    The splash has to paint within the first ~1 s of double-click
+    or the user perceives the app as broken ("demora demais antes
+    do splash"). The full ``MainWindow`` import pulls ~3800 lines
+    of dialog code + matplotlib + reportlab, which on a frozen .app
+    cold-start adds 5-10 s before any Qt window can paint.
+    Splitting the runtime import into "minimal" (for splash) and
+    "full" (for MainWindow) lets the splash show immediately, then
+    the heavy imports run in the background while the user reads
+    the splash.
     """
     global QSettings, QColor, QFontDatabase, QIcon, QPalette
-    global QApplication, MainWindow, make_stylesheet
+    global QApplication, make_stylesheet
     global get_theme, on_theme_changed, set_theme
     global SETTINGS_APP, SETTINGS_ORG
     from PySide6.QtCore import QSettings as _QSettings
@@ -61,7 +66,6 @@ def _import_qt_runtime() -> None:
     from pfc_inductor.settings import (
         SETTINGS_ORG as _SETTINGS_ORG,
     )
-    from pfc_inductor.ui.main_window import MainWindow as _MainWindow
     from pfc_inductor.ui.style import make_stylesheet as _make_stylesheet
     from pfc_inductor.ui.theme import (
         get_theme as _get_theme,
@@ -79,13 +83,28 @@ def _import_qt_runtime() -> None:
     QIcon = _QIcon
     QPalette = _QPalette
     QApplication = _QApplication
-    MainWindow = _MainWindow
     make_stylesheet = _make_stylesheet
     get_theme = _get_theme
     on_theme_changed = _on_theme_changed
     set_theme = _set_theme
     SETTINGS_APP = _SETTINGS_APP
     SETTINGS_ORG = _SETTINGS_ORG
+
+
+def _import_main_window() -> None:
+    """Phase 2: import ``MainWindow`` — heavy, runs after splash paints."""
+    global MainWindow
+    from pfc_inductor.ui.main_window import MainWindow as _MainWindow
+
+    MainWindow = _MainWindow
+
+
+# Backwards-compat alias — older code paths (smoke tests, the
+# release-asset verifier) import ``_import_qt_runtime`` by name.
+def _import_qt_runtime() -> None:
+    """Compose ``_import_qt_runtime_minimal`` + ``_import_main_window``."""
+    _import_qt_runtime_minimal()
+    _import_main_window()
 
 
 def _load_initial_theme() -> str:
@@ -336,7 +355,26 @@ def main(argv: list[str] | None = None) -> int:
 def _run_gui(argv: list[str]) -> int:
     """Boot the desktop application. Imports Qt lazily so the CLI
     path doesn't pay the 500 ms / 50 MB startup cost."""
-    _import_qt_runtime()
+    # ONELAB lives outside the bundle (binary distribution: gmsh +
+    # getdp + ``onelab.py``). FEMMT's ``component.py`` does
+    # ``from onelab import onelab`` at module top, so we MUST put
+    # the configured ONELAB folder on ``sys.path`` before anything
+    # in the import graph touches FEMMT — otherwise the bundle
+    # fails with ``ModuleNotFoundError: No module named 'onelab'``
+    # the moment the FEA dialog (or any FEMMT-touching code) loads.
+    # No-op when ONELAB isn't configured yet (the setup dialog will
+    # show its UI and trigger the install flow).
+    try:
+        from pfc_inductor.setup_deps import ensure_onelab_on_path
+
+        ensure_onelab_on_path()
+    except Exception:
+        pass
+
+    # Phase 1: import only what we need to put a splash on screen.
+    # Pulling MainWindow here would re-introduce the multi-second
+    # blank-screen wait the splash is meant to hide.
+    _import_qt_runtime_minimal()
 
     app = QApplication([sys.argv[0], *argv])
     app.setApplicationName(SETTINGS_APP)
@@ -400,19 +438,38 @@ def _run_gui(argv: list[str]) -> int:
     )
 
     # ---- Splash screen --------------------------------------------------
-    # ``MainWindow()`` and the dashboard cards take 5-15 s to instantiate
-    # cold on a frozen .app (matplotlib font cache + the catalog load +
-    # all the chart figures). Without an immediate visual signal the
-    # user double-clicks, sees nothing happen for ~10 s, and assumes
-    # the app is broken — which is exactly the "demora demais" symptom.
-    # A splash painted *before* the heavy construction makes the wait
-    # legible: branding shows up in <1 s, then ``finish(win)`` swaps it
-    # for the real window when MainWindow's ready. Skipped on offscreen
-    # platforms because there's no display to draw it on.
+    # ``MainWindow()`` and the dashboard cards take 5-15 s to
+    # instantiate cold on a frozen .app (matplotlib font cache +
+    # the catalog load + all the chart figures). Without an
+    # immediate visual signal the user double-clicks, sees nothing
+    # happen for ~10 s, and assumes the app is broken — exactly
+    # the "demora demais antes do splash" complaint.
+    #
+    # Order matters here: build + show the splash BEFORE importing
+    # MainWindow. The MainWindow import alone is multiple seconds
+    # of work (it pulls every workspace page, every dashboard card,
+    # matplotlib backends and pyvista) — if we import it first the
+    # splash appears right before MainWindow does, defeating the
+    # purpose. ``processEvents()`` after ``show()`` forces the paint
+    # so the splash is on-screen before the heavy import starts.
     splash = _build_splash(icon)
     if splash is not None:
         splash.show()
         app.processEvents()  # paint the splash NOW, not after init
+
+    # Phase 2: now that the splash is visible, import the heavy
+    # MainWindow + dashboard chain. The user sees branding while
+    # the imports run instead of a blank desktop.
+    if splash is not None:
+        from PySide6.QtCore import Qt as _Qt
+
+        splash.showMessage(
+            "Loading workspace…",
+            int(_Qt.AlignmentFlag.AlignBottom | _Qt.AlignmentFlag.AlignHCenter),
+            QColor(get_theme().palette.text_muted),
+        )
+        app.processEvents()
+    _import_main_window()
 
     win = MainWindow()
     win.show()

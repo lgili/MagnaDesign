@@ -1347,6 +1347,14 @@ class MainWindow(QMainWindow):
             return
         QTimer.singleShot(0, self._offer_fea_setup_now)
 
+    # QSettings key for "user explicitly dismissed the FEA setup
+    # prompt — don't auto-show it again". Cleared automatically once
+    # ``check_fea_setup`` reports ``fea_ready`` (the install
+    # eventually succeeded), so the flag re-enables itself if the
+    # user breaks their ONELAB install later. Manual access via the
+    # menu (Configurações → Setup FEA) always works regardless.
+    _FEA_SETUP_DISMISSED_KEY = "fea/setup_dismissed"
+
     def _offer_fea_setup_now(self) -> None:
         # ``check_fea_setup`` lives in ``pfc_inductor.setup_deps`` which
         # imports requests / tarfile / hashlib + the platform detection
@@ -1359,10 +1367,37 @@ class MainWindow(QMainWindow):
             v = check_fea_setup()
         except (OSError, RuntimeError):
             return
+        # FEA already wired up — clear any stale "dismissed" flag so
+        # the prompt re-arms if a future install breaks.
         if v.fea_ready:
+            settings = QSettings(SETTINGS_ORG, SETTINGS_APP)
+            if settings.value(self._FEA_SETUP_DISMISSED_KEY, False, type=bool):
+                settings.setValue(self._FEA_SETUP_DISMISSED_KEY, False)
+            return
+        # User dismissed the prompt at some prior launch — don't
+        # nag again. They can still trigger it manually from the
+        # Configurações menu.
+        settings = QSettings(SETTINGS_ORG, SETTINGS_APP)
+        if settings.value(self._FEA_SETUP_DISMISSED_KEY, False, type=bool):
             return
         dlg = SetupDepsDialog(parent=self)
-        dlg.exec()
+        result = dlg.exec()
+        # Persist the dismissal when:
+        #   - the user closed the dialog without completing setup
+        #     (``QDialog.Rejected`` from Cancel/Esc/window-close), OR
+        #   - the dialog ran but FEA still isn't ready (the install
+        #     errored — re-prompting on every launch isn't useful,
+        #     the user already knows).
+        try:
+            v_after = check_fea_setup()
+        except (OSError, RuntimeError):
+            v_after = None
+        from PySide6.QtWidgets import QDialog
+
+        rejected = result == QDialog.DialogCode.Rejected
+        still_not_ready = v_after is None or not v_after.fea_ready
+        if rejected or still_not_ready:
+            settings.setValue(self._FEA_SETUP_DISMISSED_KEY, True)
 
     def _open_about(self) -> None:
         from pfc_inductor.ui.about_dialog import AboutDialog
