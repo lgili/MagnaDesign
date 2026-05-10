@@ -67,6 +67,31 @@ _VIEW_LABELS["thermal_total_loss_density"] = (
     "Loss density [W/m³]", "Coupled thermal loss density",
 )
 
+# FEMMT/getdp view names (the literal strings emitted in the
+# MSH ``$ElementNodeData`` block). These are different from our
+# canonical filename-stem keys above, so add aliases mapping the
+# raw getdp output to the same pretty (axis label, title) pair.
+_VIEW_LABELS["T"] = ("Temperature [°C]", "Predicted temperature")
+_VIEW_LABELS["influx"] = ("Heat flux [W/m²]", "Boundary heat flux")
+_VIEW_LABELS["material"] = (
+    "Thermal conductivity [W/m·K]", "Material conductivity",
+)
+_VIEW_LABELS["Magnitude B-Field / T"] = (
+    "|B| [T]", "Magnetic flux density",
+)
+_VIEW_LABELS["Magnitude H-Field / Am^-1"] = (
+    "|H| [A/m]", "H-field magnitude",
+)
+_VIEW_LABELS["Loss density of jH-fields"] = (
+    "Loss density [W/m³]", "Litz ohmic loss density",
+)
+_VIEW_LABELS["Loss density of j2F-fields"] = (
+    "Loss density [W/m³]", "Ohmic loss density",
+)
+_VIEW_LABELS["Magnetic vector potential"] = (
+    "A_z [Wb/m]", "Magnetic vector potential",
+)
+
 
 # ----------------------------------------------------------------
 # Public API
@@ -246,20 +271,35 @@ _RE_ST = re.compile(r"ST\s*\(\s*([^)]+)\)\s*\{\s*([^}]+)\}")
 def _parse_pos_scalar_triangles(
     path: Path,
 ) -> Optional[tuple[str, list[tuple[float, float]], list[tuple[int, int, int]], list[float]]]:
-    """Defensive ASCII parser for gmsh ``.pos`` scalar-triangle
-    views. Returns ``(view_name, points, triangles, node_values)``
-    where points is a deduplicated list of (x, y) coords, triangles
-    is a list of 3-tuples of indices into points, and node_values
+    """Defensive ASCII parser for gmsh ``.pos`` scalar fields.
+
+    Handles both the parsed-view format (``View "name" { ST(...){...} }``)
+    and the native MSH 2.2 format (``$Nodes``/``$Elements``/
+    ``$ElementNodeData``) that FEMMT/getdp emit.
+
+    Returns ``(view_name, points, triangles, node_values)`` where
+    points is a deduplicated list of (x, y) coords, triangles is a
+    list of 3-tuples of indices into points, and node_values
     matches points (averaged across shared corners). ``None`` when
-    the file has no scalar-triangle data.
+    the file has no scalar-triangle data we can render.
     """
     try:
         text = path.read_text(errors="ignore")
     except OSError:
         return None
 
-    # View name — gmsh always writes it; fall back to filename
-    # stem if absent so we always have a label.
+    # MSH 2.2 takes precedence — FEMMT writes Print[..., File "x.pos"]
+    # without ``Format Gmsh-Parsed``, which produces native MSH and
+    # never the parsed view format. Detect by the magic ``$MeshFormat``
+    # marker at the start of the file.
+    if text.lstrip().startswith("$MeshFormat"):
+        msh = _parse_msh22_scalar_triangles(text, path.stem)
+        if msh is not None:
+            return msh
+
+    # Legacy fallback: gmsh-parsed view format. Used by hand-written
+    # demo files and a few older visualisers; FEMMT itself stopped
+    # emitting it years ago but our test fixtures still rely on it.
     m_name = _RE_VIEW_NAME.search(text)
     view_name = m_name.group(1) if m_name else path.stem
 
@@ -305,6 +345,260 @@ def _parse_pos_scalar_triangles(
         (sum(node_vals[i]) / len(node_vals[i])) if i in node_vals else 0.0
         for i in range(len(points))
     ]
+    return view_name, points, triangles, averaged
+
+
+# MSH 2.2 element-type codes we render. The thermal/EM solvers
+# emit triangles (type 2) on the 2-D axisymmetric cross-section;
+# higher-order quads (type 3) and tets (type 4) are ignored. See
+# https://gmsh.info/doc/texinfo/gmsh.html#MSH-file-format-version-2
+_MSH22_TRI_TYPE = 2
+
+
+def _parse_msh22_scalar_triangles(
+    text: str, fallback_view_name: str,
+) -> Optional[tuple[str, list[tuple[float, float]], list[tuple[int, int, int]], list[float]]]:
+    """Parse an ASCII MSH 2.2 ``.pos`` file written by getdp/FEMMT.
+
+    Format reference (gmsh manual):
+      $Nodes
+      <count>
+      <id> <x> <y> <z>
+      ...
+      $EndNodes
+      $Elements
+      <count>
+      <id> <type> <ntags> <tag1> ... <node1> <node2> ...
+      ...
+      $EndElements
+      $ElementNodeData
+      <n_string_tags>
+      "<view name>"
+      <n_real_tags> <real_tag>...
+      <n_int_tags> <step> <ncomp> <count>
+      <element_id> <nnodes> <v1> <v2> ... <vN>
+      ...
+      $EndElementNodeData
+
+    The ``ElementNodeData`` block carries one scalar value per
+    element-node pair, so a node shared between two triangles gets
+    two values; we average them to feed Gouraud shading. Only the
+    first ``ElementNodeData`` block is consumed (FEMMT/EM files
+    sometimes attach a second derived field — Magb has Magh too —
+    which would benefit from its own pass but the heatmap renderer
+    is single-field today).
+    """
+    lines = text.splitlines()
+    n = len(lines)
+
+    # ---- $Nodes ----
+    try:
+        i = lines.index("$Nodes")
+    except ValueError:
+        return None
+    nodes_n = int(lines[i + 1].strip())
+    node_xy: dict[int, tuple[float, float]] = {}
+    for j in range(i + 2, i + 2 + nodes_n):
+        parts = lines[j].split()
+        if len(parts) < 4:
+            continue
+        nid = int(parts[0])
+        x = float(parts[1])
+        y = float(parts[2])
+        node_xy[nid] = (x, y)
+
+    # ---- $Elements ----
+    try:
+        i = lines.index("$Elements", i + 2 + nodes_n)
+    except ValueError:
+        return None
+    elem_n = int(lines[i + 1].strip())
+    # Map element-id -> (n0,n1,n2) for triangles only. We need the
+    # mapping later because $ElementNodeData references elements
+    # by id and we have to know which 3 nodes that id corresponds
+    # to. Higher-order elements would carry more nodes and aren't
+    # supported here.
+    tri_by_elem: dict[int, tuple[int, int, int]] = {}
+    for j in range(i + 2, i + 2 + elem_n):
+        parts = lines[j].split()
+        if len(parts) < 5:
+            continue
+        eid = int(parts[0])
+        etype = int(parts[1])
+        if etype != _MSH22_TRI_TYPE:
+            continue
+        ntags = int(parts[2])
+        # First 3 fields after id+type+ntags are tag block; nodes
+        # follow. For triangles we read exactly 3 node ids.
+        node_start = 3 + ntags
+        if len(parts) < node_start + 3:
+            continue
+        n0 = int(parts[node_start])
+        n1 = int(parts[node_start + 1])
+        n2 = int(parts[node_start + 2])
+        tri_by_elem[eid] = (n0, n1, n2)
+
+    if not tri_by_elem:
+        return None
+
+    # ---- $ElementNodeData (first block only) ----
+    try:
+        i = lines.index("$ElementNodeData", i + 2 + elem_n)
+    except ValueError:
+        # Some FEMMT outputs use $NodeData (per-node) instead. Fall
+        # back to that format if ElementNodeData is missing.
+        return _parse_msh22_node_data(lines, tri_by_elem, node_xy, fallback_view_name)
+    n_str_tags = int(lines[i + 1].strip())
+    view_name = fallback_view_name
+    if n_str_tags >= 1:
+        first = lines[i + 2].strip()
+        if first.startswith('"') and first.endswith('"'):
+            view_name = first[1:-1]
+    cursor = i + 2 + n_str_tags
+    n_real_tags = int(lines[cursor].strip())
+    cursor += 1 + n_real_tags
+    n_int_tags = int(lines[cursor].strip())
+    cursor += 1
+    # Standard layout: step, ncomp, count, [partition].
+    if n_int_tags < 3:
+        return None
+    n_int_tags_remaining = n_int_tags
+    # Step
+    cursor += 1
+    n_int_tags_remaining -= 1
+    ncomp = int(lines[cursor].strip())
+    cursor += 1
+    n_int_tags_remaining -= 1
+    elem_count = int(lines[cursor].strip())
+    cursor += 1
+    n_int_tags_remaining -= 1
+    cursor += n_int_tags_remaining
+
+    if ncomp != 1:
+        # Only scalar fields are renderable as a heatmap. Vector
+        # fields (e.g. raz when written as 3-component) are still
+        # interpretable but require a different visualisation.
+        return None
+
+    # Build per-node accumulator
+    node_vals: dict[int, list[float]] = {}
+    for _ in range(elem_count):
+        if cursor >= n:
+            break
+        parts = lines[cursor].split()
+        cursor += 1
+        if len(parts) < 2:
+            continue
+        eid = int(parts[0])
+        nn = int(parts[1])
+        if len(parts) < 2 + nn:
+            continue
+        if eid not in tri_by_elem:
+            continue
+        tri_nodes = tri_by_elem[eid]
+        for nidx, raw in zip(tri_nodes, parts[2:2 + nn]):
+            try:
+                v = float(raw)
+            except ValueError:
+                continue
+            node_vals.setdefault(nidx, []).append(v)
+
+    if not node_vals:
+        return None
+
+    # Materialise points + triangles + averaged values. Re-index
+    # gmsh node ids → 0-based contiguous indices for matplotlib's
+    # Triangulation.
+    used_ids = set()
+    for tri in tri_by_elem.values():
+        used_ids.update(tri)
+    # Only keep nodes actually referenced by a value-bearing tri.
+    valid_ids = [nid for nid in used_ids if nid in node_vals and nid in node_xy]
+    valid_id_set = set(valid_ids)
+    id_to_idx: dict[int, int] = {nid: i for i, nid in enumerate(valid_ids)}
+    points: list[tuple[float, float]] = [node_xy[nid] for nid in valid_ids]
+    triangles: list[tuple[int, int, int]] = []
+    for tri in tri_by_elem.values():
+        if all(n in valid_id_set for n in tri):
+            triangles.append((id_to_idx[tri[0]], id_to_idx[tri[1]], id_to_idx[tri[2]]))
+    if not triangles:
+        return None
+    averaged = [
+        sum(node_vals[nid]) / len(node_vals[nid])
+        for nid in valid_ids
+    ]
+    return view_name, points, triangles, averaged
+
+
+def _parse_msh22_node_data(
+    lines: list[str],
+    tri_by_elem: dict[int, tuple[int, int, int]],
+    node_xy: dict[int, tuple[float, float]],
+    fallback_view_name: str,
+) -> Optional[tuple[str, list[tuple[float, float]], list[tuple[int, int, int]], list[float]]]:
+    """Fallback parser for ``$NodeData`` (per-node) MSH 2.2 blocks.
+
+    Some FEMMT solvers write the field as ``$NodeData`` instead of
+    ``$ElementNodeData``: one value per node, no element id. The
+    layout matches ElementNodeData except the body is
+    ``<node_id> <v>`` instead of ``<elem_id> <nnodes> <v1>...<vN>``.
+    """
+    try:
+        i = lines.index("$NodeData")
+    except ValueError:
+        return None
+    n_str_tags = int(lines[i + 1].strip())
+    view_name = fallback_view_name
+    if n_str_tags >= 1:
+        first = lines[i + 2].strip()
+        if first.startswith('"') and first.endswith('"'):
+            view_name = first[1:-1]
+    cursor = i + 2 + n_str_tags
+    n_real_tags = int(lines[cursor].strip())
+    cursor += 1 + n_real_tags
+    n_int_tags = int(lines[cursor].strip())
+    cursor += 1
+    if n_int_tags < 3:
+        return None
+    cursor += 1  # step
+    ncomp = int(lines[cursor].strip())
+    cursor += 1
+    node_count = int(lines[cursor].strip())
+    cursor += 1
+    cursor += n_int_tags - 3
+    if ncomp != 1:
+        return None
+
+    node_val: dict[int, float] = {}
+    for _ in range(node_count):
+        if cursor >= len(lines):
+            break
+        parts = lines[cursor].split()
+        cursor += 1
+        if len(parts) < 2:
+            continue
+        try:
+            nid = int(parts[0])
+            v = float(parts[1])
+        except ValueError:
+            continue
+        node_val[nid] = v
+
+    if not node_val:
+        return None
+
+    # Restrict to triangles whose 3 corners all have a value
+    valid_ids = [nid for nid in node_xy if nid in node_val]
+    valid_id_set = set(valid_ids)
+    id_to_idx: dict[int, int] = {nid: i for i, nid in enumerate(valid_ids)}
+    points = [node_xy[nid] for nid in valid_ids]
+    triangles: list[tuple[int, int, int]] = []
+    for tri in tri_by_elem.values():
+        if all(n in valid_id_set for n in tri):
+            triangles.append((id_to_idx[tri[0]], id_to_idx[tri[1]], id_to_idx[tri[2]]))
+    if not triangles:
+        return None
+    averaged = [node_val[nid] for nid in valid_ids]
     return view_name, points, triangles, averaged
 
 
