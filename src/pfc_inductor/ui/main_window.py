@@ -28,7 +28,15 @@ importable for tests but do not appear on screen.
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+# ``CompareDialog`` is imported lazily inside ``_open_compare`` so the
+# matplotlib + reportlab font-registration cost only fires when the
+# user opens the dialog. The ``TYPE_CHECKING`` block lets static
+# checkers still see the concrete type for the cached attribute
+# without paying the runtime import cost.
+if TYPE_CHECKING:
+    from pfc_inductor.ui.compare_dialog import CompareDialog
 
 from PySide6.QtCore import QSettings, QTimer
 from PySide6.QtGui import QAction, QGuiApplication, QKeySequence
@@ -62,26 +70,23 @@ from pfc_inductor.project import (
     push_recent,
     save_project,
 )
-from pfc_inductor.report import (
-    generate_datasheet,
-    generate_pdf_datasheet,
-    generate_project_report,
-)
+
+# Dialog classes and the report module are deliberately NOT
+# imported at module load time — they pull matplotlib +
+# reportlab + the dialog widgets, which together added ~1.5 s
+# to MainWindow construction (and that's on a warm cache; the
+# frozen .app's cold start was visibly worse — the main reason
+# users reported "the app takes too long to open"). They're
+# only needed inside specific menu/action handlers, so each
+# method imports its dialog locally; the first user click pays
+# the cost once and subsequent ones get the cached import.
+# ``pfc_inductor.report`` is the same story (matplotlib plus
+# reportlab font registration) — moved into the export
+# handlers.
 from pfc_inductor.settings import SETTINGS_APP, SETTINGS_ORG
-from pfc_inductor.setup_deps import check_fea_setup
 from pfc_inductor.topology.material_filter import materials_for_topology
-from pfc_inductor.ui.about_dialog import AboutDialog
-from pfc_inductor.ui.catalog_dialog import CatalogUpdateDialog
-from pfc_inductor.ui.compare_dialog import CompareDialog
 from pfc_inductor.ui.controllers import CalculationController
-from pfc_inductor.ui.db_editor import DbEditorDialog
-from pfc_inductor.ui.dialogs import TopologyPickerDialog
-from pfc_inductor.ui.fea_dialog import FEAValidationDialog
-from pfc_inductor.ui.litz_dialog import LitzOptimizerDialog
-from pfc_inductor.ui.optimize_dialog import OptimizerDialog
-from pfc_inductor.ui.setup_dialog import SetupDepsDialog
 from pfc_inductor.ui.shell import Sidebar
-from pfc_inductor.ui.similar_parts_dialog import SimilarPartsDialog
 from pfc_inductor.ui.state import WorkflowState
 from pfc_inductor.ui.style import make_stylesheet
 from pfc_inductor.ui.theme import get_theme, is_dark, set_theme
@@ -225,8 +230,11 @@ class MainWindow(QMainWindow):
         self._project_path: Optional[str] = None
 
         # Cached compare dialog (kept open between invocations so the
-        # accumulated slots survive).
-        self._compare_dialog: CompareDialog | None = None
+        # accumulated slots survive). The annotation references
+        # ``CompareDialog`` via ``TYPE_CHECKING`` so static checkers
+        # see the concrete type while the runtime import stays lazy
+        # inside ``_open_compare``.
+        self._compare_dialog: Optional[CompareDialog] = None
 
         # Initial calculation + FEA setup probe.
         self._on_calculate()
@@ -981,6 +989,8 @@ class MainWindow(QMainWindow):
     # Action handlers
     # ==================================================================
     def _open_topology_picker(self) -> None:
+        from pfc_inductor.ui.dialogs import TopologyPickerDialog
+
         sp = self.projeto_page.spec_panel
         try:
             current = sp.topology()
@@ -1018,6 +1028,8 @@ class MainWindow(QMainWindow):
         self._on_calculate()
 
     def _open_optimizer(self) -> None:
+        from pfc_inductor.ui.optimize_dialog import OptimizerDialog
+
         try:
             spec, _core, _wire, _material = self._collect_inputs()
         except DesignError as e:
@@ -1063,6 +1075,8 @@ class MainWindow(QMainWindow):
         )
         if not path:
             return
+        from pfc_inductor.report import generate_datasheet
+
         try:
             out = generate_datasheet(spec, core, material, wire, result, path)
         except (OSError, ValueError, KeyError) as e:
@@ -1122,6 +1136,8 @@ class MainWindow(QMainWindow):
         )
         if not path:
             return
+        from pfc_inductor.report import generate_pdf_datasheet
+
         try:
             out = generate_pdf_datasheet(
                 spec,
@@ -1186,6 +1202,8 @@ class MainWindow(QMainWindow):
         )
         if not path:
             return
+        from pfc_inductor.report import generate_project_report
+
         try:
             # The optional ``project_id`` falls back to the same
             # spec/core/material hash the datasheet uses for its
@@ -1295,16 +1313,22 @@ class MainWindow(QMainWindow):
         )
 
     def _open_db_editor(self) -> None:
+        from pfc_inductor.ui.db_editor import DbEditorDialog
+
         dlg = DbEditorDialog(parent=self)
         dlg.saved.connect(self._reload_databases)
         dlg.exec()
 
     def _open_catalog_update(self) -> None:
+        from pfc_inductor.ui.catalog_dialog import CatalogUpdateDialog
+
         dlg = CatalogUpdateDialog(parent=self)
         dlg.completed.connect(self._reload_databases)
         dlg.exec()
 
     def _open_setup_deps(self) -> None:
+        from pfc_inductor.ui.setup_dialog import SetupDepsDialog
+
         dlg = SetupDepsDialog(parent=self)
         dlg.exec()
 
@@ -1324,6 +1348,13 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(0, self._offer_fea_setup_now)
 
     def _offer_fea_setup_now(self) -> None:
+        # ``check_fea_setup`` lives in ``pfc_inductor.setup_deps`` which
+        # imports requests / tarfile / hashlib + the platform detection
+        # helpers — none of that needs to load until we actually want to
+        # check. Lazy import keeps cold-start fast.
+        from pfc_inductor.setup_deps import check_fea_setup
+        from pfc_inductor.ui.setup_dialog import SetupDepsDialog
+
         try:
             v = check_fea_setup()
         except (OSError, RuntimeError):
@@ -1334,6 +1365,8 @@ class MainWindow(QMainWindow):
         dlg.exec()
 
     def _open_about(self) -> None:
+        from pfc_inductor.ui.about_dialog import AboutDialog
+
         dlg = AboutDialog(parent=self)
         dlg.exec()
 
@@ -1443,6 +1476,8 @@ class MainWindow(QMainWindow):
 
     def _open_compare(self) -> None:
         if self._compare_dialog is None:
+            from pfc_inductor.ui.compare_dialog import CompareDialog
+
             self._compare_dialog = CompareDialog(parent=self)
             self._compare_dialog.selection_applied.connect(
                 self._apply_compare_choice,
@@ -1454,6 +1489,8 @@ class MainWindow(QMainWindow):
         self._apply_optimizer_choice(material_id, core_id, wire_id)
 
     def _open_litz(self) -> None:
+        from pfc_inductor.ui.litz_dialog import LitzOptimizerDialog
+
         try:
             spec, core, _wire, material = self._collect_inputs()
         except DesignError as e:
@@ -1464,6 +1501,14 @@ class MainWindow(QMainWindow):
         dlg.exec()
 
     def _open_fea(self) -> None:
+        # FEA dialog pulls the heaviest dependency tree on the
+        # whole app (FEMMT 0.5 + ONELAB shim + the FEA-validation
+        # chart widget that imports matplotlib's QtAgg backend).
+        # Loading it lazily keeps the main window's first paint
+        # snappy — the user only pays the cost when they click
+        # "Validate (FEA)".
+        from pfc_inductor.ui.fea_dialog import FEAValidationDialog
+
         try:
             slot = self.current_compare_slot()
         except DesignError as e:
@@ -1480,6 +1525,8 @@ class MainWindow(QMainWindow):
         dlg.exec()
 
     def _open_similar_parts(self) -> None:
+        from pfc_inductor.ui.similar_parts_dialog import SimilarPartsDialog
+
         try:
             target_core = self._calc.find_core(self._current_core_id)
             target_material = self._calc.find_material(self._current_material_id)

@@ -205,6 +205,55 @@ def _patch_brand_typography_to_installed_fonts() -> None:
     _theme._state = dataclasses.replace(_theme._state, type=new_type)
 
 
+def _build_splash(icon):
+    """Construct the cold-start splash screen.
+
+    Returns ``None`` on offscreen / minimal platforms (no display) and
+    when no icon is available (the splash is icon-driven). Otherwise
+    returns a fully-configured ``QSplashScreen`` ready to be shown.
+
+    The splash uses the app icon at 256×256 plus a one-line "Loading…"
+    label so the user has something to look at during the 5-15 s the
+    cold-cache MainWindow construction takes (matplotlib font cache,
+    catalog load, dashboard chart init). It auto-dismisses when the
+    main window's ``finish(win)`` is called.
+    """
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QGuiApplication, QPainter, QPixmap
+    from PySide6.QtWidgets import QSplashScreen
+
+    if QGuiApplication.platformName() in ("offscreen", "minimal"):
+        return None
+    if icon is None or icon.isNull():
+        return None
+
+    # Render the icon onto a 320×320 surface with a small bottom
+    # margin so the platform-painted "Loading MagnaDesign…" caption
+    # has somewhere to go.
+    side = 320
+    pix = QPixmap(side, side)
+    p_palette = get_theme().palette
+    pix.fill(QColor(p_palette.surface))
+    painter = QPainter(pix)
+    icon_size = 192
+    icon_pix = icon.pixmap(icon_size, icon_size)
+    x = (side - icon_size) // 2
+    y = (side - icon_size) // 2 - 24
+    painter.drawPixmap(x, y, icon_pix)
+    painter.end()
+
+    splash = QSplashScreen(pix, Qt.WindowType.WindowStaysOnTopHint)
+    splash.setStyleSheet(
+        f"QSplashScreen {{ background: {p_palette.surface}; color: {p_palette.text_muted}; }}"
+    )
+    splash.showMessage(
+        "Loading MagnaDesign…",
+        Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter,
+        QColor(p_palette.text_muted),
+    )
+    return splash
+
+
 def _apply_app_palette(app: QApplication) -> None:
     """Mirror the active token Palette into the ``QApplication``'s
     :class:`QPalette` so widgets that bypass the global stylesheet
@@ -350,8 +399,25 @@ def _run_gui(argv: list[str]) -> int:
         )
     )
 
+    # ---- Splash screen --------------------------------------------------
+    # ``MainWindow()`` and the dashboard cards take 5-15 s to instantiate
+    # cold on a frozen .app (matplotlib font cache + the catalog load +
+    # all the chart figures). Without an immediate visual signal the
+    # user double-clicks, sees nothing happen for ~10 s, and assumes
+    # the app is broken — which is exactly the "demora demais" symptom.
+    # A splash painted *before* the heavy construction makes the wait
+    # legible: branding shows up in <1 s, then ``finish(win)`` swaps it
+    # for the real window when MainWindow's ready. Skipped on offscreen
+    # platforms because there's no display to draw it on.
+    splash = _build_splash(icon)
+    if splash is not None:
+        splash.show()
+        app.processEvents()  # paint the splash NOW, not after init
+
     win = MainWindow()
     win.show()
+    if splash is not None:
+        splash.finish(win)
 
     # First-run onboarding tour — only shown until the user finishes
     # or skips it (persisted in QSettings). Mounted *after* ``show``
