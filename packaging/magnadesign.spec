@@ -31,13 +31,21 @@ into the bundle so the frozen app actually finds what it needs.
 
 Excluded modules
 ----------------
-- ``femmt`` and its scipy<1.14 / setuptools<70 sub-deps live in the
-  optional ``[fea]`` extra; users install them on demand via the
-  in-app setup dialog. Bundling would balloon the artifact and
-  likely break on platforms where ONELAB binaries aren't bundled.
 - ``tkinter`` — matplotlib pulls it in even though we only use the
   Qt backend.
 - Test / build / dev modules.
+
+Why we **bundle** FEMMT now
+---------------------------
+v0.4.x shipped FEMMT as an optional pip-install ("install the
+[fea] extra into your venv"). That made sense for source installs
+but never worked for the frozen .app: PyInstaller's bundled
+Python has its own sealed site-packages, so a system-wide
+``pip install femmt`` is invisible to the bundle and the in-app
+setup dialog endlessly reports *"FEMMT não importável"*. FEMMT
+itself is only ~10 MB on disk, so we now ship it inside the app —
+the only thing the setup dialog has to install is ONELAB (the
+binary solver, intentionally external).
 """
 from __future__ import annotations
 
@@ -164,6 +172,13 @@ for pkg in (
     "numpy",
     "scipy",
     "pandas",
+    # ``femmt`` ships .pro / .pre / .res getdp templates and a
+    # ``config.json`` at the package root that ``collect_all``
+    # picks up by walking the package tree. The static analyser
+    # alone misses both the data files and the ``femmt.thermal.solver``
+    # subpackage that the magnetostatic solver imports lazily on
+    # first ``thermal_simulation()`` call.
+    "femmt",
     "pyvista",
     "pyvistaqt",
     "vtkmodules",
@@ -202,7 +217,10 @@ datas += collect_data_files("openpyxl")
 
 # ---------------------------------------------------------------------------
 excluded = [
-    "femmt",            # optional [fea] extra; user installs separately
+    # ``femmt`` is now BUNDLED via collect_all above (see "Why we
+    # bundle FEMMT now" in the file header). Keeping ``onelab``
+    # excluded because that's the external getdp/gmsh binary
+    # blob we download into the user's home, not a Python module.
     "onelab",
     "tkinter",
     "_tkinter",
@@ -213,7 +231,10 @@ excluded = [
     "mypy",
     "ruff",
     "black",
-    "setuptools",       # we only need it at build time
+    # Don't drop setuptools any more — ``pkg_resources`` is part of
+    # setuptools and FEMMT 0.5.x imports it at module load time.
+    # Excluding it caused ``ModuleNotFoundError: No module named
+    # 'pkg_resources'`` from FEMMT in earlier ad-hoc bundles.
     "pip",
     "wheel",
 ]
