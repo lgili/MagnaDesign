@@ -202,7 +202,58 @@ promoted.
 | **PyVista 3D viewer initialising VTK on import.** | Toggle the 3D Viz off in Settings if you don't use it. |
 | **Old PySide6 < 6.7.** | The icon system pre-loads SVG sprites; older Qt versions take longer. Upgrade. |
 
-## 10.10 Where do I file bugs?
+## 10.10 macOS — app immediately quits or shows "is damaged"
+
+**Symptom**: double-clicking `magnadesign.app` either:
+
+- Bounces in the Dock for a moment then disappears, or
+- Shows _"magnadesign.app is damaged and can't be opened. You should
+  move it to the Trash."_, or
+- Shows _"cannot be opened because Apple cannot check it for malicious
+  software."_
+
+**Root causes (two layers stack here)**:
+
+1. **Gatekeeper quarantine.** Safari / Chrome tag every download with
+   the `com.apple.quarantine` extended attribute. Combined with the
+   ad-hoc-signed binary the release workflow ships (no Apple Developer
+   ID), Gatekeeper refuses to launch the app. This is the "damaged" /
+   "cannot verify" message.
+2. **Build defect in v0.4.0 only.** The PyInstaller spec missed
+   `collect_all` for numpy / scipy / pandas, so numpy 2.x's
+   `numpy._core` submodules (`_exceptions`, `multiarray`, …) are
+   absent from the bundle. The app launches past Gatekeeper, then
+   crashes immediately with
+   `ModuleNotFoundError: No module named 'numpy._core._exceptions'`.
+
+**Fix**:
+
+- **Use v0.4.1 or newer** — the spec fix is in
+  [`packaging/magnadesign.spec`](https://github.com/lgili/MagnaDesign/blob/main/packaging/magnadesign.spec).
+  Re-download from the GitHub Releases page.
+- **Then strip the quarantine flag** so Gatekeeper lets the unsigned
+  app run:
+
+  ```console
+  $ xattr -dr com.apple.quarantine ~/Downloads/magnadesign.app
+  ```
+
+  Equivalent right-click recipe: hold _Control_, click the app,
+  pick _Open_, then _Open_ again in the dialog. macOS records the
+  approval and double-click works after that.
+
+**Confirming the fix worked**: launch the binary directly from
+Terminal to see the real error:
+
+```console
+$ ~/Downloads/magnadesign.app/Contents/MacOS/magnadesign
+```
+
+A working bundle prints the splash banner and the GUI comes up. A
+broken (v0.4.0-class) bundle prints a Python traceback ending in
+`numpy._core._exceptions` or a similar `ModuleNotFoundError`.
+
+## 10.11 Where do I file bugs?
 
 GitHub issues at <https://github.com/lgili/MagnaDesign/issues>.
 Include:

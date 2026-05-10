@@ -31,7 +31,7 @@ Pre-releases (tags containing `-`, e.g. `v0.2.0-rc1`) are flagged
 | PySide6 + Qt | ✅ | Including QtSvg, QtPrintSupport |
 | pyvista + pyvistaqt + VTK | ✅ | ~350 MB; `collect_all` pulls every submodule |
 | matplotlib | ✅ | Qt backend only; tkinter excluded |
-| numpy / scipy / pandas | ✅ | Native wheels |
+| numpy / scipy / pandas | ✅ | `collect_all` — see note below |
 | pydantic v2 (with rust core) | ✅ | Hidden import declared |
 | openpyxl (Excel report) | ✅ | Data files via `collect_data_files` |
 | `data/` (cores, materials, wires, MAS catalog) | ✅ | Copied next to the executable |
@@ -43,6 +43,28 @@ Approximate sizes (uncompressed → archive):
 - Linux: ~620 MB → ~250 MB `.tar.gz`
 - macOS: ~640 MB `.app` → ~270 MB `.zip`
 - Windows: ~600 MB → ~280 MB `.zip`
+
+### Why numpy / scipy / pandas need `collect_all`
+
+PyInstaller's static-analysis pass walks `import` statements but
+stops at the C-extension boundary. NumPy 2.x reorganised its
+internals into `numpy._core` (with an underscore), and the .so
+extension modules in that subpackage re-import pure-Python
+dispatchers (`_exceptions`, `multiarray`, `numeric`) that the
+analyser never sees. Same defect on scipy and pandas — both ship
+.so glue that imports .py modules at runtime.
+
+Result if you skip the dance: the frozen app launches, the .so
+files are on disk, and the very first `import numpy` raises
+`ModuleNotFoundError: numpy._core._exceptions`. The v0.4.0 macOS
+build hit exactly that — fixed in v0.4.1 by adding the three
+packages to the spec's `collect_all` loop.
+
+Rule: any wheel that ships a `_libs/` directory full of `.so`
+files is a candidate for `collect_all`. When in doubt, freeze a
+build locally and `find dist/magnadesign -name "*.py" | wc -l`
+inside each suspect package — a count of zero next to dozens of
+`.so` files is the smoking gun.
 
 ## Local dry-run
 
