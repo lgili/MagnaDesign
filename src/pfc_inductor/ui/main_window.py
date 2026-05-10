@@ -532,8 +532,18 @@ class MainWindow(QMainWindow):
         act_mas.triggered.connect(self._open_catalog_update)
         tools_menu.addAction(act_mas)
 
-        act_setup = QAction("Configure FEA...", self)
-        act_setup.setStatusTip("Check or install FEMM and FEMMT.")
+        # Renamed from "Configure FEA..." — users searching the menu
+        # for "install" / "download" weren't finding it. The new
+        # label spells out exactly what the dialog does (download
+        # ONELAB if missing, write the FEMMT config). Keeping it
+        # in the Tools menu means even after the user dismisses
+        # the auto-popup at startup, they can still trigger the
+        # install flow manually here.
+        act_setup = QAction("Install / configure FEA backend...", self)
+        act_setup.setStatusTip(
+            "Download ONELAB (gmsh + getdp) and wire FEMMT against it. "
+            "Run this if the FEA dialog reports a missing solver."
+        )
         act_setup.triggered.connect(self._open_setup_deps)
         tools_menu.addAction(act_setup)
 
@@ -1542,6 +1552,20 @@ class MainWindow(QMainWindow):
         # Loading it lazily keeps the main window's first paint
         # snappy — the user only pays the cost when they click
         # "Validate (FEA)".
+        #
+        # Re-run the ONELAB path injection here so the case where
+        # the user installed ONELAB *during this session* (via the
+        # auto-popping setup dialog earlier) doesn't leave FEMMT
+        # crashing with ``ModuleNotFoundError: No module named
+        # 'onelab'`` when the FEA dialog opens. ``ensure_onelab_on_path``
+        # is idempotent — adding the path twice is a no-op.
+        try:
+            from pfc_inductor.setup_deps import ensure_onelab_on_path
+
+            ensure_onelab_on_path()
+        except Exception:
+            pass
+
         from pfc_inductor.ui.fea_dialog import FEAValidationDialog
 
         try:

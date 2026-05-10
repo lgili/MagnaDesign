@@ -380,11 +380,30 @@ def _run_gui(argv: list[str]) -> int:
     app.setApplicationName(SETTINGS_APP)
     app.setOrganizationName(SETTINGS_ORG)
 
+    # ---- Splash FIRST -----------------------------------------------------
+    # Show the splash before EVERYTHING else (theme, fonts, crash
+    # reporter, palette, stylesheet, MainWindow). The previous
+    # ordering ran ~8 stages of init before the user saw any pixel,
+    # which on a cold-cache frozen .app added up to 5-15 s of
+    # blank-screen wait — exactly the "demora 20 segundas antes do
+    # splash" symptom.
+    #
+    # The splash only needs the application icon and a paint cycle.
+    # Theme is read here (not via ``set_theme`` yet, just the
+    # default light palette for the splash background) so we don't
+    # block on font-database probing. Everything else is done AFTER
+    # the splash is visible.
+    icon = _resolve_icon()
+    if not icon.isNull():
+        app.setWindowIcon(icon)
+    splash = _build_splash(icon)
+    if splash is not None:
+        splash.show()
+        app.processEvents()  # force paint NOW so the user sees branding
+
+    # ---- Slow init AFTER the splash is visible ----------------------------
     # Crash reporter — opt-in, no-op when consent isn't granted
-    # or the SDK / DSN aren't configured. Initialised right after
-    # the QApplication so it can read QSettings; before any
-    # heavy MainWindow construction so a crash during startup
-    # is still captured.
+    # or the SDK / DSN aren't configured.
     try:
         from pfc_inductor.telemetry import init_crash_reporter
 
@@ -392,34 +411,15 @@ def _run_gui(argv: list[str]) -> int:
     except Exception:
         pass
 
-    # ---- Cross-platform style normalisation ---------------------------
-    # macOS defaults to the native ``macintosh`` style which IGNORES
-    # large parts of QSS (QPushButton stays white-rounded, QToolButton
-    # ignores background colours, etc.). Windows uses ``windowsvista``
-    # which respects more but still drifts from Mac. ``Fusion`` is the
-    # only Qt style that fully honours QSS, so forcing it everywhere
-    # gives pixel-equivalent rendering across platforms — the missing
-    # piece behind the "tema escuro está uma merda + Mac/Win não bate"
-    # report. Set BEFORE the stylesheet so Fusion's palette is the
-    # baseline our QSS extends.
+    # ``Fusion`` is the only Qt style that fully honours QSS — set
+    # BEFORE the stylesheet so its palette is the baseline.
     app.setStyle("Fusion")
-
-    # Application icon — used by the OS dock/taskbar, the About
-    # dialog, every QMainWindow's title bar (unless overridden), and
-    # alt-tab. Set on the QApplication so child windows inherit it
-    # without each having to call ``setWindowIcon`` itself.
-    icon = _resolve_icon()
-    if not icon.isNull():
-        app.setWindowIcon(icon)
 
     # Try to register JetBrains Mono if shipped (no-op when absent).
     QFontDatabase.addApplicationFont(":/fonts/JetBrainsMono-Regular.ttf")
-
-    # Probe the brand UI font (Inter Variable). When it isn't
-    # installed, Qt logs a 37 ms "Populating font family aliases"
-    # warning on every cold start. Strip the missing entries from
-    # the typography stack so the first family Qt looks up actually
-    # exists.
+    # Probe the brand UI font and strip missing entries from the
+    # typography stack so Qt's font matcher doesn't waste 37 ms /
+    # widget hunting "Inter Variable".
     _patch_brand_typography_to_installed_fonts()
 
     set_theme(_load_initial_theme())
@@ -437,29 +437,7 @@ def _run_gui(argv: list[str]) -> int:
         )
     )
 
-    # ---- Splash screen --------------------------------------------------
-    # ``MainWindow()`` and the dashboard cards take 5-15 s to
-    # instantiate cold on a frozen .app (matplotlib font cache +
-    # the catalog load + all the chart figures). Without an
-    # immediate visual signal the user double-clicks, sees nothing
-    # happen for ~10 s, and assumes the app is broken — exactly
-    # the "demora demais antes do splash" complaint.
-    #
-    # Order matters here: build + show the splash BEFORE importing
-    # MainWindow. The MainWindow import alone is multiple seconds
-    # of work (it pulls every workspace page, every dashboard card,
-    # matplotlib backends and pyvista) — if we import it first the
-    # splash appears right before MainWindow does, defeating the
-    # purpose. ``processEvents()`` after ``show()`` forces the paint
-    # so the splash is on-screen before the heavy import starts.
-    splash = _build_splash(icon)
-    if splash is not None:
-        splash.show()
-        app.processEvents()  # paint the splash NOW, not after init
-
-    # Phase 2: now that the splash is visible, import the heavy
-    # MainWindow + dashboard chain. The user sees branding while
-    # the imports run instead of a blank desktop.
+    # Update the splash message once we know the theme palette.
     if splash is not None:
         from PySide6.QtCore import Qt as _Qt
 

@@ -46,6 +46,23 @@ class VerifyReport:
 def verify_fea_setup() -> VerifyReport:
     rep = VerifyReport()
 
+    # FEMMT's ``femmt/component.py`` does ``from onelab import onelab``
+    # at module top, which fails with ``ModuleNotFoundError: No module
+    # named 'onelab'`` whenever ONELAB's folder isn't on ``sys.path``.
+    # The startup hook ``setup_deps.ensure_onelab_on_path()`` runs
+    # once at app boot — but that's BEFORE the user has installed
+    # ONELAB, so on a fresh install the path injection is a no-op
+    # and the next ``import femmt`` (from the very setup-dialog
+    # verification step that just finished installing ONELAB) blows
+    # up. Re-run the hook here so verify_fea_setup is robust to the
+    # "user just installed ONELAB" timing.
+    try:
+        from pfc_inductor.setup_deps import ensure_onelab_on_path
+
+        ensure_onelab_on_path()
+    except Exception:
+        pass
+
     # 1. FEMMT importable?
     try:
         femmt = importlib.import_module("femmt")
