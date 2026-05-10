@@ -150,6 +150,20 @@ hidden: list[str] = []
 binaries: list[tuple[str, str]] = []
 
 for pkg in (
+    # NumPy 2.x reorganised its internals into ``numpy._core``;
+    # PyInstaller's static-analysis pass misses the new submodules
+    # (``_exceptions``, ``multiarray``, ``numeric`` etc.) and the
+    # frozen app crashes at import with
+    # ``ModuleNotFoundError: numpy._core._exceptions``. ``collect_all``
+    # walks the package and pulls every .py + .so the package ships,
+    # which is the documented recipe for NumPy 2.x packaging.
+    # Same root cause for scipy and pandas — the static analyser
+    # picks up the .so extensions but skips the dispatcher .py
+    # files, so the frozen build had 0 scipy *.py modules. Both
+    # packages are runtime dependencies (see pyproject.toml).
+    "numpy",
+    "scipy",
+    "pandas",
     "pyvista",
     "pyvistaqt",
     "vtkmodules",
