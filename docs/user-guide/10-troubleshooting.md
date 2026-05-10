@@ -225,12 +225,18 @@ promoted.
    absent from the bundle. The app launches past Gatekeeper, then
    crashes immediately with
    `ModuleNotFoundError: No module named 'numpy._core._exceptions'`.
+3. **VTK SSAA hang in v0.4.1 only.** With numpy fixed, the app
+   launched far enough to start rendering the 3D-viz card on the
+   dashboard, but VTK's super-sampling-AA pass deadlocks on
+   macOS 26.4 / Apple Silicon (Metal-only GL compatibility shim
+   + VTK 9.x FBO ping-pong). Symptom: process climbs to ~700 MB,
+   sits at 0 % CPU, no window paints. Fix: switched to FXAA.
 
 **Fix**:
 
-- **Use v0.4.1 or newer** — the spec fix is in
-  [`packaging/magnadesign.spec`](https://github.com/lgili/MagnaDesign/blob/main/packaging/magnadesign.spec).
-  Re-download from the GitHub Releases page.
+- **Use v0.4.2 or newer** — both the numpy spec fix and the
+  VTK SSAA → FXAA fix are in. Re-download from the GitHub
+  Releases page.
 - **Then strip the quarantine flag** so Gatekeeper lets the unsigned
   app run:
 
