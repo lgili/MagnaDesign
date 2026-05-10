@@ -14,12 +14,12 @@
     "ripple_pct": 30.0,
     "T_amb_C": 40.0,
     "T_max_C": 125.0,
-    "Ku_max": 0.7,
+    "Ku_max": 0.5,
     "Bsat_margin": 0.2,
-    "n_phases": 3,
+    "n_phases": 1,
     "n_interleave": 2,
-    "L_req_mH": 10.0,
-    "I_rated_Arms": 2.2,
+    "L_req_mH": 0.13,
+    "I_rated_Arms": 16.0,
     "fsw_modulation": null,
     "Vin_dc_V": null,
     "Vin_dc_min_V": null,
@@ -30,8 +30,8 @@
     "window_split_primary": 0.45
   },
   "selection": {
-    "material_id": "magnetics-kool-mµ-26",
-    "core_id": "mas-magnetics-t-t-41-23-15---epoxy-coated---kool-mµ-26---ungapped",
-    "wire_id": "round-125---grade-2"
+    "material_id": "magnetics-26_highflux",
+    "core_id": "magnetics-0058735a2-26_highflux",
+    "wire_id": "round-65---heavy-build"
   }
 }

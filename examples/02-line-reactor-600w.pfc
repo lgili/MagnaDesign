@@ -1,25 +1,25 @@
 {
   "version": "1.0",
-  "name": "Line reactor 3φ 22 kW — VFD input",
+  "name": "Line reactor 1φ 600 W — VFD input",
   "spec": {
     "topology": "line_reactor",
-    "Vin_min_Vrms": 380.0,
-    "Vin_max_Vrms": 420.0,
-    "Vin_nom_Vrms": 400.0,
+    "Vin_min_Vrms": 85.0,
+    "Vin_max_Vrms": 265.0,
+    "Vin_nom_Vrms": 230.0,
     "f_line_Hz": 60.0,
-    "Vout_V": 540.0,
-    "Pout_W": 22000.0,
+    "Vout_V": 400.0,
+    "Pout_W": 600.0,
     "eta": 0.97,
     "f_sw_kHz": 10.0,
     "ripple_pct": 30.0,
     "T_amb_C": 40.0,
     "T_max_C": 125.0,
-    "Ku_max": 0.7,
+    "Ku_max": 0.5,
     "Bsat_margin": 0.2,
-    "n_phases": 3,
+    "n_phases": 1,
     "n_interleave": 2,
-    "L_req_mH": 10.0,
-    "I_rated_Arms": 2.2,
+    "L_req_mH": 5.0,
+    "I_rated_Arms": 2.6,
     "fsw_modulation": null,
     "Vin_dc_V": null,
     "Vin_dc_min_V": null,
@@ -30,8 +30,8 @@
     "window_split_primary": 0.45
   },
   "selection": {
-    "material_id": "magnetics-xflux-26",
-    "core_id": "mas-magnetics-t-t-41-23-15---epoxy-coated---xflux-26---ungapped",
-    "wire_id": "round-200---grade-2"
+    "material_id": "magnetics-125_highflux",
+    "core_id": "magnetics-0058340a2-125_highflux",
+    "wire_id": "round-75---heavy-build"
   }
 }
