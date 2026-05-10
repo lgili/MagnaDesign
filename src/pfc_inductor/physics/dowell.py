@@ -194,12 +194,15 @@ def _build_litz_kernel() -> Any:
         delta = (rho / (_PI * f_Hz * 4e-7 * _PI)) ** 0.5
         xi_s = (d_strand_m / delta) * (_PI / 4.0) ** 0.5
         two_xi = 2.0 * xi_s
-        import math as _m
-
-        sinh2x = _m.sinh(two_xi)
-        sin2x = _m.sin(two_xi)
-        cosh2x = _m.cosh(two_xi)
-        cos2x = _m.cos(two_xi)
+        # Module-level ``math`` — Numba 0.59+ rejects in-kernel
+        # ``import`` statements (UnsupportedBytecodeError on
+        # IMPORT_NAME). The same calls work fine when ``math`` is
+        # captured from module scope, exactly like the ``_round``
+        # kernel above does.
+        sinh2x = math.sinh(two_xi)
+        sin2x = math.sin(two_xi)
+        cosh2x = math.cosh(two_xi)
+        cos2x = math.cos(two_xi)
 
         den_skin = cosh2x - cos2x
         if den_skin < 1e-30:
