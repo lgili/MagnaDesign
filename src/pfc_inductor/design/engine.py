@@ -124,7 +124,7 @@ def _build_solve_n_kernel() -> Callable[..., tuple[int, float, float]] | None:
     and we only ever ``call`` it with a fixed argument bundle.
     """
     try:
-        from numba import njit  # type: ignore[import-untyped]
+        from numba import njit
     except ImportError:
         return None
 

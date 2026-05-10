@@ -132,7 +132,7 @@ _RHO_CU_20C = 1.724e-8
 def _build_round_kernel() -> Any:
     """Compile :func:`Rac_over_Rdc_round` with Numba if available."""
     try:
-        from numba import njit  # type: ignore[import-untyped]
+        from numba import njit
     except ImportError:
         return None
 

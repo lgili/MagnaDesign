@@ -140,7 +140,7 @@ def _build_waveforms_kernel() -> Optional[Callable[..., tuple]]:
     work in ~5 µs.
     """
     try:
-        from numba import njit  # type: ignore[import-untyped]
+        from numba import njit
     except ImportError:
         return None
 

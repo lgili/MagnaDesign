@@ -77,7 +77,7 @@ def _build_steinmetz_kernel() -> Optional[Callable[..., float]]:
     as scalars so attribute access is paid once (in the wrapper)
     rather than per-call."""
     try:
-        from numba import njit  # type: ignore[import-untyped]
+        from numba import njit
     except ImportError:
         return None
 

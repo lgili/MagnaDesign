@@ -279,6 +279,12 @@ module = ["pfc_inductor.models.mas.adapters"]
 ignore_errors = true
 
 # Third-party libs without stubs — silence missing-imports for these only.
+# ``numba`` lives behind the ``[numba]`` extra so the CI mypy job
+# doesn't have it on PYTHONPATH; the JIT call sites use lazy
+# ``from numba import njit`` inside try/except, but mypy still
+# wants the import resolvable. ``ignore_missing_imports`` covers
+# both ``import-not-found`` (CI without numba) and
+# ``import-untyped`` (local with numba but no .pyi stubs).
 [[tool.mypy.overrides]]
 module = [
     "PySide6.*",
@@ -288,5 +294,7 @@ module = [
     "scipy.*",
     "femmt.*",
     "openpyxl.*",
+    "numba",
+    "numba.*",
 ]
 ignore_missing_imports = true

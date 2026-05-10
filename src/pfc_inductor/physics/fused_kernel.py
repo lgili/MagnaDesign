@@ -69,7 +69,7 @@ def _build_fused_kernel() -> Optional[Callable[..., tuple]]:
     Python; the caller passes a fixed argument bundle.
     """
     try:
-        from numba import njit  # type: ignore[import-untyped]
+        from numba import njit
     except ImportError:
         return None
 
