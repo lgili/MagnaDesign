@@ -231,6 +231,22 @@ excluded = [
     "mypy",
     "ruff",
     "black",
+    # We use PySide6 exclusively. ``[fea]`` pulls FEMMT which has
+    # transitive deps that drag PyQt5 onto PYTHONPATH, and
+    # matplotlib's ``qt_compat`` probes PyQt6 / PyQt5 / PySide2 in
+    # order. PyInstaller refuses to mix Qt bindings —
+    # ``Aborting: attempt to collect multiple Qt bindings
+    # packages: attempting to run hook for 'PyQt5', while hook
+    # for 'PySide6' has already been run`` — so the alternates
+    # have to be excluded explicitly even when they show up only
+    # transitively. Without this the v0.4.3 build aborted on all
+    # three OS runners during the matplotlib hook.
+    "PyQt5",
+    "PyQt5.sip",
+    "PyQt6",
+    "PyQt6.sip",
+    "PySide2",
+    "shiboken2",
     # ``setuptools`` / ``pip`` / ``wheel`` are kept available because
     # FEMMT 0.5.x imports ``pkg_resources`` (vendored in setuptools)
     # at module load time, and PyInstaller's setuptools hook aliases
