@@ -43,12 +43,33 @@ def write_femmt_config(onelab_dir: Path) -> list[Path]:
     payload = {"onelab": str(onelab_dir)}
     written: list[Path] = []
 
+    # Write the home config FIRST. ``_femmt_package_config()``
+    # below does ``import femmt``, which triggers FEMMT's
+    # ``from onelab import onelab`` — which fails with
+    # ``ModuleNotFoundError`` unless the ONELAB folder is on
+    # ``sys.path``. ``ensure_onelab_on_path`` reads the home
+    # config to find the folder, so the home config has to
+    # exist before that helper can do its job. Writing the
+    # home config first + injecting the path before touching
+    # FEMMT closes the chicken-and-egg loop the user reported
+    # in v0.4.5 (install completed, then the package-config
+    # write crashed with the onelab import error).
     HOME_CONFIG.parent.mkdir(parents=True, exist_ok=True)
     HOME_CONFIG.write_text(
         json.dumps(payload, indent=2) + "\n",
         encoding="utf-8",
     )
     written.append(HOME_CONFIG)
+
+    # With the home config now on disk, prep ``sys.path`` so the
+    # imminent ``import femmt`` in ``_femmt_package_config`` can
+    # complete. ``ensure_onelab_on_path`` is idempotent.
+    try:
+        from pfc_inductor.setup_deps import ensure_onelab_on_path
+
+        ensure_onelab_on_path()
+    except Exception:
+        pass
 
     pkg_cfg = _femmt_package_config()
     if pkg_cfg is not None:

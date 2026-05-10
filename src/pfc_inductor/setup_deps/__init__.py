@@ -69,13 +69,31 @@ def ensure_onelab_on_path() -> Optional[Path]:
     Idempotent: returns the path that was added (or already present)
     on success, ``None`` if no configured ONELAB was found. Always
     safe to call multiple times — the second call short-circuits.
+
+    **Important:** this function intentionally bypasses
+    ``read_configured_onelab()`` and reads ``~/.femmt_settings.json``
+    directly. The full reader probes for ``<femmt>/config.json``
+    too, which requires ``import femmt`` — and that's the very
+    import this function is supposed to make safe. Calling it
+    indirectly here would create the chicken-and-egg crash the
+    user reported in v0.4.5: ``ensure_onelab_on_path`` triggers
+    ``import femmt`` triggers ``from onelab import onelab``
+    BEFORE the path injection has run.
     """
+    import json
     import sys
 
-    onelab_dir = read_configured_onelab()
-    if onelab_dir is None:
+    home_config = Path.home() / ".femmt_settings.json"
+    if not home_config.exists():
         return None
-    onelab_dir = Path(onelab_dir).expanduser()
+    try:
+        data = json.loads(home_config.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+    raw = data.get("onelab") or data.get("ONELAB")
+    if not raw:
+        return None
+    onelab_dir = Path(raw).expanduser()
     if not (onelab_dir / "onelab.py").exists():
         return None
     onelab_str = str(onelab_dir)
