@@ -606,4 +606,18 @@ def _run_gui(argv: list[str]) -> int:
 
 
 if __name__ == "__main__":
+    # PyInstaller-frozen .app + ``multiprocessing.spawn`` requires
+    # this call at the *very first line* of the entry point —
+    # otherwise the child process's interpreter bootstrap fails
+    # opaquely with exit code 4 on macOS, killing every spawned
+    # FEMMT subprocess before our code has a chance to run. In a
+    # source install this is a no-op; in the bundle it tells the
+    # PyInstaller bootloader "if you were spawned as a child, run
+    # the multiprocessing entry rather than re-launching the GUI".
+    # See PyInstaller docs:
+    # https://pyinstaller.org/en/stable/runtime-information.html#using-the-multiprocessing-module
+    import multiprocessing
+
+    multiprocessing.freeze_support()
+
     sys.exit(main())
