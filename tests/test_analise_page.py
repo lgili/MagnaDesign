@@ -70,6 +70,12 @@ def test_analise_page_card_set(app):
     from pfc_inductor.ui.dashboard.cards.acoustic_card import (
         AcousticCard,
     )
+    from pfc_inductor.ui.dashboard.cards.harmonic_spectrum_card import (
+        HarmonicSpectrumCard,
+    )
+    from pfc_inductor.ui.dashboard.cards.phase_overlay_card import (
+        PhaseOverlayCard,
+    )
 
     expected = {
         FormasOndaCard,
@@ -83,6 +89,8 @@ def test_analise_page_card_set(app):
         EntreferroCard,
         DetalhesTecnicosCard,
         AcousticCard,
+        HarmonicSpectrumCard,
+        PhaseOverlayCard,
     }
     types = {type(c) for c in p._cards}
     assert types == expected, f"Card set drifted; got {types}, expected {expected}"
