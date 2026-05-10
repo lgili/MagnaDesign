@@ -80,12 +80,17 @@ jobs:
           # Qt widgets need a display; offscreen platform avoids the
           # "no DISPLAY" failure without pulling in xvfb.
           QT_QPA_PLATFORM: offscreen
-        # ``-n auto`` parallelises across every available CPU
-        # (pytest-xdist). On the 4-core ubuntu-latest runners this
-        # cuts the suite from ~13 min serial to ~3-4 min, well
-        # under the runner step ceiling that was canceling jobs.
-        # ``--dist loadfile`` keeps tests in the same file on the
-        # same worker so module-scoped fixtures (Qt apps, SQLite
-        # stores) only spin up once per worker.
-        timeout-minutes: 15
-        run: pytest -ra -n auto --dist loadfile
+        # ``timeout-minutes: 20`` is the safety net: serial pytest
+        # locally takes ~13 min, so 20 min leaves a comfortable margin
+        # but still fails fast and cleanly if a regression introduces
+        # an actual hang.
+        #
+        # ``pytest-xdist`` (``-n auto``) was tried as a parallel
+        # speed-up but the workers hung on CI's ubuntu-latest with
+        # zero stdout output for 50+ min — looked like a deadlock
+        # between xdist's worker bootstrap and PySide6's offscreen
+        # platform plugin. Reverted to serial; the suite finishes
+        # well within the timeout and the deterministic output is
+        # easier to debug.
+        timeout-minutes: 20
+        run: pytest -ra
