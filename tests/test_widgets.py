@@ -106,16 +106,28 @@ def test_metric_card_trend_higher_better_pos_pct_is_success(app):
     assert get_theme().palette.success.lower() in m._trend_lbl.styleSheet().lower()
 
 
-def test_metric_card_status_changes_left_bar(app):
+def test_metric_card_status_changes_value_color(app):
+    """Status colour now lives on the numeric value label, not the
+    card frame border. The previous design painted a 3 px coloured
+    ``border-left`` strip on the chrome, but it visually bled into
+    the row gutter on HiDPI / offscreen Qt — colouring the value
+    text is the standard pattern (Linear / Notion / Datadog) and
+    keeps a row of mixed-status tiles reading as a clean KPI strip.
+    """
     from pfc_inductor.ui.theme import get_theme
     from pfc_inductor.ui.widgets import MetricCard
 
     m = MetricCard("X", "1", "")
     p = get_theme().palette
     m.set_status("err")
-    assert p.danger.lower() in m.styleSheet().lower()
+    assert p.danger.lower() in m._val.styleSheet().lower()
+    m.set_status("warn")
+    assert p.warning.lower() in m._val.styleSheet().lower()
     m.set_status("ok")
-    assert p.success.lower() in m.styleSheet().lower()
+    # ``ok`` falls back to the default text colour (the implementation
+    # writes ``color: <text>`` rather than clearing the rule, so the
+    # stylesheet is non-empty but contains the neutral ``text`` value).
+    assert p.text.lower() in m._val.styleSheet().lower()
 
 
 # ---------------------------------------------------------------------------
