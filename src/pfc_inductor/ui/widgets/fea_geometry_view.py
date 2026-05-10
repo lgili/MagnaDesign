@@ -115,11 +115,40 @@ class GeometryPayload:
             shape_kind = infer_shape(core)
         except Exception:
             shape_kind = str(getattr(core, "shape", "")).lower()
+
+        # Many catalog entries (Magnetics, Micrometals, Thornton…)
+        # ship Ae / le / Wa / AL but leave OD / ID / HT empty —
+        # the schematic painters need physical dimensions, so
+        # derive them from the electrical parameters when the
+        # catalog didn't populate them. ``_toroid_dims`` /
+        # ``_bobbin_dims`` already encode the closed-form maths:
+        #   toroid:  ID = 2√(Wa/π);  OD = 2·le/π − ID;  HT = 2·Ae/(OD−ID)
+        #   bobbin:  W ≈ ∛(1.4·Ve);  D = Ae/(0.32W);  H = 2·yoke + window
+        OD = float(getattr(core, "OD_mm", 0.0) or 0.0)
+        ID = float(getattr(core, "ID_mm", 0.0) or 0.0)
+        HT = float(getattr(core, "HT_mm", 0.0) or 0.0)
+        if OD <= 0 or HT <= 0 or (shape_kind == "toroid" and ID <= 0):
+            try:
+                from pfc_inductor.visual.core_3d import (
+                    _bobbin_dims, _toroid_dims,
+                )
+
+                if shape_kind == "toroid":
+                    dims = _toroid_dims(core)
+                    if dims is not None:
+                        OD, ID, HT = dims
+                else:
+                    OD, HT, _D = _bobbin_dims(core)
+                    # Bobbin returns (W, H, D); we keep W as OD,
+                    # H as HT, and leave ID at 0 (no donut hole).
+            except Exception:
+                pass
+
         return cls(
             shape=shape_kind,
-            OD_mm=float(getattr(core, "OD_mm", 0.0) or 0.0),
-            ID_mm=float(getattr(core, "ID_mm", 0.0) or 0.0),
-            HT_mm=float(getattr(core, "HT_mm", 0.0) or 0.0),
+            OD_mm=OD,
+            ID_mm=ID,
+            HT_mm=HT,
             le_mm=float(getattr(core, "le_mm", 0.0) or 0.0),
             lgap_mm=float(getattr(core, "lgap_mm", 0.0) or 0.0),
             N_turns=int(getattr(result, "N_turns", 0) or 0),
@@ -265,10 +294,14 @@ class GeometryView(QWidget):
                                     edgecolor=pal.text, linewidth=0.4,
                                     zorder=6))
             if p.N_turns > N_show:
-                ax.text(0, -r_out * 1.05,
+                # Place the count badge INSIDE the inner radius so
+                # it doesn't crowd the OD dimension arrow under the
+                # ring. ID label moves up a bit when the badge is
+                # present.
+                ax.text(0, r_in * 0.45,
                         f"showing {N_show} of {p.N_turns} turns",
-                        ha="center", va="top", fontsize=8,
-                        color=pal.text_muted)
+                        ha="center", va="center", fontsize=8,
+                        color=pal.text_muted, style="italic")
 
         # Dimension annotations (OD, ID).
         self._dim_arrow(ax, (-r_out, -r_out * 1.10),
@@ -378,10 +411,10 @@ class GeometryView(QWidget):
                                         zorder=6))
                     placed += 1
             if p.N_turns > target:
-                ax.text(0, -HT / 2 - HT * 0.08,
+                ax.text(0, HT / 2 + HT * 0.06,
                         f"showing {target * 2} of {p.N_turns * 2} cross-sections",
-                        ha="center", va="top", fontsize=8,
-                        color=pal.text_muted)
+                        ha="center", va="bottom", fontsize=8,
+                        color=pal.text_muted, style="italic")
 
         # Dimensions.
         x_full = cl / 2 + ww + ol
@@ -488,10 +521,12 @@ class GeometryView(QWidget):
         if p.Ns_turns > target_s:
             notes.append(f"S showing {target_s}/{p.Ns_turns}")
         if notes:
-            ax.text(0, -HT / 2 - HT * 0.08,
+            # Place above the geometry, not below — the bottom is
+            # reserved for the OD dimension arrow on PQ/E painters.
+            ax.text(0, HT / 2 + HT * 0.06,
                     "  ·  ".join(notes),
-                    ha="center", va="top", fontsize=8,
-                    color=pal.text_muted)
+                    ha="center", va="bottom", fontsize=8,
+                    color=pal.text_muted, style="italic")
 
         # Horizontal divider so the split is unambiguous.
         ax.plot(
