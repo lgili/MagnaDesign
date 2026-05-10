@@ -35,16 +35,16 @@ from typing import Optional
 
 import matplotlib
 
-matplotlib.use("Agg")  # noqa: E402 — Agg before any pyplot import
+matplotlib.use("Agg")
 
-from matplotlib.backends.backend_qtagg import (  # noqa: E402
+from matplotlib.backends.backend_qtagg import (
     FigureCanvasQTAgg as FigureCanvas,
 )
-from matplotlib.figure import Figure  # noqa: E402
-from PySide6.QtWidgets import QSizePolicy, QVBoxLayout, QWidget  # noqa: E402
+from matplotlib.figure import Figure
+from PySide6.QtWidgets import QSizePolicy, QVBoxLayout, QWidget
 
-from pfc_inductor.fea.models import FEAValidation  # noqa: E402
-from pfc_inductor.ui.theme import get_theme, on_theme_changed  # noqa: E402
+from pfc_inductor.fea.models import FEAValidation
+from pfc_inductor.ui.theme import get_theme, on_theme_changed
 
 # Confidence thresholds — matched to ``FEAValidation.confidence``.
 # Keep in sync with that property; if it ever moves to numeric
@@ -182,7 +182,7 @@ class FEAValidationChart(QWidget):
         # Layout: two groups of 2 bars each, with a small gap.
         bar_w = 0.36
         x_anchors = [0.0, 1.4]
-        for ax_x, (label, an, fea, unit, err) in zip(x_anchors, pairs):
+        for ax_x, (label, an, fea, unit, err) in zip(x_anchors, pairs, strict=False):
             # Per-pair normalisation so both bars share a meaningful
             # vertical scale.
             scale = max(an, fea, 1e-9)

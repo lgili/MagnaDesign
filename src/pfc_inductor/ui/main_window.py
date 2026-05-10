@@ -661,8 +661,8 @@ class MainWindow(QMainWindow):
         never destroys earlier rows.
         """
         try:
-            from pfc_inductor.project import ProjectFile, ProjectSelection
             from pfc_inductor.models import Spec
+            from pfc_inductor.project import ProjectFile, ProjectSelection
 
             # ``snapshot.spec`` is a JSON-derived dict; rehydrate
             # it through Pydantic so any partial / forward-compat
@@ -687,8 +687,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(
                 self,
                 "Restore failed",
-                f"Could not restore snapshot {snapshot.id}: "
-                f"{type(e).__name__}: {e}",
+                f"Could not restore snapshot {snapshot.id}: {type(e).__name__}: {e}",
             )
 
     def _on_project_new(self) -> None:

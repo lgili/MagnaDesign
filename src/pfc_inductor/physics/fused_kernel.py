@@ -289,7 +289,7 @@ def fused_converge(
     tol_K: float = 0.5,
     relax: float = 0.5,
     T_hard_max_C: float = 300.0,
-):
+) -> tuple[float, float, float, float, float, float, bool] | None:
     """Run the fused thermal-converge + total-loss kernel.
 
     Returns ``(T_final, P_total, P_cu_dc, P_cu_ac,

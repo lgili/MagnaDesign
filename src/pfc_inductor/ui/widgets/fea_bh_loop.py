@@ -41,15 +41,15 @@ from typing import Optional
 
 import matplotlib
 
-matplotlib.use("Agg")  # noqa: E402
+matplotlib.use("Agg")
 
-from matplotlib.backends.backend_qtagg import (  # noqa: E402
+from matplotlib.backends.backend_qtagg import (
     FigureCanvasQTAgg as FigureCanvas,
 )
-from matplotlib.figure import Figure  # noqa: E402
-from PySide6.QtWidgets import QSizePolicy, QVBoxLayout, QWidget  # noqa: E402
+from matplotlib.figure import Figure
+from PySide6.QtWidgets import QSizePolicy, QVBoxLayout, QWidget
 
-from pfc_inductor.ui.theme import get_theme, on_theme_changed  # noqa: E402
+from pfc_inductor.ui.theme import get_theme, on_theme_changed
 
 # H is canonically reported in Oersteds in the magnetics
 # catalogues we consume, but we plot in A/m — engineers think in
@@ -91,7 +91,7 @@ class BHLoopPayload:
     core_part: str = ""
 
     @classmethod
-    def from_models(cls, material, result, hot: bool = True) -> "BHLoopPayload":
+    def from_models(cls, material, result, hot: bool = True) -> BHLoopPayload:
         """Build a payload from the project's pydantic models.
 
         ``hot=True`` uses ``Bsat_100C_T`` (continuous-load case);
@@ -100,9 +100,7 @@ class BHLoopPayload:
         Bsat_T = float(getattr(material, Bsat_attr, 0.0) or 0.0)
         if Bsat_T <= 0:  # fall back to the other if missing
             Bsat_T = float(
-                getattr(material, "Bsat_25C_T", 0.0)
-                or getattr(material, "Bsat_100C_T", 0.0)
-                or 0.5
+                getattr(material, "Bsat_25C_T", 0.0) or getattr(material, "Bsat_100C_T", 0.0) or 0.5
             )
         H_pk_Oe = float(getattr(result, "H_dc_peak_Oe", 0.0) or 0.0)
         H_pk_A_per_m = H_pk_Oe * _OE_TO_A_PER_M
@@ -170,7 +168,9 @@ class BHLoopChart(QWidget):
             0.5,
             0.5,
             "Run a design to see the operating point on the material B-H curve.",
-            ha="center", va="center", fontsize=10,
+            ha="center",
+            va="center",
+            fontsize=10,
             color=get_theme().palette.text_muted,
             transform=ax.transAxes,
         )
@@ -210,55 +210,86 @@ class BHLoopChart(QWidget):
         n = 400
         H = [-H_max + 2 * H_max * i / (n - 1) for i in range(n)]
         B = [Bsat * math.tanh(slope * h / Bsat) for h in H]
-        ax.plot(H, B, color=pal.accent_violet, linewidth=2.0,
-                label=f"Static B(H), µᵣ = {p.mu_initial:.0f}",
-                zorder=4)
+        ax.plot(
+            H,
+            B,
+            color=pal.accent_violet,
+            linewidth=2.0,
+            label=f"Static B(H), µᵣ = {p.mu_initial:.0f}",
+            zorder=4,
+        )
 
         # ── Bsat reference + danger band ──
         Blimit = Bsat * (1.0 - p.Bsat_margin)
-        ax.axhspan(Blimit, Bsat * 1.05, facecolor=pal.danger,
-                   alpha=0.10, zorder=1)
-        ax.axhspan(-Bsat * 1.05, -Blimit, facecolor=pal.danger,
-                   alpha=0.10, zorder=1)
+        ax.axhspan(Blimit, Bsat * 1.05, facecolor=pal.danger, alpha=0.10, zorder=1)
+        ax.axhspan(-Bsat * 1.05, -Blimit, facecolor=pal.danger, alpha=0.10, zorder=1)
         for sign in (+1, -1):
-            ax.axhline(sign * Bsat, color=pal.danger, linewidth=1.2,
-                       linestyle=":", alpha=0.85, zorder=2)
-        ax.text(H_max * 0.98, Bsat,
-                f"  Bsat {Bsat * 1000:.0f} mT",
-                ha="right", va="bottom", fontsize=8,
-                color=pal.danger, fontweight="bold")
-        ax.text(H_max * 0.98, Blimit,
-                f"  −{p.Bsat_margin*100:.0f} % headroom band",
-                ha="right", va="top", fontsize=8,
-                color=pal.warning)
+            ax.axhline(
+                sign * Bsat, color=pal.danger, linewidth=1.2, linestyle=":", alpha=0.85, zorder=2
+            )
+        ax.text(
+            H_max * 0.98,
+            Bsat,
+            f"  Bsat {Bsat * 1000:.0f} mT",
+            ha="right",
+            va="bottom",
+            fontsize=8,
+            color=pal.danger,
+            fontweight="bold",
+        )
+        ax.text(
+            H_max * 0.98,
+            Blimit,
+            f"  −{p.Bsat_margin * 100:.0f} % headroom band",
+            ha="right",
+            va="top",
+            fontsize=8,
+            color=pal.warning,
+        )
 
         # ── AC trajectory (optional) ──
-        if (p.waveform_H_A_per_m and p.waveform_B_T
-                and len(p.waveform_H_A_per_m) == len(p.waveform_B_T)
-                and len(p.waveform_H_A_per_m) > 1):
-            ax.plot(p.waveform_H_A_per_m, p.waveform_B_T,
-                    color=pal.warning, linewidth=1.5, alpha=0.9,
-                    label="AC trajectory (one cycle)",
-                    zorder=5)
+        if (
+            p.waveform_H_A_per_m
+            and p.waveform_B_T
+            and len(p.waveform_H_A_per_m) == len(p.waveform_B_T)
+            and len(p.waveform_H_A_per_m) > 1
+        ):
+            ax.plot(
+                p.waveform_H_A_per_m,
+                p.waveform_B_T,
+                color=pal.warning,
+                linewidth=1.5,
+                alpha=0.9,
+                label="AC trajectory (one cycle)",
+                zorder=5,
+            )
 
         # ── Operating point dot + readout ──
         if p.H_pk_A_per_m and p.B_pk_T:
-            ax.scatter([p.H_pk_A_per_m], [p.B_pk_T],
-                       color=pal.success, s=110, zorder=6,
-                       edgecolors="white", linewidths=1.6,
-                       label="Operating point (peak)")
+            ax.scatter(
+                [p.H_pk_A_per_m],
+                [p.B_pk_T],
+                color=pal.success,
+                s=110,
+                zorder=6,
+                edgecolors="white",
+                linewidths=1.6,
+                label="Operating point (peak)",
+            )
             margin_pct = (1.0 - p.B_pk_T / Bsat) * 100 if Bsat > 0 else 0
             ax.annotate(
-                (f"B_pk = {p.B_pk_T * 1000:.0f} mT\n"
-                 f"H_pk = {p.H_pk_A_per_m / _OE_TO_A_PER_M:.0f} Oe\n"
-                 f"margin = {margin_pct:.0f} % to Bsat"),
+                (
+                    f"B_pk = {p.B_pk_T * 1000:.0f} mT\n"
+                    f"H_pk = {p.H_pk_A_per_m / _OE_TO_A_PER_M:.0f} Oe\n"
+                    f"margin = {margin_pct:.0f} % to Bsat"
+                ),
                 xy=(p.H_pk_A_per_m, p.B_pk_T),
-                xytext=(15, -10), textcoords="offset points",
-                fontsize=9, color=pal.text,
-                bbox=dict(boxstyle="round,pad=0.4",
-                          fc=pal.surface, ec=pal.border, lw=0.8),
-                arrowprops=dict(arrowstyle="-",
-                                color=pal.text_muted, lw=0.6),
+                xytext=(15, -10),
+                textcoords="offset points",
+                fontsize=9,
+                color=pal.text,
+                bbox=dict(boxstyle="round,pad=0.4", fc=pal.surface, ec=pal.border, lw=0.8),
+                arrowprops=dict(arrowstyle="-", color=pal.text_muted, lw=0.6),
             )
 
         # ── Axis chrome ──
@@ -285,21 +316,26 @@ class BHLoopChart(QWidget):
                 lambda x: x * _OE_TO_A_PER_M,  # type: ignore[operator]
             ),
         )
-        sec.set_xlabel("Magnetising force H [Oe]", color=pal.text_muted,
-                       fontsize=9)
+        sec.set_xlabel("Magnetising force H [Oe]", color=pal.text_muted, fontsize=9)
         sec.tick_params(axis="x", labelcolor=pal.text_muted, labelsize=8)
 
         # ── Title ──
         bits = ["B-H — operating point on static curve"]
         if p.material_name:
             bits.append(f"({p.material_name})")
-        ax.set_title("  ".join(bits), fontsize=11, fontweight="bold",
-                     color=pal.text, loc="left", pad=14)
+        ax.set_title(
+            "  ".join(bits), fontsize=11, fontweight="bold", color=pal.text, loc="left", pad=14
+        )
 
         # ── Legend ──
-        ax.legend(loc="lower right", fontsize=8, frameon=True,
-                  facecolor=pal.surface, edgecolor=pal.border,
-                  labelcolor=pal.text)
+        ax.legend(
+            loc="lower right",
+            fontsize=8,
+            frameon=True,
+            facecolor=pal.surface,
+            edgecolor=pal.border,
+            labelcolor=pal.text,
+        )
 
         self._fig.tight_layout()
         self._canvas.draw_idle()

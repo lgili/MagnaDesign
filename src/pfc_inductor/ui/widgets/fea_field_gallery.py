@@ -45,7 +45,6 @@ from PySide6.QtWidgets import (
 
 from pfc_inductor.ui.theme import get_theme, on_theme_changed
 
-
 # Filename heuristics → human-readable category. Ordered so the
 # first match wins (mesh appears in many filenames; B / H are
 # more specific). Keys are case-insensitive substrings.
@@ -354,9 +353,7 @@ class _Thumbnail(QFrame):
         # _CATEGORY_HELP + hover hint. Left-aligned so the text
         # block reads as a card, not a centred annotation.
         p = get_theme().palette
-        one_liner, _ = _CATEGORY_HELP.get(
-            artifact.category, _CATEGORY_HELP["Other"]
-        )
+        one_liner, _ = _CATEGORY_HELP.get(artifact.category, _CATEGORY_HELP["Other"])
         caption = QLabel(
             f"<div style='margin: 0; padding: 0;'>"
             f"<b style='color:{p.text}; font-size: 13px;'>"
@@ -367,9 +364,7 @@ class _Thumbnail(QFrame):
             f"{_humanise(artifact.path.name)} · click to enlarge</span>"
             f"</div>"
         )
-        caption.setAlignment(
-            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
-        )
+        caption.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         caption.setWordWrap(True)
         caption.setFixedHeight(self.THUMB_H - self.IMG_H)
         caption.setStyleSheet("padding: 8px 12px;")
@@ -432,8 +427,7 @@ class _LightboxDialog(QDialog):
         p = get_theme().palette
         title = QLabel(category)
         title.setStyleSheet(
-            f"font-size: 17px; font-weight: 700; color: {p.text}; "
-            f"padding-bottom: 2px;"
+            f"font-size: 17px; font-weight: 700; color: {p.text}; padding-bottom: 2px;"
         )
         outer.addWidget(title)
 
@@ -466,24 +460,20 @@ class _LightboxDialog(QDialog):
         _, detail = _CATEGORY_HELP.get(category, _CATEGORY_HELP[_DEFAULT_CATEGORY])
         what_h = QLabel("WHAT YOU'RE LOOKING AT")
         what_h.setStyleSheet(
-            f"font-size: 11px; font-weight: 700; letter-spacing: 0.6px; "
-            f"color: {p.text_muted};"
+            f"font-size: 11px; font-weight: 700; letter-spacing: 0.6px; color: {p.text_muted};"
         )
         side.addWidget(what_h)
 
         what_p = QLabel(detail)
         what_p.setWordWrap(True)
-        what_p.setStyleSheet(
-            f"font-size: 13px; color: {p.text}; line-height: 1.5;"
-        )
+        what_p.setStyleSheet(f"font-size: 13px; color: {p.text}; line-height: 1.5;")
         side.addWidget(what_p)
 
         side.addSpacing(6)
 
         src_h = QLabel("SOURCE")
         src_h.setStyleSheet(
-            f"font-size: 11px; font-weight: 700; letter-spacing: 0.6px; "
-            f"color: {p.text_muted};"
+            f"font-size: 11px; font-weight: 700; letter-spacing: 0.6px; color: {p.text_muted};"
         )
         side.addWidget(src_h)
 
@@ -493,9 +483,7 @@ class _LightboxDialog(QDialog):
             f"font-size: 11px; color: {p.text_secondary};"
         )
         path_label.setWordWrap(True)
-        path_label.setTextInteractionFlags(
-            Qt.TextInteractionFlag.TextSelectableByMouse
-        )
+        path_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         side.addWidget(path_label)
 
         side.addStretch(1)
@@ -562,8 +550,7 @@ class FEAFieldGallery(QWidget):
         self._inner_layout.setSpacing(12)
 
         self._show_empty(
-            "Run a FEA validation. Field plots show up here when "
-            "the backend exports them."
+            "Run a FEA validation. Field plots show up here when the backend exports them."
         )
 
     # ------------------------------------------------------------------
@@ -606,10 +593,7 @@ class FEAFieldGallery(QWidget):
         lbl = QLabel(message)
         lbl.setWordWrap(True)
         lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        lbl.setStyleSheet(
-            f"color: {get_theme().palette.text_muted};"
-            "padding: 60px 20px;"
-        )
+        lbl.setStyleSheet(f"color: {get_theme().palette.text_muted};padding: 60px 20px;")
         self._inner_layout.addWidget(lbl, 1, Qt.AlignmentFlag.AlignCenter)
 
     def _render_grid(self, artifacts: Iterable[_Artifact]) -> None:
@@ -671,9 +655,7 @@ class FEAFieldGallery(QWidget):
         v.setSpacing(6)
 
         title = QLabel("How to read these plots")
-        title.setStyleSheet(
-            f"font-size: 13px; font-weight: 700; color: {p.text};"
-        )
+        title.setStyleSheet(f"font-size: 13px; font-weight: 700; color: {p.text};")
         v.addWidget(title)
 
         # Categories present in this run, in display order.
@@ -687,9 +669,7 @@ class FEAFieldGallery(QWidget):
         bullets = []
         for cat in present:
             one_liner, _ = _CATEGORY_HELP.get(cat, _CATEGORY_HELP[_DEFAULT_CATEGORY])
-            bullets.append(
-                f"<li><b>{cat}</b> — {one_liner}</li>"
-            )
+            bullets.append(f"<li><b>{cat}</b> — {one_liner}</li>")
 
         body = QLabel(
             "Each card below is a 2-D cross-section of the inductor solved "
@@ -697,15 +677,10 @@ class FEAFieldGallery(QWidget):
             "(<i>r</i>, <i>z</i> for axisymmetric solves). "
             "<b>Click any card to enlarge</b> and read the "
             "engineering interpretation alongside the figure."
-            "<ul style='margin: 6px 0 0 16px; padding: 0;'>"
-            + "".join(bullets)
-            + "</ul>"
+            "<ul style='margin: 6px 0 0 16px; padding: 0;'>" + "".join(bullets) + "</ul>"
         )
         body.setWordWrap(True)
-        body.setStyleSheet(
-            f"font-size: 12px; color: {p.text_secondary}; "
-            f"line-height: 1.5;"
-        )
+        body.setStyleSheet(f"font-size: 12px; color: {p.text_secondary}; line-height: 1.5;")
         v.addWidget(body)
 
         return frame

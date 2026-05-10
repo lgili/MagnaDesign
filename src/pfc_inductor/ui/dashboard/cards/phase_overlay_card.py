@@ -72,13 +72,15 @@ class _PhaseOverlayBody(QWidget):
         except Exception:
             duty = 0.5
 
-        self._chart.show_payload(PhaseOverlayPayload(
-            n_phases=N,
-            I_avg_per_phase_A=I_per_phase,
-            delta_iL_pp_A=ripple_pp,
-            fsw_Hz=fsw_Hz,
-            duty=duty,
-        ))
+        self._chart.show_payload(
+            PhaseOverlayPayload(
+                n_phases=N,
+                I_avg_per_phase_A=I_per_phase,
+                delta_iL_pp_A=ripple_pp,
+                fsw_Hz=fsw_Hz,
+                duty=duty,
+            )
+        )
 
     def clear(self) -> None:
         # ``PhaseOverlayChart`` has no public clear; show the empty

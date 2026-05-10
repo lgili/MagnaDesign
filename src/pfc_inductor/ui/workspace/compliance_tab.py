@@ -264,14 +264,16 @@ class _StandardCardBody(QFrame):
             # evaluator picked. The cleanest signal is the
             # standard summary; fall back to "A" otherwise.
             iec_class = "D" if "Class D" in std.scope else "A"
-            self.chart.show_payload(HarmonicSpectrumPayload(
-                orders=orders,
-                amplitudes_A=amps,
-                iec_class=iec_class,
-                P_in_W=float(std.extras.get("Pi_W", 0.0) or 0.0),
-                f_line_Hz=60.0,
-                topology_name=std.standard,
-            ))
+            self.chart.show_payload(
+                HarmonicSpectrumPayload(
+                    orders=orders,
+                    amplitudes_A=amps,
+                    iec_class=iec_class,
+                    P_in_W=float(std.extras.get("Pi_W", 0.0) or 0.0),
+                    f_line_Hz=60.0,
+                    topology_name=std.standard,
+                )
+            )
             self.chart.setVisible(True)
         elif self.chart is not None:
             # Standard re-evaluated with no spectrum (e.g. boost

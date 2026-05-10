@@ -118,11 +118,15 @@ class _ThermalWorker(QObject):
 
         try:
             from pfc_inductor.fea.femmt_thermal import (
-                ThermalOptions, validate_design_thermal_femmt,
+                ThermalOptions,
+                validate_design_thermal_femmt,
             )
 
             thermal = validate_design_thermal_femmt(
-                self.spec, self.core, self.wire, self.material,
+                self.spec,
+                self.core,
+                self.wire,
+                self.material,
                 self.result,
                 options=ThermalOptions(
                     T_ambient_C=float(getattr(self.spec, "T_amb_C", 40.0)),
@@ -131,8 +135,7 @@ class _ThermalWorker(QObject):
             )
             self.finished.emit(thermal)
         except Exception as e:
-            self.failed.emit(f"{type(e).__name__}: {e}\n\n"
-                              f"{traceback.format_exc()}")
+            self.failed.emit(f"{type(e).__name__}: {e}\n\n{traceback.format_exc()}")
 
 
 class _SweepWorker(QObject):
@@ -202,12 +205,11 @@ class _SweepWorker(QObject):
                 Bsat_margin=margin,
             )
             self.finished.emit(payload)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             tb = traceback.format_exc().splitlines()
             tail = "\n".join(tb[-6:]) if len(tb) > 6 else "\n".join(tb)
             self.failed.emit(
-                f"Unexpected error: {type(exc).__name__}: {exc}\n\n"
-                f"Traceback (last frames):\n{tail}"
+                f"Unexpected error: {type(exc).__name__}: {exc}\n\nTraceback (last frames):\n{tail}"
             )
 
 
@@ -279,9 +281,7 @@ class FEAValidationDialog(QDialog):
 
         try:
             self.geometry_view.show_payload(
-                GeometryPayload.from_models(
-                    self._core, self._wire, self._result
-                )
+                GeometryPayload.from_models(self._core, self._wire, self._result)
             )
         except Exception:
             # Defensive — a malformed Core/Wire/Result from a
@@ -291,9 +291,7 @@ class FEAValidationDialog(QDialog):
 
         try:
             self.bh_chart.show_payload(
-                BHLoopPayload.from_models(
-                    self._material, self._result, hot=True
-                )
+                BHLoopPayload.from_models(self._material, self._result, hot=True)
             )
         except Exception:
             pass
@@ -306,7 +304,8 @@ class FEAValidationDialog(QDialog):
             # is fine for the proportional view.
             self.loss_bar.show_payload(
                 LossBreakdownPayload.from_result(
-                    self._result, thermal_limit_W=6.0,
+                    self._result,
+                    thermal_limit_W=6.0,
                 )
             )
         except Exception:
@@ -510,8 +509,7 @@ class FEAValidationDialog(QDialog):
         # Disable Qt's auto-default button promotion on every
         # action button (see :meth:`_run` for the macOS-blue
         # accent rationale).
-        for btn in (self.btn_run, self.btn_thermal,
-                    self.btn_sweep, self.btn_close):
+        for btn in (self.btn_run, self.btn_thermal, self.btn_sweep, self.btn_close):
             btn.setAutoDefault(False)
             btn.setDefault(False)
         return h
@@ -687,12 +685,14 @@ class FEAValidationDialog(QDialog):
         self.btn_thermal.setEnabled(False)
         self.btn_sweep.setEnabled(False)
         self.progress.show()
-        self.txt_log.appendPlainText(
-            "\nRunning coupled magnetostatic + thermal FEA…")
+        self.txt_log.appendPlainText("\nRunning coupled magnetostatic + thermal FEA…")
 
         self._thermal_worker = _ThermalWorker(
-            self._spec, self._core, self._wire,
-            self._material, self._result,
+            self._spec,
+            self._core,
+            self._wire,
+            self._material,
+            self._result,
         )
         self._thread = QThread(self)
         self._thermal_worker.moveToThread(self._thread)
@@ -726,15 +726,9 @@ class FEAValidationDialog(QDialog):
         # 1 Geometry, 2 B-H, 3 Field plots, 4 L vs current.
         self.tabs.setCurrentIndex(3)
 
-        thermal_failed = (
-            thermal.T_peak_C == 0.0
-            and "failed" in (thermal.notes or "").lower()
-        )
+        thermal_failed = thermal.T_peak_C == 0.0 and "failed" in (thermal.notes or "").lower()
         if thermal_failed:
-            verdict = (
-                "<span style='color:#DC2626; font-weight: bold'>"
-                "thermal solve failed</span>"
-            )
+            verdict = "<span style='color:#DC2626; font-weight: bold'>thermal solve failed</span>"
             self.txt_log.appendPlainText(
                 f"\nThermal solve FAILED in {thermal.solve_time_s:.1f} s:\n"
                 f"  {thermal.notes}\n"
@@ -790,7 +784,11 @@ class FEAValidationDialog(QDialog):
         self.txt_log.appendPlainText("\nStarting swept FEA (5 bias points)...")
 
         self._sweep_worker = _SweepWorker(
-            self._spec, self._core, self._wire, self._material, self._result,
+            self._spec,
+            self._core,
+            self._wire,
+            self._material,
+            self._result,
         )
         self._thread = QThread(self)
         self._sweep_worker.moveToThread(self._thread)
@@ -835,20 +833,20 @@ class FEAValidationDialog(QDialog):
             N = int(getattr(self._result, "N_turns", 0) or 0)
             if le_m > 0 and N > 0 and payload.currents_A:
                 H_traj = tuple(N * I / le_m for I in payload.currents_A)
-                base = BHLoopPayload.from_models(
-                    self._material, self._result, hot=True
+                base = BHLoopPayload.from_models(self._material, self._result, hot=True)
+                self.bh_chart.show_payload(
+                    BHLoopPayload(
+                        mu_initial=base.mu_initial,
+                        Bsat_T=base.Bsat_T,
+                        Bsat_margin=base.Bsat_margin,
+                        B_pk_T=base.B_pk_T,
+                        H_pk_A_per_m=base.H_pk_A_per_m,
+                        waveform_H_A_per_m=H_traj,
+                        waveform_B_T=tuple(payload.B_T),
+                        material_name=base.material_name,
+                        core_part=base.core_part,
+                    )
                 )
-                self.bh_chart.show_payload(BHLoopPayload(
-                    mu_initial=base.mu_initial,
-                    Bsat_T=base.Bsat_T,
-                    Bsat_margin=base.Bsat_margin,
-                    B_pk_T=base.B_pk_T,
-                    H_pk_A_per_m=base.H_pk_A_per_m,
-                    waveform_H_A_per_m=H_traj,
-                    waveform_B_T=tuple(payload.B_T),
-                    material_name=base.material_name,
-                    core_part=base.core_part,
-                ))
         except Exception:
             # B-H overlay is a nice-to-have; never fail the
             # whole sweep flow if the conversion goes sideways.

@@ -11,6 +11,7 @@ Skin depth in copper: delta = sqrt(rho / (pi * f * mu0)), with rho_cu(20C) = 1.7
 from __future__ import annotations
 
 import math
+from typing import Any
 
 MU_0 = 4 * math.pi * 1e-7
 RHO_CU_20C = 1.724e-8  # ohm.m
@@ -128,15 +129,15 @@ _PI = math.pi
 _RHO_CU_20C = 1.724e-8
 
 
-def _build_round_kernel():
+def _build_round_kernel() -> Any:
     """Compile :func:`Rac_over_Rdc_round` with Numba if available."""
     try:
-        from numba import njit
+        from numba import njit  # type: ignore[import-untyped]
     except ImportError:
         return None
 
     @njit(fastmath=True, cache=True, nogil=True)
-    def _round(d_cu_m, f_Hz, layers, T_C):
+    def _round(d_cu_m: float, f_Hz: float, layers: int, T_C: float) -> float:
         if f_Hz <= 0.0 or d_cu_m <= 0.0:
             return 1.0
         # Inline rho_cu(T) + skin_depth_m(f, T).
@@ -172,7 +173,7 @@ def _build_round_kernel():
     return _round
 
 
-def _build_litz_kernel():
+def _build_litz_kernel() -> Any:
     """Compile :func:`Rac_over_Rdc_litz` with Numba if available."""
     try:
         from numba import njit
@@ -180,7 +181,13 @@ def _build_litz_kernel():
         return None
 
     @njit(fastmath=True, cache=True, nogil=True)
-    def _litz(d_strand_m, n_strands, f_Hz, layers_bundle, T_C):
+    def _litz(
+        d_strand_m: float,
+        n_strands: int,
+        f_Hz: float,
+        layers_bundle: int,
+        T_C: float,
+    ) -> float:
         if d_strand_m <= 0.0 or f_Hz <= 0.0:
             return 1.0
         rho = _RHO_CU_20C * (1.0 + 0.00393 * (T_C - 20.0))

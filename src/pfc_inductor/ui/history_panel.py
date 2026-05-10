@@ -26,14 +26,22 @@ import time
 from typing import Optional
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QFont, QFontMetrics
 from PySide6.QtWidgets import (
-    QFrame, QHBoxLayout, QLabel, QListWidget, QListWidgetItem,
-    QPushButton, QSizePolicy, QSplitter, QVBoxLayout, QWidget,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QListWidget,
+    QListWidgetItem,
+    QPushButton,
+    QSplitter,
+    QVBoxLayout,
+    QWidget,
 )
 
 from pfc_inductor.history import (
-    HistoryStore, Snapshot, diff_snapshots,
+    HistoryStore,
+    Snapshot,
+    diff_snapshots,
 )
 from pfc_inductor.ui.theme import get_theme, on_theme_changed
 
@@ -93,13 +101,10 @@ class HistoryPanel(QWidget):
         dv.setContentsMargins(8, 8, 8, 8)
         dv.setSpacing(4)
         self._diff_header = QLabel(
-            "Click a snapshot in the timeline to diff against the "
-            "previous one."
+            "Click a snapshot in the timeline to diff against the previous one."
         )
         self._diff_header.setWordWrap(True)
-        self._diff_header.setStyleSheet(
-            f"color: {get_theme().palette.text_muted}; padding: 4px 0;"
-        )
+        self._diff_header.setStyleSheet(f"color: {get_theme().palette.text_muted}; padding: 4px 0;")
         dv.addWidget(self._diff_header)
         self._diff_rows = QFrame()
         self._diff_rows_layout = QVBoxLayout(self._diff_rows)
@@ -140,14 +145,14 @@ class HistoryPanel(QWidget):
         """Re-fetch snapshots from the store."""
         try:
             self._snapshots = self._store.list_snapshots(
-                project=self._project or None, limit=200,
+                project=self._project or None,
+                limit=200,
             )
         except Exception:
             self._snapshots = []
         self._list.clear()
         for snap in self._snapshots:
-            stamp = time.strftime("%Y-%m-%d %H:%M:%S",
-                                  time.localtime(snap.ts))
+            stamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(snap.ts))
             item = QListWidgetItem(f"{stamp}\n{snap.headline}")
             item.setData(Qt.ItemDataRole.UserRole, snap.id)
             self._list.addItem(item)
@@ -174,13 +179,13 @@ class HistoryPanel(QWidget):
             # snapshot, show a "no prior" message.
             current = snaps[0]
             idx = next(
-                (i for i, s in enumerate(self._snapshots)
-                 if s.id == current.id),
+                (i for i, s in enumerate(self._snapshots) if s.id == current.id),
                 None,
             )
             prior = (
-                self._snapshots[idx + 1] if idx is not None
-                and idx + 1 < len(self._snapshots) else None
+                self._snapshots[idx + 1]
+                if idx is not None and idx + 1 < len(self._snapshots)
+                else None
             )
             self._render_diff(prior, current)
         elif len(snaps) >= 2:
@@ -201,7 +206,9 @@ class HistoryPanel(QWidget):
     # Render diff rows
     # ------------------------------------------------------------------
     def _render_diff(
-        self, before: Optional[Snapshot], after: Optional[Snapshot],
+        self,
+        before: Optional[Snapshot],
+        after: Optional[Snapshot],
     ) -> None:
         # Wipe prior rows.
         while self._diff_rows_layout.count():
@@ -215,12 +222,9 @@ class HistoryPanel(QWidget):
             self._diff_header.setText("No snapshot selected.")
             return
         if before is None:
-            stamp = time.strftime(
-                "%Y-%m-%d %H:%M:%S", time.localtime(after.ts)
-            )
+            stamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(after.ts))
             self._diff_header.setText(
-                f"<b>{stamp}</b> — first snapshot of this project. "
-                f"Nothing to diff against yet."
+                f"<b>{stamp}</b> — first snapshot of this project. Nothing to diff against yet."
             )
             return
 
@@ -236,9 +240,7 @@ class HistoryPanel(QWidget):
         # Group rows by section (spec / selection / summary).
         diffs = diff_snapshots(before, after)
         if not diffs:
-            self._diff_rows_layout.addWidget(
-                _MutedLabel("No changes between these snapshots.")
-            )
+            self._diff_rows_layout.addWidget(_MutedLabel("No changes between these snapshots."))
             return
 
         last_section = None
@@ -290,16 +292,12 @@ class _DiffRow(QFrame):
         h.setContentsMargins(4, 2, 4, 2)
         h.setSpacing(8)
         sign = QLabel(mark)
-        sign.setStyleSheet(
-            f"color: {color}; font-weight: 700; min-width: 14px;"
-        )
+        sign.setStyleSheet(f"color: {color}; font-weight: 700; min-width: 14px;")
         h.addWidget(sign)
         # Strip the section prefix from the key for compactness.
         bare = d.path.split(".", 1)[1] if "." in d.path else d.path
         key = QLabel(bare)
-        key.setStyleSheet(
-            f"color: {p.text}; font-family: monospace; min-width: 160px;"
-        )
+        key.setStyleSheet(f"color: {p.text}; font-family: monospace; min-width: 160px;")
         h.addWidget(key)
         before_label = _format(d.before)
         after_label = _format(d.after)
@@ -307,7 +305,7 @@ class _DiffRow(QFrame):
         bf.setStyleSheet(f"color: {p.text}; font-family: monospace;")
         h.addWidget(bf, 1)
         if d.delta_pct is not None:
-            delta_str = (f"{d.delta:+.3g}" if d.delta is not None else "")
+            delta_str = f"{d.delta:+.3g}" if d.delta is not None else ""
             tail = QLabel(f"{delta_str} ({d.delta_pct:+.1f} %)")
             tail.setStyleSheet(f"color: {color}; font-weight: 600;")
             h.addWidget(tail)

@@ -32,15 +32,15 @@ from typing import Optional
 
 import matplotlib
 
-matplotlib.use("Agg")  # noqa: E402
+matplotlib.use("Agg")
 
-from matplotlib.backends.backend_qtagg import (  # noqa: E402
+from matplotlib.backends.backend_qtagg import (
     FigureCanvasQTAgg as FigureCanvas,
 )
-from matplotlib.figure import Figure  # noqa: E402
-from PySide6.QtWidgets import QSizePolicy, QVBoxLayout, QWidget  # noqa: E402
+from matplotlib.figure import Figure
+from PySide6.QtWidgets import QSizePolicy, QVBoxLayout, QWidget
 
-from pfc_inductor.ui.theme import get_theme, on_theme_changed  # noqa: E402
+from pfc_inductor.ui.theme import get_theme, on_theme_changed
 
 
 @dataclass(frozen=True)
@@ -69,7 +69,7 @@ class LossBreakdownPayload:
         cls,
         result,
         thermal_limit_W: float = 0.0,
-    ) -> "LossBreakdownPayload":
+    ) -> LossBreakdownPayload:
         """Build from a :class:`DesignResult`. Works whether
         ``result.losses`` is the :class:`LossBreakdown` model
         instance or a duck-typed substitute."""
@@ -100,12 +100,7 @@ class LossBreakdownPayload:
 
     @property
     def P_total_W(self) -> float:
-        return (
-            self.P_cu_dc_W
-            + self.P_cu_ac_W
-            + self.P_core_line_W
-            + self.P_core_ripple_W
-        )
+        return self.P_cu_dc_W + self.P_cu_ac_W + self.P_core_line_W + self.P_core_ripple_W
 
 
 class LossStackedBar(QWidget):
@@ -156,8 +151,12 @@ class LossStackedBar(QWidget):
         ax = self._fig.add_subplot(111)
         ax.set_axis_off()
         ax.text(
-            0.5, 0.5, "Run a design to see the loss breakdown.",
-            ha="center", va="center", fontsize=10,
+            0.5,
+            0.5,
+            "Run a design to see the loss breakdown.",
+            ha="center",
+            va="center",
+            fontsize=10,
             color=get_theme().palette.text_muted,
             transform=ax.transAxes,
         )
@@ -177,10 +176,10 @@ class LossStackedBar(QWidget):
         # Same convention engineers use when reading the
         # tabular breakdown ("Cu losses, then core losses").
         buckets = [
-            ("Cu DC",        p.P_cu_dc_W,      pal.accent_violet),
-            ("Cu AC",        p.P_cu_ac_W,      "#A78BFA"),  # lighter violet
-            ("Core line",    p.P_core_line_W,  pal.warning),
-            ("Core ripple",  p.P_core_ripple_W, "#F97316"),  # amber-orange
+            ("Cu DC", p.P_cu_dc_W, pal.accent_violet),
+            ("Cu AC", p.P_cu_ac_W, "#A78BFA"),  # lighter violet
+            ("Core line", p.P_core_line_W, pal.warning),
+            ("Core ripple", p.P_core_ripple_W, "#F97316"),  # amber-orange
         ]
 
         # Single horizontal bar, segments side by side.
@@ -189,9 +188,14 @@ class LossStackedBar(QWidget):
             if value <= 0:
                 continue
             ax.barh(
-                [0], [value], left=left, color=color,
-                edgecolor="white", linewidth=1.5,
-                height=0.55, label=f"{label}: {value:.2f} W",
+                [0],
+                [value],
+                left=left,
+                color=color,
+                edgecolor="white",
+                linewidth=1.5,
+                height=0.55,
+                label=f"{label}: {value:.2f} W",
             )
             # In-segment label when the segment is wide enough
             # to read without truncation (≥ 12 % of total). The
@@ -201,10 +205,14 @@ class LossStackedBar(QWidget):
             if value / total >= 0.12:
                 pct = value / total * 100.0
                 ax.text(
-                    left + value / 2, 0,
+                    left + value / 2,
+                    0,
                     f"{label}\n{value:.2f} W  ({pct:.0f} %)",
-                    ha="center", va="center",
-                    fontsize=9, color="white", fontweight="bold",
+                    ha="center",
+                    va="center",
+                    fontsize=9,
+                    color="white",
+                    fontweight="bold",
                 )
             left += value
 
@@ -212,16 +220,22 @@ class LossStackedBar(QWidget):
         if p.thermal_limit_W > 0:
             ax.axvline(
                 p.thermal_limit_W,
-                color=pal.danger, linestyle="--", linewidth=1.4,
+                color=pal.danger,
+                linestyle="--",
+                linewidth=1.4,
                 alpha=0.85,
             )
             margin = (p.thermal_limit_W - total) / max(total, 1e-9) * 100
             ax.text(
-                p.thermal_limit_W, 0.5,
+                p.thermal_limit_W,
+                0.5,
                 f"  thermal cap {p.thermal_limit_W:.2f} W "
                 f"({'+' if margin >= 0 else ''}{margin:.0f} % margin)",
-                ha="left", va="center", fontsize=8,
-                color=pal.danger, fontweight="bold",
+                ha="left",
+                va="center",
+                fontsize=8,
+                color=pal.danger,
+                fontweight="bold",
             )
 
         # Y axis chrome (suppress — single-row bar).
@@ -235,13 +249,14 @@ class LossStackedBar(QWidget):
         ax.grid(True, alpha=0.18, linestyle=":", axis="x")
 
         # Title carries totals + efficiency for instant readout.
-        eta_chip = (
-            f"  ·  η = {p.eta_pct:.2f} %" if p.eta_pct > 0 else ""
-        )
+        eta_chip = f"  ·  η = {p.eta_pct:.2f} %" if p.eta_pct > 0 else ""
         ax.set_title(
             f"Loss breakdown — total {total:.2f} W{eta_chip}",
-            fontsize=11, fontweight="bold", color=pal.text,
-            loc="left", pad=8,
+            fontsize=11,
+            fontweight="bold",
+            color=pal.text,
+            loc="left",
+            pad=8,
         )
 
         ax.set_xlim(0, max(total, p.thermal_limit_W) * 1.18)
@@ -251,21 +266,21 @@ class LossStackedBar(QWidget):
         # Legend with proper colours — only shows segments that
         # were too narrow to label inline (matches the 12 %
         # threshold used in the inline placement above).
-        narrow = [
-            (lbl, val, col) for (lbl, val, col) in buckets
-            if 0 < val and val / total < 0.12
-        ]
+        narrow = [(lbl, val, col) for (lbl, val, col) in buckets if 0 < val and val / total < 0.12]
         if narrow:
             from matplotlib.patches import Patch
+
             handles = [
-                Patch(facecolor=col, edgecolor="white",
-                      label=f"{lbl}: {val:.2f} W")
+                Patch(facecolor=col, edgecolor="white", label=f"{lbl}: {val:.2f} W")
                 for lbl, val, col in narrow
             ]
             ax.legend(
-                handles=handles, loc="upper right",
-                fontsize=8, frameon=True,
-                facecolor=pal.surface, edgecolor=pal.border,
+                handles=handles,
+                loc="upper right",
+                fontsize=8,
+                frameon=True,
+                facecolor=pal.surface,
+                edgecolor=pal.border,
                 labelcolor=pal.text,
             )
 

@@ -33,11 +33,13 @@ from pfc_inductor.ui.widgets.harmonic_spectrum_chart import (
 # Topologies whose value proposition is harmonic suppression on the
 # AC side. For these the chart shows whether the design meets IEC
 # emission limits at full load.
-_HARMONIC_TOPOLOGIES = frozenset({
-    "line_reactor",
-    "passive_choke",
-    "pfc_passive",
-})
+_HARMONIC_TOPOLOGIES = frozenset(
+    {
+        "line_reactor",
+        "passive_choke",
+        "pfc_passive",
+    }
+)
 
 
 class _HarmonicSpectrumBody(QWidget):
@@ -61,13 +63,14 @@ class _HarmonicSpectrumBody(QWidget):
         L_uH = float(getattr(result, "L_actual_uH", 0.0) or 0.0)
         L_mH = L_uH / 1000.0
 
-        orders, amplitudes_pct = self._dispatch_harmonics(
-            topology, spec, L_mH
-        )
+        orders, amplitudes_pct = self._dispatch_harmonics(topology, spec, L_mH)
         if orders is None or amplitudes_pct is None:
-            self._chart.show_payload(HarmonicSpectrumPayload(
-                orders=(), amplitudes_A=(),
-            ))
+            self._chart.show_payload(
+                HarmonicSpectrumPayload(
+                    orders=(),
+                    amplitudes_A=(),
+                )
+            )
             return
 
         # Convert % of fundamental peak → Arms per harmonic.
@@ -76,9 +79,7 @@ class _HarmonicSpectrumBody(QWidget):
         # Multiplying by I_1 (line RMS) gives I_h in Arms, which is
         # what the IEC limits are tabulated against.
         I_1_rms = self._fundamental_rms_A(topology, spec)
-        amplitudes_A = tuple(
-            (pct / 100.0) * I_1_rms for pct in amplitudes_pct
-        )
+        amplitudes_A = tuple((pct / 100.0) * I_1_rms for pct in amplitudes_pct)
 
         # IEC class — D for SMPS-style ≤ 600 W single-phase, A otherwise.
         Pin_W = float(getattr(spec, "Pout_W", 0.0) or 0.0) / max(
@@ -90,19 +91,24 @@ class _HarmonicSpectrumBody(QWidget):
         else:
             iec_class = "A"
 
-        self._chart.show_payload(HarmonicSpectrumPayload(
-            orders=tuple(int(o) for o in orders),
-            amplitudes_A=amplitudes_A,
-            iec_class=iec_class,
-            P_in_W=Pin_W,
-            f_line_Hz=float(getattr(spec, "f_line_Hz", 60.0) or 60.0),
-            topology_name=topology,
-        ))
+        self._chart.show_payload(
+            HarmonicSpectrumPayload(
+                orders=tuple(int(o) for o in orders),
+                amplitudes_A=amplitudes_A,
+                iec_class=iec_class,
+                P_in_W=Pin_W,
+                f_line_Hz=float(getattr(spec, "f_line_Hz", 60.0) or 60.0),
+                topology_name=topology,
+            )
+        )
 
     def clear(self) -> None:
-        self._chart.show_payload(HarmonicSpectrumPayload(
-            orders=(), amplitudes_A=(),
-        ))
+        self._chart.show_payload(
+            HarmonicSpectrumPayload(
+                orders=(),
+                amplitudes_A=(),
+            )
+        )
 
     # ------------------------------------------------------------------
     # Internals
@@ -116,9 +122,7 @@ class _HarmonicSpectrumBody(QWidget):
             if topology in ("line_reactor",):
                 from pfc_inductor.topology import line_reactor as lr
 
-                pct = lr.harmonic_amplitudes_pct(
-                    spec, L_mH, n_harmonics=15
-                )
+                pct = lr.harmonic_amplitudes_pct(spec, L_mH, n_harmonics=15)
                 orders = list(range(1, len(pct) + 1))
                 return orders, list(pct)
             if topology in ("passive_choke", "pfc_passive"):
@@ -130,9 +134,7 @@ class _HarmonicSpectrumBody(QWidget):
                 # ``n_phases=1`` (single-phase capacitor-input).
                 from pfc_inductor.topology import line_reactor as lr
 
-                pct = lr.harmonic_amplitudes_pct(
-                    spec, L_mH, n_harmonics=15
-                )
+                pct = lr.harmonic_amplitudes_pct(spec, L_mH, n_harmonics=15)
                 orders = list(range(1, len(pct) + 1))
                 return orders, list(pct)
         except Exception:

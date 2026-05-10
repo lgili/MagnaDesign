@@ -207,8 +207,10 @@ def parse_size(value: str) -> tuple[int, int]:
     try:
         w, h = value.lower().split("x")
         return int(w), int(h)
-    except Exception:
-        raise argparse.ArgumentTypeError(f"resolution must be WIDTHxHEIGHT (got {value!r})")
+    except Exception as exc:
+        raise argparse.ArgumentTypeError(
+            f"resolution must be WIDTHxHEIGHT (got {value!r})"
+        ) from exc
 
 
 def main() -> int:

@@ -391,8 +391,7 @@ def _run_validation_in_subprocess(
     queue: mp.Queue = ctx.Queue()
     proc = ctx.Process(
         target=_validation_subprocess_entry,
-        args=(spec, core, wire, material, result, output_dir, queue,
-              thermal_options),
+        args=(spec, core, wire, material, result, output_dir, queue, thermal_options),
         daemon=False,
     )
     proc.start()
@@ -530,8 +529,15 @@ def _validate_design_femmt_inproc(
     with _silence_signal_in_worker_thread():
         if kind == "toroid":
             return _toroid_validation(
-                spec, core, wire, material, result, output_dir,
-                timeout_s, ft, thermal_options=thermal_options,
+                spec,
+                core,
+                wire,
+                material,
+                result,
+                output_dir,
+                timeout_s,
+                ft,
+                thermal_options=thermal_options,
             )
         if kind in ("ee", "etd", "pq"):
             return _bobbin_validation(
@@ -550,8 +556,16 @@ def _validate_design_femmt_inproc(
 
 
 def _toroid_validation(
-    spec, core, wire, material, result, output_dir, timeout_s, ft,
-    *, thermal_options: Optional[dict] = None,
+    spec,
+    core,
+    wire,
+    material,
+    result,
+    output_dir,
+    timeout_s,
+    ft,
+    *,
+    thermal_options: Optional[dict] = None,
 ):
     """Toroidal axisymmetric magnetostatic problem in FEMMT.
 
@@ -750,7 +764,8 @@ def _toroid_validation(
                 "PNGs. Expected Magb.pos / j2F_density.pos in "
                 "e_m/results/fields/. Found .pos files: %s. "
                 "Falling back to synthetic-analytical field render.",
-                cwd, [p.name for p in pos_files],
+                cwd,
+                [p.name for p in pos_files],
             )
             # Synthesise a heatmap from the analytical B_pk so the
             # gallery isn't empty for the user.
@@ -760,7 +775,8 @@ def _toroid_validation(
                 )
 
                 render_synthetic_field_pngs(
-                    cwd, B_pk_T=float(getattr(result, "B_pk_T", 0.0) or 0.0),
+                    cwd,
+                    B_pk_T=float(getattr(result, "B_pk_T", 0.0) or 0.0),
                     core=core,
                 )
             except Exception:
@@ -770,7 +786,8 @@ def _toroid_validation(
         else:
             logger.info(
                 "FEMMT backend: rendered %d field PNGs (%s)",
-                len(pngs), ", ".join(p.name for p in pngs[:5]),
+                len(pngs),
+                ", ".join(p.name for p in pngs[:5]),
             )
     except Exception:  # pragma: no cover — defensive
         logger.exception("Field-PNG rendering failed; continuing.")
@@ -819,8 +836,17 @@ def _toroid_validation(
 
 
 def _bobbin_validation(
-    spec, core, wire, material, result, output_dir, timeout_s, ft, kind,
-    *, thermal_options: Optional[dict] = None,
+    spec,
+    core,
+    wire,
+    material,
+    result,
+    output_dir,
+    timeout_s,
+    ft,
+    kind,
+    *,
+    thermal_options: Optional[dict] = None,
 ):
     """EE/ETD/PQ axisymmetric magnetostatic problem in FEMMT.
 

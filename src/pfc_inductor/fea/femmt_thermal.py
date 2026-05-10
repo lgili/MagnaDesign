@@ -33,12 +33,11 @@ purely the additional finite-element solve.
 from __future__ import annotations
 
 import logging
-import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
-from pfc_inductor.fea.models import FEMMNotAvailable, FEMMSolveError
+from pfc_inductor.fea.models import FEMMSolveError
 from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
 
 logger = logging.getLogger(__name__)
@@ -57,21 +56,21 @@ logger = logging.getLogger(__name__)
 # We pick mid-range defaults so the heatmap is representative;
 # users that need ±5 % accuracy override the dict before solving.
 _MATERIAL_K_W_M_K: dict[str, float] = {
-    "ferrite":          5.0,
-    "silicon-steel":   25.0,
-    "powder":          20.0,
+    "ferrite": 5.0,
+    "silicon-steel": 25.0,
+    "powder": 20.0,
     "nanocrystalline": 10.0,
-    "amorphous":       12.0,
+    "amorphous": 12.0,
 }
 
 # Universal physical constants — every solve uses these.
-_K_AIR = 0.026         # still air at 40 °C
-_K_COPPER = 400.0      # pure Cu at 25 °C
-_K_INSULATION = 0.42   # typical polyethylene wire insulation
-_K_AIR_GAP = 180.0     # FEMMT example uses AlN-style high-k for
-                       # the air gap region — represents an
-                       # epoxy-potted gap, not loose air. Realistic
-                       # for production PFC inductors.
+_K_AIR = 0.026  # still air at 40 °C
+_K_COPPER = 400.0  # pure Cu at 25 °C
+_K_INSULATION = 0.42  # typical polyethylene wire insulation
+_K_AIR_GAP = 180.0  # FEMMT example uses AlN-style high-k for
+# the air gap region — represents an
+# epoxy-potted gap, not loose air. Realistic
+# for production PFC inductors.
 
 # Default case (potting / housing) thermal conductivity. Epoxy
 # encapsulant — typical value across vendors. The 1.54 W/m·K
@@ -141,9 +140,7 @@ class ThermalResult:
         return self.T_winding_avg_C < 105.0
 
 
-def _resolve_k_dict(
-    material: Material, options: ThermalOptions
-) -> dict:
+def _resolve_k_dict(material: Material, options: ThermalOptions) -> dict:
     """Build the thermal_conductivity_dict in the exact shape
     FEMMT expects."""
     # Map the material's ``type`` string to a default core k.
@@ -174,8 +171,13 @@ def _resolve_boundaries(
 ) -> tuple[dict, dict]:
     """Build the boundary-temperature + boundary-flag dicts."""
     sides = (
-        "top", "top_right", "right_top", "right",
-        "right_bottom", "bottom_right", "bottom",
+        "top",
+        "top_right",
+        "right_top",
+        "right",
+        "right_bottom",
+        "bottom_right",
+        "bottom",
     )
     temps = {f"value_boundary_{s}": float(options.T_ambient_C) for s in sides}
     # Active flags. Top and top-right are typically convection-
@@ -248,14 +250,18 @@ def validate_design_thermal_femmt(
     }
 
     payload = _run_validation_in_subprocess(
-        spec, core, wire, material, result,
-        output_dir=output_dir, timeout_s=timeout_s,
+        spec,
+        core,
+        wire,
+        material,
+        result,
+        output_dir=output_dir,
+        timeout_s=timeout_s,
         thermal_options=thermal_payload,
     )
     if not isinstance(payload, tuple) or len(payload) != 2:
         raise FEMMSolveError(
-            "Thermal subprocess returned an unexpected payload "
-            f"shape: {type(payload).__name__}"
+            f"Thermal subprocess returned an unexpected payload shape: {type(payload).__name__}"
         )
     em, thermal_log = payload
     elapsed = time.monotonic() - started
@@ -285,9 +291,7 @@ def validate_design_thermal_femmt(
     #    ``notes`` so the dialog can show a meaningful message
     #    instead of a hard-stop error popup.
     if thermal_log is None or "error" in (thermal_log or {}):
-        err = (thermal_log or {}).get(
-            "error", "thermal solver returned no log"
-        )
+        err = (thermal_log or {}).get("error", "thermal solver returned no log")
         return ThermalResult(
             T_peak_C=0.0,
             T_winding_avg_C=0.0,
@@ -314,14 +318,10 @@ def validate_design_thermal_femmt(
     # earlier path ``temperatures.{max,winding_average,
     # core_average}`` produced 0.0 across the board because
     # those keys don't exist in the file FEMMT actually writes.
-    T_w_avg = float(_dig(thermal_log, ["windings", "total", "mean"],
-                          default=0.0))
-    T_c_avg = float(_dig(thermal_log, ["core_parts", "total", "mean"],
-                          default=0.0))
-    T_w_max = float(_dig(thermal_log, ["windings", "total", "max"],
-                          default=0.0))
-    T_c_max = float(_dig(thermal_log, ["core_parts", "total", "max"],
-                          default=0.0))
+    T_w_avg = float(_dig(thermal_log, ["windings", "total", "mean"], default=0.0))
+    T_c_avg = float(_dig(thermal_log, ["core_parts", "total", "mean"], default=0.0))
+    T_w_max = float(_dig(thermal_log, ["windings", "total", "max"], default=0.0))
+    T_c_max = float(_dig(thermal_log, ["core_parts", "total", "max"], default=0.0))
     T_peak = max(T_w_max, T_c_max)
 
     return ThermalResult(

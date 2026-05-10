@@ -356,8 +356,7 @@ class ResumoStrip(QFrame):
         # before, just decoupled from the visible label.
         if reasons:
             self.badge.setToolTip(
-                f"Watch: {', '.join(reasons)}\n"
-                "Click to jump to the failing metric."
+                f"Watch: {', '.join(reasons)}\nClick to jump to the failing metric."
             )
         else:
             self.badge.setToolTip("")

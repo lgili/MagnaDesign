@@ -137,6 +137,7 @@ def _validate_design_femm(
     # so the FEAFieldGallery's recursive PNG scan picks them up
     # automatically — same UX as the FEMMT backend.
     import logging
+
     log = logging.getLogger(__name__)
     csv_path = Path(output_dir) / "b_field_grid.csv"
     if not csv_path.exists():
@@ -157,7 +158,8 @@ def _validate_design_femm(
             )
 
             render_synthetic_field_pngs(
-                output_dir, B_pk_T=float(raw.get("B_pk_T", 0.0) or 0.0),
+                output_dir,
+                B_pk_T=float(raw.get("B_pk_T", 0.0) or 0.0),
                 core=core,
             )
         except Exception:
@@ -180,15 +182,15 @@ def _validate_design_femm(
                 )
             else:
                 log.info(
-                    "legacy backend: rendered %d field PNGs into %s "
-                    "(%s)",
-                    len(pngs), output_dir,
+                    "legacy backend: rendered %d field PNGs into %s (%s)",
+                    len(pngs),
+                    output_dir,
                     ", ".join(p.name for p in pngs),
                 )
         except Exception:
             log.exception(
-                "legacy backend: render_legacy_field_pngs failed "
-                "(working dir %s)", output_dir,
+                "legacy backend: render_legacy_field_pngs failed (working dir %s)",
+                output_dir,
             )
 
     L_FEA_H = float(raw["L_H"])

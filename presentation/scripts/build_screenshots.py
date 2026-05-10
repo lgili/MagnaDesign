@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Generate every screenshot the LaTeX presentation references.
 
-Output goes into ``presentation/figures/``. The harness constructs
+Output goes into ``presentation/figures/``. The harness loads
 three reference designs (Boost PFC 1.5 kW, Line Reactor 1φ 600 W,
-Flyback 65 W) — all loaded from the matching ``examples/*.pfc``
-files so the deck stays in lock-step with the live engine. as proper Pydantic models, populates the matching
-UI widgets, and grabs PNGs of each.
+Flyback 65 W) from the matching ``examples/*.pfc`` files so the
+deck stays in lock-step with the live engine, populates the UI
+widgets, and grabs a PNG of each.
 
 Run:
     python presentation/scripts/build_screenshots.py
@@ -35,35 +35,40 @@ SRC = ROOT / "src"
 FIGS = HERE.parent.parent / "figures"
 sys.path.insert(0, str(SRC))
 
-from PySide6.QtCore import QTimer  # noqa: E402
 from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget  # noqa: E402
-
-# Pydantic models.
-from pfc_inductor.models.core import Core  # noqa: E402
-from pfc_inductor.models.material import Material, SteinmetzParams  # noqa: E402
-from pfc_inductor.models.result import DesignResult, LossBreakdown  # noqa: E402
-from pfc_inductor.models.spec import Spec  # noqa: E402
-from pfc_inductor.models.wire import Wire  # noqa: E402
 
 # Chart widgets.
 from pfc_inductor.fea.models import FEAValidation  # noqa: E402
+
+# Pydantic models.
+from pfc_inductor.models.core import Core  # noqa: E402
+from pfc_inductor.models.material import Material  # noqa: E402
+from pfc_inductor.models.result import DesignResult  # noqa: E402
+from pfc_inductor.models.spec import Spec  # noqa: E402
+from pfc_inductor.models.wire import Wire  # noqa: E402
 from pfc_inductor.ui.widgets.fea_bh_loop import (  # noqa: E402
-    BHLoopChart, BHLoopPayload,
+    BHLoopChart,
+    BHLoopPayload,
 )
 from pfc_inductor.ui.widgets.fea_geometry_view import (  # noqa: E402
-    GeometryPayload, GeometryView,
+    GeometryPayload,
+    GeometryView,
 )
 from pfc_inductor.ui.widgets.fea_swept_chart import (  # noqa: E402
-    SweptFEAChart, SweptFEAPayload,
+    SweptFEAChart,
+    SweptFEAPayload,
 )
 from pfc_inductor.ui.widgets.harmonic_spectrum_chart import (  # noqa: E402
-    HarmonicSpectrumChart, HarmonicSpectrumPayload,
+    HarmonicSpectrumChart,
+    HarmonicSpectrumPayload,
 )
 from pfc_inductor.ui.widgets.loss_stacked_bar import (  # noqa: E402
-    LossBreakdownPayload, LossStackedBar,
+    LossBreakdownPayload,
+    LossStackedBar,
 )
 from pfc_inductor.ui.widgets.phase_overlay_chart import (  # noqa: E402
-    PhaseOverlayChart, PhaseOverlayPayload,
+    PhaseOverlayChart,
+    PhaseOverlayPayload,
 )
 
 
@@ -73,6 +78,7 @@ from pfc_inductor.ui.widgets.phase_overlay_chart import (  # noqa: E402
 @dataclass
 class RefDesign:
     """Complete model bundle for one demonstration design."""
+
     spec: Spec
     core: Core
     wire: Wire
@@ -94,7 +100,8 @@ def _load_pfc_example(filename: str, label: str) -> RefDesign:
     to plot — the engine doesn't currently emit them as part of
     the result.
     """
-    from pfc_inductor import data_loader, project as pf
+    from pfc_inductor import data_loader
+    from pfc_inductor import project as pf
     from pfc_inductor.design import engine
 
     cores = {c.id: c for c in data_loader.load_cores()}
@@ -128,16 +135,13 @@ def _load_pfc_example(filename: str, label: str) -> RefDesign:
         B = [result.B_pk_T * (i / max(result.I_line_pk_A, 1e-6)) for i in iL]
     else:
         t_arr = [k / N * 0.5 / proj.spec.f_line_Hz for k in range(N)]
-        iL = [result.I_line_pk_A * math.sin(2 * math.pi * proj.spec.f_line_Hz * t)
-              for t in t_arr]
-        B = [result.B_pk_T * math.sin(2 * math.pi * proj.spec.f_line_Hz * t)
-             for t in t_arr]
+        iL = [result.I_line_pk_A * math.sin(2 * math.pi * proj.spec.f_line_Hz * t) for t in t_arr]
+        B = [result.B_pk_T * math.sin(2 * math.pi * proj.spec.f_line_Hz * t) for t in t_arr]
     result.waveform_t_s = t_arr
     result.waveform_iL_A = iL
     result.waveform_B_T = B
 
-    return RefDesign(spec=proj.spec, core=core, wire=wire,
-                     material=mat, result=result, label=label)
+    return RefDesign(spec=proj.spec, core=core, wire=wire, material=mat, result=result, label=label)
 
 
 def design_boost_1500w() -> RefDesign:
@@ -149,7 +153,8 @@ def design_boost_1500w() -> RefDesign:
     8.6 W (0.57 % of throughput), N = 39 turns.
     """
     return _load_pfc_example(
-        "01-boost-pfc-1500w.pfc", "Boost PFC 1.5 kW",
+        "01-boost-pfc-1500w.pfc",
+        "Boost PFC 1.5 kW",
     )
 
 
@@ -169,7 +174,8 @@ def design_line_reactor_600w() -> RefDesign:
     where the catalog produces a feasible design.
     """
     return _load_pfc_example(
-        "02-line-reactor-600w.pfc", "Line reactor 1φ 600 W",
+        "02-line-reactor-600w.pfc",
+        "Line reactor 1φ 600 W",
     )
 
 
@@ -182,7 +188,8 @@ def design_flyback_65w() -> RefDesign:
     (1.5 % of throughput).
     """
     return _load_pfc_example(
-        "03-flyback-dcm-65w.pfc", "Flyback 65 W",
+        "03-flyback-dcm-65w.pfc",
+        "Flyback 65 W",
     )
 
 
@@ -207,9 +214,13 @@ def render_geometry(d: RefDesign, out: Path) -> None:
 
 def render_bh_curve(d: RefDesign, out: Path) -> None:
     bh = BHLoopChart()
-    bh.show_payload(BHLoopPayload.from_models(
-        d.material, d.result, hot=True,
-    ))
+    bh.show_payload(
+        BHLoopPayload.from_models(
+            d.material,
+            d.result,
+            hot=True,
+        )
+    )
     _grab(bh, out, 800, 460)
 
 
@@ -227,26 +238,35 @@ def render_swept_chart(d: RefDesign, out: Path) -> None:
     # Synthetic rolloff: L drops to 0.55·L₀ at peak.
     L_uH = tuple(L0 * (1 - 0.45 * (I / Ipk) ** 1.4) for I in currents)
     B_T = tuple(min(Bpk * (I / Ipk) ** 0.85, Bsat * 0.95) for I in currents)
-    sc.show_payload(SweptFEAPayload(
-        currents_A=currents, L_uH=L_uH, B_T=B_T,
-        operating_point_A=Ipk, Bsat_T=Bsat, Bsat_margin=0.2,
-        n_points=n, backend="femmt",
-    ))
+    sc.show_payload(
+        SweptFEAPayload(
+            currents_A=currents,
+            L_uH=L_uH,
+            B_T=B_T,
+            operating_point_A=Ipk,
+            Bsat_T=Bsat,
+            Bsat_margin=0.2,
+            n_points=n,
+            backend="femmt",
+        )
+    )
     _grab(sc, out, 880, 500)
 
 
-def render_loss_bar(d: RefDesign, out: Path,
-                     thermal_limit_W: float = 6.0) -> None:
+def render_loss_bar(d: RefDesign, out: Path, thermal_limit_W: float = 6.0) -> None:
     lb = LossStackedBar()
-    lb.show_payload(LossBreakdownPayload.from_result(
-        d.result, thermal_limit_W=thermal_limit_W,
-    ))
+    lb.show_payload(
+        LossBreakdownPayload.from_result(
+            d.result,
+            thermal_limit_W=thermal_limit_W,
+        )
+    )
     _grab(lb, out, 880, 200)
 
 
-def render_fea_summary(d: RefDesign, out: Path,
-                        L_pct_error: float = -3.5,
-                        B_pct_error: float = +6.2) -> None:
+def render_fea_summary(
+    d: RefDesign, out: Path, L_pct_error: float = -3.5, B_pct_error: float = +6.2
+) -> None:
     """Synthesised FEA-vs-analytic chart anchored on the design's
     own L / B values. Real solves take 30 s+; for the deck the
     relative-error bars + confidence gauge are the part the reader
@@ -297,34 +317,45 @@ def render_harmonics(out: Path, *, with_choke: bool, label: str) -> None:
     else:
         orders = (1, 3, 5, 7, 9, 11, 13, 15)
         amps = (2.60, 0.10, 0.95, 0.55, 0.20, 0.18, 0.10, 0.07)
-    hs.show_payload(HarmonicSpectrumPayload(
-        orders=orders, amplitudes_A=amps,
-        iec_class="A", P_in_W=600,
-        f_line_Hz=60, topology_name=label,
-    ))
+    hs.show_payload(
+        HarmonicSpectrumPayload(
+            orders=orders,
+            amplitudes_A=amps,
+            iec_class="A",
+            P_in_W=600,
+            f_line_Hz=60,
+            topology_name=label,
+        )
+    )
     _grab(hs, out, 900, 480)
 
 
 def render_phase_overlay(d: RefDesign, out: Path) -> None:
     p = PhaseOverlayChart()
-    p.show_payload(PhaseOverlayPayload(
-        n_phases=2, I_avg_per_phase_A=d.result.I_line_rms_A / 2,
-        delta_iL_pp_A=d.result.I_ripple_pk_pk_A,
-        fsw_Hz=d.spec.f_sw_kHz * 1000.0,
-        duty=0.55,
-    ))
+    p.show_payload(
+        PhaseOverlayPayload(
+            n_phases=2,
+            I_avg_per_phase_A=d.result.I_line_rms_A / 2,
+            delta_iL_pp_A=d.result.I_ripple_pk_pk_A,
+            fsw_Hz=d.spec.f_sw_kHz * 1000.0,
+            duty=0.55,
+        )
+    )
     _grab(p, out, 900, 480)
 
 
-def render_analise_page(d: RefDesign, out: Path,
-                         w: int = 1280, h: int = 2400) -> None:
+def render_analise_page(d: RefDesign, out: Path, w: int = 1280, h: int = 2400) -> None:
     """Full AnalisePage screenshot — the most visually striking
     one for the talk. Wraps in a window so the chrome paints."""
     from pfc_inductor.ui.workspace.analise_page import AnalisePage
 
     page = AnalisePage()
     page.update_from_design(
-        d.result, d.spec, d.core, d.wire, d.material,
+        d.result,
+        d.spec,
+        d.core,
+        d.wire,
+        d.material,
     )
     win = QMainWindow()
     container = QWidget()
@@ -354,21 +385,20 @@ def main() -> None:
 
     # ── Example 1: Boost PFC 1.5 kW ──
     print("[boost-1.5kW]")
-    render_geometry(boost,   FIGS / "example1_geometry.png")
-    render_bh_curve(boost,   FIGS / "example1_bh_curve.png")
-    render_loss_bar(boost,   FIGS / "example1_loss_stacked.png", 6.0)
+    render_geometry(boost, FIGS / "example1_geometry.png")
+    render_bh_curve(boost, FIGS / "example1_bh_curve.png")
+    render_loss_bar(boost, FIGS / "example1_loss_stacked.png", 6.0)
     render_swept_chart(boost, FIGS / "example1_fea_swept.png")
     render_fea_summary(boost, FIGS / "example1_fea_summary.png")
     render_analise_page(boost, FIGS / "example1_analise_overview.png")
 
     # ── Example 2: Line reactor 1φ 600 W ──
     print("[line-reactor-600W]")
-    render_harmonics(FIGS / "example2_harmonics.png",
-                     with_choke=True, label="With line reactor")
-    render_harmonics(FIGS / "example2_harmonics_no_choke.png",
-                     with_choke=False, label="No choke")
-    render_harmonics(FIGS / "example2_harmonics_with_choke.png",
-                     with_choke=True, label="With choke")
+    render_harmonics(FIGS / "example2_harmonics.png", with_choke=True, label="With line reactor")
+    render_harmonics(FIGS / "example2_harmonics_no_choke.png", with_choke=False, label="No choke")
+    render_harmonics(
+        FIGS / "example2_harmonics_with_choke.png", with_choke=True, label="With choke"
+    )
     render_geometry(reactor, FIGS / "example2_geometry.png")
     render_bh_curve(reactor, FIGS / "example2_bh_curve.png")
 
@@ -378,8 +408,9 @@ def main() -> None:
     render_bh_curve(flyback, FIGS / "example3_bh_curve.png")
     render_loss_bar(flyback, FIGS / "example3_loss_stacked.png", 3.0)
     render_swept_chart(flyback, FIGS / "example3_fea_swept.png")
-    render_fea_summary(flyback, FIGS / "example3_fea_summary.png",
-                        L_pct_error=-2.8, B_pct_error=+4.5)
+    render_fea_summary(
+        flyback, FIGS / "example3_fea_summary.png", L_pct_error=-2.8, B_pct_error=+4.5
+    )
 
     # ── Reused prior screenshots from /tmp ──
     # The session generated several FEA-dialog and gallery shots
@@ -389,20 +420,19 @@ def main() -> None:
     # are generated above against the live design — they must NOT
     # be clobbered by the stale /tmp ones from previous boosts.
     reuses = {
-        "/tmp/fea_alltabs_geometry.png":  "feature_fea_dialog_full.png",
-        "/tmp/fea_gallery_v3.png":        "feature_gallery.png",
-        "/tmp/fea_lightbox_v3.png":       "feature_lightbox.png",
-        "/tmp/analise_interleaved.png":   "feature_analise_interleaved.png",
-        "/tmp/analise_line_reactor.png":  "feature_analise_linereactor.png",
-        "/tmp/dash_po_card.png":          "feature_phase_overlay_card.png",
-        "/tmp/dash_hs_card.png":          "feature_harmonic_card.png",
+        "/tmp/fea_alltabs_geometry.png": "feature_fea_dialog_full.png",
+        "/tmp/fea_gallery_v3.png": "feature_gallery.png",
+        "/tmp/fea_lightbox_v3.png": "feature_lightbox.png",
+        "/tmp/analise_interleaved.png": "feature_analise_interleaved.png",
+        "/tmp/analise_line_reactor.png": "feature_analise_linereactor.png",
+        "/tmp/dash_po_card.png": "feature_phase_overlay_card.png",
+        "/tmp/dash_hs_card.png": "feature_harmonic_card.png",
         # Heatmap / centerline of the Magb pos rendered earlier in
         # the session — kept until we have a fresh FEA on the new
         # boost. Numbers are illustrative; topology of the plot is
         # what the slide is showing.
-        "/tmp/heatmap_em_test/Magb.png":  "example1_fea_field_heatmap.png",
-        "/tmp/heatmap_em_test/Magb_centerline.png":
-            "example1_fea_field_centerline.png",
+        "/tmp/heatmap_em_test/Magb.png": "example1_fea_field_heatmap.png",
+        "/tmp/heatmap_em_test/Magb_centerline.png": "example1_fea_field_centerline.png",
     }
     for src, name in reuses.items():
         s = Path(src)
@@ -416,18 +446,18 @@ def main() -> None:
     # the LaTeX includes don't error out — the user can replace
     # them with real screenshots as they become available.
     placeholders = [
-        ("example1_spec.png",         "Spec drawer — Boost PFC 1.5 kW"),
-        ("example1_formas_onda.png",  "Waveform card — i_L(t) and B(t)"),
-        ("example2_spec.png",         "Spec drawer — Line reactor 1φ 600 W"),
+        ("example1_spec.png", "Spec drawer — Boost PFC 1.5 kW"),
+        ("example1_formas_onda.png", "Waveform card — i_L(t) and B(t)"),
+        ("example2_spec.png", "Spec drawer — Line reactor 1φ 600 W"),
         ("example2_fea_dispatch.png", "FEA auto-fallback log (FEMMT → FEMM legacy)"),
-        ("example3_spec.png",         "Spec drawer — Flyback 65 W"),
-        ("example3_formas_onda.png",  "Waveform card — primary + secondary"),
+        ("example3_spec.png", "Spec drawer — Flyback 65 W"),
+        ("example3_formas_onda.png", "Waveform card — primary + secondary"),
         ("feature_otimizador_pareto.png", "Pareto front — 1000+ candidates"),
-        ("feature_cascade.png",       "Cascade optimiser — Top-N table"),
-        ("feature_compare.png",       "Compare designs side-by-side"),
-        ("feature_export.png",        "Datasheet HTML export"),
-        ("feature_3d.png",            "Qt3D ortographic view"),
-        ("logo-placeholder.pdf",      "MagnaDesign"),
+        ("feature_cascade.png", "Cascade optimiser — Top-N table"),
+        ("feature_compare.png", "Compare designs side-by-side"),
+        ("feature_export.png", "Datasheet HTML export"),
+        ("feature_3d.png", "Qt3D ortographic view"),
+        ("logo-placeholder.pdf", "MagnaDesign"),
     ]
     for name, label in placeholders:
         out = FIGS / name
@@ -452,31 +482,40 @@ def _emit_placeholder(out: Path, label: str) -> None:
     ax.set_facecolor("#F9FAFB")
     ax.set_axis_off()
     ax.text(
-        0.5, 0.55, "[ screenshot pendente ]",
-        ha="center", va="center", fontsize=14,
+        0.5,
+        0.55,
+        "[ screenshot pendente ]",
+        ha="center",
+        va="center",
+        fontsize=14,
         color="#6B7280",
         transform=ax.transAxes,
     )
     ax.text(
-        0.5, 0.40, label,
-        ha="center", va="center", fontsize=11,
+        0.5,
+        0.40,
+        label,
+        ha="center",
+        va="center",
+        fontsize=11,
         color="#1F2937",
         transform=ax.transAxes,
     )
     ax.text(
-        0.5, 0.30,
+        0.5,
+        0.30,
         "Substitua este arquivo por um print real do app.",
-        ha="center", va="center", fontsize=8,
+        ha="center",
+        va="center",
+        fontsize=8,
         color="#9CA3AF",
         transform=ax.transAxes,
     )
     fig.tight_layout()
     if out.suffix == ".pdf":
-        fig.savefig(str(out), bbox_inches="tight",
-                    facecolor=fig.get_facecolor())
+        fig.savefig(str(out), bbox_inches="tight", facecolor=fig.get_facecolor())
     else:
-        fig.savefig(str(out), bbox_inches="tight",
-                    facecolor=fig.get_facecolor(), dpi=110)
+        fig.savefig(str(out), bbox_inches="tight", facecolor=fig.get_facecolor(), dpi=110)
     plt.close(fig)
 
 

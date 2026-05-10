@@ -35,15 +35,15 @@ from typing import Optional
 
 import matplotlib
 
-matplotlib.use("Agg")  # noqa: E402
+matplotlib.use("Agg")
 
-from matplotlib.backends.backend_qtagg import (  # noqa: E402
+from matplotlib.backends.backend_qtagg import (
     FigureCanvasQTAgg as FigureCanvas,
 )
-from matplotlib.figure import Figure  # noqa: E402
-from PySide6.QtWidgets import QSizePolicy, QVBoxLayout, QWidget  # noqa: E402
+from matplotlib.figure import Figure
+from PySide6.QtWidgets import QSizePolicy, QVBoxLayout, QWidget
 
-from pfc_inductor.ui.theme import get_theme, on_theme_changed  # noqa: E402
+from pfc_inductor.ui.theme import get_theme, on_theme_changed
 
 
 @dataclass(frozen=True)
@@ -129,9 +129,12 @@ class PhaseOverlayChart(QWidget):
         ax = self._fig.add_subplot(111)
         ax.set_axis_off()
         ax.text(
-            0.5, 0.5,
+            0.5,
+            0.5,
             "Run an interleaved-boost design to see the phase-current overlay.",
-            ha="center", va="center", fontsize=10,
+            ha="center",
+            va="center",
+            fontsize=10,
             color=get_theme().palette.text_muted,
             transform=ax.transAxes,
         )
@@ -159,18 +162,21 @@ class PhaseOverlayChart(QWidget):
         # ── Per-phase traces (faded background) ──
         # Use a deterministic palette: violet → amber → cyan-ish → green
         # so the user can identify φ1 / φ2 / φ3 / φ4 by colour.
-        phase_palette = [pal.accent_violet, pal.warning,
-                         pal.success, pal.text_secondary,
-                         pal.danger, pal.text_muted]
+        phase_palette = [
+            pal.accent_violet,
+            pal.warning,
+            pal.success,
+            pal.text_secondary,
+            pal.danger,
+            pal.text_muted,
+        ]
         t_us = [s * 1e6 for s in t]  # µs for x-axis readability
         for k, ph in enumerate(phases):
             color = phase_palette[k % len(phase_palette)]
-            ax.plot(t_us, ph, color=color, linewidth=1.0,
-                    alpha=0.55, label=f"φ{k+1}", zorder=2)
+            ax.plot(t_us, ph, color=color, linewidth=1.0, alpha=0.55, label=f"φ{k + 1}", zorder=2)
 
         # ── Total current (heavy line) ──
-        ax.plot(t_us, total, color=pal.text, linewidth=2.4,
-                label="i_total", zorder=4)
+        ax.plot(t_us, total, color=pal.text, linewidth=2.4, label="i_total", zorder=4)
 
         # ── Ripple metrics + dB cancellation chip ──
         # Duty-cycle-dependent: at the analytical sweet-spot
@@ -203,10 +209,15 @@ class PhaseOverlayChart(QWidget):
         if tot_pp > ph0_pp * 0.05:
             i_max = total.index(max(total))
             i_min = total.index(min(total))
-            ax.scatter([t_us[i_max], t_us[i_min]],
-                       [total[i_max], total[i_min]],
-                       color=pal.danger, s=50, zorder=5,
-                       edgecolors="white", linewidths=1.2)
+            ax.scatter(
+                [t_us[i_max], t_us[i_min]],
+                [total[i_max], total[i_min]],
+                color=pal.danger,
+                s=50,
+                zorder=5,
+                edgecolors="white",
+                linewidths=1.2,
+            )
             # Anchor the annotation to the trough (which is below
             # the marker we drew) and offset down-right so it
             # never collides with the subtitle along the top of
@@ -214,12 +225,12 @@ class PhaseOverlayChart(QWidget):
             ax.annotate(
                 f"ΔI_pp,total = {tot_pp:.2f} A",
                 xy=(t_us[i_min], total[i_min]),
-                xytext=(10, -22), textcoords="offset points",
-                fontsize=9, color=pal.text,
-                bbox=dict(boxstyle="round,pad=0.35",
-                          fc=pal.surface, ec=pal.border, lw=0.7),
-                arrowprops=dict(arrowstyle="-",
-                                color=pal.text_muted, lw=0.6),
+                xytext=(10, -22),
+                textcoords="offset points",
+                fontsize=9,
+                color=pal.text,
+                bbox=dict(boxstyle="round,pad=0.35", fc=pal.surface, ec=pal.border, lw=0.7),
+                arrowprops=dict(arrowstyle="-", color=pal.text_muted, lw=0.6),
             )
 
         # Effective ripple frequency on the cap = N × fsw.
@@ -237,29 +248,39 @@ class PhaseOverlayChart(QWidget):
         ax.set_facecolor(pal.surface)
 
         # Title — N phases, dB cancellation, effective ripple freq.
-        title_l = (
-            f"{p.n_phases}-phase interleaved — "
-            f"{db_label} ripple cancellation"
-        )
+        title_l = f"{p.n_phases}-phase interleaved — {db_label} ripple cancellation"
         if ideal_db is not None:
             title_l += f"  (ideal {ideal_db:.1f} dB at D = 1/{p.n_phases})"
         ax.set_title(
-            title_l, fontsize=11, fontweight="bold",
-            color=pal.text, loc="left", pad=14,
+            title_l,
+            fontsize=11,
+            fontweight="bold",
+            color=pal.text,
+            loc="left",
+            pad=14,
         )
         ax.text(
-            0.0, 1.005,
+            0.0,
+            1.005,
             f"Per-phase ΔI_pp = {ph0_pp:.2f} A  ·  "
             f"effective cap-side ripple at {f_ripple_kHz:.0f} kHz "
             f"({p.n_phases}×fsw)",
             transform=ax.transAxes,
-            ha="left", va="bottom",
-            fontsize=9, color=pal.text_secondary,
+            ha="left",
+            va="bottom",
+            fontsize=9,
+            color=pal.text_secondary,
         )
 
-        ax.legend(loc="lower right", fontsize=8, ncol=p.n_phases + 1,
-                  frameon=True, facecolor=pal.surface,
-                  edgecolor=pal.border, labelcolor=pal.text)
+        ax.legend(
+            loc="lower right",
+            fontsize=8,
+            ncol=p.n_phases + 1,
+            frameon=True,
+            facecolor=pal.surface,
+            edgecolor=pal.border,
+            labelcolor=pal.text,
+        )
 
         self._fig.tight_layout()
         self._canvas.draw_idle()
@@ -267,9 +288,7 @@ class PhaseOverlayChart(QWidget):
     # ------------------------------------------------------------------
     # Synthesis helper
     # ------------------------------------------------------------------
-    def _synthesise(
-        self, p: PhaseOverlayPayload
-    ) -> tuple[list[float], list[list[float]]]:
+    def _synthesise(self, p: PhaseOverlayPayload) -> tuple[list[float], list[list[float]]]:
         """Build N triangular waveforms shifted by 360°/N.
 
         Each phase's current rises with slope V/L during the

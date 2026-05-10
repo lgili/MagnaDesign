@@ -51,19 +51,21 @@ FIGS = HERE.parent.parent / "figures"
 sys.path.insert(0, str(SRC))
 sys.path.insert(0, str(HERE.parent))  # for build_screenshots import
 
-from PySide6.QtCore import QTimer  # noqa: E402
-from PySide6.QtWidgets import (  # noqa: E402
-    QApplication, QFrame, QMainWindow, QVBoxLayout, QWidget,
-)
-
 # Reference designs from the sibling harness.
 from build_screenshots import (  # noqa: E402
-    design_boost_1500w, design_flyback_65w, design_line_reactor_22kw,
+    design_boost_1500w,
+    design_flyback_65w,
+    design_line_reactor_22kw,
+)
+from PySide6.QtCore import QTimer  # noqa: E402
+from PySide6.QtWidgets import (  # noqa: E402
+    QApplication,
+    QFrame,
+    QVBoxLayout,
 )
 
 
-def _grab(widget, path: Path, w: int, h: int,
-          settle_ms: int = 80) -> None:
+def _grab(widget, path: Path, w: int, h: int, settle_ms: int = 80) -> None:
     """Resize → show → run an event loop tick so the layout
     settles → grab → save → hide. The settle tick is what stops
     Qt from emitting a partially-painted snapshot when the widget
@@ -154,14 +156,17 @@ def render_compare_dialog(designs, out: Path) -> None:
     from the RefDesigns. Each slot is a (spec, core, wire,
     material, result) bundle — dataclass-equivalent to
     ``CompareSlot`` so we can construct it directly."""
-    from pfc_inductor.ui.compare_dialog import CompareDialog
     from pfc_inductor.compare.slot import CompareSlot
+    from pfc_inductor.ui.compare_dialog import CompareDialog
 
     dlg = CompareDialog()
     for d in designs:
         slot = CompareSlot(
-            spec=d.spec, core=d.core, wire=d.wire,
-            material=d.material, result=d.result,
+            spec=d.spec,
+            core=d.core,
+            wire=d.wire,
+            material=d.material,
+            result=d.result,
         )
         dlg.add_slot(slot)
     _grab(dlg, out, 1400, 720, settle_ms=200)
@@ -181,7 +186,11 @@ def render_viz3d_card(d, out: Path) -> None:
     card = Viz3DCard()
     try:
         card.update_from_design(
-            d.result, d.spec, d.core, d.wire, d.material,
+            d.result,
+            d.spec,
+            d.core,
+            d.wire,
+            d.material,
         )
     except Exception as e:
         print(f"[viz3d] update_from_design failed — {e}")
@@ -222,11 +231,14 @@ def render_history_panel(out: Path) -> None:
                 "f_sw_kHz": fsw,
             },
             selection={
-                "core_id": "0077439A7", "wire_id": "AWG16",
+                "core_id": "0077439A7",
+                "wire_id": "AWG16",
                 "material_id": "60_KoolMu",
             },
             summary={
-                "loss_W": loss, "T_rise_C": dt, "L_actual_uH": 406,
+                "loss_W": loss,
+                "T_rise_C": dt,
+                "L_actual_uH": 406,
                 "eta_pct": 99.50 + i * 0.05,
                 "sat_margin_pct": 65 + i,
             },
@@ -246,7 +258,11 @@ def render_exportar_tab(d, out: Path) -> None:
     tab = ExportarTab()
     try:
         tab.update_from_design(
-            d.result, d.spec, d.core, d.wire, d.material,
+            d.result,
+            d.spec,
+            d.core,
+            d.wire,
+            d.material,
         )
     except Exception as e:
         print(f"[export tab] update_from_design failed — {e}")
@@ -275,9 +291,9 @@ def main() -> None:
     flyback = design_flyback_65w()
 
     print("[gui-renders] SpecDrawers — three RefDesigns")
-    render_spec_drawer(boost.spec,    FIGS / "example1_spec.png", "boost")
-    render_spec_drawer(reactor.spec,  FIGS / "example2_spec.png", "reactor")
-    render_spec_drawer(flyback.spec,  FIGS / "example3_spec.png", "flyback")
+    render_spec_drawer(boost.spec, FIGS / "example1_spec.png", "boost")
+    render_spec_drawer(reactor.spec, FIGS / "example2_spec.png", "reactor")
+    render_spec_drawer(flyback.spec, FIGS / "example3_spec.png", "flyback")
 
     print("[gui-renders] OtimizadorPage")
     render_otimizador_page(FIGS / "feature_otimizador_pareto.png")
@@ -286,8 +302,7 @@ def main() -> None:
     render_cascade_page(FIGS / "feature_cascade.png")
 
     print("[gui-renders] CompareDialog (3 slots)")
-    render_compare_dialog([boost, reactor, flyback],
-                          FIGS / "feature_compare.png")
+    render_compare_dialog([boost, reactor, flyback], FIGS / "feature_compare.png")
 
     print("[gui-renders] Viz3DCard")
     render_viz3d_card(boost, FIGS / "feature_3d.png")
@@ -298,7 +313,7 @@ def main() -> None:
     print("[gui-renders] HistoryPanel (5-iteration timeline + diff)")
     render_history_panel(FIGS / "feature_history.png")
 
-    print(f"\nDone — replaced synthetic mocks with live GUI captures.")
+    print("\nDone — replaced synthetic mocks with live GUI captures.")
 
 
 if __name__ == "__main__":

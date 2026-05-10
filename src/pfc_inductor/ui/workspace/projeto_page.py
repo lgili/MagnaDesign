@@ -243,7 +243,8 @@ class ProjetoPage(QWidget):
 
         self._history_store = HistoryStore()
         self.history_panel = HistoryPanel(
-            self._history_store, project="",
+            self._history_store,
+            project="",
         )
         self.history_panel.restore_requested.connect(
             self.history_restore_requested.emit,
@@ -302,8 +303,7 @@ class ProjetoPage(QWidget):
             # absent (older shell variants) and fall back to
             # ``Untitled Project``.
             project_name = (
-                getattr(getattr(self.header, "_name_edit", None),
-                        "text", lambda: "")()
+                getattr(getattr(self.header, "_name_edit", None), "text", lambda: "")()
                 or "Untitled Project"
             )
             self._history_store.append(

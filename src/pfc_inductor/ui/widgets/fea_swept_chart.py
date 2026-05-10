@@ -46,15 +46,15 @@ from typing import Optional
 
 import matplotlib
 
-matplotlib.use("Agg")  # noqa: E402
+matplotlib.use("Agg")
 
-from matplotlib.backends.backend_qtagg import (  # noqa: E402
+from matplotlib.backends.backend_qtagg import (
     FigureCanvasQTAgg as FigureCanvas,
 )
-from matplotlib.figure import Figure  # noqa: E402
-from PySide6.QtWidgets import QSizePolicy, QVBoxLayout, QWidget  # noqa: E402
+from matplotlib.figure import Figure
+from PySide6.QtWidgets import QSizePolicy, QVBoxLayout, QWidget
 
-from pfc_inductor.ui.theme import get_theme, on_theme_changed  # noqa: E402
+from pfc_inductor.ui.theme import get_theme, on_theme_changed
 
 
 @dataclass(frozen=True)
@@ -90,7 +90,7 @@ class SweptFEAPayload:
         operating_point_A: float = 0.0,
         Bsat_T: float = 0.0,
         Bsat_margin: float = 0.20,
-    ) -> "SweptFEAPayload":
+    ) -> SweptFEAPayload:
         return cls(
             currents_A=tuple(result.sample_currents_A),
             L_uH=tuple(result.sample_L_uH),
@@ -161,7 +161,7 @@ class SweptFEAChart(QWidget):
             (
                 "Run a swept FEA to see how L and B change as\n"
                 "the bias current rises through the half-cycle.\n"
-                "Click \"Run swept FEA\" below."
+                'Click "Run swept FEA" below.'
             ),
             ha="center",
             va="center",
@@ -223,8 +223,10 @@ class SweptFEAChart(QWidget):
                 I[-1],
                 L0,
                 f"  L₀ = {L0:.0f} µH",
-                ha="right", va="bottom",
-                fontsize=8, color=p.text_muted,
+                ha="right",
+                va="bottom",
+                fontsize=8,
+                color=p.text_muted,
             )
             ax_L.axhline(
                 0.7 * L0,
@@ -238,8 +240,10 @@ class SweptFEAChart(QWidget):
                 I[0],
                 0.7 * L0,
                 f"  −30 % threshold ({0.7 * L0:.0f} µH)",
-                ha="left", va="bottom",
-                fontsize=8, color=p.warning,
+                ha="left",
+                va="bottom",
+                fontsize=8,
+                color=p.warning,
             )
 
         # ── B(I) curve (right axis) ──

@@ -38,15 +38,15 @@ from typing import Literal, Optional
 
 import matplotlib
 
-matplotlib.use("Agg")  # noqa: E402
+matplotlib.use("Agg")
 
-from matplotlib.backends.backend_qtagg import (  # noqa: E402
+from matplotlib.backends.backend_qtagg import (
     FigureCanvasQTAgg as FigureCanvas,
 )
-from matplotlib.figure import Figure  # noqa: E402
-from PySide6.QtWidgets import QSizePolicy, QVBoxLayout, QWidget  # noqa: E402
+from matplotlib.figure import Figure
+from PySide6.QtWidgets import QSizePolicy, QVBoxLayout, QWidget
 
-from pfc_inductor.ui.theme import get_theme, on_theme_changed  # noqa: E402
+from pfc_inductor.ui.theme import get_theme, on_theme_changed
 
 IECClass = Literal["A", "D"]
 
@@ -55,12 +55,28 @@ IECClass = Literal["A", "D"]
 # 3-phase equipment, household appliances, tools, dimmers, audio
 # equipment — the broad case for passive line chokes.
 _IEC_CLASS_A_LIMITS_A: dict[int, float] = {
-    2: 1.080,  3: 2.300,  4: 0.430,  5: 1.140,
-    6: 0.300,  7: 0.770,  9: 0.400, 11: 0.330,
-    13: 0.210, 15: 0.150, 17: 0.132, 19: 0.118,
-    21: 0.107, 23: 0.098, 25: 0.090, 27: 0.083,
-    29: 0.078, 31: 0.073, 33: 0.068, 35: 0.064,
-    37: 0.061, 39: 0.058,
+    2: 1.080,
+    3: 2.300,
+    4: 0.430,
+    5: 1.140,
+    6: 0.300,
+    7: 0.770,
+    9: 0.400,
+    11: 0.330,
+    13: 0.210,
+    15: 0.150,
+    17: 0.132,
+    19: 0.118,
+    21: 0.107,
+    23: 0.098,
+    25: 0.090,
+    27: 0.083,
+    29: 0.078,
+    31: 0.073,
+    33: 0.068,
+    35: 0.064,
+    37: 0.061,
+    39: 0.058,
 }
 
 # IEC Class D — PFC class for ≤ 600 W single-phase equipment
@@ -68,7 +84,10 @@ _IEC_CLASS_A_LIMITS_A: dict[int, float] = {
 # rectifiers). Limits scale per watt of input power, expressed
 # as mA / W.
 _IEC_CLASS_D_LIMITS_MA_PER_W: dict[int, float] = {
-    3: 3.40, 5: 1.90, 7: 1.00, 9: 0.50,
+    3: 3.40,
+    5: 1.90,
+    7: 1.00,
+    9: 0.50,
     11: 0.35,
 }
 
@@ -121,7 +140,7 @@ class HarmonicSpectrumPayload:
 
     @property
     def fundamental_A(self) -> float:
-        for o, a in zip(self.orders, self.amplitudes_A):
+        for o, a in zip(self.orders, self.amplitudes_A, strict=False):
             if o == 1:
                 return a
         return 0.0
@@ -133,10 +152,10 @@ class HarmonicSpectrumPayload:
         if I1 <= 0:
             return 0.0
         s = 0.0
-        for o, a in zip(self.orders, self.amplitudes_A):
+        for o, a in zip(self.orders, self.amplitudes_A, strict=False):
             if o >= 2:
                 s += a * a
-        return (s ** 0.5) / I1 * 100.0
+        return (s**0.5) / I1 * 100.0
 
 
 class HarmonicSpectrumChart(QWidget):
@@ -183,10 +202,13 @@ class HarmonicSpectrumChart(QWidget):
         ax = self._fig.add_subplot(111)
         ax.set_axis_off()
         ax.text(
-            0.5, 0.5,
+            0.5,
+            0.5,
             "Harmonic spectrum not computed yet.\n"
             "Run a passive-PFC or line-reactor design to populate.",
-            ha="center", va="center", fontsize=10,
+            ha="center",
+            va="center",
+            fontsize=10,
             color=get_theme().palette.text_muted,
             transform=ax.transAxes,
         )
@@ -204,9 +226,7 @@ class HarmonicSpectrumChart(QWidget):
         # Filter: draw only h ≥ 2 (skip the fundamental — it's
         # 50–100× larger and would crush the bar scale). The
         # fundamental's value goes in the title instead.
-        bars = [
-            (o, a) for o, a in zip(p.orders, p.amplitudes_A) if o >= 2
-        ]
+        bars = [(o, a) for o, a in zip(p.orders, p.amplitudes_A, strict=False) if o >= 2]
         if not bars:
             self._paint_empty()
             return
@@ -236,22 +256,29 @@ class HarmonicSpectrumChart(QWidget):
 
         # Draw the bars.
         ax.bar(
-            bar_xs, bar_ys,
+            bar_xs,
+            bar_ys,
             color=bar_colors,
-            width=1.4, edgecolor="white", linewidth=0.6,
+            width=1.4,
+            edgecolor="white",
+            linewidth=0.6,
             zorder=3,
         )
 
         # IEC limit overlay — short horizontal segment over each
         # bar. Drawn after the bars so the tint comparison is
         # obvious. Dashed red at the limit value.
-        for x, lim in zip(bar_xs, limit_lines):
+        for x, lim in zip(bar_xs, limit_lines, strict=False):
             if lim is None:
                 continue
             ax.plot(
-                [x - 0.7, x + 0.7], [lim, lim],
-                color=pal.danger, linewidth=1.6, linestyle="-",
-                zorder=4, solid_capstyle="round",
+                [x - 0.7, x + 0.7],
+                [lim, lim],
+                color=pal.danger,
+                linewidth=1.6,
+                linestyle="-",
+                zorder=4,
+                solid_capstyle="round",
             )
 
         # Axis chrome.
@@ -271,9 +298,7 @@ class HarmonicSpectrumChart(QWidget):
 
         # Title — verdict + fundamental + THD.
         if worst_failure[0] == 0:
-            verdict = (
-                f"<<{'PASSED'}>>  IEC 61000-3-2 Class {p.iec_class}"
-            )
+            verdict = f"<<{'PASSED'}>>  IEC 61000-3-2 Class {p.iec_class}"
             verdict_color = pal.success
         else:
             verdict = (
@@ -289,37 +314,42 @@ class HarmonicSpectrumChart(QWidget):
         if p.iec_class == "D" and p.P_in_W > 0:
             meta.append(f"P_in = {p.P_in_W:.0f} W")
 
-        title_main = "Current harmonics  ·  " + verdict.replace(
-            "<<", ""
-        ).replace(">>", "")
+        title_main = "Current harmonics  ·  " + verdict.replace("<<", "").replace(">>", "")
         ax.set_title(
             title_main,
-            fontsize=11, fontweight="bold",
-            color=verdict_color, loc="left", pad=12,
+            fontsize=11,
+            fontweight="bold",
+            color=verdict_color,
+            loc="left",
+            pad=12,
         )
         # Subtitle with reference values.
         ax.text(
-            0.0, 1.005,
+            0.0,
+            1.005,
             "  ·  ".join(meta),
             transform=ax.transAxes,
-            ha="left", va="bottom",
-            fontsize=9, color=pal.text_secondary,
+            ha="left",
+            va="bottom",
+            fontsize=9,
+            color=pal.text_secondary,
         )
 
         # Legend explaining the bar colours.
         from matplotlib.patches import Patch
+
         legend_handles = [
-            Patch(facecolor=pal.success,
-                  label="≤ 80 % of limit (comfortable)"),
-            Patch(facecolor=pal.warning,
-                  label="80–100 % of limit (at margin)"),
-            Patch(facecolor=pal.danger,
-                  label="> 100 % of limit (failing)"),
+            Patch(facecolor=pal.success, label="≤ 80 % of limit (comfortable)"),
+            Patch(facecolor=pal.warning, label="80–100 % of limit (at margin)"),
+            Patch(facecolor=pal.danger, label="> 100 % of limit (failing)"),
         ]
         ax.legend(
-            handles=legend_handles, loc="upper right",
-            fontsize=8, frameon=True,
-            facecolor=pal.surface, edgecolor=pal.border,
+            handles=legend_handles,
+            loc="upper right",
+            fontsize=8,
+            frameon=True,
+            facecolor=pal.surface,
+            edgecolor=pal.border,
             labelcolor=pal.text,
         )
 

@@ -72,9 +72,10 @@ def render_synthetic_field_pngs(
     HT = float(getattr(core, "HT_mm", 0.0) or 0.0)
     if OD <= 0 or ID <= 0 or B_pk_T <= 0:
         logger.info(
-            "Synthetic field render skipped: insufficient inputs "
-            "(OD=%s, ID=%s, B_pk=%s).",
-            OD, ID, B_pk_T,
+            "Synthetic field render skipped: insufficient inputs (OD=%s, ID=%s, B_pk=%s).",
+            OD,
+            ID,
+            B_pk_T,
         )
         return []
     if z_extent_mm is None:
@@ -95,7 +96,7 @@ def render_synthetic_field_pngs(
     # naturally before the corners.
     r_inner = ID / 2 * 1e-3
     sigma_z = max(z_extent_mm * 1e-3 * 0.4, 1e-6)
-    B = B_pk_T * (r_inner / RR) ** 1.0 * np.exp(-(ZZ / sigma_z) ** 2)
+    B = B_pk_T * (r_inner / RR) ** 1.0 * np.exp(-((ZZ / sigma_z) ** 2))
     Br = B * 0.6
     Bz = B * 0.8
 
@@ -105,8 +106,7 @@ def render_synthetic_field_pngs(
         for i in range(n_r):
             for j in range(n_z):
                 f.write(
-                    f"{RR[i, j]:.6e},{ZZ[i, j]:.6e},"
-                    f"{Br[i, j]:.6e},{Bz[i, j]:.6e},{B[i, j]:.6e}\n"
+                    f"{RR[i, j]:.6e},{ZZ[i, j]:.6e},{Br[i, j]:.6e},{Bz[i, j]:.6e},{B[i, j]:.6e}\n"
                 )
 
     # Reuse the legacy renderer's heatmap / centerline /
@@ -129,8 +129,9 @@ def render_synthetic_field_pngs(
         f"because the FEA backend wrote no field data. {label_suffix}\n"
     )
     logger.info(
-        "Synthetic field render: wrote %d PNGs into %s "
-        "(B_pk=%.3f T).",
-        len(pngs), out_dir, B_pk_T,
+        "Synthetic field render: wrote %d PNGs into %s (B_pk=%.3f T).",
+        len(pngs),
+        out_dir,
+        B_pk_T,
     )
     return pngs

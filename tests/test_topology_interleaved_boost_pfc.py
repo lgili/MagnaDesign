@@ -177,7 +177,9 @@ def test_thd_scales_inversely_with_sqrt_n():
 # ---------------------------------------------------------------------------
 def test_spec_rejects_invalid_n_interleave():
     """Pydantic should reject n_interleave outside {2, 3}."""
-    with pytest.raises(Exception):  # ValidationError
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
         Spec(
             topology="interleaved_boost_pfc",
             Vin_min_Vrms=85.0,

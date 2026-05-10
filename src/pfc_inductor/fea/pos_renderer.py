@@ -58,13 +58,16 @@ _VIEW_LABELS["temperature"] = ("Temperature [°C]", "Predicted temperature")
 # coupled magnetostatic + thermal solve.
 _VIEW_LABELS["thermal"] = ("Temperature [°C]", "Predicted temperature")
 _VIEW_LABELS["thermal_influx"] = (
-    "Heat flux [W/m²]", "Boundary heat flux",
+    "Heat flux [W/m²]",
+    "Boundary heat flux",
 )
 _VIEW_LABELS["thermal_material"] = (
-    "Thermal conductivity [W/m·K]", "Material conductivity",
+    "Thermal conductivity [W/m·K]",
+    "Material conductivity",
 )
 _VIEW_LABELS["thermal_total_loss_density"] = (
-    "Loss density [W/m³]", "Coupled thermal loss density",
+    "Loss density [W/m³]",
+    "Coupled thermal loss density",
 )
 
 # FEMMT/getdp view names (the literal strings emitted in the
@@ -74,22 +77,28 @@ _VIEW_LABELS["thermal_total_loss_density"] = (
 _VIEW_LABELS["T"] = ("Temperature [°C]", "Predicted temperature")
 _VIEW_LABELS["influx"] = ("Heat flux [W/m²]", "Boundary heat flux")
 _VIEW_LABELS["material"] = (
-    "Thermal conductivity [W/m·K]", "Material conductivity",
+    "Thermal conductivity [W/m·K]",
+    "Material conductivity",
 )
 _VIEW_LABELS["Magnitude B-Field / T"] = (
-    "|B| [T]", "Magnetic flux density",
+    "|B| [T]",
+    "Magnetic flux density",
 )
 _VIEW_LABELS["Magnitude H-Field / Am^-1"] = (
-    "|H| [A/m]", "H-field magnitude",
+    "|H| [A/m]",
+    "H-field magnitude",
 )
 _VIEW_LABELS["Loss density of jH-fields"] = (
-    "Loss density [W/m³]", "Litz ohmic loss density",
+    "Loss density [W/m³]",
+    "Litz ohmic loss density",
 )
 _VIEW_LABELS["Loss density of j2F-fields"] = (
-    "Loss density [W/m³]", "Ohmic loss density",
+    "Loss density [W/m³]",
+    "Ohmic loss density",
 )
 _VIEW_LABELS["Magnetic vector potential"] = (
-    "A_z [Wb/m]", "Magnetic vector potential",
+    "A_z [Wb/m]",
+    "Magnetic vector potential",
 )
 
 
@@ -126,26 +135,20 @@ def render_field_pngs(working_dir: str | Path | None) -> list[Path]:
         # current-density / vector-potential plots have different
         # interpretation modes.
         name = pos_path.stem.lower()
-        is_b_field = any(
-            tok in name for tok in ("magb", "b_field", "flux_density")
-        )
+        is_b_field = any(tok in name for tok in ("magb", "b_field", "flux_density"))
         if is_b_field:
             try:
                 cl = render_centerline_png(pos_path)
                 if cl is not None:
                     out.append(cl)
             except Exception:
-                logger.exception(
-                    "Failed to render %s centerline PNG", pos_path
-                )
+                logger.exception("Failed to render %s centerline PNG", pos_path)
             try:
                 hi = render_histogram_png(pos_path)
                 if hi is not None:
                     out.append(hi)
             except Exception:
-                logger.exception(
-                    "Failed to render %s histogram PNG", pos_path
-                )
+                logger.exception("Failed to render %s histogram PNG", pos_path)
     return out
 
 
@@ -326,7 +329,7 @@ def _parse_pos_scalar_triangles(
             (round(coords[6], 12), round(coords[7], 12)),
         )
         idx_tri: list[int] = []
-        for xy, v in zip(nodes_xy, vals[:3]):
+        for xy, v in zip(nodes_xy, vals[:3], strict=False):
             i = pts_idx.get(xy)
             if i is None:
                 i = len(points)
@@ -356,7 +359,8 @@ _MSH22_TRI_TYPE = 2
 
 
 def _parse_msh22_scalar_triangles(
-    text: str, fallback_view_name: str,
+    text: str,
+    fallback_view_name: str,
 ) -> Optional[tuple[str, list[tuple[float, float]], list[tuple[int, int, int]], list[float]]]:
     """Parse an ASCII MSH 2.2 ``.pos`` file written by getdp/FEMMT.
 
@@ -496,7 +500,7 @@ def _parse_msh22_scalar_triangles(
         if eid not in tri_by_elem:
             continue
         tri_nodes = tri_by_elem[eid]
-        for nidx, raw in zip(tri_nodes, parts[2:2 + nn]):
+        for nidx, raw in zip(tri_nodes, parts[2 : 2 + nn], strict=False):
             try:
                 v = float(raw)
             except ValueError:
@@ -523,10 +527,7 @@ def _parse_msh22_scalar_triangles(
             triangles.append((id_to_idx[tri[0]], id_to_idx[tri[1]], id_to_idx[tri[2]]))
     if not triangles:
         return None
-    averaged = [
-        sum(node_vals[nid]) / len(node_vals[nid])
-        for nid in valid_ids
-    ]
+    averaged = [sum(node_vals[nid]) / len(node_vals[nid]) for nid in valid_ids]
     return view_name, points, triangles, averaged
 
 
@@ -624,9 +625,9 @@ def _render_heatmap(
     import matplotlib
 
     matplotlib.use("Agg")
-    import matplotlib.pyplot as plt  # noqa: E402
-    import numpy as np  # noqa: E402
-    from matplotlib.tri import Triangulation  # noqa: E402
+    import matplotlib.pyplot as plt
+    import numpy as np
+    from matplotlib.tri import Triangulation
 
     pts_arr = np.asarray(points, dtype=float)
     tri_arr = np.asarray(triangles, dtype=np.int64)
@@ -709,8 +710,8 @@ def _render_centerline(
     import matplotlib
 
     matplotlib.use("Agg")
-    import matplotlib.pyplot as plt  # noqa: E402
-    import numpy as np  # noqa: E402
+    import matplotlib.pyplot as plt
+    import numpy as np
 
     label, title = _VIEW_LABELS.get(view_name, (view_name, view_name))
     is_b_field = view_name.lower().startswith("magb") or "B" in label[:2]
@@ -730,30 +731,31 @@ def _render_centerline(
         markeredgewidth=0.4,
         linewidth=1.6,
     )
-    ax.fill_between(r_arr * 1e3, 0.0, v_arr,
-                    color=line_color, alpha=0.10)
+    ax.fill_between(r_arr * 1e3, 0.0, v_arr, color=line_color, alpha=0.10)
 
     # Peak annotation.
     if v_arr.size > 0:
         i_pk = int(np.argmax(np.abs(v_arr)))
         r_pk_mm = float(r_arr[i_pk]) * 1e3
         v_pk = float(v_arr[i_pk])
-        ax.scatter([r_pk_mm], [v_pk], color="#DC2626",
-                   s=70, zorder=4, edgecolors="white",
-                   linewidths=1.4)
+        ax.scatter(
+            [r_pk_mm], [v_pk], color="#DC2626", s=70, zorder=4, edgecolors="white", linewidths=1.4
+        )
         ax.annotate(
             f"peak {v_pk:.3g} {label.split()[0]}",
             xy=(r_pk_mm, v_pk),
-            xytext=(8, -16), textcoords="offset points",
-            fontsize=9, color="#1F2937",
-            bbox=dict(boxstyle="round,pad=0.35",
-                      fc="white", ec="#D1D5DB", lw=0.7),
+            xytext=(8, -16),
+            textcoords="offset points",
+            fontsize=9,
+            color="#1F2937",
+            bbox=dict(boxstyle="round,pad=0.35", fc="white", ec="#D1D5DB", lw=0.7),
         )
 
     ax.set_xlabel("Radial position r [mm]")
     ax.set_ylabel(label)
-    ax.set_title(f"{title} along gap centerline (z = 0) — FEMMT FEA",
-                 fontsize=11, fontweight="bold")
+    ax.set_title(
+        f"{title} along gap centerline (z = 0) — FEMMT FEA", fontsize=11, fontweight="bold"
+    )
     ax.grid(True, alpha=0.20, linestyle=":")
     for spine in ("top", "right"):
         ax.spines[spine].set_visible(False)
@@ -765,7 +767,7 @@ def _render_centerline(
 def _render_histogram(
     view_name: str,
     tri_vals,  # np.ndarray[float], one value per triangle
-    weights,   # np.ndarray[float], triangle areas (== weights)
+    weights,  # np.ndarray[float], triangle areas (== weights)
     out_path: Path,
 ) -> None:
     """Area-weighted histogram of the field over the cross-section.
@@ -777,8 +779,8 @@ def _render_histogram(
     import matplotlib
 
     matplotlib.use("Agg")
-    import matplotlib.pyplot as plt  # noqa: E402
-    import numpy as np  # noqa: E402
+    import matplotlib.pyplot as plt
+    import numpy as np
 
     label, title = _VIEW_LABELS.get(view_name, (view_name, view_name))
     is_loss = "loss" in title.lower()
@@ -810,9 +812,15 @@ def _render_histogram(
 
     width = (edges[1] - edges[0]) * 0.9
     centers = 0.5 * (edges[:-1] + edges[1:])
-    ax_h.bar(centers, pct_per_bin, width=width,
-             color=bar_color, alpha=0.85,
-             edgecolor="white", linewidth=0.4)
+    ax_h.bar(
+        centers,
+        pct_per_bin,
+        width=width,
+        color=bar_color,
+        alpha=0.85,
+        edgecolor="white",
+        linewidth=0.4,
+    )
 
     ax_h.set_xlabel(label)
     ax_h.set_ylabel("Fraction of cross-section [%]", color=bar_color)
@@ -833,8 +841,7 @@ def _render_histogram(
     for spine in ("top",):
         ax_c.spines[spine].set_visible(False)
 
-    ax_h.set_title(f"{title} — distribution across cross-section",
-                   fontsize=11, fontweight="bold")
+    ax_h.set_title(f"{title} — distribution across cross-section", fontsize=11, fontweight="bold")
     fig.tight_layout()
     fig.savefig(out_path, dpi=110, bbox_inches="tight", facecolor="white")
     plt.close(fig)

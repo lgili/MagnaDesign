@@ -34,21 +34,21 @@ from typing import Optional
 
 import matplotlib
 
-matplotlib.use("Agg")  # noqa: E402
+matplotlib.use("Agg")
 
-from matplotlib.backends.backend_qtagg import (  # noqa: E402
+from matplotlib.backends.backend_qtagg import (
     FigureCanvasQTAgg as FigureCanvas,
 )
-from matplotlib.figure import Figure  # noqa: E402
-from matplotlib.patches import (  # noqa: E402
+from matplotlib.figure import Figure
+from matplotlib.patches import (
     Circle,
     FancyArrowPatch,
     Rectangle,
     Wedge,
 )
-from PySide6.QtWidgets import QSizePolicy, QVBoxLayout, QWidget  # noqa: E402
+from PySide6.QtWidgets import QSizePolicy, QVBoxLayout, QWidget
 
-from pfc_inductor.ui.theme import get_theme, on_theme_changed  # noqa: E402
+from pfc_inductor.ui.theme import get_theme, on_theme_changed
 
 
 @dataclass(frozen=True)
@@ -91,7 +91,7 @@ class GeometryPayload:
     secondary_d_iso_mm: float = 0.0
 
     @classmethod
-    def from_models(cls, core, wire, result) -> "GeometryPayload":
+    def from_models(cls, core, wire, result) -> GeometryPayload:
         Np = int(getattr(result, "Np_turns", 0) or 0)
         Ns = int(getattr(result, "Ns_turns", 0) or 0)
         # For coupled-pair designs the project model usually
@@ -130,7 +130,8 @@ class GeometryPayload:
         if OD <= 0 or HT <= 0 or (shape_kind == "toroid" and ID <= 0):
             try:
                 from pfc_inductor.visual.core_3d import (
-                    _bobbin_dims, _toroid_dims,
+                    _bobbin_dims,
+                    _toroid_dims,
                 )
 
                 if shape_kind == "toroid":
@@ -256,15 +257,12 @@ class GeometryView(QWidget):
         r_in = ID / 2
 
         # Core: filled annulus.
-        outer = Circle((0, 0), r_out, color=pal.text_muted, alpha=0.85,
-                       zorder=2)
+        outer = Circle((0, 0), r_out, color=pal.text_muted, alpha=0.85, zorder=2)
         inner = Circle((0, 0), r_in, color=pal.surface, zorder=3)
         ax.add_patch(outer)
         ax.add_patch(inner)
-        ax.add_patch(Circle((0, 0), r_out, fill=False, edgecolor=pal.text,
-                            linewidth=1.5, zorder=4))
-        ax.add_patch(Circle((0, 0), r_in, fill=False, edgecolor=pal.text,
-                            linewidth=1.5, zorder=4))
+        ax.add_patch(Circle((0, 0), r_out, fill=False, edgecolor=pal.text, linewidth=1.5, zorder=4))
+        ax.add_patch(Circle((0, 0), r_in, fill=False, edgecolor=pal.text, linewidth=1.5, zorder=4))
 
         # Air gap (sector on the inner radius). Catalog toroids
         # rarely have one but distributed-gap powder cores are
@@ -272,12 +270,20 @@ class GeometryView(QWidget):
         # as a 12° sector for visual reference.
         if p.lgap_mm > 0:
             theta_gap = 12.0
-            ax.add_patch(Wedge((0, 0), r_in + (r_out - r_in) * 0.20,
-                                90 - theta_gap / 2, 90 + theta_gap / 2,
-                                width=(r_out - r_in) * 0.20,
-                                facecolor=pal.danger, alpha=0.45,
-                                edgecolor=pal.danger, linewidth=1.0,
-                                zorder=5))
+            ax.add_patch(
+                Wedge(
+                    (0, 0),
+                    r_in + (r_out - r_in) * 0.20,
+                    90 - theta_gap / 2,
+                    90 + theta_gap / 2,
+                    width=(r_out - r_in) * 0.20,
+                    facecolor=pal.danger,
+                    alpha=0.45,
+                    edgecolor=pal.danger,
+                    linewidth=1.0,
+                    zorder=5,
+                )
+            )
 
         # Winding turn dots on the bobbin radius. Show min(N, 96)
         # so very high-N designs don't fill the plot with noise.
@@ -286,31 +292,49 @@ class GeometryView(QWidget):
             r_b = (r_out + r_in) / 2
             d = p.wire_d_iso_mm
             from math import cos, pi, sin
+
             for k in range(N_show):
                 ang = 2 * pi * k / N_show
                 cx, cy = r_b * cos(ang), r_b * sin(ang)
-                ax.add_patch(Circle((cx, cy), d / 2,
-                                    facecolor=pal.warning, alpha=0.85,
-                                    edgecolor=pal.text, linewidth=0.4,
-                                    zorder=6))
+                ax.add_patch(
+                    Circle(
+                        (cx, cy),
+                        d / 2,
+                        facecolor=pal.warning,
+                        alpha=0.85,
+                        edgecolor=pal.text,
+                        linewidth=0.4,
+                        zorder=6,
+                    )
+                )
             if p.N_turns > N_show:
                 # Place the count badge INSIDE the inner radius so
                 # it doesn't crowd the OD dimension arrow under the
                 # ring. ID label moves up a bit when the badge is
                 # present.
-                ax.text(0, r_in * 0.45,
-                        f"showing {N_show} of {p.N_turns} turns",
-                        ha="center", va="center", fontsize=8,
-                        color=pal.text_muted, style="italic")
+                ax.text(
+                    0,
+                    r_in * 0.45,
+                    f"showing {N_show} of {p.N_turns} turns",
+                    ha="center",
+                    va="center",
+                    fontsize=8,
+                    color=pal.text_muted,
+                    style="italic",
+                )
 
         # Dimension annotations (OD, ID).
-        self._dim_arrow(ax, (-r_out, -r_out * 1.10),
-                        (r_out, -r_out * 1.10),
-                        f"OD = {OD:.1f} mm", pal)
-        self._dim_arrow(ax, (-r_in, -r_in * 0.50),
-                        (r_in, -r_in * 0.50),
-                        f"ID = {ID:.1f} mm", pal,
-                        offset_y=-r_out * 0.04)
+        self._dim_arrow(
+            ax, (-r_out, -r_out * 1.10), (r_out, -r_out * 1.10), f"OD = {OD:.1f} mm", pal
+        )
+        self._dim_arrow(
+            ax,
+            (-r_in, -r_in * 0.50),
+            (r_in, -r_in * 0.50),
+            f"ID = {ID:.1f} mm",
+            pal,
+            offset_y=-r_out * 0.04,
+        )
 
         ax.set_xlim(-r_out * 1.18, r_out * 1.18)
         ax.set_ylim(-r_out * 1.30, r_out * 1.18)
@@ -337,36 +361,94 @@ class GeometryView(QWidget):
         ol = 0.10 * OD
         # Outer leg (right half).
         x0 = cl / 2 + ww
-        ax.add_patch(Rectangle((x0, -HT / 2), ol, HT,
-                                facecolor=pal.text_muted, alpha=0.85,
-                                edgecolor=pal.text, linewidth=1.5, zorder=2))
+        ax.add_patch(
+            Rectangle(
+                (x0, -HT / 2),
+                ol,
+                HT,
+                facecolor=pal.text_muted,
+                alpha=0.85,
+                edgecolor=pal.text,
+                linewidth=1.5,
+                zorder=2,
+            )
+        )
         # Mirror.
-        ax.add_patch(Rectangle((-x0 - ol, -HT / 2), ol, HT,
-                                facecolor=pal.text_muted, alpha=0.85,
-                                edgecolor=pal.text, linewidth=1.5, zorder=2))
+        ax.add_patch(
+            Rectangle(
+                (-x0 - ol, -HT / 2),
+                ol,
+                HT,
+                facecolor=pal.text_muted,
+                alpha=0.85,
+                edgecolor=pal.text,
+                linewidth=1.5,
+                zorder=2,
+            )
+        )
         # Centre leg.
-        ax.add_patch(Rectangle((-cl / 2, -HT / 2), cl, HT,
-                                facecolor=pal.text_muted, alpha=0.85,
-                                edgecolor=pal.text, linewidth=1.5, zorder=2))
+        ax.add_patch(
+            Rectangle(
+                (-cl / 2, -HT / 2),
+                cl,
+                HT,
+                facecolor=pal.text_muted,
+                alpha=0.85,
+                edgecolor=pal.text,
+                linewidth=1.5,
+                zorder=2,
+            )
+        )
         # Top/bottom yokes.
-        ax.add_patch(Rectangle((-cl / 2 - ww - ol, HT / 2 - ol),
-                                cl + 2 * ww + 2 * ol, ol,
-                                facecolor=pal.text_muted, alpha=0.85,
-                                edgecolor=pal.text, linewidth=1.5, zorder=2))
-        ax.add_patch(Rectangle((-cl / 2 - ww - ol, -HT / 2),
-                                cl + 2 * ww + 2 * ol, ol,
-                                facecolor=pal.text_muted, alpha=0.85,
-                                edgecolor=pal.text, linewidth=1.5, zorder=2))
+        ax.add_patch(
+            Rectangle(
+                (-cl / 2 - ww - ol, HT / 2 - ol),
+                cl + 2 * ww + 2 * ol,
+                ol,
+                facecolor=pal.text_muted,
+                alpha=0.85,
+                edgecolor=pal.text,
+                linewidth=1.5,
+                zorder=2,
+            )
+        )
+        ax.add_patch(
+            Rectangle(
+                (-cl / 2 - ww - ol, -HT / 2),
+                cl + 2 * ww + 2 * ol,
+                ol,
+                facecolor=pal.text_muted,
+                alpha=0.85,
+                edgecolor=pal.text,
+                linewidth=1.5,
+                zorder=2,
+            )
+        )
         # Gap on the centre leg.
         if p.lgap_mm > 0:
             g_h = max(p.lgap_mm, OD * 0.012)  # min visible gap
-            ax.add_patch(Rectangle((-cl / 2, -g_h / 2), cl, g_h,
-                                    facecolor=pal.danger, alpha=0.55,
-                                    edgecolor=pal.danger, linewidth=1.0,
-                                    zorder=4))
-            ax.text(cl / 2 + ww * 0.05, 0, f"gap {p.lgap_mm:.2f} mm",
-                    color=pal.danger, fontsize=9, fontweight="bold",
-                    va="center", zorder=5)
+            ax.add_patch(
+                Rectangle(
+                    (-cl / 2, -g_h / 2),
+                    cl,
+                    g_h,
+                    facecolor=pal.danger,
+                    alpha=0.55,
+                    edgecolor=pal.danger,
+                    linewidth=1.0,
+                    zorder=4,
+                )
+            )
+            ax.text(
+                cl / 2 + ww * 0.05,
+                0,
+                f"gap {p.lgap_mm:.2f} mm",
+                color=pal.danger,
+                fontsize=9,
+                fontweight="bold",
+                va="center",
+                zorder=5,
+            )
 
         # Winding dots in the windows.
         # ── Coupled-pair (flyback / forward) ──
@@ -381,7 +463,15 @@ class GeometryView(QWidget):
         d = p.wire_d_iso_mm
         if p.is_coupled_pair and d > 0:
             self._draw_coupled_pair_e_core(
-                ax, p, cl, ww, x0, ol, HT, d, pal,  # ww kept for signature symmetry
+                ax,
+                p,
+                cl,
+                ww,
+                x0,
+                ol,
+                HT,
+                d,
+                pal,  # ww kept for signature symmetry
             )
         elif p.N_turns > 0 and d > 0:
             x_min = cl / 2 + d * 0.6
@@ -400,31 +490,59 @@ class GeometryView(QWidget):
                         break
                     cx = x_min + (lx + 0.5) * d
                     cy = y_min + (ly + 0.5) * d
-                    ax.add_patch(Circle((cx, cy), d / 2,
-                                        facecolor=pal.warning, alpha=0.85,
-                                        edgecolor=pal.text, linewidth=0.4,
-                                        zorder=6))
+                    ax.add_patch(
+                        Circle(
+                            (cx, cy),
+                            d / 2,
+                            facecolor=pal.warning,
+                            alpha=0.85,
+                            edgecolor=pal.text,
+                            linewidth=0.4,
+                            zorder=6,
+                        )
+                    )
                     # Mirror to left window.
-                    ax.add_patch(Circle((-cx, cy), d / 2,
-                                        facecolor=pal.warning, alpha=0.85,
-                                        edgecolor=pal.text, linewidth=0.4,
-                                        zorder=6))
+                    ax.add_patch(
+                        Circle(
+                            (-cx, cy),
+                            d / 2,
+                            facecolor=pal.warning,
+                            alpha=0.85,
+                            edgecolor=pal.text,
+                            linewidth=0.4,
+                            zorder=6,
+                        )
+                    )
                     placed += 1
             if p.N_turns > target:
-                ax.text(0, HT / 2 + HT * 0.06,
-                        f"showing {target * 2} of {p.N_turns * 2} cross-sections",
-                        ha="center", va="bottom", fontsize=8,
-                        color=pal.text_muted, style="italic")
+                ax.text(
+                    0,
+                    HT / 2 + HT * 0.06,
+                    f"showing {target * 2} of {p.N_turns * 2} cross-sections",
+                    ha="center",
+                    va="bottom",
+                    fontsize=8,
+                    color=pal.text_muted,
+                    style="italic",
+                )
 
         # Dimensions.
         x_full = cl / 2 + ww + ol
-        self._dim_arrow(ax, (-x_full, -HT / 2 - HT * 0.10),
-                        (x_full, -HT / 2 - HT * 0.10),
-                        f"OD ≈ {OD:.1f} mm", pal)
-        self._dim_arrow(ax, (-x_full * 1.08, -HT / 2),
-                        (-x_full * 1.08, HT / 2),
-                        f"HT = {HT:.1f} mm", pal,
-                        rotate_text=True)
+        self._dim_arrow(
+            ax,
+            (-x_full, -HT / 2 - HT * 0.10),
+            (x_full, -HT / 2 - HT * 0.10),
+            f"OD ≈ {OD:.1f} mm",
+            pal,
+        )
+        self._dim_arrow(
+            ax,
+            (-x_full * 1.08, -HT / 2),
+            (-x_full * 1.08, HT / 2),
+            f"HT = {HT:.1f} mm",
+            pal,
+            rotate_text=True,
+        )
 
         ax.set_xlim(-x_full * 1.20, x_full * 1.20)
         ax.set_ylim(-HT / 2 - HT * 0.30, HT / 2 + HT * 0.18)
@@ -441,14 +559,24 @@ class GeometryView(QWidget):
         # arbitrary units.
         side = p.OD_mm or 30.0
         h = p.HT_mm or 20.0
-        ax.add_patch(Rectangle((-side / 2, -h / 2), side, h,
-                                facecolor=pal.text_muted, alpha=0.85,
-                                edgecolor=pal.text, linewidth=1.5))
+        ax.add_patch(
+            Rectangle(
+                (-side / 2, -h / 2),
+                side,
+                h,
+                facecolor=pal.text_muted,
+                alpha=0.85,
+                edgecolor=pal.text,
+                linewidth=1.5,
+            )
+        )
         # Window (centred).
         wx, wy = side * 0.55, h * 0.55
-        ax.add_patch(Rectangle((-wx / 2, -wy / 2), wx, wy,
-                                facecolor=pal.surface,
-                                edgecolor=pal.text, linewidth=1.0))
+        ax.add_patch(
+            Rectangle(
+                (-wx / 2, -wy / 2), wx, wy, facecolor=pal.surface, edgecolor=pal.text, linewidth=1.0
+            )
+        )
         # Turn dots in the window.
         if p.N_turns > 0 and p.wire_d_iso_mm > 0:
             d = p.wire_d_iso_mm
@@ -461,9 +589,16 @@ class GeometryView(QWidget):
                         break
                     cx = -wx / 2 + (lx + 0.5) * d
                     cy = -wy / 2 + (ly + 0.5) * d
-                    ax.add_patch(Circle((cx, cy), d / 2,
-                                        facecolor=pal.warning, alpha=0.85,
-                                        edgecolor=pal.text, linewidth=0.4))
+                    ax.add_patch(
+                        Circle(
+                            (cx, cy),
+                            d / 2,
+                            facecolor=pal.warning,
+                            alpha=0.85,
+                            edgecolor=pal.text,
+                            linewidth=0.4,
+                        )
+                    )
                     placed += 1
                 if placed >= target:
                     break
@@ -474,9 +609,16 @@ class GeometryView(QWidget):
         self._title_block(ax, p, f"{p.shape.upper() or 'Core'} — schematic")
 
     def _draw_coupled_pair_e_core(
-        self, ax, p: GeometryPayload,
-        cl: float, _ww: float, x0: float, ol: float, HT: float,
-        d: float, pal,
+        self,
+        ax,
+        p: GeometryPayload,
+        cl: float,
+        _ww: float,
+        x0: float,
+        ol: float,
+        HT: float,
+        d: float,
+        pal,
     ) -> None:
         """Two-colour winding render for flyback / coupled-pair.
 
@@ -501,15 +643,25 @@ class GeometryView(QWidget):
 
         # Primary on bottom half.
         target_p = self._fill_winding(
-            ax, p.Np_turns, d,
-            x_min, x_max, y_full_min, y_split,
+            ax,
+            p.Np_turns,
+            d,
+            x_min,
+            x_max,
+            y_full_min,
+            y_split,
             color=pal.accent_violet,
             edge_color=pal.text,
         )
         # Secondary on top half — different colour.
         target_s = self._fill_winding(
-            ax, p.Ns_turns, d,
-            x_min, x_max, y_split + d * 0.2, y_full_max,
+            ax,
+            p.Ns_turns,
+            d,
+            x_min,
+            x_max,
+            y_split + d * 0.2,
+            y_full_max,
             color=pal.warning,
             edge_color=pal.text,
         )
@@ -523,45 +675,83 @@ class GeometryView(QWidget):
         if notes:
             # Place above the geometry, not below — the bottom is
             # reserved for the OD dimension arrow on PQ/E painters.
-            ax.text(0, HT / 2 + HT * 0.06,
-                    "  ·  ".join(notes),
-                    ha="center", va="bottom", fontsize=8,
-                    color=pal.text_muted, style="italic")
+            ax.text(
+                0,
+                HT / 2 + HT * 0.06,
+                "  ·  ".join(notes),
+                ha="center",
+                va="bottom",
+                fontsize=8,
+                color=pal.text_muted,
+                style="italic",
+            )
 
         # Horizontal divider so the split is unambiguous.
         ax.plot(
             [x_min - d * 0.2, x_max + d * 0.2],
             [y_split, y_split],
-            color=pal.text_muted, linestyle=":", linewidth=0.8,
+            color=pal.text_muted,
+            linestyle=":",
+            linewidth=0.8,
             zorder=7,
         )
         ax.plot(
             [-x_max - d * 0.2, -x_min + d * 0.2],
             [y_split, y_split],
-            color=pal.text_muted, linestyle=":", linewidth=0.8,
+            color=pal.text_muted,
+            linestyle=":",
+            linewidth=0.8,
             zorder=7,
         )
 
         # Inline winding-key in the top-left corner of the plot.
         legend_x = -x0 - ol * 1.5
-        ax.scatter([legend_x], [y_full_max + d * 0.5],
-                    color=pal.accent_violet, s=90, zorder=8,
-                    edgecolors=pal.text, linewidths=0.5)
-        ax.text(legend_x + d * 1.2, y_full_max + d * 0.5,
-                f"primary  Np = {p.Np_turns}",
-                fontsize=8, color=pal.text, va="center")
-        ax.scatter([legend_x], [y_full_max - d * 0.5],
-                    color=pal.warning, s=90, zorder=8,
-                    edgecolors=pal.text, linewidths=0.5)
-        ax.text(legend_x + d * 1.2, y_full_max - d * 0.5,
-                f"secondary  Ns = {p.Ns_turns}",
-                fontsize=8, color=pal.text, va="center")
+        ax.scatter(
+            [legend_x],
+            [y_full_max + d * 0.5],
+            color=pal.accent_violet,
+            s=90,
+            zorder=8,
+            edgecolors=pal.text,
+            linewidths=0.5,
+        )
+        ax.text(
+            legend_x + d * 1.2,
+            y_full_max + d * 0.5,
+            f"primary  Np = {p.Np_turns}",
+            fontsize=8,
+            color=pal.text,
+            va="center",
+        )
+        ax.scatter(
+            [legend_x],
+            [y_full_max - d * 0.5],
+            color=pal.warning,
+            s=90,
+            zorder=8,
+            edgecolors=pal.text,
+            linewidths=0.5,
+        )
+        ax.text(
+            legend_x + d * 1.2,
+            y_full_max - d * 0.5,
+            f"secondary  Ns = {p.Ns_turns}",
+            fontsize=8,
+            color=pal.text,
+            va="center",
+        )
 
     @staticmethod
     def _fill_winding(
-        ax, n_turns: int, d: float,
-        x_min: float, x_max: float, y_min: float, y_max: float,
-        color, edge_color,
+        ax,
+        n_turns: int,
+        d: float,
+        x_min: float,
+        x_max: float,
+        y_min: float,
+        y_max: float,
+        color,
+        edge_color,
     ) -> int:
         """Pack ``n_turns`` insulated round conductors into the
         rectangle. Mirror-to-left so both windows show. Returns
@@ -581,41 +771,68 @@ class GeometryView(QWidget):
                     break
                 cx = x_min + (lx + 0.5) * d
                 cy = y_min + (ly + 0.5) * d
-                ax.add_patch(Circle((cx, cy), d / 2,
-                                    facecolor=color, alpha=0.85,
-                                    edgecolor=edge_color,
-                                    linewidth=0.4, zorder=6))
-                ax.add_patch(Circle((-cx, cy), d / 2,
-                                    facecolor=color, alpha=0.85,
-                                    edgecolor=edge_color,
-                                    linewidth=0.4, zorder=6))
+                ax.add_patch(
+                    Circle(
+                        (cx, cy),
+                        d / 2,
+                        facecolor=color,
+                        alpha=0.85,
+                        edgecolor=edge_color,
+                        linewidth=0.4,
+                        zorder=6,
+                    )
+                )
+                ax.add_patch(
+                    Circle(
+                        (-cx, cy),
+                        d / 2,
+                        facecolor=color,
+                        alpha=0.85,
+                        edgecolor=edge_color,
+                        linewidth=0.4,
+                        zorder=6,
+                    )
+                )
                 placed += 1
         return placed
 
     # ── Helpers ──
-    def _dim_arrow(self, ax, p1, p2, label: str, pal,
-                   offset_y: float = 0.0, rotate_text: bool = False) -> None:
+    def _dim_arrow(
+        self, ax, p1, p2, label: str, pal, offset_y: float = 0.0, rotate_text: bool = False
+    ) -> None:
         """Draw a horizontal/vertical dimension arrow with label."""
-        ax.add_patch(FancyArrowPatch(p1, p2,
-                                      arrowstyle="<|-|>",
-                                      mutation_scale=10,
-                                      color=pal.text_secondary,
-                                      linewidth=0.8))
+        ax.add_patch(
+            FancyArrowPatch(
+                p1,
+                p2,
+                arrowstyle="<|-|>",
+                mutation_scale=10,
+                color=pal.text_secondary,
+                linewidth=0.8,
+            )
+        )
         cx = (p1[0] + p2[0]) / 2
         cy = (p1[1] + p2[1]) / 2 + offset_y
         if rotate_text:
-            ax.text(cx, cy, label, color=pal.text_secondary,
-                    fontsize=8, ha="center", va="center",
-                    rotation=90)
+            ax.text(
+                cx,
+                cy,
+                label,
+                color=pal.text_secondary,
+                fontsize=8,
+                ha="center",
+                va="center",
+                rotation=90,
+            )
         else:
-            ax.text(cx, cy - 0.6, label, color=pal.text_secondary,
-                    fontsize=8, ha="center", va="top")
+            ax.text(
+                cx, cy - 0.6, label, color=pal.text_secondary, fontsize=8, ha="center", va="top"
+            )
 
     def _title_block(self, ax, p: GeometryPayload, title: str) -> None:
         pal = get_theme().palette
         # Title: short, technical.
-        ax.set_title(title, fontsize=11, fontweight="bold",
-                     color=pal.text, loc="left", pad=10)
+        ax.set_title(title, fontsize=11, fontweight="bold", color=pal.text, loc="left", pad=10)
         # Datasheet-style stamp — top-right corner, stacked
         # vertically. The previous bottom-right placement collided
         # with the OD dimension-arrow label on the toroid path
@@ -634,9 +851,15 @@ class GeometryView(QWidget):
         if p.lgap_mm > 0:
             bits.append(f"gap {p.lgap_mm:.2f} mm")
         if bits:
-            ax.text(0.99, 0.99, "\n".join(bits),
-                    transform=ax.transAxes,
-                    ha="right", va="top",
-                    fontsize=8, color=pal.text_muted,
-                    family="monospace",
-                    linespacing=1.4)
+            ax.text(
+                0.99,
+                0.99,
+                "\n".join(bits),
+                transform=ax.transAxes,
+                ha="right",
+                va="top",
+                fontsize=8,
+                color=pal.text_muted,
+                family="monospace",
+                linespacing=1.4,
+            )
