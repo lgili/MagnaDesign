@@ -41,7 +41,6 @@ from pfc_inductor.ui.dashboard.cards import (
     BobinamentoCard,
     EntreferroCard,
     FormasOndaCard,
-    HarmonicSpectrumCard,
     NucleoCard,
     PerdasCard,
     PhaseOverlayCard,
@@ -156,13 +155,10 @@ class DashboardPage(QWidget):
         # via setVisible(False) releases its grid geometry so the
         # row collapses on topologies that don't need either.
         self.card_phase_overlay = PhaseOverlayCard()
-        self.card_harmonics = HarmonicSpectrumCard()
-        # Stack vertically by placing both at row=4, col=0..12. Qt
-        # paints the visible one and skips the hidden one; if both
-        # are shown (won't happen with the current guards) they
-        # would overlap and the second-added wins.
         grid.addWidget(self.card_phase_overlay, 4, 0, 1, 12)
-        grid.addWidget(self.card_harmonics, 5, 0, 1, 12)
+        # The IEC 61000-3-2 harmonic-spectrum chart used to live
+        # at row 5. It moved to the Compliance tab so the spectrum
+        # visual sits next to the per-order pass/fail table.
 
         # ---- forward Próximos-Passos signals --------------------------
         self.card_proximos.fea_requested.connect(self.fea_requested.emit)
@@ -187,7 +183,6 @@ class DashboardPage(QWidget):
             self.card_entreferro,
             self.card_proximos,
             self.card_phase_overlay,
-            self.card_harmonics,
         ]
 
     # ------------------------------------------------------------------

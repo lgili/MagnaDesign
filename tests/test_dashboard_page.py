@@ -49,13 +49,15 @@ def design_bundle():
 # ---------------------------------------------------------------------------
 
 
-def test_dashboard_has_eight_cards(app):
-    """v3 dropped the TopologiaCard (topology lives in SpecDrawer).
-    Layout shrinks from 9 cards to 8."""
+def test_dashboard_has_nine_cards(app):
+    """Layout: 8 always-on cards (KPI strip + Formas + Nucleo +
+    Viz3D + Perdas + Bobinamento + Entreferro + ProximosPassos)
+    plus PhaseOverlay (interleaved boost only, self-hides on
+    others). HarmonicSpectrumCard moved to the Compliance tab."""
     from pfc_inductor.ui.dashboard import DashboardPage
 
     p = DashboardPage()
-    assert len(p._cards) == 8
+    assert len(p._cards) == 9
 
 
 def test_dashboard_grid_positions(app):

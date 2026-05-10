@@ -438,14 +438,15 @@
   every \texttt{Enter}.}
 \end{frame}
 
-\begin{frame}{2.2 --- Harmonics card + IEC 61000-3-2}
+\begin{frame}{2.2 --- Harmonics chart + IEC 61000-3-2 (Compliance tab)}
   \screenshot[width=0.78\linewidth, keepaspectratio]%
             {figures/example2_harmonics.png}
-  \figcaption{Per-order spectrum with IEC limits as red
-  overlays. Green / amber / red coding by margin to limit;
-  title verdict is \emph{PASSED} or \emph{FAILED on h = X}.
-  At 600 W the front-end's $5^\text{th}$ and $7^\text{th}$
-  drop well under Class A.}
+  \figcaption{Per-order spectrum with IEC limits as red overlays.
+  Green / amber / red coding by margin to limit; title verdict
+  is \emph{PASSED} or \emph{FAILED on h = X}. The chart now
+  lives inside the \textbf{Compliance tab}'s IEC 61000-3-2
+  card --- spectrum visual + per-order pass/fail table + audit
+  notes share a single panel, fed by one evaluation pass.}
 \end{frame}
 
 \begin{frame}{2.3 --- Before / after the reactor}
@@ -604,19 +605,14 @@
 \end{frame}
 
 \begin{frame}{Topology-specific cards}
-  \begin{columns}[T,onlytextwidth]
-    \column{0.5\textwidth}
-    \screenshot[height=0.55\textheight, keepaspectratio]%
-              {figures/feature_phase_overlay_card.png}
-    \begin{center}\scriptsize Phase overlay (interleaved)\end{center}
-    \column{0.5\textwidth}
-    \screenshot[height=0.55\textheight, keepaspectratio]%
-              {figures/feature_harmonic_card.png}
-    \begin{center}\scriptsize Harmonics (line reactor)\end{center}
-  \end{columns}
+  \screenshot[height=0.60\textheight, keepaspectratio]%
+            {figures/feature_phase_overlay_card.png}
   \figcaption{Cards self-hide via \texttt{setVisible(False)} when
-  the topology doesn't apply --- the row collapses and the
-  user only sees what's relevant to their design.}
+  the topology doesn't apply --- the row collapses and the user
+  only sees what's relevant to their design. Example shown:
+  \emph{Phase overlay} (interleaved boost). The IEC 61000-3-2
+  spectrum view used to live here too; it moved to the Compliance
+  tab so the chart sits next to the per-order pass/fail table.}
 \end{frame}
 
 \begin{frame}{Compare designs (side by side)}

@@ -56,6 +56,10 @@ from pfc_inductor.compliance import (
 from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
 from pfc_inductor.ui.theme import get_theme, on_theme_changed
 from pfc_inductor.ui.widgets import Card
+from pfc_inductor.ui.widgets.harmonic_spectrum_chart import (
+    HarmonicSpectrumChart,
+    HarmonicSpectrumPayload,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -185,7 +189,16 @@ class _VerdictStrip(QFrame):
 # Per-standard card body
 # ---------------------------------------------------------------------------
 class _StandardCardBody(QFrame):
-    """Verdict strip + harmonic table + notes for one standard."""
+    """Verdict strip + (optional) spectrum chart + harmonic table
+    + notes for one standard.
+
+    The IEC 61000-3-2 evaluator stashes the per-order spectrum in
+    ``StandardResult.extras`` (``harmonic_pct`` + ``fundamental_A``).
+    When that payload is present we render the spectrum bar chart
+    on top of the table — same data, two views: the chart makes
+    margin-to-limit obvious at a glance, the table gives the
+    auditable numbers row-by-row.
+    """
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -195,6 +208,11 @@ class _StandardCardBody(QFrame):
 
         self.verdict = _VerdictStrip()
         v.addWidget(self.verdict)
+
+        # Spectrum chart — only shown for standards whose extras
+        # carry harmonic data. Allocated lazily so non-IEC cards
+        # (UL/EN) don't pay for an unused FigureCanvas.
+        self.chart: Optional[HarmonicSpectrumChart] = None
 
         self.table = QTableWidget(0, 5)
         self.table.setHorizontalHeaderLabels(
@@ -221,8 +239,47 @@ class _StandardCardBody(QFrame):
         self.notes.setWordWrap(True)
         v.addWidget(self.notes)
 
+        self._layout = v
+
     def populate(self, std: StandardResult) -> None:
         self.verdict.show_verdict(std.conclusion, std.summary)
+
+        # ---- Spectrum chart (IEC 61000-3-2 only) ---------------
+        # The dispatcher returns ``extras["harmonic_pct"]`` as a
+        # list indexed by order (0-based, so index n → harmonic
+        # n+1). Convert pct-of-fundamental → Arms by multiplying
+        # by ``extras["fundamental_A"]``; that's the same
+        # transform the old card did, kept here so the chart
+        # axis matches the table's mA values exactly.
+        pct = std.extras.get("harmonic_pct") if std.extras else None
+        I_fund = float(std.extras.get("fundamental_A", 0.0) or 0.0) if std.extras else 0.0
+        if pct and I_fund > 0:
+            if self.chart is None:
+                self.chart = HarmonicSpectrumChart()
+                # Insert above the table (under the verdict strip).
+                self._layout.insertWidget(1, self.chart)
+            orders = tuple(range(1, len(pct) + 1))
+            amps = tuple((p / 100.0) * I_fund for p in pct)
+            # IEC 61000-3-2 Class A vs Class D — match what the
+            # evaluator picked. The cleanest signal is the
+            # standard summary; fall back to "A" otherwise.
+            iec_class = "D" if "Class D" in std.scope else "A"
+            self.chart.show_payload(HarmonicSpectrumPayload(
+                orders=orders,
+                amplitudes_A=amps,
+                iec_class=iec_class,
+                P_in_W=float(std.extras.get("Pi_W", 0.0) or 0.0),
+                f_line_Hz=60.0,
+                topology_name=std.standard,
+            ))
+            self.chart.setVisible(True)
+        elif self.chart is not None:
+            # Standard re-evaluated with no spectrum (e.g. boost
+            # PFC) — hide the chart but keep it allocated so the
+            # next IEC pass doesn't have to rebuild it.
+            self.chart.setVisible(False)
+
+        # ---- Per-order table -----------------------------------
         self.table.setRowCount(len(std.rows))
         for r, (label, value, limit, margin, passed) in enumerate(std.rows):
             self.table.setItem(r, 0, QTableWidgetItem(label))

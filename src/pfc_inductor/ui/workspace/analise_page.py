@@ -74,7 +74,6 @@ from pfc_inductor.ui.dashboard.cards import (
     DetalhesTecnicosCard,
     EntreferroCard,
     FormasOndaCard,
-    HarmonicSpectrumCard,
     LCurrentCard,
     PerdasCard,
     PFvsLCard,
@@ -298,13 +297,10 @@ class AnalisePage(QWidget):
         grid.addWidget(self.card_phase_overlay, 10, 0, 1, 12)
         grid.setRowStretch(10, 0)
 
-        # Row 11 — Topology-specific: IEC 61000-3-2 harmonic
-        # compliance for line-frequency filtering inductors
-        # (line_reactor / passive_choke / pfc_passive). Self-
-        # hides for switching topologies.
-        self.card_harmonics = HarmonicSpectrumCard()
-        grid.addWidget(self.card_harmonics, 11, 0, 1, 12)
-        grid.setRowStretch(11, 0)
+        # The IEC 61000-3-2 harmonic-spectrum chart used to live
+        # here (row 11). It moved to the Compliance tab so the
+        # spectrum visual sits next to the per-order pass/fail
+        # table — same data, one place to read it.
 
         # Convenience list for batch update / clear loops.
         # ``card_acoustic`` is included so its own self-show /
@@ -323,7 +319,6 @@ class AnalisePage(QWidget):
             self.card_detalhes,
             self.card_acoustic,
             self.card_phase_overlay,
-            self.card_harmonics,
         ]
 
     # ------------------------------------------------------------------
