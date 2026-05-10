@@ -80,10 +80,11 @@ jobs:
           # Qt widgets need a display; offscreen platform avoids the
           # "no DISPLAY" failure without pulling in xvfb.
           QT_QPA_PLATFORM: offscreen
-        # ``timeout-minutes: 20`` is the safety net: serial pytest
-        # locally takes ~13 min, so 20 min leaves a comfortable margin
-        # but still fails fast and cleanly if a regression introduces
-        # an actual hang.
+        # ``timeout-minutes: 30`` is sized for CI's ubuntu-latest
+        # runner, which runs the suite ~2× slower than a developer
+        # workstation. Serial pytest locally takes ~13 min; a
+        # 25-min CI run plus a 5-min buffer keeps real hangs
+        # surfacing fast without flaking on slow GitHub-Actions days.
         #
         # ``pytest-xdist`` (``-n auto``) was tried as a parallel
         # speed-up but the workers hung on CI's ubuntu-latest with
@@ -92,5 +93,5 @@ jobs:
         # platform plugin. Reverted to serial; the suite finishes
         # well within the timeout and the deterministic output is
         # easier to debug.
-        timeout-minutes: 20
+        timeout-minutes: 30
         run: pytest -ra
