@@ -21,9 +21,20 @@ def _femmt_package_config() -> Optional[Path]:
     config is enough; the package config will be written by an explicit
     invocation after FEMMT install.
     """
+    # Make sure ONELAB is on ``sys.path`` before touching FEMMT —
+    # ``femmt.component`` does ``from onelab import onelab`` at
+    # module top, which would otherwise crash this probe on a
+    # fresh install. ``ensure_onelab_on_path`` reads the home
+    # config DIRECTLY (no FEMMT touch) so we don't loop.
+    try:
+        from pfc_inductor.setup_deps import ensure_onelab_on_path
+
+        ensure_onelab_on_path()
+    except Exception:
+        pass
     try:
         import femmt  # type: ignore[import-not-found]
-    except ImportError:
+    except (ImportError, ModuleNotFoundError):
         return None
     init_path = getattr(femmt, "__file__", None)
     if not init_path:

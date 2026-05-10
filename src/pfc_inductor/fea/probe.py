@@ -62,7 +62,21 @@ def femm_version() -> Optional[str]:
 
 # ---- FEMMT (preferred) -----------------------------------------------------
 def is_femmt_available() -> bool:
-    """`import femmt` works (ONELAB config checked separately at solve time)."""
+    """`import femmt` works (ONELAB config checked separately at solve time).
+
+    Tries to put ONELAB on ``sys.path`` first so the
+    ``from onelab import onelab`` line at the top of FEMMT's
+    ``component.py`` doesn't crash this probe — without that, every
+    UI surface that calls this function (cascade page status badge,
+    FEA dialog, optimizer config) crashes the whole app on first
+    launch when ONELAB isn't installed yet.
+    """
+    try:
+        from pfc_inductor.setup_deps import ensure_onelab_on_path
+
+        ensure_onelab_on_path()
+    except Exception:
+        pass
     try:
         importlib.import_module("femmt")
         return True
@@ -71,44 +85,81 @@ def is_femmt_available() -> bool:
 
 
 def is_femmt_onelab_configured() -> bool:
-    """Check FEMMT's `config.json` (inside the installed package) for an
-    ONELAB folder path that contains `onelab.py`.
+    """``True`` when an ONELAB folder containing ``onelab.py`` is
+    listed in FEMMT's config (home OR package).
 
-    FEMMT 0.5.x reads `<site-packages>/femmt/config.json`. Older docs
-    sometimes refer to `~/.femmt_settings.json`; we check both for safety.
+    Checks the home config (``~/.femmt_settings.json``) FIRST and
+    only falls back to the package config (``<femmt>/config.json``)
+    when the home config didn't carry a path. The fallback path is
+    where the user-reported ``ModuleNotFoundError: No module named
+    'onelab'`` was coming from — the package-config probe needs
+    ``import femmt``, and FEMMT's ``component.py`` does
+    ``from onelab import onelab`` at module top, so on a fresh
+    install (no ONELAB yet) the very probe meant to *check* whether
+    ONELAB is configured was crashing the whole app.
+
+    Defensive: every ``import femmt`` is now wrapped in try/except
+    AND preceded by a ``ensure_onelab_on_path()`` so a partially-
+    installed system doesn't take the GUI down.
     """
-    candidates = []
-    try:
-        import femmt
-
-        candidates.append(Path(femmt.__file__).parent / "config.json")
-    except Exception:
-        pass
-    candidates += [
+    # Home config first — no FEMMT touch, can't crash.
+    home_candidates = [
         Path.home() / ".femmt_settings.json",
         Path.home() / "femmt_settings.json",
     ]
-    for p in candidates:
-        if p.exists():
-            try:
-                import json
+    for p in home_candidates:
+        if not p.exists():
+            continue
+        try:
+            import json
 
-                data = json.loads(p.read_text())
-                onelab = data.get("onelab") or data.get("ONELAB")
-                if not onelab:
-                    continue
-                onelab_dir = Path(onelab)
-                # FEMMT requires `onelab.py` in this directory.
-                if (onelab_dir / "onelab.py").exists():
-                    return True
-            except Exception:
-                pass
-    return False
+            data = json.loads(p.read_text())
+            raw = data.get("onelab") or data.get("ONELAB")
+            if not raw:
+                continue
+            onelab_dir = Path(raw).expanduser()
+            if (onelab_dir / "onelab.py").exists():
+                return True
+        except Exception:
+            pass
+
+    # Package config fallback. ``import femmt`` requires onelab on
+    # sys.path; inject first, then try the import — if either step
+    # fails we just say "not configured" instead of crashing.
+    try:
+        from pfc_inductor.setup_deps import ensure_onelab_on_path
+
+        ensure_onelab_on_path()
+        import femmt
+
+        pkg_cfg = Path(femmt.__file__).parent / "config.json"
+    except Exception:
+        return False
+    if not pkg_cfg.exists():
+        return False
+    try:
+        import json
+
+        data = json.loads(pkg_cfg.read_text())
+        raw = data.get("onelab") or data.get("ONELAB")
+        if not raw:
+            return False
+        onelab_dir = Path(raw).expanduser()
+        return (onelab_dir / "onelab.py").exists()
+    except Exception:
+        return False
 
 
 def femmt_config_path() -> Optional[Path]:
-    """Return the path FEMMT reads its ONELAB config from."""
+    """Return the path FEMMT reads its ONELAB config from.
+
+    Same defensive pattern as :func:`is_femmt_onelab_configured` —
+    inject ONELAB on ``sys.path`` first, then try the import.
+    """
     try:
+        from pfc_inductor.setup_deps import ensure_onelab_on_path
+
+        ensure_onelab_on_path()
         import femmt
 
         return Path(femmt.__file__).parent / "config.json"

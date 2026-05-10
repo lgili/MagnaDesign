@@ -225,49 +225,185 @@ def _patch_brand_typography_to_installed_fonts() -> None:
 
 
 def _build_splash(icon):
-    """Construct the cold-start splash screen.
+    """Construct the cold-start splash screen — modern, rounded, with
+    a brand header and an indeterminate progress bar.
 
     Returns ``None`` on offscreen / minimal platforms (no display) and
-    when no icon is available (the splash is icon-driven). Otherwise
-    returns a fully-configured ``QSplashScreen`` ready to be shown.
+    when no icon is available. Otherwise returns a fully-configured
+    ``QSplashScreen`` ready to be shown.
 
-    The splash uses the app icon at 256×256 plus a one-line "Loading…"
-    label so the user has something to look at during the 5-15 s the
-    cold-cache MainWindow construction takes (matplotlib font cache,
-    catalog load, dashboard chart init). It auto-dismisses when the
-    main window's ``finish(win)`` is called.
+    Visual layout:
+
+        ┌────────────────────────────────────────────────────────┐  ← rounded
+        │ [violet accent band — 60 px]                           │     corners
+        │                                                        │
+        │   [icon 128×128]    MagnaDesign                        │
+        │                     Inductor Design Suite              │
+        │                     v0.4.x                             │
+        │                                                        │
+        │   [indeterminate progress bar — full width]            │
+        │   Loading workspace…                                   │
+        └────────────────────────────────────────────────────────┘
+
+    The window is frameless + transparent so the rounded corners
+    and the drop-shadow band actually paint correctly. The body is
+    a single ``QPixmap`` rendered with ``QPainterPath`` for the card
+    shape; the progress bar is a real child ``QProgressBar`` parented
+    to the splash so it animates while ``MainWindow`` constructs.
     """
     from PySide6.QtCore import Qt
-    from PySide6.QtGui import QGuiApplication, QPainter, QPixmap
-    from PySide6.QtWidgets import QSplashScreen
+    from PySide6.QtGui import (
+        QFont,
+        QGuiApplication,
+        QPainter,
+        QPainterPath,
+        QPen,
+        QPixmap,
+    )
+    from PySide6.QtWidgets import QProgressBar, QSplashScreen
 
     if QGuiApplication.platformName() in ("offscreen", "minimal"):
         return None
     if icon is None or icon.isNull():
         return None
 
-    # Render the icon onto a 320×320 surface with a small bottom
-    # margin so the platform-painted "Loading MagnaDesign…" caption
-    # has somewhere to go.
-    side = 320
-    pix = QPixmap(side, side)
     p_palette = get_theme().palette
-    pix.fill(QColor(p_palette.surface))
+    width, height = 560, 300
+    radius = 18
+
+    # ── Compose the card pixmap (transparent margin so the OS
+    # composites the rounded corners cleanly) ──
+    pix = QPixmap(width, height)
+    pix.fill(QColor(0, 0, 0, 0))  # transparent
+
     painter = QPainter(pix)
-    icon_size = 192
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+    # Card body — rounded rect filled with the surface colour, with
+    # a 1 px border in the theme border tint.
+    card = QPainterPath()
+    card.addRoundedRect(0.5, 0.5, width - 1, height - 1, radius, radius)
+    painter.fillPath(card, QColor(p_palette.surface))
+    painter.setPen(QPen(QColor(p_palette.border), 1))
+    painter.drawPath(card)
+
+    # Top accent band — full width, rounded only on the top corners.
+    band_h = 64
+    band_path = QPainterPath()
+    band_path.moveTo(0, band_h)
+    band_path.lineTo(0, radius)
+    band_path.quadTo(0, 0, radius, 0)
+    band_path.lineTo(width - radius, 0)
+    band_path.quadTo(width, 0, width, radius)
+    band_path.lineTo(width, band_h)
+    band_path.closeSubpath()
+    painter.fillPath(band_path, QColor(p_palette.accent_violet))
+
+    # Brand wordmark in the band.
+    painter.setPen(QColor("#FFFFFF"))
+    f = QFont()
+    f.setPointSize(20)
+    f.setWeight(QFont.Weight.DemiBold)
+    painter.setFont(f)
+    painter.drawText(
+        24,
+        0,
+        width - 48,
+        band_h,
+        int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft),
+        "MagnaDesign",
+    )
+    f.setPointSize(10)
+    f.setWeight(QFont.Weight.Normal)
+    painter.setFont(f)
+    painter.setPen(QColor(255, 255, 255, 200))
+    painter.drawText(
+        24,
+        0,
+        width - 48,
+        band_h,
+        int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight),
+        "Inductor Design Suite",
+    )
+
+    # Body — icon on the left, tagline on the right.
+    icon_size = 128
+    icon_x = 32
+    icon_y = band_h + (height - band_h - icon_size - 64) // 2
     icon_pix = icon.pixmap(icon_size, icon_size)
-    x = (side - icon_size) // 2
-    y = (side - icon_size) // 2 - 24
-    painter.drawPixmap(x, y, icon_pix)
+    painter.drawPixmap(icon_x, icon_y, icon_pix)
+
+    text_x = icon_x + icon_size + 24
+    text_w = width - text_x - 32
+
+    f.setPointSize(13)
+    f.setWeight(QFont.Weight.Medium)
+    painter.setFont(f)
+    painter.setPen(QColor(p_palette.text))
+    painter.drawText(
+        text_x,
+        band_h + 24,
+        text_w,
+        28,
+        int(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft),
+        "Topology-aware design suite",
+    )
+
+    f.setPointSize(10)
+    f.setWeight(QFont.Weight.Normal)
+    painter.setFont(f)
+    painter.setPen(QColor(p_palette.text_muted))
+    painter.drawText(
+        text_x,
+        band_h + 56,
+        text_w,
+        60,
+        int(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft) | int(Qt.TextFlag.TextWordWrap),
+        "PFC inductors • passive chokes • line reactors\nFEMMT + ONELAB validation built-in",
+    )
+
     painter.end()
 
-    splash = QSplashScreen(pix, Qt.WindowType.WindowStaysOnTopHint)
-    splash.setStyleSheet(
-        f"QSplashScreen {{ background: {p_palette.surface}; color: {p_palette.text_muted}; }}"
+    # ── Build the splash widget ──
+    splash = QSplashScreen(
+        pix,
+        Qt.WindowType.WindowStaysOnTopHint
+        | Qt.WindowType.FramelessWindowHint
+        | Qt.WindowType.SplashScreen,
     )
+    # Translucent so the rounded corners aren't filled with grey.
+    splash.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+    splash.setMask(pix.mask())
+
+    # Indeterminate progress bar parented to the splash so it
+    # animates while heavy imports run in the foreground thread.
+    bar = QProgressBar(splash)
+    bar.setRange(0, 0)  # indeterminate (busy spinner)
+    bar.setTextVisible(False)
+    bar_h = 4
+    bar_margin = 32
+    bar.setGeometry(
+        bar_margin,
+        height - 56,
+        width - 2 * bar_margin,
+        bar_h,
+    )
+    bar.setStyleSheet(
+        "QProgressBar {"
+        f"  background: {p_palette.surface_elevated};"
+        "  border: 0;"
+        "  border-radius: 2px;"
+        "}"
+        "QProgressBar::chunk {"
+        f"  background: {p_palette.accent_violet};"
+        "  border-radius: 2px;"
+        "}"
+    )
+
+    # Status caption below the bar.
     splash.showMessage(
-        "Loading MagnaDesign…",
-        Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter,
+        "Loading workspace…",
+        int(Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter),
         QColor(p_palette.text_muted),
     )
     return splash

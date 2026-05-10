@@ -22,9 +22,19 @@ SHIM_DIR = Path("/tmp/pfc_femmt_shim")
 
 
 def _femmt_path() -> Optional[Path]:
+    # ``import femmt`` requires ONELAB on ``sys.path``; inject
+    # before importing so a fresh install (no ONELAB yet) doesn't
+    # take down the GUI with a ``ModuleNotFoundError: No module
+    # named 'onelab'`` from FEMMT's own top-level import.
+    try:
+        from pfc_inductor.setup_deps import ensure_onelab_on_path
+
+        ensure_onelab_on_path()
+    except Exception:
+        pass
     try:
         import femmt  # type: ignore[import-not-found]
-    except ImportError:
+    except (ImportError, ModuleNotFoundError):
         return None
     init = getattr(femmt, "__file__", None)
     return Path(init).resolve() if init else None
