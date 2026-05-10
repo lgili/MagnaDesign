@@ -152,7 +152,18 @@ class CoreView3D(QWidget):
     def _setup_renderer(self):
         v = get_theme().viz3d
         self.plotter.set_background(v.bg_bottom, top=v.bg_top)
-        self.plotter.enable_anti_aliasing("ssaa")
+        # SSAA hangs the renderer on macOS 26.4 / Apple Silicon (VTK 9.x
+        # + Cocoa-OpenGL combo): the bundled app sits at 0 % CPU inside
+        # ``vtkSSAAPass::Render → vtkOpenGLRenderer::Clear`` and never
+        # paints the first frame, which the user reports as "the app
+        # doesn't open". FXAA is the cheapest safe alternative — single-
+        # pass post-processing, no offscreen FBO juggling — and the
+        # ``try`` block makes the entire AA step opt-out so a future VTK
+        # regression on any OS doesn't deadlock the whole UI again.
+        try:
+            self.plotter.enable_anti_aliasing("fxaa")
+        except Exception:
+            pass
         try:
             self.plotter.enable_lightkit()
         except Exception:
