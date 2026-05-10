@@ -163,18 +163,24 @@ def test_tier0_filter_drops_unknown_db_ids(db):
 def test_tier0_filter_separates_feasible_from_infeasible(db):
     """An 800 W boost spec rejects some cores and accepts others.
 
-    We sweep the full search space (not a head-slice) because the
-    Cartesian generator iterates material-first: the first thousand
-    candidates are all the same material's cores, and one material
-    at one power level can be uniformly feasible or uniformly not.
+    We sweep ALL materials × ALL cores (the cartesian generator pairs
+    each core with its default material, so the product is bounded by
+    the catalog's ``cores × default_material`` tuples). The wire
+    dimension is restricted to a 3-wire sample so the search stays
+    O(catalog) instead of O(catalog × all wires) — across the live
+    MAS catalog the latter is ~14 M candidates which OOM-hangs CI
+    runners. Tier 0 is wire-agnostic for the feasibility flag, so a
+    small representative wire slice is sufficient to make the
+    "some feasible / some infeasible" assertion.
     """
     spec = _boost_spec(Pout_W=800.0)
     model = BoostCCMModel(spec)
     materials_by_id = {m.id: m for m in db["materials"]}
     cores_by_id = {c.id: c for c in db["cores"]}
-    wires_by_id = {w.id: w for w in db["wires"]}
+    sampled_wires = list(db["wires"])[:3]
+    wires_by_id = {w.id: w for w in sampled_wires}
 
-    candidates = list(cartesian(db["materials"], db["cores"], db["wires"]))
+    candidates = list(cartesian(db["materials"], db["cores"], sampled_wires))
     results = list(
         filter_candidates(
             model,
@@ -201,6 +207,7 @@ def test_tier0_filter_throughput_reasonable(db):
     quick-check path.
     """
     import time
+    from itertools import islice
 
     spec = _boost_spec()
     model = BoostCCMModel(spec)
@@ -208,7 +215,14 @@ def test_tier0_filter_throughput_reasonable(db):
     cores_by_id = {c.id: c for c in db["cores"]}
     wires_by_id = {w.id: w for w in db["wires"]}
 
-    candidates = list(cartesian(db["materials"], db["cores"], db["wires"]))[:5000]
+    # ``islice`` over the generator — never materialise the whole
+    # cartesian product. Even with the ``only_compatible_cores`` filter
+    # the full product is ~14 M candidates against the live MAS
+    # catalog; ``list(...)[:5000]`` allocated all 14 M Pydantic
+    # ``Candidate`` instances first (minutes of GC pressure on a CI
+    # runner, OOM on smaller machines) before the slice ran. The
+    # fixed two-step form is O(5000) and preserves the sample.
+    candidates = list(islice(cartesian(db["materials"], db["cores"], db["wires"]), 5000))
     start = time.perf_counter()
     consumed = sum(
         1
