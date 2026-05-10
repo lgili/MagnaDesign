@@ -122,9 +122,15 @@ def test_cascade_page_runs_to_completion_and_populates_table(app, tmp_path: Path
     assert _wait_until(lambda: len(finished_status) > 0, app=app, timeout=60.0)
     assert finished_status[0] == "done"
 
-    # Top-N table populated with at least one row, and the first cell of
-    # each row carries a candidate key on UserRole.
-    assert page._table.rowCount() > 0
+    # The "finished" signal fires before Qt has flushed the
+    # ``rowsInserted`` slots that fan out from the orchestrator's
+    # ``_candidate_evaluated`` signal — on a fast Mac the chain
+    # almost always lands inline before the test checks the table,
+    # but on slow CI the model is still empty when the assertion
+    # fires (the original test was flaking with ``rowCount() == 0``).
+    # Pump the event loop until the rows arrive; 5 s is well above
+    # any observed slot-chain latency.
+    assert _wait_until(lambda: page._table.rowCount() > 0, app=app, timeout=5.0)
     first_cell = page._table.item(0, 0)
     assert first_cell is not None
     assert isinstance(first_cell.data(0x0100), str)
