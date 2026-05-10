@@ -231,12 +231,15 @@ excluded = [
     "mypy",
     "ruff",
     "black",
-    # Don't drop setuptools any more — ``pkg_resources`` is part of
-    # setuptools and FEMMT 0.5.x imports it at module load time.
-    # Excluding it caused ``ModuleNotFoundError: No module named
-    # 'pkg_resources'`` from FEMMT in earlier ad-hoc bundles.
-    "pip",
-    "wheel",
+    # ``setuptools`` / ``pip`` / ``wheel`` are kept available because
+    # FEMMT 0.5.x imports ``pkg_resources`` (vendored in setuptools)
+    # at module load time, and PyInstaller's setuptools hook aliases
+    # ``setuptools._vendor.wheel → wheel`` during analysis — that
+    # alias errors out with
+    # ``ValueError: Target module "wheel" already imported as
+    # ExcludedModule(...)`` if any of the three are in the exclusion
+    # list. Cheap to bundle (a few MB total) and removes the whole
+    # class of "missing pkg_resources / wheel" runtime crashes.
 ]
 
 # ---------------------------------------------------------------------------
