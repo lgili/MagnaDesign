@@ -18,7 +18,12 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-SHIM_DIR = Path("/tmp/pfc_femmt_shim")
+from pfc_inductor.setup_deps.paths import FeaPaths
+
+# Was hardcoded as ``/tmp/pfc_femmt_shim`` — no ``/tmp`` on Windows.
+# ``FeaPaths.shim_dir`` resolves via ``tempfile.gettempdir()`` which
+# returns the right thing on every OS (``%TEMP%`` on Windows).
+SHIM_DIR = FeaPaths.detect().shim_dir
 
 
 def _femmt_path() -> Optional[Path]:

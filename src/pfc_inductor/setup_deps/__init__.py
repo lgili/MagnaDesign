@@ -99,7 +99,9 @@ def ensure_onelab_on_path() -> Optional[Path]:
     import json
     import sys
 
-    home_config = Path.home() / ".femmt_settings.json"
+    from pfc_inductor.setup_deps.paths import FeaPaths
+
+    home_config = FeaPaths.detect().femmt_settings_json
     if not home_config.exists():
         return None
     try:

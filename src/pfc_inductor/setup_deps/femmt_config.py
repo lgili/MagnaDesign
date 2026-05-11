@@ -11,7 +11,13 @@ import json
 from pathlib import Path
 from typing import Optional
 
-HOME_CONFIG = Path.home() / ".femmt_settings.json"
+from pfc_inductor.setup_deps.paths import FeaPaths
+
+# Resolved through ``FeaPaths`` so the location is documented in one
+# place and tests can override the home dir. It's still
+# ``~/.femmt_settings.json`` on every OS today because FEMMT 0.5.x
+# hard-codes that read path.
+HOME_CONFIG = FeaPaths.detect().femmt_settings_json
 
 
 def _femmt_package_config() -> Optional[Path]:

@@ -47,7 +47,13 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-_NO_SPACE_LINK = Path("/tmp/femmt")
+# Was hardcoded ``/tmp/femmt`` — no ``/tmp`` on Windows, and even on
+# Unix-likes ``tempfile.gettempdir()`` honours ``$TMPDIR`` which some
+# sandboxed environments require. Build the symlink target inside the
+# OS-canonical temp dir so the path-with-spaces workaround actually
+# fires on every supported platform.
+_NO_SPACE_LINK = Path(tempfile.gettempdir()) / "femmt"
+_NO_SPACE_PARENT = str(_NO_SPACE_LINK.parent)
 
 
 @contextlib.contextmanager
@@ -112,10 +118,13 @@ def _install_no_space_femmt_shim() -> None:
                 pass
         else:
             os.symlink(str(real), str(_NO_SPACE_LINK))
-        # Make sure /tmp comes first on sys.path so `import femmt` picks up
-        # the symlinked location.
-        if "/tmp" not in sys.path[:1]:
-            sys.path.insert(0, "/tmp")
+        # Make sure the OS temp dir (parent of the symlink) comes
+        # first on sys.path so ``import femmt`` picks up the
+        # symlinked location. Hardcoding ``/tmp`` here was a Unix-
+        # only assumption; the platform-canonical temp dir is what
+        # ``tempfile.gettempdir()`` returns.
+        if _NO_SPACE_PARENT not in sys.path[:1]:
+            sys.path.insert(0, _NO_SPACE_PARENT)
         # Drop a previously-cached femmt module so the next import re-resolves.
         for mod in list(sys.modules):
             if mod == "femmt" or mod.startswith("femmt."):

@@ -16,6 +16,7 @@ import zipfile
 from pathlib import Path
 from typing import Callable, Optional
 
+from pfc_inductor.setup_deps.paths import FeaPaths
 from pfc_inductor.setup_deps.platform_info import PlatformInfo, detect_platform
 from pfc_inductor.setup_deps.urls import onelab_archive_url
 
@@ -24,22 +25,24 @@ ProgressCb = Optional[Callable[[str, float], None]]
 
 
 def default_onelab_dir() -> Path:
-    """Where we install ONELAB by default. Matches the docs at
-    ``docs/fea-install.md``.
+    """Where we install ONELAB by default for the current OS.
+
+    Delegates to :class:`~pfc_inductor.setup_deps.paths.FeaPaths` so
+    Windows users get ``%LOCALAPPDATA%/MagnaDesign/onelab`` and
+    macOS / Linux users keep the historical ``~/onelab``.
     """
-    return Path.home() / "onelab"
+    return FeaPaths.detect().default_onelab_dir
 
 
 def is_onelab_installed(target_dir: Path) -> bool:
-    """ONELAB is "installed" when ``onelab.py`` plus the two binaries are
-    present in ``target_dir``.
+    """ONELAB is "installed" when ``onelab.py`` plus the two
+    binaries are present in ``target_dir``.
+
+    The binary names are platform-specific (``getdp.exe`` /
+    ``gmsh.exe`` on Windows, no suffix elsewhere); the per-OS
+    suffix logic lives inside :class:`FeaPaths`.
     """
-    if not target_dir.is_dir():
-        return False
-    has_helper = (target_dir / "onelab.py").is_file()
-    has_getdp = (target_dir / "getdp").is_file() or (target_dir / "getdp.exe").is_file()
-    has_gmsh = (target_dir / "gmsh").is_file() or (target_dir / "gmsh.exe").is_file()
-    return has_helper and has_getdp and has_gmsh
+    return FeaPaths.detect().is_onelab_installed_at(target_dir)
 
 
 def download_onelab(

@@ -78,11 +78,38 @@ def test_is_onelab_installed_false_when_missing(tmp_path):
     assert is_onelab_installed(tmp_path) is False
 
 
-def test_is_onelab_installed_handles_windows_exes(tmp_path):
+def test_is_onelab_installed_handles_windows_exes(tmp_path, monkeypatch):
+    """On Windows the binary names carry ``.exe`` — the platform-
+    strict installation check (``FeaPaths.is_onelab_installed_at``)
+    only accepts the suffix that matches the running OS, so we
+    have to fake the OS detection here to exercise the Windows
+    branch from a unix-y test host.
+
+    The pre-refactor code accepted either suffix unconditionally
+    (a Mac install with ``.exe`` files reported "installed"),
+    which was wrong — it hid the case where a download landed
+    with the wrong binary set.
+    """
+    from pfc_inductor.setup_deps.paths import FeaPaths
+    from pfc_inductor.setup_deps.platform_info import PlatformInfo
+
+    win = PlatformInfo(os="windows", arch="x86_64")
+    win_paths = FeaPaths.for_platform(win, home=tmp_path)
+    monkeypatch.setattr(FeaPaths, "detect", classmethod(lambda cls: win_paths))
+
     (tmp_path / "onelab.py").write_text("# stub")
     (tmp_path / "getdp.exe").write_bytes(b"binary")
     (tmp_path / "gmsh.exe").write_bytes(b"binary")
     assert is_onelab_installed(tmp_path) is True
+
+    # Same directory with Unix-suffix binaries instead is NOT
+    # a Windows install — the previous either-suffix code would
+    # have wrongly accepted this.
+    (tmp_path / "getdp.exe").unlink()
+    (tmp_path / "gmsh.exe").unlink()
+    (tmp_path / "getdp").write_bytes(b"binary")
+    (tmp_path / "gmsh").write_bytes(b"binary")
+    assert is_onelab_installed(tmp_path) is False
 
 
 # ---------------------------------------------------------------------------
