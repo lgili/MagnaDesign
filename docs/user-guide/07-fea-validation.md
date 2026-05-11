@@ -14,12 +14,15 @@ Two FEA backends ship today:
 
 - **FEMMT (preferred for EE / EI / ETD / PQ)** — open-source
   Python wrapper around ONELAB / gmsh / getdp. Native
-  axisymmetric magnetostatic. Free, cross-platform, requires
-  the ``[fea]`` extra and an ONELAB binary install.
+  axisymmetric magnetostatic. Free, cross-platform; the
+  Python side ships with the default install since v0.4.10.
+  The ONELAB binary blob (gmsh + getdp) is installed
+  separately by the in-app *Tools → Install / configure FEA
+  backend...* dialog.
 - **Legacy FEMM (preferred for toroids)** — Lua + xfemm
   (Linux/macOS) or femm.exe (Windows). Native axisymmetric
-  magnetostatic for toroidal cores. The xfemm binary is bundled
-  in the ``[fea]`` extra; on Windows the official FEMM 4.2
+  magnetostatic for toroidal cores. The xfemm binary ships
+  with the default install; on Windows the official FEMM 4.2
   installer is needed.
 
 The dispatcher in ``pfc_inductor.fea.runner`` picks per-shape:

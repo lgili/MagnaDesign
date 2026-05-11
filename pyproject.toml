@@ -6,14 +6,17 @@
 # a mass-rename of import sites; the ``magnadesign`` CLI entry point
 # below is the new public name.
 name = "magnadesign"
-version = "0.4.10"
+version = "0.4.11"
 description = "MagnaDesign — topology-aware desktop suite for inductor design across PFC, passive chokes, and line reactors"
 readme = "README.md"
 requires-python = ">=3.11,<3.13"  # FEMMT 0.5.x bounds upper end at 3.12
 dependencies = [
     "PySide6>=6.7",
     "numpy>=1.26",
-    "scipy>=1.13",
+    # FEMMT 0.5.x has a hard upper bound at scipy<1.14 — keep that
+    # constraint here now that FEMMT is a default dependency (was
+    # gated behind ``[fea]`` until v0.4.10).
+    "scipy>=1.13,<1.14",
     "pydantic>=2.7",
     "matplotlib>=3.9",
     "platformdirs>=4.2",
@@ -34,6 +37,18 @@ dependencies = [
     # browser-print pitfalls (background colours stripped, font
     # substitution, fragile page breaks).
     "reportlab>=4.0",
+    # FEA validation backend (FEMMT) — promoted from ``[fea]`` to
+    # a default dep in v0.4.10. The GUI's "Validate (FEA)" button
+    # is now a first-class feature, not optional, so every install
+    # ships with the Python side ready. ONELAB (the gmsh + getdp
+    # binary blob FEMMT shells out to) is still installed
+    # separately by ``setup_deps`` — that's a multi-hundred-MB
+    # native distribution that doesn't belong in a pip wheel.
+    "femmt>=0.5,<0.6",
+    # FEMMT 0.5.x imports ``pkg_resources`` at module load, which
+    # setuptools 70 removed from the default install. Pin until
+    # FEMMT cuts a release that migrates off pkg_resources.
+    "setuptools<70",
 ]
 
 [project.optional-dependencies]
@@ -90,14 +105,13 @@ updater = [
 performance = [
     "numba>=0.60",
 ]
-# FEA validation backend (FEMMT). Pinned because FEMMT 0.5.x has hard
-# constraints on scipy and setuptools that conflict with newer wheels.
-# Install with `uv pip install -e ".[fea]"` on Python 3.12.
-fea = [
-    "femmt>=0.5,<0.6",
-    "scipy>=1.12,<1.14",
-    "setuptools<70",
-]
+# Kept as an empty alias for backward compatibility with install
+# scripts and docs that say ``pip install -e ".[fea]"``. As of
+# v0.4.10 FEMMT is a default dependency — the FEA validation
+# backend is a first-class feature, not opt-in — so this extra
+# is now a no-op. Don't remove the key entirely: ``pip install
+# ".[fea]"`` would error otherwise and break user playbooks.
+fea = []
 # Sphinx docs site — built locally via ``make -C docs html`` and
 # auto-published to GitHub Pages by ``.github/workflows/docs.yml``
 # on every push to main. Read the rendered theory chapters at

@@ -109,8 +109,10 @@ the FEA column empty and the Status column reads "FEA-skipped".
 
 **Possible causes**:
 
-1. **No FEA backend installed.** Install with
-   ``uv pip install -e ".[fea]"``.
+1. **ONELAB not yet installed.** FEMMT itself ships with the
+   default install since v0.4.10, but the ONELAB binary blob
+   (gmsh + getdp) is fetched separately. Open *Tools →
+   Install / configure FEA backend...* to run the installer.
 2. **Every candidate exceeds N = 80 turns.** Look at the
    `N_turns` column — if all values are ≥ 80, the cascade is
    correctly refusing FEA on each one.

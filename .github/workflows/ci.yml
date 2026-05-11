@@ -48,8 +48,12 @@ jobs:
       - name: Install package + dev extras
         run: |
           python -m pip install --upgrade pip
-          # ".[dev]" pulls ruff, mypy, pytest, pytest-cov.
-          # Skip ".[fea]" — FEMMT needs ONELAB which we don't ship in CI.
+          # FEMMT is a default dep as of v0.4.10 — ``pip install -e .``
+          # already pulls it in (it's needed at import time by the FEA
+          # probe code paths the tests exercise). ``[dev]`` adds the
+          # test/lint toolchain on top. Pytest skips real FEA solves
+          # because ONELAB itself isn't installed in the CI runner;
+          # the FEMMT import probe still works.
           pip install -e ".[dev]"
 
       - name: Ruff format check

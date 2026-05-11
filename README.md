@@ -137,8 +137,10 @@ without writing anything. Manual install steps are in
 shims for existing scripts.
 
 > Python 3.12 is required because the FEMMT 0.5.x solver does not yet
-> support 3.13. The optional `[fea]` extra pins compatible scipy and
-> setuptools versions for that solver.
+> support 3.13. FEMMT and its scipy / setuptools constraints are part
+> of the default install as of v0.4.10 — no extra needed. The
+> `[fea]` extra is kept as an empty alias for backward compatibility
+> (existing scripts using `pip install -e ".[fea]"` keep working).
 
 ### First design in 60 seconds
 

@@ -31,9 +31,8 @@ Requires Python 3.11 or 3.12 (FEMMT pins the upper bound).
    $ git clone https://github.com/your-org/magnadesign.git
    $ cd magnadesign
    $ uv venv                       # or python -m venv .venv
-   $ uv pip install -e .            # base install (no FEA)
-   $ uv pip install -e ".[fea]"     # with FEMMT (optional)
-   $ uv pip install -e ".[dev]"     # for tests + linters
+   $ uv pip install -e .            # full install (includes FEMMT)
+   $ uv pip install -e ".[dev]"     # plus tests + linters
 
 Launch:
 
@@ -62,11 +61,14 @@ The ``add-cli-headless-runner`` proposal in
 Optional extras
 ---------------
 
-- ``[fea]`` — FEMMT + ONELAB for FEA validation. The
-  in-app *Settings → FEA* dialog handles platform-specific
-  installation (ONELAB binary, FEMMT pip wheel, scipy / setuptools
-  pinning). Recommended only when the user actually runs Tier 3
-  cascade evaluations.
+- ``[fea]`` — **No longer needed.** FEMMT is a default dependency
+  as of v0.4.10. The extra is kept as an empty alias for backward
+  compatibility (existing ``pip install ".[fea]"`` invocations
+  still work, just install nothing extra). ONELAB (the gmsh +
+  getdp binary blob FEMMT shells out to) is still installed
+  separately by the in-app *Settings → FEA* dialog because it's a
+  multi-hundred-MB native distribution that doesn't belong in a
+  pip wheel.
 - ``[dev]`` — pytest + ruff + mypy + black for development.
 - ``[docs]`` — Sphinx + RTD theme + extensions for building this
   site locally (``make -C docs html``).

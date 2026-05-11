@@ -74,18 +74,17 @@ jobs:
             libxcb-shm0 libxcb-glx0 libfontconfig1 libxrender1
 
       # ---------- Common: install project + PyInstaller ---------------
-      - name: Install project + FEMMT for bundling
+      - name: Install project + PyInstaller
         run: |
           python -m pip install --upgrade pip
-          # ``[fea]`` pulls FEMMT into the build environment so the
-          # spec's ``collect_all("femmt")`` can actually walk the
-          # package and pin its templates. Without this, FEMMT was
-          # silently absent from the bundle and the in-app setup
-          # dialog kept reporting "FEMMT não importável" at every
-          # launch (the user-reported v0.4.x regression). ``[dev]``
-          # is still skipped — test/lint tools aren't needed in
-          # the shipped bundle.
-          pip install -e ".[fea]"
+          # ``femmt`` is a default dependency as of v0.4.10 — the
+          # FEA validation backend is a first-class feature, not
+          # gated behind an extra. Plain ``pip install -e .`` is
+          # enough; the spec's ``collect_all("femmt")`` finds the
+          # package on PYTHONPATH and pins its templates into the
+          # bundle. ``[dev]`` is still skipped — test/lint tools
+          # don't belong in the shipped binary.
+          pip install -e .
           pip install pyinstaller==6.11.1
 
       # ---------- Build with the shared spec --------------------------
