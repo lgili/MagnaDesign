@@ -52,33 +52,49 @@ __all__ = [
 
 
 def ensure_onelab_on_path() -> Optional[Path]:
-    """Add the configured ONELAB folder to ``sys.path`` if needed.
+    """Make ``from onelab import onelab`` resolvable for FEMMT.
 
-    FEMMT 0.5.x's ``femmt/component.py`` does ``from onelab import
-    onelab`` at module load — it expects the ONELAB helper module
-    ``onelab.py`` to be importable as a top-level package. ONELAB is
-    a binary distribution (gmsh + getdp + a small ``onelab.py``
-    Python helper) we install separately into the user's home, so
-    Python doesn't find it on ``sys.path`` unless we put it there.
+    FEMMT 0.5.x's ``femmt/component.py`` does
 
-    Without this call, the bundled .app crashes with
-    ``ModuleNotFoundError: No module named 'onelab'`` the moment any
-    code path touches ``femmt`` — which is exactly the user-reported
-    "fala que nao escontra o modulo onelab" symptom.
+        from onelab import onelab
 
-    Idempotent: returns the path that was added (or already present)
-    on success, ``None`` if no configured ONELAB was found. Always
-    safe to call multiple times — the second call short-circuits.
+    at module load. That's the ``from <package> import <submodule>``
+    pattern: Python expects ``onelab`` to be a *package* (a folder
+    importable as a module), and ``onelab.onelab`` to be the
+    submodule inside it (the actual ``onelab.py`` file). The
+    upstream ONELAB binary distribution we install for the user
+    ships ``onelab.py`` as a flat file in ``~/onelab/`` — no
+    ``__init__.py``. Python 3's implicit namespace packages make
+    that folder importable AS A PACKAGE as long as its **parent**
+    is on ``sys.path`` (not the folder itself).
 
-    **Important:** this function intentionally bypasses
-    ``read_configured_onelab()`` and reads ``~/.femmt_settings.json``
-    directly. The full reader probes for ``<femmt>/config.json``
-    too, which requires ``import femmt`` — and that's the very
-    import this function is supposed to make safe. Calling it
-    indirectly here would create the chicken-and-egg crash the
-    user reported in v0.4.5: ``ensure_onelab_on_path`` triggers
-    ``import femmt`` triggers ``from onelab import onelab``
-    BEFORE the path injection has run.
+    Old (v0.4.x) versions of this function added the onelab folder
+    itself to ``sys.path``, which made the folder look like a
+    plain module directory. ``import onelab`` then resolved to
+    ``/Users/.../onelab/onelab.py`` (the FILE) and
+    ``from onelab import onelab`` blew up with
+    ``ImportError: cannot import name 'onelab' from 'onelab'`` —
+    the file doesn't export an ``onelab`` attribute, it exports
+    ``client``, ``path``, ``extract``, etc.
+
+    The fix is to add the **parent** of the configured onelab
+    folder to ``sys.path``. Then:
+
+      - ``import onelab`` finds ``~/onelab/`` as a namespace
+        package.
+      - ``from onelab import onelab`` finds
+        ``~/onelab/onelab.py`` as the submodule.
+      - ``onelab.client(__file__)`` (which is what FEMMT actually
+        wants) resolves to the class inside the submodule.
+
+    Idempotent: returns the parent path on success, ``None`` if
+    no configured ONELAB was found. Safe to call multiple times.
+
+    Reads ``~/.femmt_settings.json`` directly with stdlib JSON;
+    deliberately avoids ``read_configured_onelab`` because the
+    full reader probes ``<femmt>/config.json`` which requires
+    ``import femmt`` — the chicken-and-egg this helper exists
+    to make safe.
     """
     import json
     import sys
@@ -96,11 +112,20 @@ def ensure_onelab_on_path() -> Optional[Path]:
     onelab_dir = Path(raw).expanduser()
     if not (onelab_dir / "onelab.py").exists():
         return None
-    onelab_str = str(onelab_dir)
-    if onelab_str in sys.path:
-        return onelab_dir
-    sys.path.insert(0, onelab_str)
-    return onelab_dir
+    # Inject the PARENT so the folder is importable as a namespace
+    # package and ``from onelab import onelab`` finds the submodule.
+    parent = onelab_dir.parent
+    parent_str = str(parent)
+    if parent_str not in sys.path:
+        sys.path.insert(0, parent_str)
+    # Drop any stale injection of the onelab folder itself — leaving
+    # it on ``sys.path`` would shadow the namespace-package lookup
+    # because Python prefers a flat ``onelab.py`` over an implicit
+    # ``onelab/`` package when both match.
+    folder_str = str(onelab_dir)
+    while folder_str in sys.path:
+        sys.path.remove(folder_str)
+    return parent
 
 
 @dataclass
