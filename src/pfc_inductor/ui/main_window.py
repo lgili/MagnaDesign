@@ -1104,6 +1104,14 @@ class MainWindow(QMainWindow):
         self.otimizador_page.selection_applied.connect(
             self._apply_optimizer_choice,
         )
+        # Multi-row Compare → open the global CompareDialog with the
+        # picked sweep results pre-populated as slots. The optimizer
+        # produces ``SweepResult`` objects which carry spec + core +
+        # wire + material + DesignResult — exactly the payload a
+        # ``CompareSlot`` needs.
+        self.otimizador_page.compare_requested.connect(
+            self._open_compare_with_sweep_results,
+        )
 
         # ---- Cascade page (deep multi-tier sweep) ---------------------
         # Double-clicking a row in the top-N table emits the
@@ -1746,6 +1754,41 @@ class MainWindow(QMainWindow):
             )
         self._compare_dialog.show()
         self._compare_dialog.raise_()
+
+    def _open_compare_with_sweep_results(self, picked: list) -> None:
+        """Pre-populate the CompareDialog with rows the user picked
+        in the optimizer table.
+
+        ``picked`` is a ``list[SweepResult]`` — same shape the
+        optimizer's table model holds. Each one converts trivially to
+        a ``CompareSlot``: spec is the active project spec, the rest
+        comes straight off the sweep result.
+        """
+        self._open_compare()
+        if self._compare_dialog is None:
+            return
+        # The current spec is whatever the user has typed in the spec
+        # drawer at the moment they hit Compare. The sweep results
+        # were computed against that same spec, so it's the right
+        # reference for the slots.
+        try:
+            spec, _core, _wire, _material = self._collect_inputs()
+        except Exception:
+            return
+        for sr in picked:
+            try:
+                slot = CompareSlot(
+                    spec=spec,
+                    core=sr.core,
+                    wire=sr.wire,
+                    material=sr.material,
+                    result=sr.result,
+                )
+                self._compare_dialog.add_slot(slot)
+            except Exception:
+                # Skip a malformed sweep row rather than abort the
+                # whole batch — partial Compare is better than none.
+                continue
 
     def _apply_compare_choice(self, material_id: str, core_id: str, wire_id: str) -> None:
         self._apply_optimizer_choice(material_id, core_id, wire_id)

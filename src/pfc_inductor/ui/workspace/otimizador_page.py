@@ -34,6 +34,7 @@ class OtimizadorPage(QWidget):
     """Sidebar destination for the optimizer."""
 
     selection_applied = Signal(str, str, str)  # material_id, core_id, wire_id
+    compare_requested = Signal(list)  # list[SweepResult] — forwarded from embed
 
     # Kept for back-compat with v3.0 wiring; emitted by no widget but
     # still re-exported as a no-op so consumers that connect to it
@@ -66,13 +67,22 @@ class OtimizadorPage(QWidget):
         # Embedded optimizer body — same widget the modal dialog wraps.
         self._embed = OptimizerEmbed()
         self._embed.selection_applied.connect(self.selection_applied.emit)
+        # Forward the multi-row Compare request up to the host
+        # (MainWindow). The optimizer itself never owns the Compare
+        # dialog — that's a workspace-level concern handled by the
+        # global CompareDialog.
+        self._embed.compare_requested.connect(self.compare_requested.emit)
 
         embed_holder = QFrame()
         v = QVBoxLayout(embed_holder)
         v.setContentsMargins(0, 0, 0, 0)
         v.setSpacing(0)
         v.addWidget(self._embed)
-        body_v.addWidget(Card("Pareto sweep multi-objetivo", embed_holder), 1)
+        # English label — matches the page header ("Optimizer") so the
+        # heading and the card title speak the same language. The
+        # earlier mixed-language ("Pareto sweep multi-objetivo")
+        # was a translation oversight from the v3 page rebuild.
+        body_v.addWidget(Card("Multi-objective Pareto sweep", embed_holder), 1)
 
     # ------------------------------------------------------------------
     def set_inputs(

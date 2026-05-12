@@ -14,7 +14,7 @@ Two surfaces:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, ClassVar, Optional
 
 from PySide6.QtCore import QObject, Qt, QThread, Signal
 from PySide6.QtGui import QFont
@@ -25,7 +25,6 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
     QLabel,
-    QMessageBox,
     QProgressBar,
     QPushButton,
     QSplitter,
@@ -65,6 +64,64 @@ from pfc_inductor.optimize import SweepResult, pareto_front, sweep
 from pfc_inductor.optimize.sweep import rank
 from pfc_inductor.ui.theme import get_theme
 from pfc_inductor.ui.widgets.optimizer_filters_bar import OptimizerFiltersBar
+
+
+class _ErrorBanner(QWidget):
+    """Inline status banner — error / info messages without modal QMessageBox.
+
+    QMessageBox.critical pulled focus and blocked the optimizer
+    workflow every time the user hit a benign error (CSV path not
+    writable, sweep produced 0 designs). The banner lives at the
+    top of the optimizer page and auto-hides when the next sweep
+    runs or after the user clicks the ✕. Modeled after GitHub's
+    inline error banners — calm, scannable, dismissable.
+    """
+
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        self.setVisible(False)
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(12, 8, 8, 8)
+        layout.setSpacing(8)
+        self._icon = QLabel("")
+        self._icon.setFixedWidth(20)
+        self._label = QLabel("")
+        self._label.setWordWrap(True)
+        from PySide6.QtWidgets import QToolButton
+
+        self._close_btn = QToolButton()
+        self._close_btn.setText("✕")
+        self._close_btn.setAutoRaise(True)
+        self._close_btn.setToolTip("Dismiss")
+        self._close_btn.clicked.connect(self.hide)
+        layout.addWidget(self._icon)
+        layout.addWidget(self._label, 1)
+        layout.addWidget(self._close_btn)
+
+    def show_error(self, message: str) -> None:
+        self._icon.setText("⚠")
+        self._apply_palette("#FEF2F2", "#B91C1C", "#FECACA")
+        self._label.setText(message)
+        self.setVisible(True)
+
+    def show_info(self, message: str) -> None:
+        self._icon.setText("✓")
+        self._apply_palette("#F0FDF4", "#15803D", "#BBF7D0")
+        self._label.setText(message)
+        self.setVisible(True)
+
+    def _apply_palette(self, bg: str, fg: str, border: str) -> None:
+        # Inline stylesheet so this widget is theme-independent
+        # (it's used from a path that may run before the QSS theme
+        # has been applied — e.g. very early in a CSV export error
+        # during the first sweep).
+        self.setStyleSheet(
+            f"_ErrorBanner {{ background: {bg}; border: 1px solid {border};"
+            f" border-radius: 6px; }}"
+            f"_ErrorBanner QLabel {{ color: {fg}; }}"
+            f"_ErrorBanner QToolButton {{ color: {fg}; border: 0; padding: 2px 6px; }}"
+            f"_ErrorBanner QToolButton:hover {{ background: rgba(0,0,0,0.05); }}"
+        )
 
 
 class _SweepWorker(QObject):
@@ -117,6 +174,16 @@ class OptimizerEmbed(QWidget):
     """
 
     selection_applied = Signal(str, str, str)  # material_id, core_id, wire_id
+    compare_requested = Signal(list)  # list[SweepResult] — picked rows for Compare
+
+    # QSettings keys used to persist user toggle preferences across
+    # sessions. Engineering users keep "Curated only" on once they've
+    # discovered it; novices keep it off. Persisting both groups'
+    # preference is the right default.
+    _SETTINGS_KEY_COMPAT = "optimizer/restrict_to_compatible_cores"
+    _SETTINGS_KEY_FEASIBLE = "optimizer/hide_infeasible"
+    _SETTINGS_KEY_CURATED = "optimizer/curated_only"
+    _SETTINGS_KEY_OBJECTIVE = "optimizer/objective_key"
 
     def __init__(
         self,
@@ -136,10 +203,21 @@ class OptimizerEmbed(QWidget):
         self._pareto: list[SweepResult] = []
         self._row_to_result: list[SweepResult] = []
         self._thread: Optional[QThread] = None
+        # ETA tracking — populated when ``_run_sweep`` starts so
+        # ``_on_progress`` can format "X.YYY / Y.YYY combinations ·
+        # ~12 s remaining" instead of just a numeric percentage.
+        self._sweep_started_at: Optional[float] = None
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(8)
+
+        # Inline error banner — shows above the controls when the
+        # sweep fails or CSV export hits a filesystem error. Replaces
+        # the modal QMessageBox.critical for non-fatal errors, which
+        # was disruptive to the workflow.
+        self._error_banner = _ErrorBanner()
+        outer.addWidget(self._error_banner)
 
         outer.addWidget(self._build_controls(current_material_id))
 
@@ -151,12 +229,81 @@ class OptimizerEmbed(QWidget):
 
         outer.addLayout(self._build_buttons())
 
+        # Restore persisted toggle state. Done AFTER the widgets are
+        # built so we can set their checked state directly.
+        self._restore_toggles()
+
         # Disable run if no spec yet.
         if self._spec is None:
             self.btn_run.setEnabled(False)
             self.lbl_count.setText(
                 "Waiting for a spec — calculate a design first.",
             )
+
+    def _restore_toggles(self) -> None:
+        from PySide6.QtCore import QSettings
+
+        from pfc_inductor.settings import SETTINGS_APP, SETTINGS_ORG
+
+        s = QSettings(SETTINGS_ORG, SETTINGS_APP)
+        # ``QSettings.value`` returns the literal stored value, which
+        # for booleans round-trips as the string "true"/"false" on
+        # some platforms. Normalize via ``bool()`` after the explicit
+        # type cast — safer than relying on ``type=bool`` which the
+        # legacy PySide stubs don't always typecheck.
+        compat = s.value(self._SETTINGS_KEY_COMPAT)
+        feasible = s.value(self._SETTINGS_KEY_FEASIBLE)
+        curated = s.value(self._SETTINGS_KEY_CURATED)
+        objective = s.value(self._SETTINGS_KEY_OBJECTIVE)
+
+        def _as_bool(v, default: bool) -> bool:
+            if v is None:
+                return default
+            if isinstance(v, bool):
+                return v
+            return str(v).lower() in ("true", "1", "yes")
+
+        self.chk_compat.setChecked(_as_bool(compat, True))
+        self.chk_feasible.setChecked(_as_bool(feasible, True))
+        self.chk_curated_only.setChecked(_as_bool(curated, False))
+        if isinstance(objective, str) and objective:
+            self.filters_bar.set_objective(objective)
+
+        # Persist on subsequent changes — wire this AFTER the
+        # initial setChecked() above so the restore itself doesn't
+        # trigger a write.
+        self.chk_compat.stateChanged.connect(
+            lambda st: self._persist_toggle(self._SETTINGS_KEY_COMPAT, bool(st))
+        )
+        self.chk_feasible.stateChanged.connect(
+            lambda st: self._persist_toggle(self._SETTINGS_KEY_FEASIBLE, bool(st))
+        )
+        self.chk_curated_only.stateChanged.connect(
+            lambda st: self._persist_toggle(self._SETTINGS_KEY_CURATED, bool(st))
+        )
+        self.filters_bar.objective_changed.connect(
+            lambda key: self._persist_toggle(self._SETTINGS_KEY_OBJECTIVE, key)
+        )
+
+    @staticmethod
+    def _persist_toggle(key: str, value) -> None:
+        from PySide6.QtCore import QSettings
+
+        from pfc_inductor.settings import SETTINGS_APP, SETTINGS_ORG
+
+        QSettings(SETTINGS_ORG, SETTINGS_APP).setValue(key, value)
+
+    def _show_error(self, message: str) -> None:
+        """Surface a non-fatal error in the inline banner.
+
+        For genuinely fatal cases (engine raised, no way forward)
+        we still want a modal — but most errors here are recoverable
+        (CSV path not writable, sweep produced 0 feasible designs).
+        """
+        self._error_banner.show_error(message)
+
+    def _show_info(self, message: str) -> None:
+        self._error_banner.show_info(message)
 
     # ------------------------------------------------------------------
     def set_inputs(
@@ -230,6 +377,11 @@ class OptimizerEmbed(QWidget):
         self.filters_bar.objective_changed.connect(
             lambda _key: self._refresh_table(),
         )
+        # Weight-slider drags re-rank the table in real time without
+        # touching the engine — the score function reads ``weights``
+        # from the filter bar on every refresh. Lets engineers tune
+        # the loss / volume / cost trade-off interactively.
+        self.filters_bar.weights_changed.connect(self._refresh_table)
         # The estimate label tracks chip selection too — refresh on
         # any filter change so the user always sees what they're
         # about to run before they click.
@@ -276,13 +428,24 @@ class OptimizerEmbed(QWidget):
         h.addWidget(self.lbl_estimate)
 
         self.btn_run = QPushButton("Run sweep")
-        self.btn_run.setStyleSheet("font-weight: bold; padding: 4px 10px;")
+        # Mark as the primary action so the theme QSS can paint it
+        # bold + brand-violet. Falling back to an inline style would
+        # ignore dark-mode + lose the focus ring; the ``Primary`` class
+        # is the same one used by ``btn_apply`` below.
+        self.btn_run.setProperty("class", "Primary")
         self.btn_run.clicked.connect(self._run_sweep)
         h.addWidget(self.btn_run)
+        # Progress bar shows percentage + an ETA string while a sweep
+        # is in flight. Hidden when idle so the action row reads
+        # cleaner; the cardinality estimate label above does the
+        # "what's about to happen" duty pre-Run.
         self.progress = QProgressBar()
         self.progress.setRange(0, 100)
         self.progress.setValue(0)
-        self.progress.setMaximumWidth(160)
+        self.progress.setMinimumWidth(220)
+        self.progress.setMaximumWidth(280)
+        self.progress.setFormat("%p% · idle")
+        self.progress.setVisible(False)
         h.addWidget(self.progress)
         v.addLayout(h)
 
@@ -292,26 +455,102 @@ class OptimizerEmbed(QWidget):
     def _build_table(self) -> QGroupBox:
         box = QGroupBox("Results")
         v = QVBoxLayout(box)
+
+        # Status row + action toolbar above the table.
+        status_row = QHBoxLayout()
+        status_row.setSpacing(12)
         self.lbl_count = QLabel("No sweep yet.")
-        v.addWidget(self.lbl_count)
-        self.table = QTableWidget(0, 10)
-        self.table.setHorizontalHeaderLabels(
-            [
-                "Core",
-                "Wire",
-                "Material",
-                "Vol [cm³]",
-                "L [µH]",
-                "N",
-                "P [W]",
-                "T [°C]",
-                "Cost",
-                "Status",
-            ]
+        status_row.addWidget(self.lbl_count, 1)
+        self.lbl_selection = QLabel("")
+        self.lbl_selection.setProperty("role", "muted")
+        status_row.addWidget(self.lbl_selection)
+        # Pareto-front quick select — highlights every non-dominated
+        # candidate in one click. Common workflow: run sweep, click
+        # this, then Compare to see the trade-off curve in detail.
+        self.btn_select_pareto = QPushButton("Select Pareto front")
+        self.btn_select_pareto.setToolTip(
+            "Select every non-dominated candidate (the corner-of-the-front "
+            "designs) so you can compare them side-by-side."
         )
+        self.btn_select_pareto.setEnabled(False)
+        self.btn_select_pareto.clicked.connect(self._select_pareto_rows)
+        status_row.addWidget(self.btn_select_pareto)
+        # Compare N selected — opens the standard CompareDialog with
+        # every selected row pre-populated as a slot.
+        self.btn_compare = QPushButton("Compare selected")
+        self.btn_compare.setToolTip(
+            "Open the Compare view with every selected row pre-populated. "
+            "Cmd/Ctrl-click rows to add to the selection."
+        )
+        self.btn_compare.setEnabled(False)
+        self.btn_compare.clicked.connect(self._compare_selected)
+        status_row.addWidget(self.btn_compare)
+        # CSV export.
+        self.btn_export = QPushButton("Export CSV…")
+        self.btn_export.setToolTip(
+            "Save the visible table as a CSV file (one row per design, "
+            "honouring the active filters and ranking)."
+        )
+        self.btn_export.setEnabled(False)
+        self.btn_export.clicked.connect(self._export_csv)
+        status_row.addWidget(self.btn_export)
+        v.addLayout(status_row)
+
+        self.table = QTableWidget(0, 10)
+        # Column headers — terse engineer-friendly tags. Tooltips on
+        # each header carry the full definition (what "P", "T",
+        # "Status" actually mean) so we don't bloat the visible cells.
+        headers = [
+            ("Core", "Catalog part number of the magnetic core."),
+            ("Wire", "Wire gauge / Litz spec (e.g. AWG14, 200×38 Litz)."),
+            ("Material", "Magnetic material name (powder / ferrite / silicon-steel)."),
+            ("Vol [cm³]", "Effective magnetic volume Ve. Smaller is better."),
+            (
+                "L [µH]",
+                "Actual inductance at the operating point, including saturation rolloff. "
+                "Lower than the cold-bias AL·N² figure on powder cores.",
+            ),
+            ("N", "Turn count."),
+            (
+                "P [W]",
+                "Total losses = copper (DC + AC + proximity / skin) + core "
+                "(Steinmetz hysteresis + eddy). Lower is better.",
+            ),
+            (
+                "T [°C]",
+                "Steady-state winding temperature in still air at the "
+                "spec's ambient. Below the core's class limit is feasible.",
+            ),
+            (
+                "Cost",
+                "Estimated BOM cost from the catalog price points. "
+                '"—" means the catalog entry has no price data.',
+            ),
+            (
+                "Status",
+                "✓ feasible · ✓ Pareto = on the non-dominated front · "
+                "⚠ N = infeasible with N warning(s). Hover the row for details.",
+            ),
+        ]
+        self.table.setHorizontalHeaderLabels([h[0] for h in headers])
+        hdr = self.table.horizontalHeader()
+        for i, (_label, tip) in enumerate(headers):
+            self.table.horizontalHeaderItem(i).setToolTip(tip)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        # ``ExtendedSelection`` enables Cmd/Ctrl-click multi-select +
+        # Shift-click range-select. The optimizer historically only
+        # supported single-row selection; multi-select unlocks the
+        # "compare 3-5 candidates from the Pareto front" workflow
+        # that's the whole point of a sweep.
+        self.table.setSelectionMode(QTableWidget.SelectionMode.ExtendedSelection)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        hdr.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        # Material column (col 2) can hold long names ("Magnetics 60 µ
+        # High Flux / Sendust"). Mid-elide keeps the row height stable
+        # without truncating the vendor prefix that disambiguates
+        # similar parts.
+        hdr.setSectionResizeMode(2, QHeaderView.ResizeMode.Interactive)
+        self.table.setTextElideMode(Qt.TextElideMode.ElideMiddle)
         self.table.itemSelectionChanged.connect(self._on_row_selected)
         f = QFont()
         f.setStyleHint(QFont.StyleHint.Monospace)
@@ -526,6 +765,9 @@ class OptimizerEmbed(QWidget):
         if self._thread is not None and self._thread.isRunning():
             return
 
+        # Clear any stale banner from a previous run.
+        self._error_banner.setVisible(False)
+
         # Confirm before launching anything that will take minutes /
         # GBs. The threshold is conservative (≈50 k combos = a few
         # seconds on a modern CPU); above it the worker thread blocks
@@ -551,7 +793,14 @@ class OptimizerEmbed(QWidget):
                 return
 
         self.btn_run.setEnabled(False)
+        # Show the progress bar only while running. Idle state shows
+        # the cardinality estimate label instead — less visual clutter.
+        self.progress.setVisible(True)
         self.progress.setValue(0)
+        self.progress.setFormat("%p% · starting…")
+        import time as _time
+
+        self._sweep_started_at = _time.perf_counter()
         only_compat = self.chk_compat.isChecked()
 
         # ``selected_*`` returns the full topology-filtered catalogue
@@ -599,8 +848,87 @@ class OptimizerEmbed(QWidget):
         self._thread.start()
 
     def _on_progress(self, done: int, total: int):
-        if total > 0:
-            self.progress.setValue(int(100 * done / total))
+        if total <= 0:
+            return
+        self.progress.setValue(int(100 * done / total))
+        # ETA — extrapolates from elapsed time per evaluated
+        # candidate. The first few callbacks are noisy (sweep startup
+        # / process-pool spin-up costs are amortized at the start) so
+        # we wait until at least 1 % done OR 50 candidates evaluated
+        # before showing the time estimate.
+        import time as _time
+
+        if self._sweep_started_at is None or done < 50 or done < total // 100 or done >= total:
+            self.progress.setFormat(f"%p% · {done:,} / {total:,}")
+            return
+        elapsed = _time.perf_counter() - self._sweep_started_at
+        remaining = elapsed * (total - done) / done
+        self.progress.setFormat(
+            f"%p% · {done:,} / {total:,} · ~{self._format_duration(remaining)} remaining"
+        )
+
+    @staticmethod
+    def _heatmap_minmax(rows: list[SweepResult], extractor) -> Optional[tuple[float, float, float]]:
+        """Return ``(min, max, span)`` for the ``extractor`` over feasible
+        rows, or ``None`` when all values are missing / equal.
+
+        ``span = max - min``; precomputed once per refresh so the
+        heatmap colouring inside the loop is just an arithmetic step
+        per cell instead of a min/max scan per row.
+        """
+        vals = [extractor(r) for r in rows]
+        vals = [v for v in vals if v is not None]
+        if not vals:
+            return None
+        mn, mx = min(vals), max(vals)
+        span = mx - mn
+        if span <= 0:
+            return None
+        return mn, mx, span
+
+    @staticmethod
+    def _heatmap_color(value: float, mn: float, mx: float):
+        """Map ``value ∈ [mn, mx]`` to a green→amber→red background.
+
+        Lower-is-better convention — green for min, red for max.
+        Returns a ``QBrush`` (or None when ``value`` is out of range).
+        Hue scale is intentionally pastel so the foreground text
+        stays readable without per-cell colour-contrast adjustment.
+        """
+        from PySide6.QtGui import QBrush, QColor
+
+        if mx <= mn:
+            return None
+        # Normalise to [0, 1]; clip in case ``value`` is slightly
+        # outside (floating-point edge).
+        t = max(0.0, min(1.0, (value - mn) / (mx - mn)))
+        # Three-stop gradient: green (#DCFCE7) → amber (#FEF3C7) → red (#FEE2E2).
+        # All pastel so monospace text stays legible.
+        if t < 0.5:
+            # green → amber
+            u = t / 0.5
+            r = int(220 + (254 - 220) * u)
+            g = int(252 + (243 - 252) * u)
+            b = int(231 + (199 - 231) * u)
+        else:
+            # amber → red
+            u = (t - 0.5) / 0.5
+            r = int(254 + (254 - 254) * u)
+            g = int(243 + (226 - 243) * u)
+            b = int(199 + (226 - 199) * u)
+        return QBrush(QColor(r, g, b))
+
+    @staticmethod
+    def _format_duration(seconds: float) -> str:
+        if seconds < 1:
+            return "<1 s"
+        if seconds < 60:
+            return f"{int(seconds)} s"
+        m, s = divmod(int(seconds), 60)
+        if m < 60:
+            return f"{m} min {s} s" if s else f"{m} min"
+        h, m = divmod(m, 60)
+        return f"{h} h {m} min"
 
     def _on_done(self, results: list[SweepResult], pareto: list[SweepResult]):
         self._results = results
@@ -608,6 +936,14 @@ class OptimizerEmbed(QWidget):
         # on the GUI thread.
         self._pareto = pareto
         self.progress.setValue(100)
+        # Hide the bar shortly after — the count label below the
+        # action row already says "{n_feasible} feasible out of {n}".
+        from PySide6.QtCore import QTimer
+
+        QTimer.singleShot(1500, lambda: self.progress.setVisible(False))
+        # Now that there are results, enable the post-sweep actions.
+        self.btn_select_pareto.setEnabled(bool(self._pareto))
+        self.btn_export.setEnabled(bool(results))
         # Heavy-but-cheap-each repaints (table populate + chart
         # redraw) run on the GUI thread, but we sandwich them with
         # ``processEvents()`` so the OS cursor / window-server keep
@@ -628,7 +964,11 @@ class OptimizerEmbed(QWidget):
         self._teardown_thread()
 
     def _on_failed(self, msg: str):
-        QMessageBox.critical(self, "Sweep error", msg)
+        # Inline banner instead of a modal QMessageBox.critical —
+        # the latter pulled focus and stalled the workflow even for
+        # benign errors. ``_show_error`` is dismissable.
+        self._show_error(f"Sweep failed: {msg}")
+        self.progress.setVisible(False)
         self._teardown_thread()
 
     def _teardown_thread(self) -> None:
@@ -688,8 +1028,26 @@ class OptimizerEmbed(QWidget):
         n_total = len(self._results)
         n_feasible = sum(1 for x in self._results if x.feasible)
         rows = [r for r in self._results if (not feasible_only or r.feasible)]
-        rows = rank(rows, by=rank_key, feasible_first=True)
+        # Pass user-tunable weights for the ``score`` family. ``rank``
+        # falls back to its built-in defaults (60/40 / 40/30/30) when
+        # weights is None or the objective doesn't use them.
+        weights = self.filters_bar.weights() if rank_key.startswith("score") else None
+        rows = rank(rows, by=rank_key, feasible_first=True, weights=weights)
         rows = rows[:200]  # cap at 200 for UI responsiveness
+
+        # ---- Compute per-column min/max for the heatmap ----
+        # Heatmap shading is computed over the *feasible* subset of
+        # ``rows`` only. Including infeasible designs would skew the
+        # range (an infeasible row at 800 °C would compress the
+        # feasible 60-110 °C range into a single colour band).
+        feas_rows = [r for r in rows if r.feasible]
+        heat_vol = self._heatmap_minmax(feas_rows, lambda r: r.volume_cm3)
+        heat_loss = self._heatmap_minmax(feas_rows, lambda r: r.result.losses.P_total_W)
+        heat_temp = self._heatmap_minmax(feas_rows, lambda r: r.result.T_winding_C)
+        heat_cost = self._heatmap_minmax(
+            feas_rows,
+            lambda r: r.cost.total_cost if r.cost is not None else None,
+        )
 
         # Suspend per-cell repaints during the bulk populate. Without
         # this Qt issues a layout / paint event for EACH ``setItem``
@@ -710,6 +1068,14 @@ class OptimizerEmbed(QWidget):
                 cost_cell = (
                     f"{r.cost.currency} {r.cost.total_cost:.2f}" if r.cost is not None else "—"
                 )
+                # Status badge — Pareto designs get a more prominent
+                # tag so the user can scan the table column for the
+                # not-dominated set. "✓ feasible" plain stays subtle.
+                status_text = (
+                    ("★ Pareto" if in_pareto else "✓ feasible")
+                    if r.feasible
+                    else f"⚠ {r.n_warnings} warn"
+                )
                 cells = [
                     r.core.part_number,
                     r.wire.id,
@@ -720,14 +1086,49 @@ class OptimizerEmbed(QWidget):
                     f"{r0.losses.P_total_W:.2f}",
                     f"{r0.T_winding_C:.0f}",
                     cost_cell,
-                    ("✓ Pareto" if in_pareto else "✓") if r.feasible else f"⚠ {r.n_warnings}",
+                    status_text,
                 ]
+                # Per-column heatmap shading. Lower-is-better metrics
+                # (volume, loss, temp, cost) → green at minimum, red
+                # at maximum. The heatmap only applies to feasible
+                # rows; infeasible cells use a flat tint instead so
+                # the engineer can scan past them quickly.
+                heat_cells: list[Optional[tuple[float, float, float]]] = [None] * 10
+                if r.feasible:
+                    heat_cells[3] = heat_vol
+                    heat_cells[6] = heat_loss
+                    heat_cells[7] = heat_temp
+                    if r.cost is not None:
+                        heat_cells[8] = heat_cost
                 for c_idx, txt in enumerate(cells):
                     item = QTableWidgetItem(txt)
                     if not r.feasible:
                         item.setForeground(Qt.GlobalColor.red)
                     elif in_pareto:
                         item.setForeground(Qt.GlobalColor.darkGreen)
+                    # Apply column-specific heatmap.
+                    if r.feasible and heat_cells[c_idx] is not None:
+                        val: Optional[float]
+                        if c_idx == 3:
+                            val = r.volume_cm3
+                        elif c_idx == 6:
+                            val = r0.losses.P_total_W
+                        elif c_idx == 7:
+                            val = r0.T_winding_C
+                        elif c_idx == 8:
+                            val = r.cost.total_cost if r.cost is not None else None
+                        else:
+                            val = None
+                        if val is not None:
+                            mn, mx, _span = heat_cells[c_idx]  # type: ignore[misc]
+                            bg = self._heatmap_color(val, mn, mx)
+                            if bg is not None:
+                                item.setBackground(bg)
+                    # Tooltip for the Material cell — full vendor + name
+                    # so the user can identify entries when the column
+                    # is narrow (ElideMiddle is set on the table).
+                    if c_idx == 2:
+                        item.setToolTip(r.material.name)
                     self.table.setItem(i, c_idx, item)
             self._row_to_result = list(rows)
         finally:
@@ -754,6 +1155,34 @@ class OptimizerEmbed(QWidget):
                 f"Showing top {len(rows)}{extra}."
             )
 
+    # ``objective key → (x_axis, x_label, y_axis, y_label)`` for the
+    # Pareto chart. The chart now reflects whatever the user picked
+    # as the ranking objective: volume / cost / temp swap the y axis
+    # so the trade-off curve aligned with the user's goal becomes
+    # visually obvious. Defaults to Volume × Loss for ``loss`` and
+    # ``score`` objectives — the canonical "EE textbook" view.
+    _AXIS_PAIRS: ClassVar[dict[str, tuple[str, str, str, str]]] = {
+        "loss": ("volume_cm3", "Volume [cm³]", "P_total_W", "P_total [W]"),
+        "volume": ("P_total_W", "P_total [W]", "volume_cm3", "Volume [cm³]"),
+        "temp": ("volume_cm3", "Volume [cm³]", "T_winding_C", "T_winding [°C]"),
+        "cost": ("P_total_W", "P_total [W]", "cost_value", "Cost"),
+        "score": ("volume_cm3", "Volume [cm³]", "P_total_W", "P_total [W]"),
+        "score_with_cost": ("cost_value", "Cost", "P_total_W", "P_total [W]"),
+    }
+
+    @staticmethod
+    def _axis_value(r: SweepResult, key: str) -> Optional[float]:
+        """Resolve an axis-spec key to a numeric attribute of ``r``."""
+        if key == "volume_cm3":
+            return r.volume_cm3
+        if key == "P_total_W":
+            return r.P_total_W
+        if key == "T_winding_C":
+            return r.result.T_winding_C
+        if key == "cost_value":
+            return r.cost.total_cost if r.cost is not None else None
+        return None
+
     def _refresh_plot(self):
         # ``_refresh_plot`` is invoked from the sweep callback. By the
         # time the user has clicked Run, they're on the optimizer tab,
@@ -764,9 +1193,40 @@ class OptimizerEmbed(QWidget):
         assert self.ax is not None and self.canvas is not None  # type narrowing
         self.ax.clear()
         p = get_theme().palette
+
+        objective = self.filters_bar.objective()
+        x_key, x_label, y_key, y_label = self._AXIS_PAIRS.get(objective, self._AXIS_PAIRS["loss"])
+        # Update the plot group-box title so the user always knows
+        # which two axes they're looking at — this used to be a static
+        # "Volume × Total loss" string that lied as soon as the user
+        # picked Cost or Temp as the ranking objective.
+        if hasattr(self, "_plot_box") and self._plot_box is not None:
+            self._plot_box.setTitle(
+                f"{x_label.split(' ')[0]} × {y_label.split(' ')[0]} (Pareto highlighted)"
+            )
+
+        def _xy(r: SweepResult) -> Optional[tuple[float, float]]:
+            x = self._axis_value(r, x_key)
+            y = self._axis_value(r, y_key)
+            if x is None or y is None:
+                return None
+            return x, y
+
         all_results = self._results
-        feas = [(r.volume_cm3, r.P_total_W) for r in all_results if r.feasible]
-        infeas = [(r.volume_cm3, min(r.P_total_W, 100.0)) for r in all_results if not r.feasible]
+        feas: list[tuple[float, float]] = []
+        infeas: list[tuple[float, float]] = []
+        for r in all_results:
+            xy = _xy(r)
+            if xy is None:
+                continue
+            if r.feasible:
+                feas.append(xy)
+            else:
+                # Clamp y to a sane window so a runaway 1000 °C
+                # infeasible row doesn't blow out the y-scale.
+                infeas.append(
+                    (xy[0], min(xy[1], (max(y for _x, y in feas) if feas else xy[1]) * 1.5))
+                )
         if infeas:
             xi, yi = zip(*infeas, strict=False)
             self.ax.scatter(xi, yi, c=p.plot_pareto_infeasible, s=8, alpha=0.4, label="infeasible")
@@ -774,21 +1234,48 @@ class OptimizerEmbed(QWidget):
             xf, yf = zip(*feas, strict=False)
             self.ax.scatter(xf, yf, c=p.plot_pareto_feasible, s=10, alpha=0.7, label="feasible")
         if self._pareto:
-            xp = [r.volume_cm3 for r in self._pareto]
-            yp = [r.P_total_W for r in self._pareto]
-            self.ax.plot(
-                xp, yp, "-o", c=p.plot_pareto_frontier, label="Pareto", linewidth=2, markersize=8
-            )
-        self.ax.set_xlabel("Volume [cm³]")
-        self.ax.set_ylabel("P_total [W]")
-        self.ax.set_xscale("log")
+            pareto_xy = [_xy(r) for r in self._pareto]
+            pareto_xy = [xy for xy in pareto_xy if xy is not None]
+            if pareto_xy:
+                pareto_xy.sort()  # sort by x for a clean polyline
+                xp, yp = zip(*pareto_xy, strict=False)
+                self.ax.plot(
+                    xp,
+                    yp,
+                    "-o",
+                    c=p.plot_pareto_frontier,
+                    label="Pareto",
+                    linewidth=2,
+                    markersize=8,
+                )
+        self.ax.set_xlabel(x_label)
+        self.ax.set_ylabel(y_label)
+        # Log-x stays for axes whose physical range is wide
+        # (volume, cost). For temperature / loss (mostly linear)
+        # a linear scale reads better.
+        if x_key in ("volume_cm3", "cost_value"):
+            self.ax.set_xscale("log")
+        else:
+            self.ax.set_xscale("linear")
         self.ax.legend(loc="upper right")
         self.ax.grid(True, alpha=0.4, which="both")
         self.canvas.draw()
 
     def _on_row_selected(self):
         rows = self.table.selectionModel().selectedRows()
-        self.btn_apply.setEnabled(len(rows) > 0)
+        n = len(rows)
+        # Apply only the first selected row (single-row semantic preserved).
+        self.btn_apply.setEnabled(n > 0)
+        # Compare needs at least 2 rows to be meaningful — comparing
+        # a single design against itself is the default workspace
+        # view, not what the user wants here.
+        self.btn_compare.setEnabled(n >= 2)
+        if n == 0:
+            self.lbl_selection.setText("")
+        elif n == 1:
+            self.lbl_selection.setText("1 row selected")
+        else:
+            self.lbl_selection.setText(f"{n} rows selected")
 
     def _apply_selection(self):
         rows = self.table.selectionModel().selectedRows()
@@ -799,6 +1286,139 @@ class OptimizerEmbed(QWidget):
             return
         sr = self._row_to_result[idx]
         self.selection_applied.emit(sr.material.id, sr.core.id, sr.wire.id)
+
+    def _select_pareto_rows(self) -> None:
+        """Multi-select every row that belongs to the Pareto front.
+
+        Pareto = non-dominated on (volume, loss). Common follow-up:
+        click Compare to inspect the trade-off curve in detail. The
+        front is typically 3-7 candidates out of a 200-row table —
+        without this button the user would have to scroll the table
+        and Cmd-click them one by one.
+        """
+        if not self._pareto or not self._row_to_result:
+            return
+        pareto_ids = {id(r) for r in self._pareto}
+        sel_model = self.table.selectionModel()
+        sel_model.clearSelection()
+        from PySide6.QtCore import QItemSelection, QItemSelectionModel
+
+        sel = QItemSelection()
+        n_cols = self.table.columnCount()
+        for row_idx, sr in enumerate(self._row_to_result):
+            if id(sr) in pareto_ids:
+                top_left = self.table.model().index(row_idx, 0)
+                bot_right = self.table.model().index(row_idx, n_cols - 1)
+                sel.select(top_left, bot_right)
+        sel_model.select(
+            sel,
+            QItemSelectionModel.SelectionFlag.Select | QItemSelectionModel.SelectionFlag.Rows,
+        )
+        # Scroll so the first Pareto row is visible — without this
+        # users at the bottom of a 200-row table don't realise the
+        # selection happened.
+        first = next(
+            (i for i, sr in enumerate(self._row_to_result) if id(sr) in pareto_ids),
+            None,
+        )
+        if first is not None:
+            self.table.scrollToItem(
+                self.table.item(first, 0),
+                self.table.ScrollHint.PositionAtTop,
+            )
+
+    def _compare_selected(self) -> None:
+        """Open the global Compare view with the selected rows
+        pre-populated as slots.
+
+        Defers the actual dialog construction to the host (the
+        ``compare_requested`` signal). The optimizer doesn't own
+        the compare workflow — MainWindow does — so we just hand
+        over the picked ``SweepResult`` objects via a side channel.
+        """
+        rows = self.table.selectionModel().selectedRows()
+        if len(rows) < 2:
+            return
+        # Sort by row index so the compare slots land in table order.
+        picked: list[SweepResult] = []
+        for qmi in sorted(rows, key=lambda r: r.row()):
+            idx = qmi.row()
+            if idx < len(self._row_to_result):
+                picked.append(self._row_to_result[idx])
+        if not picked:
+            return
+        self.compare_requested.emit(picked)
+
+    def _export_csv(self) -> None:
+        """Save the visible table to a CSV.
+
+        Honours the active feasible-only / objective filters — the
+        CSV is what the user is *seeing* in the table right now,
+        not the raw ``self._results`` cache. Lets engineers paste
+        into Excel / Google Sheets for cross-team review.
+        """
+        if not self._row_to_result:
+            self._show_error("No results to export. Run a sweep first.")
+            return
+        from PySide6.QtWidgets import QFileDialog
+
+        path, _filt = QFileDialog.getSaveFileName(
+            self,
+            "Export sweep results",
+            "sweep-results.csv",
+            "CSV files (*.csv);;All files (*)",
+        )
+        if not path:
+            return
+        try:
+            self._write_csv(path, self._row_to_result)
+        except OSError as e:
+            self._show_error(f"Could not write {path}: {e}")
+            return
+        self._show_info(f"Exported {len(self._row_to_result)} rows → {path}")
+
+    def _write_csv(self, path: str, rows: list[SweepResult]) -> None:
+        import csv
+
+        pareto_set = {id(r) for r in self._pareto}
+        with open(path, "w", newline="", encoding="utf-8") as fh:
+            w = csv.writer(fh)
+            w.writerow(
+                [
+                    "core",
+                    "wire",
+                    "material",
+                    "volume_cm3",
+                    "L_uH",
+                    "N",
+                    "P_total_W",
+                    "T_winding_C",
+                    "cost_currency",
+                    "cost_value",
+                    "feasible",
+                    "pareto",
+                    "warnings",
+                ]
+            )
+            for r in rows:
+                r0 = r.result
+                w.writerow(
+                    [
+                        r.core.part_number,
+                        r.wire.id,
+                        r.material.name,
+                        f"{r.volume_cm3:.3f}",
+                        f"{r0.L_actual_uH:.3f}",
+                        r0.N_turns,
+                        f"{r0.losses.P_total_W:.4f}",
+                        f"{r0.T_winding_C:.2f}",
+                        r.cost.currency if r.cost else "",
+                        f"{r.cost.total_cost:.2f}" if r.cost else "",
+                        "yes" if r.feasible else "no",
+                        "yes" if id(r) in pareto_set else "no",
+                        r.n_warnings,
+                    ]
+                )
 
 
 class OptimizerDialog(QDialog):

@@ -207,14 +207,23 @@ def rank(
     *,
     by: str = "loss",
     feasible_first: bool = True,
+    weights: Optional[tuple[float, float, float]] = None,
 ) -> list[SweepResult]:
     """Sort sweep results.
 
     by:
-      'loss'   — lowest P_total_W first
-      'volume' — smallest volume first
-      'temp'   — lowest T_winding_C first
-      'score'  — composite (normalized loss+volume, lower is better)
+      'loss'             — lowest P_total_W first
+      'volume'           — smallest volume first
+      'temp'             — lowest T_winding_C first
+      'cost'             — lowest cost first
+      'score'            — composite (loss + volume), lower is better
+      'score_with_cost'  — composite (loss + volume + cost), lower is better
+
+    ``weights`` is a ``(w_loss, w_vol, w_cost)`` tuple that overrides
+    the default score weighting. Defaults: ``(0.6, 0.4, 0.0)`` for
+    ``score``; ``(0.4, 0.3, 0.3)`` for ``score_with_cost``. The
+    optimizer GUI's weight sliders feed values in here so engineers
+    can tune the trade-off in real time without re-sweeping.
     """
     if by == "loss":
         key = lambda r: r.P_total_W
@@ -234,7 +243,16 @@ def rank(
             return []
         max_loss = max(r.P_total_W for r in results) or 1.0
         max_vol = max(r.volume_cm3 for r in results) or 1.0
-        key = lambda r: (r.P_total_W / max_loss) * 0.6 + (r.volume_cm3 / max_vol) * 0.4
+        if weights is None:
+            w_loss, w_vol = 0.6, 0.4
+        else:
+            w_loss, w_vol, _ = weights
+            # Normalize so user-picked weights still sum to 1.0 even
+            # if the host hands in raw slider integers like (60, 40,
+            # 0). The cost component is dropped for plain ``score``.
+            total = w_loss + w_vol or 1.0
+            w_loss, w_vol = w_loss / total, w_vol / total
+        key = lambda r: (r.P_total_W / max_loss) * w_loss + (r.volume_cm3 / max_vol) * w_vol
     elif by == "score_with_cost":
         if not results:
             return []
@@ -242,13 +260,19 @@ def rank(
         max_vol = max(r.volume_cm3 for r in results) or 1.0
         costs = [r.total_cost for r in results if r.total_cost is not None]
         max_cost = max(costs) if costs else 1.0
+        if weights is None:
+            w_loss, w_vol, w_cost = 0.4, 0.3, 0.3
+        else:
+            w_loss, w_vol, w_cost = weights
+            total = w_loss + w_vol + w_cost or 1.0
+            w_loss, w_vol, w_cost = w_loss / total, w_vol / total, w_cost / total
 
         def _composite(r: SweepResult) -> float:
             c = r.total_cost if r.total_cost is not None else max_cost
             return (
-                0.4 * (r.P_total_W / max_loss)
-                + 0.3 * (r.volume_cm3 / max_vol)
-                + 0.3 * (c / max_cost)
+                w_loss * (r.P_total_W / max_loss)
+                + w_vol * (r.volume_cm3 / max_vol)
+                + w_cost * (c / max_cost)
             )
 
         key = _composite

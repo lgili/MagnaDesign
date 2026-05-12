@@ -96,6 +96,13 @@ class OptimizerFiltersBar(QFrame):
 
     filters_changed = Signal()
     objective_changed = Signal(str)
+    weights_changed = Signal()
+    """Fires when any of the three score-weight sliders changes.
+
+    The host listens to this in addition to ``objective_changed`` to
+    re-rank the visible table without re-running the sweep — score
+    weights live on top of the cached ``self._results``.
+    """
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -164,6 +171,62 @@ class OptimizerFiltersBar(QFrame):
         obj_row.addStretch(1)
         outer.addLayout(obj_row)
 
+        # ---- Row 3: weight sliders (only visible for ``score`` keys)
+        # The composite score combines normalised loss + volume +
+        # (optionally) cost. Hardcoding the weights (60/40 default,
+        # 40/30/30 with cost) is fine for the canonical case but
+        # experienced engineers want to nudge the balance — "I care
+        # 70 % about loss because this is a continuous-duty inductor"
+        # / "I care more about cost because the BOM is the bottleneck".
+        # Three sliders, one per axis, summed-normalized so the user
+        # can drag freely without thinking about totals.
+        from PySide6.QtWidgets import QSlider
+
+        self._weights_row = QHBoxLayout()
+        self._weights_row.setSpacing(8)
+        self._weights_label = QLabel("Weights:")
+        self._weights_label.setProperty("role", "muted")
+        self._weights_row.addWidget(self._weights_label)
+
+        def _make_slider(label_text: str, initial: int) -> tuple[QLabel, QSlider, QLabel]:
+            lbl = QLabel(label_text)
+            lbl.setProperty("role", "muted")
+            sl = QSlider(Qt.Orientation.Horizontal)
+            sl.setRange(0, 100)
+            sl.setValue(initial)
+            sl.setFixedWidth(120)
+            sl.setToolTip(
+                f"{label_text} weight in the composite score. "
+                "Drag to adjust without re-running the sweep."
+            )
+            val = QLabel(f"{initial}%")
+            val.setFixedWidth(36)
+            val.setProperty("role", "muted")
+            sl.valueChanged.connect(lambda v: val.setText(f"{v}%"))
+            sl.valueChanged.connect(lambda _v: self.weights_changed.emit())
+            return lbl, sl, val
+
+        self._lbl_w_loss, self.sl_w_loss, self._val_w_loss = _make_slider("Loss", 60)
+        self._lbl_w_vol, self.sl_w_vol, self._val_w_vol = _make_slider("Volume", 40)
+        self._lbl_w_cost, self.sl_w_cost, self._val_w_cost = _make_slider("Cost", 0)
+        for w in (
+            self._lbl_w_loss,
+            self.sl_w_loss,
+            self._val_w_loss,
+            self._lbl_w_vol,
+            self.sl_w_vol,
+            self._val_w_vol,
+            self._lbl_w_cost,
+            self.sl_w_cost,
+            self._val_w_cost,
+        ):
+            self._weights_row.addWidget(w)
+        self._weights_row.addStretch(1)
+        outer.addLayout(self._weights_row)
+        # Initial visibility — defaults to "Loss" objective so weights
+        # are hidden until the user picks a score variant.
+        self._sync_weights_row_visibility()
+
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
@@ -231,7 +294,47 @@ class OptimizerFiltersBar(QFrame):
         return chip
 
     def _on_objective_changed(self, _idx: int) -> None:
+        # Toggle visibility of the weights row before emitting so the
+        # GUI repaints in a single tick.
+        self._sync_weights_row_visibility()
         self.objective_changed.emit(self.objective())
+
+    def _sync_weights_row_visibility(self) -> None:
+        """Hide the weight sliders unless the user picked a score
+        objective — for ``loss`` / ``volume`` / ``temp`` / ``cost``
+        the sliders are noise (their values don't affect anything).
+        """
+        is_score = self.objective() in ("score", "score_with_cost")
+        # Cost slider only matters for the cost-aware variant.
+        show_cost = self.objective() == "score_with_cost"
+        for w in (
+            self._weights_label,
+            self._lbl_w_loss,
+            self.sl_w_loss,
+            self._val_w_loss,
+            self._lbl_w_vol,
+            self.sl_w_vol,
+            self._val_w_vol,
+        ):
+            w.setVisible(is_score)
+        for w in (self._lbl_w_cost, self.sl_w_cost, self._val_w_cost):
+            w.setVisible(show_cost)
+
+    def weights(self) -> tuple[float, float, float]:
+        """Return ``(w_loss, w_vol, w_cost)`` as 0-100 ints (the host
+        is expected to normalize). The cost weight is 0 for the
+        plain ``score`` objective."""
+        if self.objective() == "score_with_cost":
+            return (
+                float(self.sl_w_loss.value()),
+                float(self.sl_w_vol.value()),
+                float(self.sl_w_cost.value()),
+            )
+        return (
+            float(self.sl_w_loss.value()),
+            float(self.sl_w_vol.value()),
+            0.0,
+        )
 
     @staticmethod
     def _qss() -> str:
