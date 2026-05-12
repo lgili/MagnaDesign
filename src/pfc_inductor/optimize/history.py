@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Optional
 
@@ -107,7 +107,9 @@ def record_pick(
     """
     items = _load_json_list(_RECENT_PICKS_FILE)
     key = (material_id, core_id, wire_id)
-    items = [it for it in items if (it.get("material_id"), it.get("core_id"), it.get("wire_id")) != key]
+    items = [
+        it for it in items if (it.get("material_id"), it.get("core_id"), it.get("wire_id")) != key
+    ]
     items.insert(
         0,
         {
@@ -115,7 +117,7 @@ def record_pick(
             "core_id": core_id,
             "wire_id": wire_id,
             "label": label,
-            "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "ts": datetime.now(UTC).isoformat(timespec="seconds"),
         },
     )
     _save_json_list(_RECENT_PICKS_FILE, items[:MAX_RECENT_PICKS])
@@ -154,7 +156,7 @@ def record_run(
     items.insert(
         0,
         {
-            "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "ts": datetime.now(UTC).isoformat(timespec="seconds"),
             "n_combinations": int(n_combinations),
             "n_feasible": int(n_feasible),
             "objective": str(objective),
@@ -179,8 +181,8 @@ def format_relative_age(iso_ts: str) -> str:
     try:
         ts = datetime.fromisoformat(iso_ts)
         if ts.tzinfo is None:
-            ts = ts.replace(tzinfo=timezone.utc)
-        now = datetime.now(timezone.utc)
+            ts = ts.replace(tzinfo=UTC)
+        now = datetime.now(UTC)
         delta = now - ts
         seconds = int(delta.total_seconds())
         if seconds < 60:
@@ -197,9 +199,9 @@ def format_relative_age(iso_ts: str) -> str:
 __all__ = [
     "MAX_RECENT_PICKS",
     "MAX_RUN_HISTORY",
-    "record_pick",
-    "recent_picks",
-    "record_run",
-    "recent_runs",
     "format_relative_age",
+    "recent_picks",
+    "recent_runs",
+    "record_pick",
+    "record_run",
 ]

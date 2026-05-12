@@ -64,10 +64,10 @@ from pfc_inductor.models import Core, Material, Spec, Wire
 from pfc_inductor.optimize import SweepResult, pareto_front, sweep
 from pfc_inductor.optimize.history import (
     format_relative_age,
-    record_pick,
-    record_run,
     recent_picks,
     recent_runs,
+    record_pick,
+    record_run,
 )
 from pfc_inductor.optimize.sweep import rank
 from pfc_inductor.ui.theme import get_theme
@@ -485,9 +485,7 @@ class OptimizerEmbed(QWidget):
         )
         self.cmb_run_history.setMinimumWidth(220)
         self.cmb_run_history.setMaximumWidth(280)
-        self.cmb_run_history.setSizeAdjustPolicy(
-            QComboBox.SizeAdjustPolicy.AdjustToContents
-        )
+        self.cmb_run_history.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
         self.cmb_run_history.activated.connect(self._on_run_history_picked)
         status_row.addWidget(self.cmb_run_history)
         # Pareto-front quick select — highlights every non-dominated
@@ -751,9 +749,7 @@ class OptimizerEmbed(QWidget):
         )
         self.cmb_recent_picks.setMinimumWidth(220)
         self.cmb_recent_picks.setMaximumWidth(320)
-        self.cmb_recent_picks.setSizeAdjustPolicy(
-            QComboBox.SizeAdjustPolicy.AdjustToContents
-        )
+        self.cmb_recent_picks.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
         self.cmb_recent_picks.activated.connect(self._on_recent_pick_picked)
         h.addWidget(self.cmb_recent_picks)
         h.addStretch(1)
@@ -1008,7 +1004,7 @@ class OptimizerEmbed(QWidget):
         # so "top pick" in history = the row at the top of the table.
         try:
             self._record_run_summary(results)
-        except Exception:  # noqa: BLE001 — history is best-effort
+        except Exception:
             pass
         self._reload_run_history_dropdown()
         # Heavy-but-cheap-each repaints (table populate + chart
@@ -1472,8 +1468,7 @@ class OptimizerEmbed(QWidget):
         wire_id = top.get("wire_id")
         if not (mat_id and core_id and wire_id):
             self._show_error(
-                "That history entry has no recorded top pick — "
-                "re-run the sweep to rebuild it.",
+                "That history entry has no recorded top pick — re-run the sweep to rebuild it.",
             )
             return
         # Funnel through the same persistence path as a real apply,

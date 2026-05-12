@@ -215,7 +215,7 @@ class MainWindow(QMainWindow):
     # process exit, triggering ``"QThread: Destroyed while thread is
     # still running"``. The atexit hook below catches that path
     # before Python GC starts tearing down Qt widgets.
-    _live_instances: ClassVar[set[weakref.ReferenceType["MainWindow"]]] = set()
+    _live_instances: ClassVar[set[weakref.ReferenceType[MainWindow]]] = set()
     _atexit_registered: ClassVar[bool] = False
 
     @classmethod
@@ -227,7 +227,7 @@ class MainWindow(QMainWindow):
                 continue
             try:
                 win._shutdown_design_thread()
-            except Exception:  # noqa: BLE001 — shutdown best-effort
+            except Exception:
                 pass
 
     class _StateProvider:

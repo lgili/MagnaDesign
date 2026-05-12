@@ -18,6 +18,7 @@ so a per-test patch is sufficient.
 
 from __future__ import annotations
 
+from datetime import UTC
 from pathlib import Path
 
 import pytest
@@ -139,9 +140,9 @@ def test_record_run_handles_missing_top_pick():
 
 
 def test_format_relative_age_returns_just_now_for_recent():
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    iso = datetime.now(UTC).isoformat(timespec="seconds")
     assert history.format_relative_age(iso) == "just now"
 
 
@@ -163,7 +164,5 @@ def test_corrupt_json_returns_empty(tmp_path: Path):
 def test_wrong_type_in_json_returns_empty(tmp_path: Path):
     # A dict instead of a list — old format that should be ignored,
     # not promoted to a single dict entry.
-    (tmp_path / "optimizer_recent_picks.json").write_text(
-        '{"foo": "bar"}', encoding="utf-8"
-    )
+    (tmp_path / "optimizer_recent_picks.json").write_text('{"foo": "bar"}', encoding="utf-8")
     assert history.recent_picks() == []

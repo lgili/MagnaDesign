@@ -1022,7 +1022,6 @@ class _RefreshWorker(QObject):
     def _compute(
         self, run_id: str, objective: str, cores_by_id: dict[str, Core]
     ) -> _RefreshPayload:
-
         # The store is process-safe via SQLite WAL mode; opening a
         # connection per call is cheap and avoids cross-thread
         # connection sharing (sqlite3 connections are not thread-
@@ -1256,7 +1255,7 @@ class CascadePage(QWidget):
     # The atexit hook catches that path: it runs *before* Python
     # GC starts tearing down Qt objects, so we still have time to
     # ``quit()``+``wait()`` each worker thread cleanly.
-    _live_instances: ClassVar[set[weakref.ReferenceType["CascadePage"]]] = set()
+    _live_instances: ClassVar[set[weakref.ReferenceType[CascadePage]]] = set()
     _atexit_registered: ClassVar[bool] = False
 
     @classmethod
@@ -1277,7 +1276,7 @@ class CascadePage(QWidget):
                 continue
             try:
                 page._shutdown_refresh_thread()
-            except Exception:  # noqa: BLE001 — shutdown best-effort
+            except Exception:
                 pass
 
     def __init__(
