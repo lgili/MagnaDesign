@@ -20,6 +20,7 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
+from typing import Optional
 
 
 # These imports are intentionally late so the CLI dispatch in
@@ -489,17 +490,188 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _run_gui(argv: list[str]) -> int:
-    """Boot the desktop application. Imports Qt lazily so the CLI
-    path doesn't pay the 500 ms / 50 MB startup cost."""
-    # ONELAB lives outside the bundle (binary distribution: gmsh +
-    # getdp + ``onelab.py``). FEMMT's ``component.py`` does
-    # ``from onelab import onelab`` at module top, so we MUST put
-    # the configured ONELAB folder on ``sys.path`` before anything
-    # in the import graph touches FEMMT — otherwise the bundle
-    # fails with ``ModuleNotFoundError: No module named 'onelab'``
-    # the moment the FEA dialog (or any FEMMT-touching code) loads.
-    # No-op when ONELAB isn't configured yet (the setup dialog will
-    # show its UI and trigger the install flow).
+    """Boot the desktop application.
+
+    Ordering is deliberate and dominates how fast the user sees
+    branding after they double-click the icon:
+
+    1. **Bare-minimum Qt imports** (``QApplication``, ``QPixmap``,
+       ``QSplashScreen``) — NO theme, NO style, NO settings, NO icon
+       lookup, NO font database. These each pull additional modules
+       transitively and together added ~200–500 ms before any pixel
+       could paint.
+    2. **``QApplication`` constructed** and the **fast splash** is
+       shown with ``processEvents()`` forcing an immediate paint.
+       The fast splash uses hardcoded colours / dimensions (no
+       theme palette lookup) so it has zero dependencies beyond a
+       string.
+    3. **Everything else** (ONELAB path injection, theme, fonts,
+       stylesheet, MainWindow) lands AFTER the splash is on
+       screen. The user sees branding from the very first paint
+       cycle, then watches the workspace fill in.
+
+    The historic ordering imported theme + style + settings BEFORE
+    the splash had any chance to paint, so on a frozen .app cold
+    start the user saw a blank screen for 5–15 s — the "splash mal
+    aparece e já some" symptom.
+    """
+    # ── Phase 1: minimal imports → splash on screen ASAP ──
+    # NOTHING from ``pfc_inductor.ui.*`` here — those modules pull
+    # in the full theme + style chain.
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QColor, QPainter, QPainterPath, QPixmap
+    from PySide6.QtWidgets import QApplication, QProgressBar, QSplashScreen
+
+    app = QApplication([sys.argv[0], *argv])
+
+    # Build the splash with **hardcoded** brand colours so we don't
+    # have to import ``pfc_inductor.ui.theme`` before paint #1.
+    # These constants mirror the default-light palette in
+    # ``ui/theme.py`` — if the brand ever rebrands we update both
+    # in lockstep.
+    splash: Optional[QSplashScreen]
+    _splash_shown_at: Optional[float]
+    if QApplication.platformName() in ("offscreen", "minimal"):
+        splash = None
+        _splash_shown_at = None
+    else:
+        width, height, radius = 560, 300, 18
+        BRAND_VIOLET = "#6D28D9"
+        SURFACE = "#FFFFFF"
+        BORDER = "#E4E4E7"
+        TEXT = "#18181B"
+        TEXT_MUTED = "#71717A"
+        SURFACE_ELEVATED = "#F4F4F5"
+
+        pix = QPixmap(width, height)
+        pix.fill(QColor(0, 0, 0, 0))  # transparent margin
+        painter = QPainter(pix)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        # Rounded card body.
+        card = QPainterPath()
+        card.addRoundedRect(0.5, 0.5, width - 1, height - 1, radius, radius)
+        painter.fillPath(card, QColor(SURFACE))
+        painter.setPen(QColor(BORDER))
+        painter.drawPath(card)
+
+        # Top violet band (only top corners rounded).
+        band_h = 64
+        band = QPainterPath()
+        band.moveTo(0, band_h)
+        band.lineTo(0, radius)
+        band.quadTo(0, 0, radius, 0)
+        band.lineTo(width - radius, 0)
+        band.quadTo(width, 0, width, radius)
+        band.lineTo(width, band_h)
+        band.closeSubpath()
+        painter.fillPath(band, QColor(BRAND_VIOLET))
+
+        # Brand wordmark — no theme font lookup, default Qt font is
+        # fine for a splash that's visible < 2 s.
+        painter.setPen(QColor("#FFFFFF"))
+        from PySide6.QtGui import QFont
+
+        f = QFont()
+        f.setPointSize(20)
+        f.setWeight(QFont.Weight.DemiBold)
+        painter.setFont(f)
+        painter.drawText(
+            24,
+            0,
+            width - 48,
+            band_h,
+            int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft),
+            "MagnaDesign",
+        )
+        f.setPointSize(10)
+        f.setWeight(QFont.Weight.Normal)
+        painter.setFont(f)
+        painter.setPen(QColor(255, 255, 255, 210))
+        painter.drawText(
+            24,
+            0,
+            width - 48,
+            band_h,
+            int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight),
+            "Inductor Design Suite",
+        )
+
+        # Body taglines (icon is loaded only if cheap; otherwise skip
+        # for speed — the user sees the wordmark within the band, no
+        # need to block paint on file-system icon resolution).
+        text_x = 32
+        f.setPointSize(13)
+        f.setWeight(QFont.Weight.Medium)
+        painter.setFont(f)
+        painter.setPen(QColor(TEXT))
+        painter.drawText(
+            text_x,
+            band_h + 32,
+            width - 2 * text_x,
+            28,
+            int(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft),
+            "Topology-aware design suite",
+        )
+        f.setPointSize(10)
+        f.setWeight(QFont.Weight.Normal)
+        painter.setFont(f)
+        painter.setPen(QColor(TEXT_MUTED))
+        painter.drawText(
+            text_x,
+            band_h + 68,
+            width - 2 * text_x,
+            60,
+            int(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+            | int(Qt.TextFlag.TextWordWrap),
+            "PFC inductors • passive chokes • line reactors\nFEMMT + ONELAB validation built-in",
+        )
+        painter.end()
+
+        splash = QSplashScreen(
+            pix,
+            Qt.WindowType.WindowStaysOnTopHint
+            | Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.SplashScreen,
+        )
+        splash.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        splash.setMask(pix.mask())
+
+        # Indeterminate progress bar — animates while the rest of
+        # ``_run_gui`` works.
+        bar = QProgressBar(splash)
+        bar.setRange(0, 0)
+        bar.setTextVisible(False)
+        bar.setGeometry(32, height - 56, width - 64, 4)
+        bar.setStyleSheet(
+            "QProgressBar {"
+            f"  background: {SURFACE_ELEVATED};"
+            "  border: 0;"
+            "  border-radius: 2px;"
+            "}"
+            "QProgressBar::chunk {"
+            f"  background: {BRAND_VIOLET};"
+            "  border-radius: 2px;"
+            "}"
+        )
+        splash.show()
+        # Pump events TWICE — once to schedule the paint, once to
+        # actually flush it through Qt's deferred-paint pipeline.
+        # A single ``processEvents()`` was sometimes too short on
+        # slow macOS WindowServer ticks; the second call costs ~1 ms
+        # and guarantees the pixel is on screen before we move on.
+        app.processEvents()
+        app.processEvents()
+        # Capture the splash's first paint time so we can enforce a
+        # minimum on-screen duration below. The MainWindow boot is
+        # fast enough now that the splash would otherwise flash for
+        # < 500 ms — too quick to read the wordmark — so we pad to
+        # ~2.5 s for a calm, readable boot experience.
+        import time as _time
+
+        _splash_shown_at = _time.perf_counter()
+
+    # ── Phase 2: ONELAB sys.path + slow imports, splash already painted ──
     try:
         from pfc_inductor.setup_deps import ensure_onelab_on_path
 
@@ -507,39 +679,15 @@ def _run_gui(argv: list[str]) -> int:
     except Exception:
         pass
 
-    # Phase 1: import only what we need to put a splash on screen.
-    # Pulling MainWindow here would re-introduce the multi-second
-    # blank-screen wait the splash is meant to hide.
     _import_qt_runtime_minimal()
 
-    app = QApplication([sys.argv[0], *argv])
     app.setApplicationName(SETTINGS_APP)
     app.setOrganizationName(SETTINGS_ORG)
-
-    # ---- Splash FIRST -----------------------------------------------------
-    # Show the splash before EVERYTHING else (theme, fonts, crash
-    # reporter, palette, stylesheet, MainWindow). The previous
-    # ordering ran ~8 stages of init before the user saw any pixel,
-    # which on a cold-cache frozen .app added up to 5-15 s of
-    # blank-screen wait — exactly the "demora 20 segundas antes do
-    # splash" symptom.
-    #
-    # The splash only needs the application icon and a paint cycle.
-    # Theme is read here (not via ``set_theme`` yet, just the
-    # default light palette for the splash background) so we don't
-    # block on font-database probing. Everything else is done AFTER
-    # the splash is visible.
     icon = _resolve_icon()
     if not icon.isNull():
         app.setWindowIcon(icon)
-    splash = _build_splash(icon)
-    if splash is not None:
-        splash.show()
-        app.processEvents()  # force paint NOW so the user sees branding
 
-    # ---- Slow init AFTER the splash is visible ----------------------------
-    # Crash reporter — opt-in, no-op when consent isn't granted
-    # or the SDK / DSN aren't configured.
+    # Crash reporter — opt-in, no-op without DSN.
     try:
         from pfc_inductor.telemetry import init_crash_reporter
 
@@ -547,25 +695,17 @@ def _run_gui(argv: list[str]) -> int:
     except Exception:
         pass
 
-    # ``Fusion`` is the only Qt style that fully honours QSS — set
-    # BEFORE the stylesheet so its palette is the baseline.
+    # ``Fusion`` is the only Qt style that fully honours QSS.
     app.setStyle("Fusion")
 
-    # Try to register JetBrains Mono if shipped (no-op when absent).
+    # Register the optional JetBrains Mono / probe brand fonts.
     QFontDatabase.addApplicationFont(":/fonts/JetBrainsMono-Regular.ttf")
-    # Probe the brand UI font and strip missing entries from the
-    # typography stack so Qt's font matcher doesn't waste 37 ms /
-    # widget hunting "Inter Variable".
     _patch_brand_typography_to_installed_fonts()
 
     set_theme(_load_initial_theme())
     _apply_app_palette(app)
     app.setStyleSheet(make_stylesheet(get_theme()))
 
-    # Re-apply both palette and stylesheet on theme toggle so the
-    # whole app flips together — without this hook a light → dark
-    # toggle leaves the QPalette stale and unstyled widgets keep
-    # showing light backgrounds.
     on_theme_changed(
         lambda: (
             _apply_app_palette(app),
@@ -573,19 +713,45 @@ def _run_gui(argv: list[str]) -> int:
         )
     )
 
-    # Update the splash message once we know the theme palette.
+    # Optional status message — only shows if the splash survived
+    # the fast-path construction above.
     if splash is not None:
-        from PySide6.QtCore import Qt as _Qt
-
         splash.showMessage(
             "Loading workspace…",
-            int(_Qt.AlignmentFlag.AlignBottom | _Qt.AlignmentFlag.AlignHCenter),
+            int(Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter),
             QColor(get_theme().palette.text_muted),
         )
         app.processEvents()
+
     _import_main_window()
 
     win = MainWindow()
+
+    # Enforce the splash's minimum on-screen duration so the user
+    # has time to read the wordmark — without this gate the splash
+    # flashes for < 500 ms on a warm cache (matplotlib already in
+    # the page cache, no FEMMT probe pending, etc.) and looks like
+    # a glitch. Two seconds and change is the sweet spot in
+    # subjective UX tests: long enough to register the brand,
+    # short enough that nobody perceives the app as "slow to open"
+    # on top of the cold-start work itself.
+    SPLASH_MIN_MS = 2_500
+    if splash is not None and _splash_shown_at is not None:
+        import time as _time
+
+        from PySide6.QtCore import QEventLoop, QTimer
+
+        elapsed_ms = (_time.perf_counter() - _splash_shown_at) * 1000.0
+        remaining_ms = int(SPLASH_MIN_MS - elapsed_ms)
+        if remaining_ms > 0:
+            # Use a ``QEventLoop`` + ``singleShot`` so Qt's animation
+            # ticks (the indeterminate progress bar in the splash)
+            # keep running smoothly during the wait, instead of a
+            # busy-wait that would freeze the chunk's marquee.
+            loop = QEventLoop()
+            QTimer.singleShot(remaining_ms, loop.quit)
+            loop.exec()
+
     win.show()
     if splash is not None:
         splash.finish(win)

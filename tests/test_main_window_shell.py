@@ -31,7 +31,13 @@ def app():
 def win(app):
     from pfc_inductor.ui.main_window import MainWindow
 
-    w = MainWindow()
+    # ``defer_initial_calc=False`` skips the production singleshot
+    # deferral that exists to keep the splash → window paint
+    # responsive. Tests never enter ``app.exec()`` so the deferred
+    # calc would never fire; keeping it synchronous here preserves
+    # the historical post-construction state contract the rest of
+    # these tests rely on (e.g. KPI strip populated).
+    w = MainWindow(defer_initial_calc=False)
     yield w
     w.close()
 

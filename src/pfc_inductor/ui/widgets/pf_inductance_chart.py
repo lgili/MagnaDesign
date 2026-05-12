@@ -39,22 +39,45 @@ class PFInductanceChart(QWidget):
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        v = QVBoxLayout(self)
+        v.setContentsMargins(0, 0, 0, 0)
+        v.setSpacing(0)
+        self._outer = v
+        self._placeholder = QWidget()
+        self._placeholder.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        v.addWidget(self._placeholder)
+        self._fig = None
+        self._ax_pf = None
+        self._ax_S = None
+        self._canvas = None
+        self._canvas_built = False
+        self._last: Optional[tuple[Spec, DesignResult]] = None
+        on_theme_changed(self._refresh_palette)
+
+    def _ensure_canvas_built(self) -> None:
+        if self._canvas_built:
+            return
         Canvas, Figure = _figure_imports()
         p = get_theme().palette
         self._fig = Figure(figsize=(5.4, 2.8), dpi=100, facecolor=p.surface, tight_layout=True)
         self._ax_pf = self._fig.add_subplot(1, 1, 1)
         self._ax_S = self._ax_pf.twinx()
         self._canvas = Canvas(self._fig)
-        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        idx = self._outer.indexOf(self._placeholder)
+        self._outer.removeWidget(self._placeholder)
+        self._placeholder.deleteLater()
+        self._placeholder = None  # type: ignore[assignment]
+        self._outer.insertWidget(idx, self._canvas)
+        self._canvas_built = True
+        if self._last is not None:
+            self._render()
+        else:
+            self._render_empty("Waiting for calculation…")
 
-        v = QVBoxLayout(self)
-        v.setContentsMargins(0, 0, 0, 0)
-        v.setSpacing(0)
-        v.addWidget(self._canvas)
-
-        self._last: Optional[tuple[Spec, DesignResult]] = None
-        self._render_empty("Waiting for calculation…")
-        on_theme_changed(self._refresh_palette)
+    def showEvent(self, event):  # type: ignore[override]
+        super().showEvent(event)
+        self._ensure_canvas_built()
 
     # ------------------------------------------------------------------
     # Public API
@@ -63,14 +86,18 @@ class PFInductanceChart(QWidget):
         self, result: DesignResult, spec: Spec, core: Core, wire: Wire, material: Material
     ) -> None:
         self._last = (spec, result)
-        self._render()
+        if self._canvas_built:
+            self._render()
 
     def clear(self) -> None:
         self._last = None
-        self._render_empty("Waiting for calculation…")
+        if self._canvas_built:
+            self._render_empty("Waiting for calculation…")
 
     # ------------------------------------------------------------------
     def _refresh_palette(self) -> None:
+        if not self._canvas_built or self._fig is None:
+            return
         p = get_theme().palette
         self._fig.set_facecolor(p.surface)
         if self._last is None:
@@ -79,6 +106,12 @@ class PFInductanceChart(QWidget):
             self._render()
 
     def _render_empty(self, message: str) -> None:
+        assert (
+            self._ax_pf is not None
+            and self._ax_S is not None
+            and self._fig is not None
+            and self._canvas is not None
+        )
         p = get_theme().palette
         for ax in (self._ax_pf, self._ax_S):
             ax.clear()
@@ -118,6 +151,12 @@ class PFInductanceChart(QWidget):
             self._render_empty("Insufficient data to plot PF(L).")
             return
 
+        assert (
+            self._ax_pf is not None
+            and self._ax_S is not None
+            and self._fig is not None
+            and self._canvas is not None
+        )
         p = get_theme().palette
         # Sweep L. Use the same range as the PDF helper so the live
         # view matches the printed datasheet.

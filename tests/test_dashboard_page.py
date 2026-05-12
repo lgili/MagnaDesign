@@ -191,7 +191,7 @@ def test_main_window_emits_design_completed(app):
     from pfc_inductor.ui.main_window import MainWindow
 
     received = []
-    w = MainWindow()
+    w = MainWindow(defer_initial_calc=False)
     w.design_completed.connect(lambda *args: received.append(args))
     # Trigger one more recompute manually so the signal fires.
     w._on_calculate()

@@ -31,19 +31,33 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
-import matplotlib
-
-matplotlib.use("Agg")
-
-from matplotlib.backends.backend_qtagg import (
-    FigureCanvasQTAgg as FigureCanvas,
-)
-from matplotlib.figure import Figure
 from PySide6.QtWidgets import QSizePolicy, QVBoxLayout, QWidget
 
 from pfc_inductor.ui.theme import get_theme, on_theme_changed
+
+# matplotlib costs ~150–300 ms on cold import (numpy + font cache).
+# The phase-overlay card lives in the Compliance tab — most launches
+# never need it. Deferred to ``_figure_imports`` so the cost lands
+# only when the chart actually instantiates.
+if TYPE_CHECKING:  # pragma: no cover — typing only
+    from matplotlib.backends.backend_qtagg import (  # noqa: F401
+        FigureCanvasQTAgg as FigureCanvas,
+    )
+    from matplotlib.figure import Figure  # noqa: F401
+
+
+def _figure_imports():
+    """Lazy matplotlib import; mirrors the pattern used in
+    ``harmonic_spectrum_chart`` and ``bh_loop_chart``."""
+    import matplotlib
+
+    matplotlib.use("Agg")
+    from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+    from matplotlib.figure import Figure
+
+    return Figure, FigureCanvas
 
 
 @dataclass(frozen=True)
@@ -94,27 +108,55 @@ class PhaseOverlayChart(QWidget):
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Expanding,
         )
+        v = QVBoxLayout(self)
+        v.setContentsMargins(0, 0, 0, 0)
+        self._outer = v
+
+        # Deferred Figure: see other chart widgets for rationale.
+        self._placeholder = QWidget()
+        self._placeholder.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self._placeholder.setMinimumHeight(380)
+        v.addWidget(self._placeholder, 1)
+        self._fig = None
+        self._canvas = None
+        self._canvas_built = False
+        self._last: Optional[PhaseOverlayPayload] = None
+        on_theme_changed(self.refresh_theme)
+
+    def _ensure_canvas_built(self) -> None:
+        if self._canvas_built:
+            return
+        Figure, FigureCanvas = _figure_imports()
         self._fig = Figure(figsize=(8.0, 4.6), dpi=100)
         self._fig.set_facecolor(get_theme().palette.surface)
         self._canvas = FigureCanvas(self._fig)
         self._canvas.setMinimumHeight(380)
+        idx = self._outer.indexOf(self._placeholder)
+        self._outer.removeWidget(self._placeholder)
+        self._placeholder.deleteLater()
+        self._placeholder = None  # type: ignore[assignment]
+        self._outer.insertWidget(idx, self._canvas, 1)
+        self._canvas_built = True
+        if self._last is not None:
+            self._paint(self._last)
+        else:
+            self._paint_empty()
 
-        v = QVBoxLayout(self)
-        v.setContentsMargins(0, 0, 0, 0)
-        v.addWidget(self._canvas, 1)
-
-        self._last: Optional[PhaseOverlayPayload] = None
-        self._paint_empty()
-        on_theme_changed(self.refresh_theme)
+    def showEvent(self, event):  # type: ignore[override]
+        super().showEvent(event)
+        self._ensure_canvas_built()
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
     def show_payload(self, payload: PhaseOverlayPayload) -> None:
         self._last = payload
-        self._paint(payload)
+        if self._canvas_built:
+            self._paint(payload)
 
     def refresh_theme(self) -> None:
+        if not self._canvas_built or self._fig is None:
+            return
         self._fig.set_facecolor(get_theme().palette.surface)
         if self._last is None:
             self._paint_empty()
@@ -125,6 +167,7 @@ class PhaseOverlayChart(QWidget):
     # Rendering
     # ------------------------------------------------------------------
     def _paint_empty(self) -> None:
+        assert self._fig is not None and self._canvas is not None
         self._fig.clear()
         ax = self._fig.add_subplot(111)
         ax.set_axis_off()
@@ -141,6 +184,7 @@ class PhaseOverlayChart(QWidget):
         self._canvas.draw_idle()
 
     def _paint(self, p: PhaseOverlayPayload) -> None:
+        assert self._fig is not None and self._canvas is not None
         pal = get_theme().palette
         self._fig.clear()
         ax = self._fig.add_subplot(111)

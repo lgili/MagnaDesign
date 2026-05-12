@@ -15,7 +15,14 @@ from PySide6.QtWidgets import QSizePolicy, QVBoxLayout, QWidget
 
 from pfc_inductor.models import Core, DesignResult, Material
 from pfc_inductor.ui.theme import get_theme, on_theme_changed
-from pfc_inductor.visual import compute_bh_trajectory
+
+# ``compute_bh_trajectory`` lives in ``pfc_inductor.visual.bh_loop``,
+# which is the cheap path (no pyvista). Going through the package
+# root (``from pfc_inductor.visual import …``) would trigger the
+# ``__init__.py`` re-export of ``core_3d``, which transitively pulls
+# pyvista + matplotlib (~400 ms cold). We don't need any of that
+# here, so we hit the submodule directly.
+from pfc_inductor.visual.bh_loop import compute_bh_trajectory
 
 
 def _figure_imports():
@@ -26,37 +33,84 @@ def _figure_imports():
 
 
 class BHLoopChart(QWidget):
-    """Compact B-H operating-point chart."""
+    """Compact B-H operating-point chart.
+
+    Figure construction is deferred to first ``showEvent`` so the
+    ~150–300 ms matplotlib cold-import cost doesn't fire during
+    MainWindow construction. The chart lives on the Validate sub-tab
+    of ``ProjetoPage`` (not the default sub-tab), so most cold starts
+    never need it; if the user does click Validate, the figure
+    materialises on the first paint of that tab.
+    """
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        v = QVBoxLayout(self)
+        v.setContentsMargins(0, 0, 0, 0)
+        v.setSpacing(0)
+        self._outer = v
+
+        # Placeholder until ``_ensure_canvas_built`` runs on first
+        # show. The placeholder reserves the same minimum vertical
+        # space as the eventual canvas so the parent layout doesn't
+        # jump when the real chart slots in.
+        self._placeholder = QWidget()
+        self._placeholder.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        v.addWidget(self._placeholder)
+
+        self._fig = None
+        self._ax = None
+        self._canvas = None
+        self._canvas_built = False
+
+        self._last: Optional[tuple[DesignResult, Core, Material]] = None
+        on_theme_changed(self._refresh_palette)
+
+    def _ensure_canvas_built(self) -> None:
+        """Build the matplotlib Figure on first call. Idempotent."""
+        if self._canvas_built:
+            return
         Canvas, Figure = _figure_imports()
         p = get_theme().palette
         self._fig = Figure(figsize=(5.4, 3.2), dpi=100, facecolor=p.surface, tight_layout=True)
         self._ax = self._fig.add_subplot(1, 1, 1)
         self._canvas = Canvas(self._fig)
-        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        idx = self._outer.indexOf(self._placeholder)
+        self._outer.removeWidget(self._placeholder)
+        self._placeholder.deleteLater()
+        self._placeholder = None  # type: ignore[assignment]
+        self._outer.insertWidget(idx, self._canvas)
+        self._canvas_built = True
+        # Replay the most recent data (or paint the empty state if
+        # no design has landed yet).
+        if self._last is not None:
+            self._render()
+        else:
+            self._render_empty()
 
-        v = QVBoxLayout(self)
-        v.setContentsMargins(0, 0, 0, 0)
-        v.setSpacing(0)
-        v.addWidget(self._canvas)
-
-        self._last: Optional[tuple[DesignResult, Core, Material]] = None
-        self._render_empty()
-        on_theme_changed(self._refresh_palette)
+    def showEvent(self, event):  # type: ignore[override]
+        super().showEvent(event)
+        self._ensure_canvas_built()
 
     # ------------------------------------------------------------------
     def update_from_design(self, result: DesignResult, core: Core, material: Material) -> None:
         self._last = (result, core, material)
-        self._render()
+        # Skip when the canvas is still placeholder-only — the
+        # ``showEvent`` will rebuild from ``self._last`` when the
+        # Validate tab becomes visible.
+        if self._canvas_built:
+            self._render()
 
     def clear(self) -> None:
         self._last = None
-        self._render_empty()
+        if self._canvas_built:
+            self._render_empty()
 
     # ------------------------------------------------------------------
     def _refresh_palette(self) -> None:
+        if not self._canvas_built or self._fig is None:
+            return
         p = get_theme().palette
         self._fig.set_facecolor(p.surface)
         if self._last is None:
@@ -65,6 +119,9 @@ class BHLoopChart(QWidget):
             self._render()
 
     def _render_empty(self) -> None:
+        # Pre-condition: callers ensure ``_canvas_built`` is True. The
+        # asserts narrow types for Pyright.
+        assert self._ax is not None and self._fig is not None and self._canvas is not None
         p = get_theme().palette
         self._ax.clear()
         self._ax.set_facecolor(p.surface)
@@ -88,6 +145,8 @@ class BHLoopChart(QWidget):
         if self._last is None:
             self._render_empty()
             return
+        # Pre-condition: ``_canvas_built`` is True (callers check it).
+        assert self._ax is not None and self._fig is not None and self._canvas is not None
         result, core, material = self._last
         p = get_theme().palette
         ax = self._ax

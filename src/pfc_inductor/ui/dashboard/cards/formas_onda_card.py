@@ -80,27 +80,28 @@ _FALLBACK_T_MS = np.linspace(0.0, 20.0, 400)
 
 class _FormasOndaBody(QWidget):
     """Multi-axis waveform body. Layout adapts per topology at every
-    ``update_from_design`` call."""
+    ``update_from_design`` call.
+
+    The matplotlib ``Figure`` is constructed lazily on the first
+    ``showEvent`` so the ~150–300 ms matplotlib cold-import doesn't
+    block ``MainWindow.__init__``. The card mounts with a thin
+    placeholder layout; once the dashboard becomes visible, Qt fires
+    ``showEvent`` and the canvas materialises. This card is on the
+    default dashboard page, so the user sees the placeholder for one
+    paint frame before the real chart appears — which is what they
+    asked for ("nem que os plots carreguem só depois").
+    """
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
-        Canvas, Figure = _figure_imports()
         theme = get_theme()
-        p = theme.palette
+        p = theme.palette  # noqa: F841 — used inside ``_ensure_canvas_built``
         sp = theme.spacing
-        # ``constrained_layout=True`` packs the stacked subplots more
-        # tightly than the legacy ``tight_layout``; 3 stacked axes with
-        # ``hspace=0.0`` look like a single multi-trace scope.
-        self._fig = Figure(dpi=100, facecolor=p.surface, constrained_layout=True)
-        self._canvas = Canvas(self._fig)
-        self._canvas.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        # Canvas floor scales with the theme's "formas" minimum
-        # row height plus 1 unit of breathing room.
-        self._canvas.setMinimumHeight(theme.dashboard.row_kpi_min - 40)
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(sp.md)
+        self._outer = outer
 
         # Topology badge — small label so the user knows the trace
         # set is matched to the active spec.topology. Gets rewritten
@@ -109,9 +110,22 @@ class _FormasOndaBody(QWidget):
         self._badge.setProperty("role", "muted")
         outer.addWidget(self._badge)
 
-        outer.addWidget(self._canvas, 1)
+        # Canvas slot — gets the real Figure on first show. Until
+        # then the card simply reserves the space its minimum height
+        # demands so the dashboard grid lays out exactly the same as
+        # the steady-state version.
+        self._canvas_placeholder = QWidget()
+        self._canvas_placeholder.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+        )
+        self._canvas_placeholder.setMinimumHeight(theme.dashboard.row_kpi_min - 40)
+        outer.addWidget(self._canvas_placeholder, 1)
+        self._fig = None  # populated by _ensure_canvas_built
+        self._canvas = None
+        self._canvas_built = False
 
-        # Cached last result for theme-toggle re-renders.
+        # Cached last result for theme-toggle re-renders + for replay
+        # when the canvas first comes online.
         self._last: Optional[
             tuple[
                 DesignResult,
@@ -133,6 +147,52 @@ class _FormasOndaBody(QWidget):
             row.addWidget(mc)
         outer.addLayout(row)
 
+    def _ensure_canvas_built(self) -> None:
+        """Construct the matplotlib Figure on first call. Idempotent.
+
+        Replaces the placeholder ``QWidget`` with the real ``Canvas``
+        widget. Triggered from ``showEvent`` so the matplotlib import
+        cost lands after the main window has already painted.
+        """
+        if self._canvas_built:
+            return
+        Canvas, Figure = _figure_imports()
+        p = get_theme().palette
+        # ``constrained_layout=True`` packs the stacked subplots more
+        # tightly than the legacy ``tight_layout``; 3 stacked axes
+        # with ``hspace=0.0`` look like a single multi-trace scope.
+        self._fig = Figure(dpi=100, facecolor=p.surface, constrained_layout=True)
+        self._canvas = Canvas(self._fig)
+        self._canvas.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self._canvas.setMinimumHeight(self._canvas_placeholder.minimumHeight())
+
+        # Swap the placeholder for the real canvas in the same slot.
+        idx = self._outer.indexOf(self._canvas_placeholder)
+        self._outer.removeWidget(self._canvas_placeholder)
+        self._canvas_placeholder.deleteLater()
+        self._canvas_placeholder = None  # type: ignore[assignment]
+        self._outer.insertWidget(idx, self._canvas, 1)
+        self._canvas_built = True
+
+        # If a design landed before the canvas was ready (likely on
+        # first paint — the deferred initial calc fires almost the
+        # same frame as the show event), replay it now.
+        if self._last is not None:
+            result, spec, _core, _wire, _material = self._last
+            topology = getattr(spec, "topology", "boost_ccm")
+            n_phases = int(getattr(spec, "n_phases", 1) or 1)
+            synth = synthesize_il_waveform(spec, result)
+            try:
+                self._render(result, spec, topology, n_phases, synth)
+            except Exception:
+                # Defensive — a synth/render edge case must not block
+                # the dashboard from finishing its first paint.
+                pass
+
+    def showEvent(self, event):  # type: ignore[override]
+        super().showEvent(event)
+        self._ensure_canvas_built()
+
     # ------------------------------------------------------------------
     def update_from_design(
         self, result: DesignResult, spec: Spec, core: Core, wire: Wire, material: Material
@@ -153,7 +213,11 @@ class _FormasOndaBody(QWidget):
         synth = synthesize_il_waveform(spec, result)
         self._badge.setText(self._badge_text(topology, n_phases, synth))
 
-        self._render(result, spec, topology, n_phases, synth)
+        # Skip drawing when the canvas hasn't been constructed yet
+        # (pre-first-paint). ``_ensure_canvas_built`` will replay
+        # the cached ``_last`` snapshot when ``showEvent`` fires.
+        if self._canvas_built:
+            self._render(result, spec, topology, n_phases, synth)
 
         # Metric tiles — same source as v1 so the numbers match the
         # plotted waveforms.
@@ -180,8 +244,11 @@ class _FormasOndaBody(QWidget):
             self.m_CF.set_value("—")
 
     def clear(self) -> None:
-        self._fig.clear()
-        self._canvas.draw_idle()
+        # If the canvas was never built, there's nothing on screen to
+        # clear; just drop the cached state.
+        if self._canvas_built and self._fig is not None and self._canvas is not None:
+            self._fig.clear()
+            self._canvas.draw_idle()
         self._last = None
         self._badge.setText("Topologia: —")
         for mc in (self.m_Irms, self.m_Ipk, self.m_THD, self.m_CF):
@@ -227,6 +294,10 @@ class _FormasOndaBody(QWidget):
         n_phases: int,
         synth: Optional[RealisticWaveform],
     ) -> None:
+        # Callers must check ``self._canvas_built`` before invoking
+        # ``_render`` — the deferred-init pattern means the Figure
+        # only exists after ``showEvent`` has fired at least once.
+        assert self._fig is not None and self._canvas is not None
         p = get_theme().palette
         self._fig.clear()
         self._fig.set_facecolor(p.surface)

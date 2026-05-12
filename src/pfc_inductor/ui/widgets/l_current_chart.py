@@ -40,22 +40,50 @@ class LCurrentChart(QWidget):
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
-        Canvas, Figure = _figure_imports()
-        p = get_theme().palette
-        self._fig = Figure(figsize=(5.4, 2.8), dpi=100, facecolor=p.surface, tight_layout=True)
-        self._ax = self._fig.add_subplot(1, 1, 1)
-        self._canvas = Canvas(self._fig)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
         v = QVBoxLayout(self)
         v.setContentsMargins(0, 0, 0, 0)
         v.setSpacing(0)
-        v.addWidget(self._canvas)
+        self._outer = v
+
+        # Deferred-init pattern (see ``BHLoopChart`` / ``FormasOndaCard``).
+        # The matplotlib Figure is only built on first ``showEvent``,
+        # so the cold-import cost lands after the main window paints.
+        self._placeholder = QWidget()
+        self._placeholder.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        v.addWidget(self._placeholder)
+        self._fig = None
+        self._ax = None
+        self._canvas = None
+        self._canvas_built = False
 
         # Cache the last design so theme toggles re-render correctly.
         self._last: Optional[tuple[DesignResult, Core, Material, float]] = None
-        self._render_empty("Waiting for calculation…")
         on_theme_changed(self._refresh_palette)
+
+    def _ensure_canvas_built(self) -> None:
+        if self._canvas_built:
+            return
+        Canvas, Figure = _figure_imports()
+        p = get_theme().palette
+        self._fig = Figure(figsize=(5.4, 2.8), dpi=100, facecolor=p.surface, tight_layout=True)
+        self._ax = self._fig.add_subplot(1, 1, 1)
+        self._canvas = Canvas(self._fig)
+        idx = self._outer.indexOf(self._placeholder)
+        self._outer.removeWidget(self._placeholder)
+        self._placeholder.deleteLater()
+        self._placeholder = None  # type: ignore[assignment]
+        self._outer.insertWidget(idx, self._canvas)
+        self._canvas_built = True
+        if self._last is not None:
+            self._render()
+        else:
+            self._render_empty("Waiting for calculation…")
+
+    def showEvent(self, event):  # type: ignore[override]
+        super().showEvent(event)
+        self._ensure_canvas_built()
 
     # ------------------------------------------------------------------
     # Public API
@@ -68,16 +96,20 @@ class LCurrentChart(QWidget):
         # inductor actually sees" number for the saturation envelope.
         I_pk = float(result.I_pk_max_A) if result.I_pk_max_A else 0.0
         self._last = (result, core, material, I_pk)
-        self._render()
+        if self._canvas_built:
+            self._render()
 
     def clear(self) -> None:
         self._last = None
-        self._render_empty("Waiting for calculation…")
+        if self._canvas_built:
+            self._render_empty("Waiting for calculation…")
 
     # ------------------------------------------------------------------
     # Render
     # ------------------------------------------------------------------
     def _refresh_palette(self) -> None:
+        if not self._canvas_built or self._fig is None:
+            return
         p = get_theme().palette
         self._fig.set_facecolor(p.surface)
         if self._last is None:
@@ -86,6 +118,7 @@ class LCurrentChart(QWidget):
             self._render()
 
     def _render_empty(self, message: str) -> None:
+        assert self._ax is not None and self._fig is not None and self._canvas is not None
         p = get_theme().palette
         self._ax.clear()
         self._ax.set_facecolor(p.surface)
@@ -115,6 +148,8 @@ class LCurrentChart(QWidget):
             self._render_empty("Insufficient data to plot L(I).")
             return
 
+        # Pre-condition: ``_canvas_built`` is True (callers check it).
+        assert self._ax is not None and self._fig is not None and self._canvas is not None
         p = get_theme().palette
         ax = self._ax
         ax.clear()

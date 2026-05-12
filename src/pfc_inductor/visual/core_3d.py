@@ -24,12 +24,53 @@ All dimensions in millimetres. Centre at origin, bobbin axis along +Z
 from __future__ import annotations
 
 import math
-from typing import Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal, Optional
 
 import numpy as np
-import pyvista as pv
 
 from pfc_inductor.models import Core, Wire
+
+
+class _PyVistaProxy:
+    """Lazy proxy for the pyvista module.
+
+    ``import pyvista`` together with its transitive ``import vtk`` and
+    ``import matplotlib`` is a ~400 ms cold-start cost. The PFC
+    inductor app pulls ``pfc_inductor.visual.core_3d`` through a few
+    transitive chains that don't always need mesh-building (e.g. the
+    cascade page only wants ``supports_tier3``, which itself only
+    needs ``infer_shape`` — neither touches pyvista). Without this
+    proxy the unused-feature paths still paid the full import cost
+    on every cold launch.
+
+    The proxy resolves the real module on first attribute access and
+    caches it (so subsequent ``pv.X`` lookups skip the import
+    machinery). ``from __future__ import annotations`` at the top of
+    this module makes return-type annotations like ``-> pv.PolyData``
+    purely string-valued, so the proxy never has to satisfy them at
+    runtime; they're only inspected by static type-checkers, which
+    follow the ``TYPE_CHECKING`` branch below and see the real type.
+    """
+
+    _real: Any = None
+
+    def __getattr__(self, name: str) -> Any:
+        real = _PyVistaProxy._real
+        if real is None:
+            import pyvista as _pv
+
+            _PyVistaProxy._real = _pv
+            real = _pv
+        return getattr(real, name)
+
+
+if TYPE_CHECKING:  # pragma: no cover — typing-only
+    # Pyright / mypy resolve ``pv.PolyData`` etc. against the real
+    # pyvista module here. The ``else`` branch is only hit at runtime,
+    # where the proxy stands in for the module until first use.
+    import pyvista as pv
+else:
+    pv = _PyVistaProxy()
 
 ShapeKind = Literal["toroid", "ee", "etd", "pq", "generic"]
 

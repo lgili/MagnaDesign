@@ -721,10 +721,11 @@ wheels = [
 
 [[package]]
 name = "magnadesign"
-version = "0.4.8"
+version = "0.4.11"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
+    { name = "femmt" },
     { name = "matplotlib" },
     { name = "numpy" },
     { name = "openpyxl" },
@@ -736,6 +737,7 @@ dependencies = [
     { name = "pyvistaqt" },
     { name = "reportlab" },
     { name = "scipy" },
+    { name = "setuptools" },
 ]
 
 [package.optional-dependencies]
@@ -759,11 +761,6 @@ docs = [
     { name = "sphinx-multiversion" },
     { name = "sphinxcontrib-mermaid" },
 ]
-fea = [
-    { name = "femmt" },
-    { name = "scipy" },
-    { name = "setuptools" },
-]
 performance = [
     { name = "numba" },
 ]
@@ -779,7 +776,7 @@ requires-dist = [
     { name = "black", marker = "extra == 'dev'", specifier = ">=24.0" },
     { name = "click", specifier = ">=8.1" },
     { name = "cryptography", marker = "extra == 'updater'", specifier = ">=42.0" },
-    { name = "femmt", marker = "extra == 'fea'", specifier = ">=0.5,<0.6" },
+    { name = "femmt", specifier = ">=0.5,<0.6" },
     { name = "furo", marker = "extra == 'docs'", specifier = ">=2024.0" },
     { name = "linkify-it-py", marker = "extra == 'docs'", specifier = ">=2.0" },
     { name = "matplotlib", specifier = ">=3.9" },
@@ -801,10 +798,9 @@ requires-dist = [
     { name = "pyyaml", marker = "extra == 'dev'", specifier = ">=6.0" },
     { name = "reportlab", specifier = ">=4.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.6" },
-    { name = "scipy", specifier = ">=1.13" },
-    { name = "scipy", marker = "extra == 'fea'", specifier = ">=1.12,<1.14" },
+    { name = "scipy", specifier = ">=1.13,<1.14" },
     { name = "sentry-sdk", marker = "extra == 'telemetry'", specifier = ">=2.0" },
-    { name = "setuptools", marker = "extra == 'fea'", specifier = "<70" },
+    { name = "setuptools", specifier = "<70" },
     { name = "sphinx", marker = "extra == 'docs'", specifier = ">=7.0,<9" },
     { name = "sphinx-autodoc-typehints", marker = "extra == 'docs'", specifier = ">=2.0" },
     { name = "sphinx-copybutton", marker = "extra == 'docs'", specifier = ">=0.5" },

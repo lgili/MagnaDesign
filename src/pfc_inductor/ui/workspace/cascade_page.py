@@ -32,12 +32,13 @@ the page is purely a view / controller around that.
 from __future__ import annotations
 
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
 from typing import ClassVar, Mapping, Optional
 
 from platformdirs import user_data_dir
-from PySide6.QtCore import QObject, Qt, QThread, QTimer, Signal
+from PySide6.QtCore import QObject, Qt, QThread, QTimer, Signal, Slot
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -347,6 +348,27 @@ class _StatsCard(QWidget):
             label.setText("0")
         self._reasons.setText("—")
 
+    def apply_counts(
+        self,
+        stats: tuple[int, int, int, int, int, int, int],
+        reasons_text: str,
+    ) -> None:
+        """Apply a pre-computed stats tuple to the labels.
+
+        Receives the result of ``_RefreshWorker._compute`` so the GUI
+        thread doesn't itself touch SQLite. Order matches the worker's
+        emission order: ``(total, t0_ok, t0_rej, t1, t2, t3, t4)``.
+        """
+        total, t0_ok, t0_rej, t1, t2, t3, t4 = stats
+        self._t0_total[1].setText(str(total))
+        self._t0_feasible[1].setText(str(t0_ok))
+        self._t0_rejected[1].setText(str(t0_rej))
+        self._t1_evaluated[1].setText(str(t1))
+        self._t2_evaluated[1].setText(str(t2))
+        self._t3_evaluated[1].setText(str(t3))
+        self._t4_evaluated[1].setText(str(t4))
+        self._reasons.setText(reasons_text)
+
     def update_from_store(self, store: RunStore, run_id: str) -> None:
         """Pull aggregate counts straight from SQLite (cheap)."""
         # Reuse the cli's `_gather_stats` shape via the same SQL.
@@ -435,22 +457,85 @@ class _ParetoChart(QWidget):
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
-        Canvas, Figure = _figure_imports()
-        self._fig = Figure(figsize=(5.4, 3.6), dpi=100, tight_layout=True)
-        self._ax = self._fig.add_subplot(1, 1, 1)
-        self._canvas = Canvas(self._fig)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
-        layout.addWidget(self._canvas)
+        self._outer = layout
 
+        # Deferred Figure construction. Cascade page is not the
+        # default workspace page, so the matplotlib cost lands when
+        # the user first navigates here.
+        self._placeholder = QWidget()
+        self._placeholder.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        layout.addWidget(self._placeholder)
+        self._fig = None
+        self._ax = None
+        self._canvas = None
+        self._canvas_built = False
         self._row_keys: list[str] = []  # parallel to scatter point indexes
-        self._render_empty()
-        # Picker on the scatter points → fire the selection signal.
+        self._pending_populate: Optional[tuple[list, dict]] = None
+        # Stashed payload from the off-thread refresh worker for the
+        # case where the user hasn't shown the cascade tab yet.
+        self._pending_chart_payload: Optional[_RefreshPayload] = None
+
+    def _ensure_canvas_built(self) -> None:
+        if self._canvas_built:
+            return
+        Canvas, Figure = _figure_imports()
+        self._fig = Figure(figsize=(5.4, 3.6), dpi=100, tight_layout=True)
+        self._ax = self._fig.add_subplot(1, 1, 1)
+        self._canvas = Canvas(self._fig)
+        idx = self._outer.indexOf(self._placeholder)
+        self._outer.removeWidget(self._placeholder)
+        self._placeholder.deleteLater()
+        self._placeholder = None  # type: ignore[assignment]
+        self._outer.insertWidget(idx, self._canvas)
+        self._canvas_built = True
         self._canvas.mpl_connect("pick_event", self._on_pick)
+        # Replay priority: prefer the pre-computed payload (no
+        # extra worker round-trip needed) over the raw rows fallback.
+        if self._pending_chart_payload is not None:
+            payload = self._pending_chart_payload
+            self._pending_chart_payload = None
+            self.populate_from_payload(payload)
+        elif self._pending_populate is not None:
+            rows, cores_by_id = self._pending_populate
+            self._pending_populate = None
+            self.populate(rows, cores_by_id)
+        else:
+            self._render_empty()
+
+    def showEvent(self, event):  # type: ignore[override]
+        super().showEvent(event)
+        self._ensure_canvas_built()
 
     # ─── Public API ──────────────────────────────────────────────
+
+    def populate_from_payload(self, payload: _RefreshPayload) -> None:
+        """Render from a pre-computed ``_RefreshPayload``.
+
+        The xs / ys / candidate-key arrays AND the Pareto-front
+        index list have already been computed off the GUI thread by
+        ``_RefreshWorker._compute``; the chart's only remaining job
+        is the matplotlib draw call itself. Keeps the GUI thread
+        away from the SQLite + per-core volume math that used to
+        dominate every refresh tick.
+        """
+        xs_t, ys_t, keys_t = payload.chart_data
+        # Update ``_row_keys`` regardless of canvas state — picks
+        # depend on it being in sync with the latest rendered set.
+        self._row_keys = list(keys_t)
+        if not self._canvas_built:
+            self._pending_chart_payload = payload
+            return
+        assert self._ax is not None and self._canvas is not None
+        xs = list(xs_t)
+        ys = list(ys_t)
+        if not xs:
+            self._render_empty()
+            return
+        self._render_scatter(xs, ys, list(payload.pareto_indices))
 
     def populate(
         self,
@@ -465,10 +550,14 @@ class _ParetoChart(QWidget):
         candidate that ran through Tier 4 lands at its FEA-corrected
         loss, not the original analytical Tier-1 value.
         """
-        self._ax.clear()
-        self._row_keys = []
+        # ``_row_keys`` is the contract picks depend on, so it has
+        # to update regardless of canvas state — otherwise a pick on
+        # a chart constructed off-screen would emit the wrong key.
+        # We compute xs/ys/_row_keys eagerly, then only do the
+        # matplotlib draw call when the canvas is built.
         xs: list[float] = []
         ys: list[float] = []
+        self._row_keys = []
         for r in rows:
             loss = r.loss_top_W
             if loss is None:
@@ -480,9 +569,25 @@ class _ParetoChart(QWidget):
             xs.append(volume_cm3)
             ys.append(float(loss))
             self._row_keys.append(r.candidate_key)
+        if not self._canvas_built:
+            # Stash the source rows for replay on first ``showEvent``.
+            # ``_row_keys`` is already populated for picks-before-show.
+            self._pending_populate = (list(rows), dict(cores_by_id))
+            return
+        assert self._ax is not None and self._canvas is not None
         if not xs:
             self._render_empty()
             return
+        pareto = _pareto_indices(xs, ys)
+        self._render_scatter(xs, ys, pareto)
+
+    def _render_scatter(self, xs: list[float], ys: list[float], pareto: list[int]) -> None:
+        """Apply the matplotlib draw calls — extracted so both the
+        live-data path (:meth:`populate`) and the off-thread path
+        (:meth:`populate_from_payload`) reuse the same rendering
+        code without duplicating logic."""
+        assert self._ax is not None and self._canvas is not None
+        self._ax.clear()
 
         # All-points scatter.
         self._ax.scatter(
@@ -496,8 +601,9 @@ class _ParetoChart(QWidget):
             picker=8,
             label="Candidates",
         )
-        # Compute Pareto front: lower loss AND lower (or equal) volume.
-        pareto = _pareto_indices(xs, ys)
+        # Pareto front overlay (front indices are pre-computed by
+        # the caller so we don't redo the O(n²) scan in both the
+        # ``populate`` path and the ``populate_from_payload`` path).
         if pareto:
             xp = [xs[i] for i in pareto]
             yp = [ys[i] for i in pareto]
@@ -525,6 +631,7 @@ class _ParetoChart(QWidget):
     # ─── Internals ──────────────────────────────────────────────
 
     def _render_empty(self) -> None:
+        assert self._ax is not None and self._canvas is not None
         self._ax.clear()
         self._ax.text(
             0.5,
@@ -614,9 +721,19 @@ class _TopNTable(QTableWidget):
         self.setMinimumHeight(220)
         self.itemSelectionChanged.connect(self._on_selection_changed)
 
+    def populate_from_payload(self, payload: _RefreshPayload) -> None:
+        """Variant of :meth:`populate` that takes a ``_RefreshPayload``
+        produced off the GUI thread. The pre-computed ``has_t2`` /
+        ``has_t3`` flags save another pass over rows on the GUI
+        thread; everything else mirrors :meth:`populate`."""
+        self._populate_internal(list(payload.rows), payload.has_t2, payload.has_t3)
+
     def populate(self, rows: list[CandidateRow]) -> None:
         has_t2 = any(r.notes and "tier2" in r.notes for r in rows)
         has_t3 = any(r.notes and "tier3" in r.notes for r in rows)
+        self._populate_internal(rows, has_t2, has_t3)
+
+    def _populate_internal(self, rows: list[CandidateRow], has_t2: bool, has_t3: bool) -> None:
         headers = list(self.BASE_HEADERS)
         if has_t2:
             headers += list(self.T2_HEADERS)
@@ -825,6 +942,230 @@ class _RunHistoryDialog(QDialog):
 # ─── Worker thread ────────────────────────────────────────────────
 
 
+@dataclass(frozen=True)
+class _RefreshPayload:
+    """Snapshot of everything the cascade UI needs to repaint a single
+    poll cycle. Computed by ``_RefreshWorker`` off the main thread so
+    the chart + table only see a ready-to-render result.
+    """
+
+    stats: tuple[int, int, int, int, int, int, int]
+    """(total, t0_ok, t0_rej, t1, t2, t3, t4) — counts from the store."""
+    reasons_text: str
+    """Rendered ``Tier 0 rejects: x=N · y=M`` summary, or ``"—"``."""
+    rows: tuple
+    """Top-N ``CandidateRow`` rows, already objective-sorted."""
+    chart_data: tuple[tuple[float, ...], tuple[float, ...], tuple[str, ...]]
+    """``(xs, ys, candidate_keys)`` — pre-computed scatter inputs so the
+    UI thread only does the matplotlib draw call, not the data pull."""
+    pareto_indices: tuple[int, ...]
+    """Indices into ``chart_data`` arrays that form the Pareto front."""
+    has_t2: bool
+    has_t3: bool
+    """Column-visibility flags so the table can decide its header set
+    without re-scanning ``rows`` on the main thread."""
+
+    def fingerprint(self) -> int:
+        """Hash for change-detection. ``_refresh_dynamic`` skips the
+        repaint entirely when the new payload matches the previous —
+        avoids redundant matplotlib redraws when the cascade is mid-
+        SQLite-flush and the visible state hasn't changed."""
+        return hash(
+            (
+                self.stats,
+                self.reasons_text,
+                tuple(
+                    (r.candidate_key, r.loss_top_W, r.temp_top_C, r.highest_tier) for r in self.rows
+                ),
+            )
+        )
+
+
+class _RefreshWorker(QObject):
+    """Pull stats + top-N + Pareto data off the UI thread.
+
+    The cascade run lives in its own ``QThread`` (see ``_CascadeWorker``)
+    so the engine itself never blocks the main loop. The poll timer
+    that drives the live results table + Pareto chart, however,
+    historically ran on the GUI thread — 8 SQLite reads + a
+    matplotlib redraw every 750 ms while the cascade was active. On
+    a mid-spec laptop with a busy chart that's 100–300 ms of UI-
+    thread work per cycle, surfacing as visible jank during the
+    multi-minute Tier 0 / 1 phases users complained about ("trava
+    tudo durante o full optimizer").
+
+    Moving the SQLite + ranking + Pareto math here lets the UI
+    thread only handle the cheap final updates: ``QLabel.setText``,
+    ``QTableWidget.setItem``, and matplotlib's ``draw_idle``.
+    """
+
+    done = Signal(object)  # _RefreshPayload
+    failed = Signal(str)
+
+    @Slot(str, str, object)
+    def compute(self, run_id: str, objective: str, cores_by_id: object) -> None:
+        """Compute a refresh payload from the live store.
+
+        ``cores_by_id`` crosses the thread boundary as a plain dict
+        of immutable Pydantic models — safe to read concurrently
+        with the parent CascadePage's ``self._cores`` list.
+        """
+        try:
+            payload = self._compute(run_id, objective, cores_by_id)  # type: ignore[arg-type]
+        except Exception as exc:  # pragma: no cover — defensive
+            self.failed.emit(f"{type(exc).__name__}: {exc}")
+            return
+        self.done.emit(payload)
+
+    def _compute(
+        self, run_id: str, objective: str, cores_by_id: dict[str, Core]
+    ) -> _RefreshPayload:
+
+        # The store is process-safe via SQLite WAL mode; opening a
+        # connection per call is cheap and avoids cross-thread
+        # connection sharing (sqlite3 connections are not thread-
+        # safe by default).
+        store = self._store
+        with store._connect() as conn:
+            stats_total = conn.execute(
+                "SELECT COUNT(*) AS n FROM candidates WHERE run_id=?",
+                (run_id,),
+            ).fetchone()["n"]
+            stats_t0_ok = conn.execute(
+                "SELECT COUNT(*) AS n FROM candidates WHERE run_id=? AND feasible_t0=1",
+                (run_id,),
+            ).fetchone()["n"]
+            stats_t0_rej = conn.execute(
+                "SELECT COUNT(*) AS n FROM candidates WHERE run_id=? AND feasible_t0=0",
+                (run_id,),
+            ).fetchone()["n"]
+            stats_t1 = conn.execute(
+                "SELECT COUNT(*) AS n FROM candidates WHERE run_id=? AND highest_tier>=1",
+                (run_id,),
+            ).fetchone()["n"]
+            stats_t2 = conn.execute(
+                "SELECT COUNT(*) AS n FROM candidates WHERE run_id=? AND highest_tier>=2",
+                (run_id,),
+            ).fetchone()["n"]
+            stats_t3 = conn.execute(
+                "SELECT COUNT(*) AS n FROM candidates WHERE run_id=? AND highest_tier>=3",
+                (run_id,),
+            ).fetchone()["n"]
+            stats_t4 = conn.execute(
+                "SELECT COUNT(*) AS n FROM candidates WHERE run_id=? AND highest_tier>=4",
+                (run_id,),
+            ).fetchone()["n"]
+            reason_rows = conn.execute(
+                "SELECT notes FROM candidates "
+                "WHERE run_id=? AND feasible_t0=0 AND notes IS NOT NULL",
+                (run_id,),
+            ).fetchall()
+
+        import json
+        from collections import Counter
+
+        counts: Counter[str] = Counter()
+        for row in reason_rows:
+            try:
+                payload_notes = json.loads(row["notes"])
+            except (TypeError, json.JSONDecodeError):
+                continue
+            for r in payload_notes.get("reasons", []):
+                counts[str(r)] += 1
+        if counts:
+            reasons_text = "Tier 0 rejects: " + " · ".join(
+                f"{name}={count}" for name, count in counts.most_common()
+            )
+        else:
+            reasons_text = "—"
+
+        # Top-N rows + objective re-rank.
+        column = self._objective_to_column.get(objective)
+        if column is not None:
+            rows = store.top_candidates(run_id, n=self._top_n, order_by=column)
+        else:
+            wide = store.top_candidates(run_id, n=self._top_n * 5, order_by="loss_top_W")
+            rows = self._rerank(wide, cores_by_id, objective)[: self._top_n]
+
+        # Pareto scatter inputs — same logic the UI used to do
+        # synchronously inside ``_ParetoChart.populate``. Pre-compute
+        # so the GUI thread only has to feed matplotlib.
+        xs: list[float] = []
+        ys: list[float] = []
+        keys: list[str] = []
+        for r in rows:
+            loss = r.loss_top_W
+            if loss is None:
+                continue
+            core = cores_by_id.get(r.core_id)
+            if core is None:
+                continue
+            xs.append(float(core.Ve_mm3) / 1000.0)
+            ys.append(float(loss))
+            keys.append(r.candidate_key)
+        pareto = _pareto_indices(xs, ys) if xs else []
+
+        # Tier badge column visibility flags.
+        has_t2 = any(r.notes and "tier2" in r.notes for r in rows)
+        has_t3 = any(r.notes and "tier3" in r.notes for r in rows)
+
+        return _RefreshPayload(
+            stats=(stats_total, stats_t0_ok, stats_t0_rej, stats_t1, stats_t2, stats_t3, stats_t4),
+            reasons_text=reasons_text,
+            rows=tuple(rows),
+            chart_data=(tuple(xs), tuple(ys), tuple(keys)),
+            pareto_indices=tuple(pareto),
+            has_t2=has_t2,
+            has_t3=has_t3,
+        )
+
+    # Worker-side mirrors of the page's class-level config. Filled
+    # in by ``CascadePage._start_refresh_worker`` so the worker is
+    # fully self-contained (no QObject parent reach-back).
+    _store: RunStore
+    _top_n: int
+    _objective_to_column: dict[str, str]
+
+    @staticmethod
+    def _rerank(rows: list, cores_by_id: dict[str, Core], objective: str) -> list:
+        """Mirror of ``CascadePage._rerank_client_side``. Kept in the
+        worker so we don't ferry a method-bound reference across
+        threads (slot signatures stay clean)."""
+
+        def vol_of(r) -> float:  # type: ignore[no-untyped-def]
+            c = cores_by_id.get(r.core_id)
+            if c is None:
+                return float("inf")
+            v = getattr(c, "volume_cm3", None)
+            if v is not None:
+                return float(v)
+            try:
+                return float(c.OD_mm or 0) ** 2 * float(c.HT_mm or 0) * 1e-3
+            except (AttributeError, TypeError):
+                return float("inf")
+
+        if objective == "volume":
+            return sorted(rows, key=vol_of)
+
+        def norm(values: list[float]) -> list[float]:
+            finite = [v for v in values if v != float("inf")]
+            if not finite:
+                return [0.0] * len(values)
+            lo, hi = min(finite), max(finite)
+            span = hi - lo or 1.0
+            return [(v - lo) / span if v != float("inf") else 1.0 for v in values]
+
+        losses = norm([(r.loss_top_W if r.loss_top_W is not None else float("inf")) for r in rows])
+        vols = norm([vol_of(r) for r in rows])
+        if objective == "score_with_cost":
+            costs = norm([r.cost_t1_USD or float("inf") for r in rows])
+            scores = [0.4 * losses[i] + 0.3 * vols[i] + 0.3 * costs[i] for i in range(len(rows))]
+        else:
+            scores = [0.6 * losses[i] + 0.4 * vols[i] for i in range(len(rows))]
+        order = sorted(range(len(rows)), key=lambda i: scores[i])
+        return [rows[i] for i in order]
+
+
 class _CascadeWorker(QObject):
     progress = Signal(int, int, int)
     finished = Signal(str)
@@ -878,8 +1219,24 @@ class CascadePage(QWidget):
     open_in_design_requested = Signal(str)
     selection_applied = Signal(str, str, str)
 
-    POLL_INTERVAL_MS = 750
+    # Poll interval — used to be 750 ms but the SQL + Pareto math
+    # ran on the GUI thread, so even at 750 ms the user perceived
+    # the cascade as freezing the app. With ``_RefreshWorker``
+    # handling the heavy work off-thread, 1 500 ms is plenty: a
+    # cascade typically advances ~50–200 candidates between polls
+    # at this cadence, which the engineer can absorb visually, and
+    # we cut the GUI-side update rate in half regardless.
+    POLL_INTERVAL_MS = 1_500
     TOP_N = 25
+
+    # Internal — fires the worker's ``compute`` slot via
+    # ``QueuedConnection``. Using a Signal instead of
+    # ``QMetaObject.invokeMethod(Q_ARG(object, ...))`` because
+    # PySide6 has no registered ``QMetaType`` for arbitrary Python
+    # objects (same fix we applied to ``MainWindow._calc_requested``
+    # after the v0.4.12 ``qArgDataFromPyType`` regression).
+    _refresh_requested = Signal(str, str, object)
+    """``(run_id, objective, cores_by_id)`` — dispatches a refresh."""
 
     def __init__(
         self,
@@ -912,9 +1269,58 @@ class CascadePage(QWidget):
 
         self._build_ui()
 
+        # Refresh-worker plumbing — keeps the heavy SQL + Pareto
+        # math off the GUI thread so the rest of the app stays
+        # responsive while the cascade is running. The worker
+        # thread lives for the lifetime of the page (vs. one-per-
+        # refresh) so we don't pay thread-spawn cost on every
+        # 1.5 s tick.
+        self._refresh_thread: Optional[QThread] = None
+        self._refresh_worker: Optional[_RefreshWorker] = None
+        # Coalescing: at most one in-flight refresh + one pending.
+        # If the timer fires while a worker is still computing, we
+        # set ``_refresh_pending`` and re-dispatch when the current
+        # one returns. Avoids backlog under heavy SQLite load.
+        self._refresh_in_flight = False
+        self._refresh_pending = False
+        # Change-detection fingerprint — repaints are skipped when
+        # the new payload matches the previous (SQLite-quiet phases
+        # would otherwise still trigger a matplotlib redraw on
+        # every tick).
+        self._last_refresh_fingerprint: Optional[int] = None
+        self._start_refresh_worker()
+
+        # Connect to ``QApplication.aboutToQuit`` so the long-lived
+        # refresh thread is shut down BEFORE Qt starts destroying
+        # widgets. The page's own ``closeEvent`` would suffice for
+        # ``win.close()`` flows, but on Cmd+Q (macOS) and on Linux
+        # session-end the page is destroyed as a child of the
+        # QStackedWidget WITHOUT ``closeEvent`` firing — and Qt
+        # fatals with "QThread: Destroyed while thread is still
+        # running" if we hit the destructor with the thread live.
+        # ``aboutToQuit`` is the canonical pre-destruction hook for
+        # global cleanup like this.
+        from PySide6.QtWidgets import QApplication as _QApplication
+
+        _app = _QApplication.instance()
+        if _app is not None:
+            _app.aboutToQuit.connect(self._shutdown_refresh_thread)
+
         self._poll_timer = QTimer(self)
         self._poll_timer.setInterval(self.POLL_INTERVAL_MS)
         self._poll_timer.timeout.connect(self._refresh_dynamic)
+
+    def _shutdown_refresh_thread(self) -> None:
+        """Quit + wait on the refresh worker thread. Idempotent.
+
+        Called from both ``closeEvent`` (user-initiated window close)
+        and ``QApplication.aboutToQuit`` (process shutdown via Cmd+Q
+        / session-end). The first call to fire wins; subsequent
+        calls see the thread already stopped and return immediately.
+        """
+        if self._refresh_thread is not None and self._refresh_thread.isRunning():
+            self._refresh_thread.quit()
+            self._refresh_thread.wait(2000)
 
     # ─── UI construction ─────────────────────────────────────────
 
@@ -1199,6 +1605,16 @@ class CascadePage(QWidget):
           showing them as 1/1 done keeps the UI honest).
         - Spec strip refreshes from the run's stored canonical spec
           so the engineer sees what *that* run was optimised for.
+
+        Hydration runs the refresh payload **synchronously** here
+        (unlike the live-run path, which dispatches via the worker).
+        The reason is that ``_load_run_id`` is a one-shot triggered
+        by a user action (selecting from the history dialog); they
+        expect the table to be populated by the time the dialog
+        closes. The query is also cheap — the cascade isn't writing
+        concurrently — so blocking the GUI thread for one round-trip
+        is negligible (~5–20 ms) vs. the user-visible delay of
+        waiting for the worker to round-trip via the event loop.
         """
         record = self._store.get_run(run_id)
         if record is None:
@@ -1212,7 +1628,25 @@ class CascadePage(QWidget):
         self._tiers.reset()
         for t in (0, 1, 2, 3, 4):
             self._tiers.update_tier(t, 1, 1)
-        self._refresh_dynamic()
+        # Synchronous hydration — see docstring. We piggy-back on
+        # the worker's ``_compute`` implementation by calling it
+        # from this thread (it doesn't touch any QObject state, so
+        # cross-thread isn't an issue).
+        assert self._refresh_worker is not None
+        try:
+            payload = self._refresh_worker._compute(
+                run_id,
+                self._filters.objective(),
+                {c.id: c for c in self._cores},
+            )
+            self._stats.apply_counts(payload.stats, payload.reasons_text)
+            self._table.populate_from_payload(payload)
+            self._chart.populate_from_payload(payload)
+            self._last_refresh_fingerprint = payload.fingerprint()
+        except Exception:
+            # Fall back to the async path on any error so the page
+            # never gets stuck with stale data.
+            self._refresh_dynamic()
         self._status_label.setText(
             f"loaded · {record.status} · run_id={run_id}",
         )
@@ -1237,8 +1671,25 @@ class CascadePage(QWidget):
             self._poll_timer.stop()
         except Exception:
             pass
+        # Final refresh runs **synchronously** so the table /
+        # chart / stats reflect the completed run before the
+        # ``finished`` signal returns to subscribers (tests rely on
+        # this contract — they read ``rowCount()`` right after
+        # waiting on ``finished``). Same sync-compute trick we use
+        # in ``_load_run_id``: bypass the worker thread for one-shot
+        # hydration, where round-trip latency hurts more than the
+        # brief GUI-thread block helps.
         try:
-            self._refresh_dynamic()
+            if self._run_id is not None and self._refresh_worker is not None:
+                payload = self._refresh_worker._compute(
+                    self._run_id,
+                    self._filters.objective(),
+                    {c.id: c for c in self._cores},
+                )
+                self._stats.apply_counts(payload.stats, payload.reasons_text)
+                self._table.populate_from_payload(payload)
+                self._chart.populate_from_payload(payload)
+                self._last_refresh_fingerprint = payload.fingerprint()
         except Exception:
             import traceback
 
@@ -1273,38 +1724,120 @@ class CascadePage(QWidget):
         },
     )
 
+    def closeEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        """Tear down the long-lived refresh worker thread.
+
+        Routes through ``_shutdown_refresh_thread`` so the same
+        logic runs from both ``closeEvent`` and ``aboutToQuit``.
+        The ``aboutToQuit`` path is what actually catches the
+        Cmd+Q / session-end flow on macOS — ``closeEvent`` only
+        fires when the user clicks the window's X button or calls
+        ``win.close()`` explicitly.
+        """
+        self._shutdown_refresh_thread()
+        super().closeEvent(event)
+
+    def _start_refresh_worker(self) -> None:
+        """Construct + start the long-lived refresh worker thread.
+
+        Called once from ``__init__``. The worker holds onto the
+        page's ``RunStore`` reference (sqlite3 connections are not
+        thread-safe, so the worker opens its own short-lived
+        connection per ``compute`` call) plus the class-level
+        objective→column map.
+        """
+        self._refresh_thread = QThread(self)
+        self._refresh_thread.setObjectName("pfc-cascade-refresh")
+        self._refresh_worker = _RefreshWorker()
+        # Hand the worker the references it needs to run without
+        # reach-back into the parent ``QObject`` (which would mean
+        # cross-thread attribute access).
+        self._refresh_worker._store = self._store
+        self._refresh_worker._top_n = self.TOP_N
+        self._refresh_worker._objective_to_column = dict(self._OBJECTIVE_TO_COLUMN)
+        self._refresh_worker.moveToThread(self._refresh_thread)
+        self._refresh_worker.done.connect(
+            self._on_refresh_payload,
+            Qt.ConnectionType.QueuedConnection,
+        )
+        self._refresh_worker.failed.connect(
+            self._on_refresh_failed,
+            Qt.ConnectionType.QueuedConnection,
+        )
+        # Main thread → worker dispatch via signal (see the
+        # ``_calc_requested`` pattern in ``MainWindow`` for the
+        # rationale — invokeMethod can't marshal Python objects).
+        self._refresh_requested.connect(
+            self._refresh_worker.compute,
+            Qt.ConnectionType.QueuedConnection,
+        )
+        self._refresh_thread.start()
+
     def _refresh_dynamic(self) -> None:
-        """Refresh the parts of the UI that read from the store."""
+        """Kick off (or coalesce) a refresh on the worker thread.
+
+        Used to do all the work inline — 8 SQL queries, candidate
+        re-ranking, Pareto-front math, and a matplotlib redraw — on
+        every poll tick. With a busy cascade dumping rows into the
+        store every batch, those redraws stacked up and turned the
+        whole UI sluggish ("trava tudo durante o full optimizer").
+        The worker pattern keeps everything off the GUI thread; the
+        ``done`` slot only does the cheap final updates.
+        """
         if self._run_id is None:
             return
-        self._stats.update_from_store(self._store, self._run_id)
+        if self._refresh_in_flight:
+            # A compute is already running — mark a follow-up
+            # without queueing a backlog of stale requests.
+            self._refresh_pending = True
+            return
+        self._refresh_in_flight = True
+        self._refresh_requested.emit(
+            self._run_id,
+            self._filters.objective(),
+            {c.id: c for c in self._cores},
+        )
 
-        objective = self._filters.objective()
-        cores_by_id = {c.id: c for c in self._cores}
+    @Slot(object)
+    def _on_refresh_payload(self, payload: object) -> None:
+        """Worker emitted ``done`` — apply the result on the GUI thread.
 
-        if objective in self._OBJECTIVE_TO_COLUMN:
-            rows = self._store.top_candidates(
-                self._run_id,
-                n=self.TOP_N,
-                order_by=self._OBJECTIVE_TO_COLUMN[objective],
-            )
-        else:
-            # Volume / score / score_with_cost — fetch a wider set
-            # ranked by loss (the only stable ordering available
-            # server-side without a JOIN to the core table) and
-            # re-rank client-side with the user's chosen weighting.
-            # 5× ``TOP_N`` is enough to surface the volume / cost
-            # winners without paying for a full table scan.
-            wide = self._store.top_candidates(
-                self._run_id,
-                n=self.TOP_N * 5,
-                order_by="loss_top_W",
-            )
-            rows = self._rerank_client_side(wide, cores_by_id, objective)[: self.TOP_N]
+        Most of the work has already been done off-thread; here we
+        just feed prepared values into widget setters. Change-
+        detection via ``fingerprint`` skips redundant matplotlib /
+        QTableWidget updates when the cascade is mid-flush and the
+        visible state hasn't moved.
+        """
+        self._refresh_in_flight = False
+        assert isinstance(payload, _RefreshPayload)
+        fingerprint = payload.fingerprint()
+        skip = fingerprint == self._last_refresh_fingerprint
+        if not skip:
+            self._last_refresh_fingerprint = fingerprint
+            self._stats.apply_counts(payload.stats, payload.reasons_text)
+            self._table.populate_from_payload(payload)
+            self._chart.populate_from_payload(payload)
+        # If another refresh was requested while we were running,
+        # fire it now — but only after we've applied the current
+        # payload so the user sees forward progress.
+        if self._refresh_pending:
+            self._refresh_pending = False
+            self._refresh_dynamic()
 
-        self._table.populate(rows)
-        # Pareto chart needs core volumes — provide the live DB lookup.
-        self._chart.populate(rows, cores_by_id)
+    @Slot(str)
+    def _on_refresh_failed(self, message: str) -> None:
+        """Worker raised — log and keep polling. Refresh failures
+        are not fatal; the next tick will retry."""
+        self._refresh_in_flight = False
+        # Don't spam the status bar — most failures are transient
+        # SQLite-locked retries during heavy cascade writes. Log
+        # to stderr so support bundles capture them.
+        import sys
+
+        print(f"[cascade refresh] {message}", file=sys.stderr)
+        if self._refresh_pending:
+            self._refresh_pending = False
+            self._refresh_dynamic()
 
     @staticmethod
     def _rerank_client_side(

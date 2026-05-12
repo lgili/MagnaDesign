@@ -28,7 +28,7 @@ import re
 from pathlib import Path
 from typing import Iterable, NamedTuple, Optional
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QObject, Qt, QThread, Signal
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QDialog,
@@ -279,6 +279,35 @@ def _scan(fem_path: Path | str | None) -> list[_Artifact]:
     # for matching; this final sort is purely for display.
     out.sort(key=lambda a: (a.category, a.path.name))
     return out
+
+
+class _ScanWorker(QObject):
+    """``QObject`` that runs :func:`_scan` off the GUI thread.
+
+    Constructed per ``populate_from_path`` call (rather than long-
+    lived) because the per-spawn cost is dominated by the scan
+    itself (100–500 ms) and we want stale workers to be cheap to
+    abandon — the FEA dialog can be re-opened against a different
+    fem_path any time.
+    """
+
+    finished = Signal(list)
+    """``list[_Artifact]`` — never ``None``; empty list on no PNGs."""
+
+    def __init__(self, fem_path: Path | str | None) -> None:
+        super().__init__()
+        self._fem_path = fem_path
+
+    def run(self) -> None:
+        try:
+            artifacts = _scan(self._fem_path)
+        except Exception:
+            # Filesystem can fault under us (permission errors on
+            # Windows, network-drive timeouts on Linux). Treat any
+            # failure as "no artifacts" rather than crashing the
+            # worker — the empty-state message is good enough.
+            artifacts = []
+        self.finished.emit(artifacts)
 
 
 def _humanise(name: str) -> str:
@@ -553,18 +582,76 @@ class FEAFieldGallery(QWidget):
             "Run a FEA validation. Field plots show up here when the backend exports them."
         )
 
+        # Tracking handles for the off-thread directory scan
+        # (see ``populate_from_path`` — the scan is 100–500 ms on
+        # a typical FEMMT output dir and would otherwise freeze
+        # the FEA dialog's other controls).
+        self._scan_thread: Optional[QThread] = None
+        self._scan_worker: Optional[_ScanWorker] = None
+
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
     def populate_from_path(self, fem_path: str | None) -> None:
         """Scan ``fem_path`` for PNG artifacts and rebuild the grid.
 
+        ``_scan`` walks the directory recursively and stats every
+        ``*.png`` it finds — that's 100–500 ms on a typical FEMMT
+        output dir, and can balloon to several seconds on a slow
+        Windows filesystem or a network drive. To keep the FEA
+        dialog responsive (especially the "Re-run" button right
+        next to this widget), we offload the scan to a worker
+        thread; the grid renders when the result lands.
+
         Empty state when nothing's there or the path doesn't
         exist — the widget never errors visibly, just shows the
         empty message.
         """
         self._clear_grid()
-        artifacts = _scan(fem_path)
+
+        # If a previous scan is still running, abandon it. The
+        # newer ``fem_path`` is what the user wants now; the
+        # stale worker can finish and emit into the void (the
+        # connection is broken before we replace the worker).
+        if self._scan_thread is not None and self._scan_thread.isRunning():
+            try:
+                self._scan_worker.finished.disconnect()  # type: ignore[union-attr]
+            except (RuntimeError, TypeError):
+                # disconnect can raise if nothing was connected —
+                # ignore, the next quit() handles cleanup.
+                pass
+            self._scan_thread.quit()
+            self._scan_thread.wait(500)
+
+        # Show a transient "Scanning…" hint so the user sees
+        # *something* during the worker's window. Without this
+        # the panel would be visibly blank for the scan duration.
+        self._show_empty("Scanning FEA output directory…")
+
+        thread = QThread(self)
+        worker = _ScanWorker(fem_path)
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+        worker.finished.connect(self._on_scan_finished)
+        # ``deleteLater`` chains the worker / thread cleanup once
+        # the result has been delivered. Without it both objects
+        # would leak (one per FEA dialog open).
+        worker.finished.connect(lambda _: thread.quit())
+        thread.finished.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+
+        self._scan_thread = thread
+        self._scan_worker = worker
+        thread.start()
+
+    def _on_scan_finished(self, artifacts: list) -> None:
+        """Worker emitted results — render the grid on the GUI thread."""
+        # ``_clear_grid`` removes the "Scanning…" placeholder we
+        # showed above; we always re-clear here because between
+        # the scan starting and finishing the user might have
+        # navigated to a different tab and back, leaving stale
+        # widgets in place.
+        self._clear_grid()
         if not artifacts:
             self._show_empty(
                 "No field plots in the FEA working directory yet.\n"

@@ -48,14 +48,25 @@ from pfc_inductor.ui.viewer3d import (
     SideToolbar,
     ViewChips,
 )
-from pfc_inductor.visual import (
-    make_bobbin_mesh,
-    make_core_mesh,
-    make_winding_leads,
-    make_winding_mesh,
-    set_camera_to_view,
-    winding_fit_info,
-)
+
+# ``pfc_inductor.visual`` pulls in pyvista (and pyvista pulls in vtk),
+# which together cost ~400 ms of cold-import time. The functions below
+# are only needed at scene-build time, AFTER ``_ensure_plotter`` has
+# constructed the ``QtInteractor`` — i.e. several event-loop ticks
+# after the main window paints. Importing them lazily here keeps
+# ``import pfc_inductor.ui.main_window`` (~1.4 s before this change)
+# below the threshold where the splash sits visible for noticeable
+# time. The first ``refresh()`` call pays the import cost; subsequent
+# calls hit Python's import cache and are free.
+if False:  # pragma: no cover — typing-only import for IDEs / pyright
+    from pfc_inductor.visual import (  # noqa: F401
+        make_bobbin_mesh,
+        make_core_mesh,
+        make_winding_leads,
+        make_winding_mesh,
+        set_camera_to_view,
+        winding_fit_info,
+    )
 
 
 def _can_use_3d() -> bool:
@@ -89,44 +100,50 @@ class CoreView3D(QWidget):
 
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
-        outer = QVBoxLayout(self)
-        outer.setContentsMargins(0, 0, 0, 0)
-        outer.setSpacing(0)
+        self._outer = QVBoxLayout(self)
+        self._outer.setContentsMargins(0, 0, 0, 0)
+        self._outer.setSpacing(0)
 
+        # The VTK ``QtInteractor`` import + construction together cost
+        # 100–800 ms on a cold start — it has to spin up an OpenGL
+        # context, register vtkRenderer / vtkRenderWindow, and pull in
+        # all of pyvistaqt's submodules. Doing that inside ``__init__``
+        # was THE single biggest contributor to the "splash sits for 3 s"
+        # complaint: the dashboard mounts a ``Viz3DCard`` in the default
+        # workspace tab, so every cold launch paid the cost before the
+        # first paint event could even fire.
+        #
+        # The fix here is to keep ``__init__`` cheap (just a tiny
+        # placeholder ``QLabel``) and defer the QtInteractor + scene
+        # setup to the first ``showEvent``. The user gets a painted
+        # dashboard immediately, sees "Carregando visualizador 3D…" for
+        # one frame, then VTK fills in. If the user never switches to
+        # this tab (or runs offscreen), we never pay the cost at all.
         self.plotter = None
-        self._fallback = None
-        if _can_use_3d():
-            try:
-                from pyvistaqt import QtInteractor
-
-                self.plotter = QtInteractor(self)
-                from PySide6.QtWidgets import QSizePolicy
-
-                self.plotter.interactor.setSizePolicy(
-                    QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored
-                )
-                outer.addWidget(self.plotter.interactor, 1)
-                self._setup_renderer()
-                # Failure to draw the placeholder text must not kill the
-                # whole widget — at worst the user sees an empty viewport
-                # until they pick a core.
-                try:
-                    self._show_placeholder()
-                except Exception:
-                    pass
-            except Exception as e:
-                self.plotter = None
-                self._fallback = QLabel(f"Visualizador 3D indisponível: {type(e).__name__}: {e}")
+        self._fallback: Optional[QLabel] = None
+        self._plotter_init_attempted = False  # set by ``_ensure_plotter``
+        self._init_pending_text = "Carregando visualizador 3D…"
+        # When ``_can_use_3d()`` returns False (offscreen / minimal /
+        # vnc platforms) we short-circuit to the permanent fallback
+        # message right away — no point scheduling a deferred init
+        # that can never succeed. This also keeps test suites under
+        # ``QT_QPA_PLATFORM=offscreen`` behaving exactly as before.
+        if not _can_use_3d():
+            self._mount_fallback("Visualizador 3D indisponível em modo offscreen.")
         else:
-            self._fallback = QLabel("Visualizador 3D indisponível em modo offscreen.")
-        if self._fallback is not None:
-            self._fallback.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self._fallback.setStyleSheet("color: #888; font-size: 12px;")
-            outer.addWidget(self._fallback, 1)
+            self._mount_fallback(self._init_pending_text)
 
         # ---- overlays --------------------------------------------------
+        # Overlays are cheap (chips / cube / toolbar are pure-Qt widgets)
+        # and they live on top of the plotter region, so we build them
+        # eagerly. They can render without the plotter being ready —
+        # there's just no scene to point at yet.
         self._build_overlays()
-        # Wire a camera-change observer so the chips/cube can react.
+        # The camera observer attaches to ``self.plotter.iren`` so it
+        # has to wait until the deferred init finishes; ``_ensure_plotter``
+        # calls it then. The early call here is now a no-op (it
+        # already guards on ``self.plotter is None``) — kept for the
+        # offscreen path where it just returns immediately.
         self._install_camera_observer()
 
         self._current: Optional[tuple[Core, Wire, int, Material]] = None
@@ -180,6 +197,92 @@ class CoreView3D(QWidget):
             color=get_theme().viz3d.text_dim,
             font_size=10,
         )
+
+    # ==================================================================
+    # Deferred-init plumbing
+    # ==================================================================
+    def _mount_fallback(self, message: str) -> None:
+        """Show ``message`` in a centered ``QLabel`` while the real
+        plotter isn't ready yet (or won't ever be — offscreen platform).
+
+        Used twice: during ``__init__`` to paint immediately, and (briefly)
+        as the visual "Carregando…" hint that gets replaced once VTK
+        finishes booting in the deferred init step.
+        """
+        if self._fallback is None:
+            self._fallback = QLabel()
+            self._fallback.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self._fallback.setStyleSheet("color: #888; font-size: 12px;")
+            self._outer.addWidget(self._fallback, 1)
+        self._fallback.setText(message)
+        self._fallback.show()
+
+    def _drop_fallback(self) -> None:
+        """Remove the placeholder label once the plotter is ready."""
+        if self._fallback is not None:
+            self._fallback.hide()
+            self._outer.removeWidget(self._fallback)
+            self._fallback.deleteLater()
+            self._fallback = None
+
+    def _ensure_plotter(self) -> None:
+        """Construct the ``QtInteractor``, wire it into the layout, and
+        replay any pre-init scene state.
+
+        Idempotent on the result of the first call: a second invocation
+        is a no-op because either ``self.plotter`` is already set OR
+        the construction failed and we fell back to the error label.
+        """
+        if self.plotter is not None:
+            return
+        try:
+            from PySide6.QtWidgets import QSizePolicy
+            from pyvistaqt import QtInteractor
+
+            self.plotter = QtInteractor(self)
+            self.plotter.interactor.setSizePolicy(
+                QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored
+            )
+            # Drop the "Carregando…" label BEFORE adding the interactor
+            # so the layout's stretch factor lands on a single child.
+            self._drop_fallback()
+            self._outer.addWidget(self.plotter.interactor, 1)
+            self._setup_renderer()
+            # Wire the camera observer now that ``self.plotter.iren``
+            # exists — the early call from ``__init__`` was a no-op.
+            self._install_camera_observer()
+            # Re-raise the overlay HUD AFTER the QtInteractor mounts —
+            # the interactor's render-window child is added last to
+            # ``self._outer`` and therefore lands on top in Qt's
+            # widget Z-order, hiding the chips / cube / toolbar /
+            # action-bar that were created back in ``__init__``. A
+            # ``raise_()`` per overlay puts them back above the GL
+            # surface. (The legacy eager-init path didn't hit this
+            # because the interactor was constructed BEFORE the
+            # overlays, so the overlays' initial Z-order put them
+            # on top automatically.)
+            for w in (self.chips, self.cube, self.toolbar, self.action_bar):
+                if w is not None:
+                    w.raise_()
+            # Reposition after the layout change — the interactor
+            # may have grown the widget's interior rect.
+            self._reposition_overlays()
+            # Replay scene: if ``update_view`` was called before init,
+            # ``_current`` is set and we redraw against it; otherwise
+            # show the standard placeholder.
+            if self._current is not None:
+                try:
+                    self.refresh()
+                except Exception:
+                    pass
+            else:
+                try:
+                    self._show_placeholder()
+                except Exception:
+                    pass
+        except Exception as e:
+            self.plotter = None
+            self._mount_fallback(f"Visualizador 3D indisponível: {type(e).__name__}: {e}")
 
     # ==================================================================
     # Overlays
@@ -271,6 +374,17 @@ class CoreView3D(QWidget):
         # The widget's geometry isn't realised at construction; defer
         # one-shot reposition until after Qt finishes the layout pass.
         QTimer.singleShot(0, self._reposition_overlays)
+        # First time the widget becomes visible, also schedule the
+        # heavy VTK init on the next event-loop tick. Using
+        # ``QTimer.singleShot(0, …)`` instead of inline init means the
+        # placeholder paints first, the user sees movement, and only
+        # then does the 100–800 ms ``QtInteractor`` construction land.
+        # On subsequent shows (e.g. switching tabs back to the
+        # dashboard) the ``_plotter_init_attempted`` guard prevents a
+        # re-init.
+        if not self._plotter_init_attempted and _can_use_3d():
+            self._plotter_init_attempted = True
+            QTimer.singleShot(0, self._ensure_plotter)
 
     # ==================================================================
     # Camera observer
@@ -318,6 +432,18 @@ class CoreView3D(QWidget):
         self._actor_core = []
         self._actor_winding = None
         self._actor_bobbin = []
+        # Lazy import — pyvista + vtk together cost ~400 ms on cold
+        # start; we don't pay that until ``refresh()`` actually has a
+        # core to render. The first call here hits Python's import
+        # machinery; subsequent calls are no-ops thanks to ``sys.modules``.
+        from pfc_inductor.visual import (
+            make_bobbin_mesh,
+            make_core_mesh,
+            make_winding_leads,
+            make_winding_mesh,
+            winding_fit_info,
+        )
+
         try:
             mb, kind, info = make_core_mesh(core)
             wnd = make_winding_mesh(core, wire, N_turns, info)
@@ -469,6 +595,9 @@ class CoreView3D(QWidget):
         """
         if self.plotter is None:
             return
+        # Lazy import — see ``refresh()`` for the rationale.
+        from pfc_inductor.visual import set_camera_to_view
+
         try:
             self.chips.set_active(view)
         except Exception:

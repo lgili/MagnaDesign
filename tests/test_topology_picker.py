@@ -99,7 +99,7 @@ def test_main_window_topology_picker_applies_to_spec_panel(app, monkeypatch):
     from pfc_inductor.ui.dialogs import TopologyPickerDialog
     from pfc_inductor.ui.main_window import MainWindow
 
-    w = MainWindow()
+    w = MainWindow(defer_initial_calc=False)
 
     # Force-apply: stub TopologyPickerDialog.exec to return Accepted
     # and pre-set the chosen key.

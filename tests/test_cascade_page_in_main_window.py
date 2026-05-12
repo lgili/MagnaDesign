@@ -56,7 +56,7 @@ def test_main_window_mounts_cascade_page(app):
     from pfc_inductor.ui.main_window import AREA_PAGES, MainWindow
     from pfc_inductor.ui.workspace import CascadePage
 
-    win = MainWindow()
+    win = MainWindow(defer_initial_calc=False)
     try:
         # Stack index for "cascade" matches the position in AREA_PAGES.
         cascade_idx = AREA_PAGES.index("cascade")
@@ -72,7 +72,7 @@ def test_main_window_navigates_to_cascade_page(app):
     cascade page."""
     from pfc_inductor.ui.main_window import AREA_PAGES, MainWindow
 
-    win = MainWindow()
+    win = MainWindow(defer_initial_calc=False)
     try:
         win.sidebar.navigation_requested.emit("cascade")
         assert win.stack.currentIndex() == AREA_PAGES.index("cascade")
@@ -86,7 +86,7 @@ def test_main_window_pipes_db_into_cascade_page(app):
     needs to start a run."""
     from pfc_inductor.ui.main_window import MainWindow
 
-    win = MainWindow()
+    win = MainWindow(defer_initial_calc=False)
     try:
         # `set_inputs` was called inside `_on_calculate` during MainWindow
         # construction; verify the cascade page caught it.
@@ -109,7 +109,7 @@ def test_cascade_selection_applied_routes_to_apply_optimizer_choice(app):
     winner becomes the active design without leaving the page."""
     from pfc_inductor.ui.main_window import AREA_PAGES, MainWindow
 
-    win = MainWindow()
+    win = MainWindow(defer_initial_calc=False)
     try:
         win.sidebar.navigation_requested.emit("cascade")
         any_core = win._cores[0]
@@ -141,7 +141,7 @@ def test_cascade_open_in_design_signal_routes_to_dashboard(app):
     back to Projeto."""
     from pfc_inductor.ui.main_window import AREA_PAGES, MainWindow
 
-    win = MainWindow()
+    win = MainWindow(defer_initial_calc=False)
     try:
         # Move to cascade first so we can verify the area-switch.
         win.sidebar.navigation_requested.emit("cascade")

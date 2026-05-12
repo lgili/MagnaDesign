@@ -38,8 +38,16 @@ from typing import TYPE_CHECKING, Optional
 if TYPE_CHECKING:
     from pfc_inductor.ui.compare_dialog import CompareDialog
 
-from PySide6.QtCore import QSettings, QTimer
-from PySide6.QtGui import QAction, QGuiApplication, QKeySequence
+from PySide6.QtCore import (
+    QObject,
+    QSettings,
+    Qt,
+    QThread,
+    QTimer,
+    Signal,
+    Slot,
+)
+from PySide6.QtGui import QAction, QCursor, QGuiApplication, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -109,6 +117,71 @@ AREA_PAGES: tuple[str, ...] = (
 )
 
 
+class _DesignWorker(QObject):
+    """``QObject`` that runs ``design()`` off the main thread.
+
+    Lives in a dedicated ``QThread`` (constructed by ``MainWindow``)
+    for the entire lifetime of the window. The single long-lived
+    worker pattern (vs. spawn-one-per-calc) avoids paying the thread
+    startup cost on every spec change, and keeps cleanup simple at
+    window close — one ``thread.quit() + wait()`` call.
+
+    Communication is signal-based both ways:
+
+    - Main thread → worker: ``MainWindow._calc_requested`` is
+      connected to ``compute`` via ``QueuedConnection``; emitting
+      it enqueues a calc on the worker's event loop. We use a
+      signal instead of ``QMetaObject.invokeMethod`` because the
+      latter requires every argument to have a registered
+      ``QMetaType``, which raises ``RuntimeError: qArgDataFromPyType:
+      Unable to find a QMetaType for "object"`` for arbitrary
+      Python objects (Pydantic models in our case). Signals marshal
+      ``object`` payloads natively via ``QueuedConnection``.
+    - Worker → main thread: ``finished`` or ``failed`` signals,
+      received on the main thread via ``QueuedConnection`` so the
+      slot can mutate widgets safely.
+
+    The worker NEVER touches Qt widgets. It only operates on the
+    pure-Python ``Spec`` / ``Core`` / ``Wire`` / ``Material`` data
+    classes (immutable Pydantic models) and calls ``design()``.
+    """
+
+    # ``object`` rather than the concrete types because PySide6
+    # signal marshaling for Pydantic models works out of the box
+    # via ``object`` but is finicky when you hand it the actual
+    # class (it tries to register a meta-type).
+    finished = Signal(object, object, object, object, object)
+    """``(DesignResult, Spec, Core, Wire, Material)`` — calc succeeded."""
+
+    failed = Signal(str)
+    """User-facing error message — surfaced via ``QMessageBox``."""
+
+    @Slot(object, object, object, object)
+    def compute(self, spec: object, core: object, wire: object, material: object) -> None:
+        """Run ``design()`` and emit the result.
+
+        Errors are split into two buckets:
+
+        - ``DesignError`` — expected validation failure (spec out of
+          range, infeasible geometry, etc.). Routed to ``failed``
+          with the user-friendly message so the GUI shows a
+          ``QMessageBox`` mirroring the pre-thread behaviour.
+        - Anything else — unexpected. Still routed to ``failed`` so
+          the worker thread doesn't die silently, but with a generic
+          "Unexpected calculation error" prefix so the user can tell
+          this is a bug to file.
+        """
+        try:
+            result = design(spec, core, wire, material)  # type: ignore[arg-type]
+        except DesignError as e:
+            self.failed.emit(e.user_message())
+            return
+        except Exception as e:  # pragma: no cover — defensive
+            self.failed.emit(f"Unexpected calculation error: {e}")
+            return
+        self.finished.emit(result, spec, core, wire, material)
+
+
 class MainWindow(QMainWindow):
     """The application's main window.
 
@@ -120,6 +193,16 @@ class MainWindow(QMainWindow):
 
     design_completed = _Signal(object, object, object, object, object)
     """``Signal(DesignResult, Spec, Core, Wire, Material)``."""
+
+    _calc_requested = _Signal(object, object, object, object)
+    """Internal: emitted to enqueue a calc on the design worker thread.
+
+    Connected to ``_DesignWorker.compute`` via ``QueuedConnection`` in
+    ``_start_design_worker``. Using a signal (instead of
+    ``QMetaObject.invokeMethod``) avoids the ``QMetaType`` registration
+    requirement that fails for arbitrary Python objects like Pydantic
+    models.
+    """
 
     class _StateProvider:
         """Adapter that satisfies the ``SpecPanelLike`` protocol for the
@@ -144,7 +227,22 @@ class MainWindow(QMainWindow):
         def get_material_id(self) -> str:
             return self._win._current_material_id
 
-    def __init__(self):
+    def __init__(self, *, defer_initial_calc: bool = True):
+        """Construct the main shell window.
+
+        ``defer_initial_calc`` controls whether the first
+        ``_on_calculate()`` (and the FEA setup probe) run inside
+        ``__init__`` or are deferred onto the Qt event queue via
+        ``QTimer.singleShot(0, …)``. Production uses the default
+        (``True``) so the window paints before ``design()`` burns
+        500–3000 ms — without this, the splash sits visible for an
+        extra second or three after the window is logically ready.
+
+        Tests that construct ``MainWindow`` outside a running
+        ``QApplication.exec()`` loop (i.e. without pumping events)
+        can pass ``defer_initial_calc=False`` to keep the historical
+        synchronous behaviour they assert against.
+        """
         super().__init__()
         self.setWindowTitle("MagnaDesign — Inductor Design Suite")
         # Window geometry — sourced from ``theme.WindowGeometry`` so
@@ -236,9 +334,98 @@ class MainWindow(QMainWindow):
         # inside ``_open_compare``.
         self._compare_dialog: Optional[CompareDialog] = None
 
-        # Initial calculation + FEA setup probe.
-        self._on_calculate()
-        self._maybe_offer_fea_setup()
+        # Cached snapshot of the most recent successful design —
+        # populated by ``_apply_design_result``. Reused by
+        # ``current_compare_slot()`` so opening the compare dialog
+        # doesn't re-run ``design()`` synchronously on the GUI
+        # thread (the old behaviour froze the UI for 0.5–3 s every
+        # time the user clicked Compare).
+        self._last_design_snapshot: Optional[tuple[object, Spec, Core, Wire, Material]] = None
+
+        # Design-worker thread state. The worker only spins up in
+        # the deferred / async mode used by production; tests with
+        # ``defer_initial_calc=False`` keep the synchronous path so
+        # they don't need to pump the event queue between operations.
+        self._async_recalc_enabled = defer_initial_calc
+        self._design_thread: Optional[QThread] = None
+        self._design_worker: Optional[_DesignWorker] = None
+        # Coalescing: at most one in-flight + one queued. If the
+        # user changes the spec while a calc is running, the queued
+        # request is replaced (not appended) so we always converge
+        # on the freshest inputs rather than racing through stale
+        # intermediate values.
+        self._calc_in_flight = False
+        self._calc_pending_inputs: Optional[tuple[Spec, Core, Wire, Material]] = None
+
+        if self._async_recalc_enabled:
+            self._start_design_worker()
+            # Connect to ``QApplication.aboutToQuit`` so the worker
+            # thread is shut down BEFORE Qt destroys widget children.
+            # See ``_shutdown_design_thread`` docstring for the
+            # rationale (Cmd+Q on macOS bypasses ``closeEvent``).
+            _app = QApplication.instance()
+            if _app is not None:
+                _app.aboutToQuit.connect(self._shutdown_design_thread)
+
+        # Initial calculation + FEA setup probe. In production we
+        # defer both onto the next event-loop tick so ``__init__``
+        # returns immediately and Qt can paint the main window
+        # BEFORE we burn 500–3000 ms on ``design()`` + FEMMT import
+        # probing. Without this defer the user sees the splash for
+        # an extra second or three after the window is logically
+        # ready, because Qt waits for the first paint event before
+        # swapping splash → window, and the first paint can't
+        # happen until ``__init__`` returns. The deferred sequence
+        # is: ``__init__`` returns → window paints → event loop
+        # ticks → first calc runs → KPIs populate.
+        #
+        # ``QTimer.singleShot(0, …)`` queues the call on the main
+        # thread's event queue, NOT a worker thread, so it's safe
+        # to touch widgets directly from inside the deferred
+        # callbacks (which is what ``_on_calculate`` does — it
+        # mutates the spec drawer, KPI strip, nucleo combos, etc.).
+        if defer_initial_calc:
+            from PySide6.QtCore import QTimer
+
+            QTimer.singleShot(0, self._on_calculate)
+            QTimer.singleShot(0, self._maybe_offer_fea_setup)
+        else:
+            # Tests that construct ``MainWindow`` outside a running
+            # event loop opt out via ``defer_initial_calc=False``
+            # so they don't have to pump ``app.processEvents()``
+            # between construction and their first assertion.
+            self._on_calculate()
+            self._maybe_offer_fea_setup()
+
+    # ==================================================================
+    # Lifecycle — clean worker thread shutdown on close
+    # ==================================================================
+    def _shutdown_design_thread(self) -> None:
+        """Quit + wait on the design worker thread. Idempotent.
+
+        Wired to both ``closeEvent`` (user clicks X / calls
+        ``win.close()``) and ``QApplication.aboutToQuit`` (Cmd+Q on
+        macOS, session-end on Linux). The latter is the path that
+        actually catches process-shutdown — Qt destroys widgets as
+        children of ``QApplication`` without invoking ``closeEvent``
+        first, so without an ``aboutToQuit`` hook we'd hit
+        ``QThread::~QThread()`` while the thread is still running
+        and Qt would ``abort()`` the whole process (the v0.4.x
+        Cmd+Q crash with the "method implementation was set
+        dynamically" objc trap fingerprint in the report).
+        """
+        if self._design_thread is not None and self._design_thread.isRunning():
+            self._design_thread.quit()
+            self._design_thread.wait(2000)
+        # Restore the cursor unconditionally in case a calc was in
+        # flight at close time — the override stack is application-
+        # wide and would otherwise leak into the next dialog.
+        QApplication.restoreOverrideCursor()
+
+    def closeEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        """Tear down the design worker thread before closing."""
+        self._shutdown_design_thread()
+        super().closeEvent(event)
 
     # ==================================================================
     # Command palette — Cmd/Ctrl+K (P2.Q)
@@ -639,7 +826,11 @@ class MainWindow(QMainWindow):
         try:
             home = Path.home()
             rel = p.relative_to(home)
-            return f"~/{rel}"
+            # ``rel.as_posix()`` forces forward slashes on every OS;
+            # without it the recents menu on Windows shows the
+            # cosmetically ugly ``~/sub\path\file.pfc`` mix because
+            # ``str(rel)`` uses ``os.sep`` which is ``\`` there.
+            return f"~/{rel.as_posix()}"
         except ValueError:
             return str(p)
 
@@ -1509,8 +1700,31 @@ class MainWindow(QMainWindow):
         thread.start()
 
     def current_compare_slot(self) -> CompareSlot:
+        """Return the latest design as a ``CompareSlot``.
+
+        Reuses ``_last_design_snapshot`` when available so the
+        compare-dialog open is instant. Falls back to a synchronous
+        ``design()`` only on the first call (before ``_on_calculate``
+        has had a chance to run, e.g. if the user clicks Compare
+        before the deferred initial calc completes); in practice
+        that path is exercised only by tests.
+        """
+        if self._last_design_snapshot is not None:
+            result, spec, core, wire, material = self._last_design_snapshot
+            return CompareSlot(
+                spec=spec,
+                core=core,
+                wire=wire,
+                material=material,
+                result=result,  # pyright: ignore[reportArgumentType]
+            )
+
+        # Cold-cache fallback. Synchronous because the caller (the
+        # compare dialog) expects the slot to exist immediately.
         spec, core, wire, material = self._collect_inputs()
         result = design(spec, core, wire, material)
+        # Populate the cache so subsequent calls hit the fast path.
+        self._last_design_snapshot = (result, spec, core, wire, material)
         return CompareSlot(
             spec=spec,
             core=core,
@@ -1668,14 +1882,135 @@ class MainWindow(QMainWindow):
     def _find_wire(self, wire_id: str) -> Wire:
         return self._calc.find_wire(wire_id)
 
-    def _on_calculate(self) -> None:
-        try:
-            spec, core, wire, material = self._collect_inputs()
-            result = design(spec, core, wire, material)
-        except DesignError as e:
-            QMessageBox.warning(self, "Calculation error", e.user_message())
-            return
+    # ------------------------------------------------------------------
+    # Design-worker plumbing — keeps the heavy ``design()`` call off
+    # the GUI thread so the spec drawer stays responsive on rapid
+    # parameter sweeps and large topologies (~3 s on cascade-eligible
+    # cores).
+    # ------------------------------------------------------------------
+    def _start_design_worker(self) -> None:
+        """Construct + start the long-lived design worker thread.
 
+        Called once from ``__init__`` in production. Tests using
+        ``defer_initial_calc=False`` skip this and run ``design()``
+        synchronously inside ``_on_calculate`` — that path needs no
+        worker thread, no signal marshaling, and no event-queue
+        pumping, which matches the historical test contract.
+        """
+        self._design_thread = QThread(self)
+        self._design_thread.setObjectName("pfc-design-worker")
+        self._design_worker = _DesignWorker()
+        self._design_worker.moveToThread(self._design_thread)
+        # Both signals must be ``QueuedConnection`` so the slot
+        # runs on the GUI thread (where it can mutate widgets).
+        # ``AutoConnection`` would also work here (Qt picks Queued
+        # because sender and receiver are in different threads),
+        # but explicit is safer — it documents intent and survives
+        # future refactors that might move the worker to a different
+        # thread.
+        self._design_worker.finished.connect(
+            self._on_design_finished,
+            Qt.ConnectionType.QueuedConnection,
+        )
+        self._design_worker.failed.connect(
+            self._on_design_failed,
+            Qt.ConnectionType.QueuedConnection,
+        )
+        # Main thread → worker: emitting ``_calc_requested`` from the
+        # main thread enqueues a ``compute`` call on the worker's event
+        # loop. ``QueuedConnection`` is explicit because the slot lives
+        # in a different thread; ``AutoConnection`` would also pick
+        # Queued here, but explicit beats implicit when threading is
+        # involved.
+        self._calc_requested.connect(
+            self._design_worker.compute,
+            Qt.ConnectionType.QueuedConnection,
+        )
+        self._design_thread.start()
+
+    def _dispatch_calc(self, spec: Spec, core: Core, wire: Wire, material: Material) -> None:
+        """Send a calc request to the worker thread.
+
+        Emits ``_calc_requested`` rather than calling
+        ``self._design_worker.compute(...)`` directly so the call
+        crosses thread boundaries safely via Qt's ``QueuedConnection``.
+        See the ``_DesignWorker`` docstring for why we route through a
+        signal instead of ``QMetaObject.invokeMethod``.
+        """
+        assert self._design_worker is not None, "worker not started"
+        self._calc_requested.emit(spec, core, wire, material)
+
+    @Slot(object, object, object, object, object)
+    def _on_design_finished(
+        self,
+        result: object,
+        spec: object,
+        core: object,
+        wire: object,
+        material: object,
+    ) -> None:
+        """Worker emitted ``finished`` — apply on the GUI thread."""
+        # The Slot decorator types these as ``object`` to match the
+        # Signal signature; the runtime types are guaranteed by the
+        # worker's contract.
+        self._apply_design_result(
+            result,
+            spec,  # pyright: ignore[reportArgumentType]
+            core,  # pyright: ignore[reportArgumentType]
+            wire,  # pyright: ignore[reportArgumentType]
+            material,  # pyright: ignore[reportArgumentType]
+        )
+        self._calc_in_flight = False
+        self._set_recalc_busy(False)
+        # If the user changed the spec while we were running, fire
+        # the queued recalc against the freshest inputs. Older
+        # queued requests were already dropped at enqueue time.
+        if self._calc_pending_inputs is not None:
+            pending = self._calc_pending_inputs
+            self._calc_pending_inputs = None
+            self._calc_in_flight = True
+            self._set_recalc_busy(True)
+            self._dispatch_calc(*pending)
+
+    @Slot(str)
+    def _on_design_failed(self, message: str) -> None:
+        """Worker emitted ``failed`` — surface the error on the GUI."""
+        self._calc_in_flight = False
+        self._set_recalc_busy(False)
+        QMessageBox.warning(self, "Calculation error", message)
+        # Drop any pending request so we don't immediately re-fail
+        # against (likely) the same inputs. The user can retry by
+        # touching the spec again.
+        self._calc_pending_inputs = None
+
+    def _set_recalc_busy(self, busy: bool) -> None:
+        """Visual feedback for an in-flight worker recalc.
+
+        Uses a Qt override cursor for now — the spec drawer keeps
+        the previous design's KPIs visible (rather than blanking)
+        so the user has a clear ``before / after`` reference. If
+        the busy-cursor proves too subtle in user testing we can
+        wire a dedicated indicator into the scoreboard later
+        without touching the worker plumbing.
+        """
+        if busy:
+            QApplication.setOverrideCursor(QCursor(Qt.CursorShape.BusyCursor))
+        else:
+            QApplication.restoreOverrideCursor()
+
+    def _apply_design_result(
+        self,
+        result,  # type: ignore[no-untyped-def]
+        spec: Spec,
+        core: Core,
+        wire: Wire,
+        material: Material,
+    ) -> None:
+        """Mutate the GUI from a successful ``design()`` result.
+
+        Always runs on the main thread (either directly from the
+        synchronous code path or via a ``QueuedConnection`` slot).
+        """
         # Filter the material catalogue by the current topology so
         # downstream pages (core selection, optimizer, cascade)
         # don't waste time evaluating materials that make no
@@ -1723,5 +2058,54 @@ class MainWindow(QMainWindow):
             self._wires,
         )
 
+        # Cache the snapshot so ``current_compare_slot()`` and any
+        # other downstream consumer can read the fresh design state
+        # without paying for another ``design()`` call.
+        self._last_design_snapshot = (result, spec, core, wire, material)
+
         # Emit for subscribers (tests, future plug-ins).
         self.design_completed.emit(result, spec, core, wire, material)
+
+    def _on_calculate(self) -> None:
+        """Recompute the design from the current spec / core / wire / material.
+
+        Production (``_async_recalc_enabled``): dispatches ``design()``
+        to the worker thread; result lands via ``_on_design_finished``.
+        Rapid re-triggers (e.g. user dragging a slider) coalesce —
+        the current calc completes uninterrupted, and exactly one
+        queued recalc fires after it against the latest inputs.
+
+        Test path (``_async_recalc_enabled=False``): runs synchronously
+        inline so tests that don't ``app.exec()`` see the state mutate
+        before returning. Matches the historical contract of
+        construction-time ``_on_calculate``.
+        """
+        if not self._async_recalc_enabled:
+            try:
+                spec, core, wire, material = self._collect_inputs()
+                result = design(spec, core, wire, material)
+            except DesignError as e:
+                QMessageBox.warning(self, "Calculation error", e.user_message())
+                return
+            self._apply_design_result(result, spec, core, wire, material)
+            return
+
+        # Async path. Input collection is cheap (<1 ms) and stays
+        # on the main thread; only ``design()`` itself is heavy.
+        try:
+            spec, core, wire, material = self._collect_inputs()
+        except DesignError as e:
+            QMessageBox.warning(self, "Calculation error", e.user_message())
+            return
+
+        if self._calc_in_flight:
+            # A calc is already running. Save these inputs as the
+            # latest pending; the previous pending (if any) is
+            # discarded — we always converge on the freshest values
+            # rather than racing through stale intermediates.
+            self._calc_pending_inputs = (spec, core, wire, material)
+            return
+
+        self._calc_in_flight = True
+        self._set_recalc_busy(True)
+        self._dispatch_calc(spec, core, wire, material)

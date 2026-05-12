@@ -18,13 +18,8 @@ the legacy Analysis tab layout for non-VFD specs.
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
-import matplotlib
-
-matplotlib.use("QtAgg")
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
-from matplotlib.figure import Figure
 from PySide6.QtWidgets import (
     QLabel,
     QSizePolicy,
@@ -34,6 +29,28 @@ from PySide6.QtWidgets import (
 
 from pfc_inductor.models.banded_result import BandedDesignResult, BandPoint
 from pfc_inductor.ui.theme import get_theme, on_theme_changed
+
+# matplotlib cold-import is ~150–300 ms. The modulation-band chart is
+# only visible on specs that carry an ``fsw_modulation`` band — most
+# cold launches never need it. Deferred to ``_figure_imports`` so the
+# matplotlib pull lands lazily.
+if TYPE_CHECKING:  # pragma: no cover — typing only
+    from matplotlib.backends.backend_qtagg import (  # noqa: F401
+        FigureCanvasQTAgg,
+    )
+    from matplotlib.figure import Figure  # noqa: F401
+
+
+def _figure_imports():
+    """Lazy matplotlib import for the modulation-band chart."""
+    import matplotlib
+
+    matplotlib.use("QtAgg")
+    from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
+    from matplotlib.figure import Figure
+
+    return Figure, FigureCanvasQTAgg
+
 
 # Per-metric (label, units, accessor, scale) — single source of
 # truth for the three subplots. Adding a fourth metric later is
@@ -58,12 +75,29 @@ class ModulationBandChart(QWidget):
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(4)
+        self._outer = outer
 
         self._caption = QLabel("")
         self._caption.setProperty("role", "muted")
         self._caption.setWordWrap(True)
         outer.addWidget(self._caption)
 
+        # Deferred Figure construction — see other chart widgets
+        # for the rationale (keeps matplotlib off the boot path).
+        self._placeholder = QWidget()
+        self._placeholder.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self._placeholder.setMinimumHeight(220)
+        outer.addWidget(self._placeholder)
+        self._figure = None
+        self._canvas = None
+        self._canvas_built = False
+        self._pending_banded: Optional[BandedDesignResult] = None
+        on_theme_changed(self._refresh_theme)
+
+    def _ensure_canvas_built(self) -> None:
+        if self._canvas_built:
+            return
+        Figure, FigureCanvasQTAgg = _figure_imports()
         self._figure = Figure(figsize=(8.0, 2.4), tight_layout=True)
         self._canvas = FigureCanvasQTAgg(self._figure)
         self._canvas.setSizePolicy(
@@ -71,13 +105,21 @@ class ModulationBandChart(QWidget):
             QSizePolicy.Policy.Fixed,
         )
         self._canvas.setMinimumHeight(220)
-        outer.addWidget(self._canvas)
+        idx = self._outer.indexOf(self._placeholder)
+        self._outer.removeWidget(self._placeholder)
+        self._placeholder.deleteLater()
+        self._placeholder = None  # type: ignore[assignment]
+        self._outer.insertWidget(idx, self._canvas)
+        self._canvas_built = True
+        if self._pending_banded is not None:
+            self.show_band(self._pending_banded)
+            self._pending_banded = None
+        else:
+            self._render_empty()
 
-        # Empty state — three blank axes with placeholder labels
-        # so the figure isn't a confusing blank canvas before
-        # the first banded design lands.
-        self._render_empty()
-        on_theme_changed(self._refresh_theme)
+    def showEvent(self, event):  # type: ignore[override]
+        super().showEvent(event)
+        self._ensure_canvas_built()
 
     # ------------------------------------------------------------------
     # Public API
@@ -85,6 +127,11 @@ class ModulationBandChart(QWidget):
     def show_band(self, banded: BandedDesignResult) -> None:
         """Replace the chart with one line per metric across the
         band. Annotates the worst-case fsw on each subplot."""
+        # If the canvas isn't built yet, stash the payload and we'll
+        # render it on the first ``showEvent``.
+        if not self._canvas_built:
+            self._pending_banded = banded
+            return
         if not banded.band:
             self._render_empty()
             return
@@ -108,6 +155,7 @@ class ModulationBandChart(QWidget):
             caption += f"  ⚠  {n_failed} engine failure(s)"
         self._caption.setText(caption)
 
+        assert self._figure is not None and self._canvas is not None
         self._figure.clear()
         axes = self._figure.subplots(1, len(_METRICS))
         if len(_METRICS) == 1:
@@ -190,7 +238,9 @@ class ModulationBandChart(QWidget):
         self._canvas.draw_idle()
 
     def clear(self) -> None:
-        self._render_empty()
+        self._pending_banded = None
+        if self._canvas_built:
+            self._render_empty()
         self._caption.setText("")
 
     # ------------------------------------------------------------------
@@ -210,6 +260,7 @@ class ModulationBandChart(QWidget):
         return float(v)
 
     def _render_empty(self, *, message: str = "No band evaluated yet.") -> None:
+        assert self._figure is not None and self._canvas is not None
         self._figure.clear()
         ax = self._figure.add_subplot(111)
         p = get_theme().palette
@@ -236,4 +287,5 @@ class ModulationBandChart(QWidget):
         # the chart flips colours together with the rest of the
         # app. Without this hook the canvas keeps the original-
         # theme background until the next ``show_band`` call.
-        self._render_empty()
+        if self._canvas_built:
+            self._render_empty()

@@ -34,19 +34,35 @@ formula or a SPICE simulation).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal, Optional
+from typing import TYPE_CHECKING, Literal, Optional
 
-import matplotlib
-
-matplotlib.use("Agg")
-
-from matplotlib.backends.backend_qtagg import (
-    FigureCanvasQTAgg as FigureCanvas,
-)
-from matplotlib.figure import Figure
 from PySide6.QtWidgets import QSizePolicy, QVBoxLayout, QWidget
 
 from pfc_inductor.ui.theme import get_theme, on_theme_changed
+
+# matplotlib pulls in numpy + a font cache rebuild on cold launch
+# (~150–300 ms). The harmonic-spectrum card is only visible when the
+# Compliance tab is selected on a PFC-active topology — most cold
+# launches never need it. Imports moved to ``_figure_imports`` so the
+# cost is paid lazily on first instantiation of the chart widget.
+if TYPE_CHECKING:  # pragma: no cover — typing only
+    from matplotlib.backends.backend_qtagg import (  # noqa: F401
+        FigureCanvasQTAgg as FigureCanvas,
+    )
+    from matplotlib.figure import Figure  # noqa: F401
+
+
+def _figure_imports():
+    """Lazy matplotlib import — called from ``__init__`` so the
+    cost only lands when the chart actually instantiates."""
+    import matplotlib
+
+    matplotlib.use("Agg")
+    from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+    from matplotlib.figure import Figure
+
+    return Figure, FigureCanvas
+
 
 IECClass = Literal["A", "D"]
 
@@ -167,6 +183,7 @@ class HarmonicSpectrumChart(QWidget):
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Expanding,
         )
+        Figure, FigureCanvas = _figure_imports()
         self._fig = Figure(figsize=(8.0, 4.4), dpi=100)
         self._fig.set_facecolor(get_theme().palette.surface)
         self._canvas = FigureCanvas(self._fig)

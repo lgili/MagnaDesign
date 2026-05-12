@@ -14,9 +14,8 @@ Two surfaces:
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
-import matplotlib
 from PySide6.QtCore import QObject, Qt, QThread, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
@@ -36,9 +35,30 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-matplotlib.use("QtAgg")
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
-from matplotlib.figure import Figure
+# matplotlib costs ~150–300 ms on cold import. ``OptimizerEmbed`` is
+# the entry-point for the Otimizador workspace tab, which is NOT the
+# default page on launch — most cold starts paint the dashboard
+# without ever instantiating the optimizer chart. Deferring matplotlib
+# to ``_figure_imports`` keeps the cost off the boot path; the first
+# OptimizerEmbed construction pays the import (only one chart per
+# session, cached by Python's import system thereafter).
+if TYPE_CHECKING:  # pragma: no cover — typing only
+    from matplotlib.backends.backend_qtagg import (  # noqa: F401
+        FigureCanvasQTAgg,
+    )
+    from matplotlib.figure import Figure  # noqa: F401
+
+
+def _figure_imports():
+    """Lazy matplotlib import — see the module-level docstring above."""
+    import matplotlib
+
+    matplotlib.use("QtAgg")
+    from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
+    from matplotlib.figure import Figure
+
+    return Figure, FigureCanvasQTAgg
+
 
 from pfc_inductor.models import Core, Material, Spec, Wire
 from pfc_inductor.optimize import SweepResult, pareto_front, sweep
@@ -168,7 +188,16 @@ class OptimizerEmbed(QWidget):
             self.filters_bar.chip_materials.set_selected(
                 [current_material_id],
             )
-        self.btn_run.setEnabled(True)
+        # Only re-enable Run when a sweep is NOT in flight. Otherwise
+        # ``set_inputs`` (which the host calls on every recalc, even
+        # while the worker thread is busy) would re-enable the button
+        # mid-sweep — a second click during that window would then
+        # take the early-return path because ``self._thread`` is
+        # still alive. The result was the "fica sempre 100 por 100"
+        # bug: progress bar pinned at 100, no new sweep starts.
+        # ``_on_thread_finished`` is the authoritative re-enabler.
+        if self._thread is None or not self._thread.isRunning():
+            self.btn_run.setEnabled(True)
         self._refresh_estimate()
         if not self._results:
             self.lbl_count.setText(
@@ -285,8 +314,33 @@ class OptimizerEmbed(QWidget):
         return box
 
     def _build_plot(self) -> QGroupBox:
+        """Return the plot-section container with a placeholder body.
+
+        The matplotlib ``Figure`` itself isn't constructed here — that
+        triggers a ~150–300 ms cold import on the first widget that
+        creates one. Instead we lay out an empty container and an
+        ``_ensure_plot_built`` hook that fills in the real chart on
+        first ``showEvent``. The optimizer tab is not the default page,
+        so deferring the chart construction keeps matplotlib off the
+        main-window boot path entirely (a cold start that never opens
+        the optimizer never pays the matplotlib cost).
+        """
         box = QGroupBox("Volume × Total loss (Pareto highlighted)")
+        self._plot_box = box
         v = QVBoxLayout(box)
+        self._plot_layout = v
+        self.fig = None  # populated by ``_ensure_plot_built``
+        self.canvas = None
+        self.ax = None
+        self._plot_built = False
+        return box
+
+    def _ensure_plot_built(self) -> None:
+        """Construct the matplotlib Figure on first call. Idempotent."""
+        if self._plot_built:
+            return
+        Figure, FigureCanvasQTAgg = _figure_imports()
+        self._FigureCanvasQTAgg = FigureCanvasQTAgg
         self.fig = Figure(figsize=(5, 5), tight_layout=True)
         self.canvas = FigureCanvasQTAgg(self.fig)
         self.ax = self.fig.add_subplot(111)
@@ -298,8 +352,16 @@ class OptimizerEmbed(QWidget):
         # canvas now communicates "no data yet, here's how to get
         # data" instead of "this chart is empty".
         self._paint_empty_plot()
-        v.addWidget(self.canvas)
-        return box
+        self._plot_layout.addWidget(self.canvas)
+        self._plot_built = True
+
+    def showEvent(self, event):  # type: ignore[override]
+        super().showEvent(event)
+        # First time the optimizer tab becomes visible, build the plot.
+        # Subsequent shows are no-ops via the ``_plot_built`` guard.
+        # Synchronous build (vs. ``QTimer.singleShot(0, …)``) avoids a
+        # one-frame empty-plot flash when the user opens this tab.
+        self._ensure_plot_built()
 
     def _paint_empty_plot(self) -> None:
         """Draw an instructional empty state on the matplotlib canvas.
@@ -317,6 +379,14 @@ class OptimizerEmbed(QWidget):
         nobody mistakes them for real data — they're decorative
         scaffolding for the empty state.
         """
+        # The Figure is built lazily on first ``showEvent`` so the
+        # matplotlib import doesn't fire during MainWindow boot.
+        # Calls before then (e.g. ``set_inputs`` arriving while the
+        # user is on the dashboard) become no-ops; the next
+        # showEvent will run ``_ensure_plot_built`` which calls
+        # this method again to paint the empty state for real.
+        if self.ax is None or self.canvas is None:
+            return
         import numpy as np
 
         self.ax.clear()
@@ -512,8 +582,13 @@ class OptimizerEmbed(QWidget):
         self._worker.progress.connect(self._on_progress)
         self._worker.done.connect(self._on_done)
         self._worker.failed.connect(self._on_failed)
-        self._worker.done.connect(self._thread.quit)
-        self._worker.failed.connect(self._thread.quit)
+        # ``_on_done`` / ``_on_failed`` handle thread cleanup directly
+        # via ``_teardown_thread`` (which calls ``quit() + wait()``
+        # synchronously). We don't connect ``done`` / ``failed`` to
+        # ``_thread.quit`` separately because ``_teardown_thread``
+        # already does the quit, and double-quitting is a no-op
+        # but produces noisy "thread already finished" warnings on
+        # some Qt builds.
         self._thread.start()
 
     def _on_progress(self, done: int, total: int):
@@ -526,10 +601,45 @@ class OptimizerEmbed(QWidget):
         self._refresh_table()
         self._refresh_plot()
         self.progress.setValue(100)
-        self.btn_run.setEnabled(True)
+        # Cleanup is inline (not in a separate ``finished`` slot)
+        # to remove the race window where the button gets re-enabled
+        # before ``self._thread`` is cleared. ``wait(500)`` is
+        # virtually instant — by the time ``done`` fires, ``worker.run()``
+        # has already returned and the thread's event loop just needs
+        # one ``quit`` event to exit. Centralising cleanup also
+        # guarantees the button stays consistent with the thread
+        # state, which was the v0.4.x "fica sempre 100 por 100"
+        # bug — the user's second click landed inside the window
+        # where button was enabled but ``self._thread`` still pointed
+        # at a not-quite-finished QThread.
+        self._teardown_thread()
 
     def _on_failed(self, msg: str):
         QMessageBox.critical(self, "Sweep error", msg)
+        self._teardown_thread()
+
+    def _teardown_thread(self) -> None:
+        """Wait for the worker thread to truly finish, then clear
+        references and re-enable the Run button.
+
+        Idempotent. Safe to call from both the success
+        (``_on_done``) and failure (``_on_failed``) paths.
+        """
+        thread = self._thread
+        worker = self._worker
+        self._thread = None
+        self._worker = None
+        if thread is not None:
+            thread.quit()
+            # Block briefly until the event loop exits and ``run()``
+            # returns. This is microseconds in practice — the worker
+            # has already emitted its terminal signal and returned;
+            # all that's left is the QThread processing the queued
+            # quit event. The 1 s cap is a paranoid backstop.
+            thread.wait(1000)
+            thread.deleteLater()
+        if worker is not None:
+            worker.deleteLater()
         self.btn_run.setEnabled(True)
 
     def _refresh_table(self):
@@ -589,6 +699,13 @@ class OptimizerEmbed(QWidget):
             )
 
     def _refresh_plot(self):
+        # ``_refresh_plot`` is invoked from the sweep callback. By the
+        # time the user has clicked Run, they're on the optimizer tab,
+        # so ``showEvent`` has already built the figure. But guard
+        # anyway: a future code path could land results without the
+        # tab ever being shown (e.g. headless test invocation).
+        self._ensure_plot_built()
+        assert self.ax is not None and self.canvas is not None  # type narrowing
         self.ax.clear()
         p = get_theme().palette
         all_results = self._results
