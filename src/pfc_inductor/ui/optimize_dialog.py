@@ -232,7 +232,21 @@ class OptimizerEmbed(QWidget):
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.addWidget(self._build_table())
         splitter.addWidget(self._build_plot())
-        splitter.setSizes([700, 500])
+        # Initial pane widths sized for the typical 1366 × 768 laptop
+        # (220-px sidebar + 24-px page margins ≈ 1100 px available).
+        # Pre-v0.4.16 we used [700, 500] = 1200 px which forced a
+        # horizontal scrollbar on those displays — the engineer
+        # couldn't see the Pareto chart without scrolling sideways.
+        splitter.setSizes([520, 420])
+        splitter.setStretchFactor(0, 3)  # table grows ~3× faster than
+        splitter.setStretchFactor(1, 2)  # the chart on horizontal resize
+        # Allow both panes to shrink below their sizeHint — the
+        # table has its own internal horizontal scrollbar (see
+        # ``ScrollBarAsNeeded`` in ``_build_table``), and the
+        # matplotlib canvas handles its own redraw on resize. The
+        # alternative — Qt growing the splitter to fit children's
+        # ``sizeHint`` — was the v0.4.15 "page got too wide" trigger.
+        splitter.setChildrenCollapsible(False)
         outer.addWidget(splitter, 1)
 
         outer.addLayout(self._build_buttons())
@@ -396,15 +410,71 @@ class OptimizerEmbed(QWidget):
         self.filters_bar.filters_changed.connect(self._refresh_estimate)
         v.addWidget(self.filters_bar)
 
+        # ---- History row: recent picks + past runs ----------------
+        # A dedicated compact row hosts both persistence dropdowns so
+        # they don't pollute the action toolbars above the table or
+        # beside the Apply button. Caps at ~200 px each — the v0.4.15
+        # placement (280 px combos inside the table's status row)
+        # blew the QSplitter table-side past the 1366 × 768 laptop
+        # width budget and the Pareto chart fell off-screen on the
+        # right.
+        hist_row = QHBoxLayout()
+        hist_row.setSpacing(12)
+        lbl_recent = QLabel("Recent picks:")
+        lbl_recent.setProperty("role", "muted")
+        hist_row.addWidget(lbl_recent)
+        self.cmb_recent_picks = QComboBox()
+        self.cmb_recent_picks.setToolTip(
+            "Designs you've applied recently (last 5). Pick one to "
+            "re-apply its (material, core, wire) triple — useful when "
+            "comparing a handful of candidates back-and-forth."
+        )
+        self.cmb_recent_picks.setMinimumWidth(180)
+        self.cmb_recent_picks.setMaximumWidth(220)
+        self.cmb_recent_picks.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
+        self.cmb_recent_picks.activated.connect(self._on_recent_pick_picked)
+        hist_row.addWidget(self.cmb_recent_picks)
+        lbl_history = QLabel("Run history:")
+        lbl_history.setProperty("role", "muted")
+        hist_row.addWidget(lbl_history)
+        self.cmb_run_history = QComboBox()
+        self.cmb_run_history.setToolTip(
+            "Past sweeps — newest first. Pick a run to re-apply its "
+            "top design without re-running the sweep. Stored under "
+            "your user-data directory."
+        )
+        self.cmb_run_history.setMinimumWidth(180)
+        self.cmb_run_history.setMaximumWidth(240)
+        self.cmb_run_history.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
+        self.cmb_run_history.activated.connect(self._on_run_history_picked)
+        hist_row.addWidget(self.cmb_run_history)
+        hist_row.addStretch(1)
+        v.addLayout(hist_row)
+        # Initial population — both stores are persistent across
+        # sessions, so populate even before the user does anything.
+        self._reload_recent_picks_dropdown()
+        self._reload_run_history_dropdown()
+
         # ---- Secondary toggles + run button -----------------------
         h = QHBoxLayout()
         h.setSpacing(12)
 
-        self.chk_compat = QCheckBox(
-            "Restrict to cores compatible with the material",
+        # Shortened label — "Restrict to cores compatible with the
+        # material" was ~310 px wide and pushed the toggles row past
+        # the 832-px page-body budget on 1100-px-wide windows. The
+        # tooltip below carries the long-form explanation.
+        self.chk_compat = QCheckBox("Compatible cores only")
+        self.chk_compat.setToolTip(
+            "Restrict the sweep to cores whose ``default_material_id`` "
+            "matches a selected material. Toggle off to evaluate every "
+            "core × every material — useful for cross-material trade-offs."
         )
         self.chk_compat.setChecked(True)
-        self.chk_feasible = QCheckBox("Hide infeasible designs")
+        self.chk_feasible = QCheckBox("Feasible only")
+        self.chk_feasible.setToolTip(
+            "Hide candidates that violate Ku, Bsat, or thermal limits. "
+            "Toggle off to inspect borderline designs."
+        )
         # Default ON: show only candidates that satisfy Ku/Bsat/T limits.
         # Most users want a list of "what can I actually build", not a
         # catalogue of failures. Toggle off to inspect borderline cases.
@@ -450,8 +520,12 @@ class OptimizerEmbed(QWidget):
         self.progress = QProgressBar()
         self.progress.setRange(0, 100)
         self.progress.setValue(0)
-        self.progress.setMinimumWidth(220)
-        self.progress.setMaximumWidth(280)
+        # Trimmed from 220-280 px to 160-220 px so the toggles row
+        # fits within the 832-px page-body budget on a 1100-px-wide
+        # window (the configured min window size). ETA text is still
+        # rendered via the format string + ``_format_duration``.
+        self.progress.setMinimumWidth(160)
+        self.progress.setMaximumWidth(220)
         self.progress.setFormat("%p% · idle")
         self.progress.setVisible(False)
         h.addWidget(self.progress)
@@ -465,6 +539,13 @@ class OptimizerEmbed(QWidget):
         v = QVBoxLayout(box)
 
         # Status row + action toolbar above the table.
+        # NOTE: history dropdowns live in the dedicated "history row"
+        # built by ``_build_controls`` — keeping them out of this row
+        # is what unblocked the v0.4.15 "page got too wide" feedback:
+        # with a 280-px combo plus three action buttons here, the
+        # ``QSplitter`` table side wouldn't shrink below ~800 px and
+        # the right-hand Pareto chart fell off-screen on 1366 × 768
+        # laptops. The status row now only carries the action toolbar.
         status_row = QHBoxLayout()
         status_row.setSpacing(12)
         self.lbl_count = QLabel("No sweep yet.")
@@ -472,22 +553,6 @@ class OptimizerEmbed(QWidget):
         self.lbl_selection = QLabel("")
         self.lbl_selection.setProperty("role", "muted")
         status_row.addWidget(self.lbl_selection)
-        # Run history dropdown — last 10 sweep summaries with one-click
-        # "re-apply the past winner" without re-running the sweep. The
-        # JSON store under user_data_dir keeps metadata only (IDs +
-        # scalars), not the full SweepResult payload, so the file
-        # stays small and version-stable.
-        self.cmb_run_history = QComboBox()
-        self.cmb_run_history.setToolTip(
-            "Past sweeps — newest first. Pick a run to re-apply its "
-            "top design without re-running the sweep. Cleared on app "
-            "uninstall; stored under your user-data directory."
-        )
-        self.cmb_run_history.setMinimumWidth(220)
-        self.cmb_run_history.setMaximumWidth(280)
-        self.cmb_run_history.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
-        self.cmb_run_history.activated.connect(self._on_run_history_picked)
-        status_row.addWidget(self.cmb_run_history)
         # Pareto-front quick select — highlights every non-dominated
         # candidate in one click. Common workflow: run sweep, click
         # this, then Compare to see the trade-off curve in detail.
@@ -519,11 +584,6 @@ class OptimizerEmbed(QWidget):
         self.btn_export.clicked.connect(self._export_csv)
         status_row.addWidget(self.btn_export)
         v.addLayout(status_row)
-
-        # Initial population — the dropdown remembers history across
-        # sessions; populating here ensures it's filled on first paint
-        # even before the user runs anything.
-        self._reload_run_history_dropdown()
 
         self.table = QTableWidget(0, 10)
         # Column headers — terse engineer-friendly tags. Tooltips on
@@ -573,13 +633,50 @@ class OptimizerEmbed(QWidget):
         # that's the whole point of a sweep.
         self.table.setSelectionMode(QTableWidget.SelectionMode.ExtendedSelection)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        hdr.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-        # Material column (col 2) can hold long names ("Magnetics 60 µ
-        # High Flux / Sendust"). Mid-elide keeps the row height stable
-        # without truncating the vendor prefix that disambiguates
-        # similar parts.
-        hdr.setSectionResizeMode(2, QHeaderView.ResizeMode.Interactive)
+        # Column-width policy: Interactive (user can drag) with
+        # explicit defaults instead of ResizeToContents. The latter
+        # made the table side of the splitter expand to fit the
+        # widest cell, which on full sweeps (Magnetics part numbers
+        # are long) blew the splitter past the page-body width and
+        # forced a horizontal scrollbar — the v0.4.15 "page is too
+        # wide" feedback. With Interactive + sensible defaults the
+        # table fits comfortably and the user can drag columns wider
+        # if they want.
+        hdr.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        defaults_px = {
+            0: 95,  # Core
+            1: 80,  # Wire
+            2: 130,  # Material (longest; still ElideMiddle below)
+            3: 70,  # Vol [cm³]
+            4: 70,  # L [µH]
+            5: 38,  # N (small int)
+            6: 60,  # P [W]
+            7: 60,  # T [°C]
+            8: 62,  # Cost
+            9: 96,  # Status
+        }
+        for col_idx, width in defaults_px.items():
+            self.table.setColumnWidth(col_idx, width)
+        # The Status column (last) stretches to fill any remaining
+        # space so the table doesn't end with an awkward gap on wide
+        # monitors.
+        hdr.setStretchLastSection(True)
         self.table.setTextElideMode(Qt.TextElideMode.ElideMiddle)
+        # Allow horizontal scroll WITHIN the table when the user
+        # makes a column wider than the parent — the splitter no
+        # longer grows past the page body.
+        from PySide6.QtCore import Qt as _Qt
+
+        self.table.setHorizontalScrollBarPolicy(_Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        # Allow the table to shrink to 360 px before truncating any
+        # content via the internal h-scroll. Without this Qt would
+        # propagate the column-sum (≈760 px) as the table's
+        # ``sizeHint`` minimum, forcing the splitter — and the
+        # whole optimizer page — to grow wider than the parent.
+        self.table.setMinimumWidth(360)
+        from PySide6.QtWidgets import QSizePolicy as _SP
+
+        self.table.setSizePolicy(_SP.Policy.Expanding, _SP.Policy.Expanding)
         self.table.itemSelectionChanged.connect(self._on_row_selected)
         f = QFont()
         f.setStyleHint(QFont.StyleHint.Monospace)
@@ -732,37 +829,18 @@ class OptimizerEmbed(QWidget):
         self.canvas.draw_idle()
 
     def _build_buttons(self) -> QHBoxLayout:
+        # ``Recent picks`` lives in the history row inside
+        # ``_build_controls`` — this row is now just the Apply
+        # primary action, which keeps the bottom edge of the page
+        # clean and the chart side of the QSplitter as wide as Qt
+        # will allow.
         h = QHBoxLayout()
-        # Recent picks dropdown — last 5 applied design triples,
-        # newest first. One click re-applies the triple via the same
-        # ``selection_applied`` signal the table-row "Apply" button
-        # uses. Lets the engineer flip between recent candidates
-        # without re-sweeping or re-finding them in the table.
-        lbl = QLabel("Recent picks:")
-        lbl.setProperty("role", "muted")
-        h.addWidget(lbl)
-        self.cmb_recent_picks = QComboBox()
-        self.cmb_recent_picks.setToolTip(
-            "Designs you've applied recently (last 5). Pick one to "
-            "re-apply its (material, core, wire) triple — useful when "
-            "comparing a handful of candidates back-and-forth."
-        )
-        self.cmb_recent_picks.setMinimumWidth(220)
-        self.cmb_recent_picks.setMaximumWidth(320)
-        self.cmb_recent_picks.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
-        self.cmb_recent_picks.activated.connect(self._on_recent_pick_picked)
-        h.addWidget(self.cmb_recent_picks)
         h.addStretch(1)
         self.btn_apply = QPushButton("Apply selection")
         self.btn_apply.setProperty("class", "Primary")
         self.btn_apply.setEnabled(False)
         self.btn_apply.clicked.connect(self._apply_selection)
         h.addWidget(self.btn_apply)
-
-        # Initial population — the recent-picks store is persistent,
-        # so populate on construction even before the user applies
-        # anything in this session.
-        self._reload_recent_picks_dropdown()
         return h
 
     # Above this many evaluations the sweep stops being interactive

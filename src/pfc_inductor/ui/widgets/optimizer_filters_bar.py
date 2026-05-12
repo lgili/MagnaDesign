@@ -175,7 +175,12 @@ class OptimizerFiltersBar(QFrame):
         obj_row.addWidget(obj_label)
 
         self.cmb_objective = QComboBox()
-        self.cmb_objective.setMinimumWidth(280)
+        # Trimmed from 280 px to 220 px so the "How to rank" row
+        # fits on narrow (1100-px) windows without horizontal
+        # scroll. The combo still shows the full label thanks to
+        # ``AdjustToContents`` — Qt elides only on truly tight space.
+        self.cmb_objective.setMinimumWidth(220)
+        self.cmb_objective.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
         for key, label, hint in OBJECTIVES:
             self.cmb_objective.addItem(label, key)
             # ``setItemData(role=Qt.ToolTipRole)`` adds per-item
