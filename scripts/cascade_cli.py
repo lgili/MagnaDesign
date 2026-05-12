@@ -63,7 +63,7 @@ from pfc_inductor.optimize.cascade import (
 
 
 def default_store_path() -> Path:
-    return Path(user_data_dir("PFCInductorDesigner", "indutor")) / "cascade.db"
+    return Path(user_data_dir("MagnaDesign", "MagnaDesign")) / "cascade.db"
 
 
 # ─── Spec construction ─────────────────────────────────────────────

@@ -619,7 +619,13 @@ class FEAFieldGallery(QWidget):
         # thread's existing ``thread.finished → deleteLater`` chain
         # (wired below) cleans up async after exec() actually
         # returns.
-        if self._scan_thread is not None and self._scan_thread.isRunning():
+        is_running = False
+        if self._scan_thread is not None:
+            try:
+                is_running = self._scan_thread.isRunning()
+            except RuntimeError:
+                pass  # Already deleted
+        if is_running:
             try:
                 self._scan_worker.finished.disconnect()  # type: ignore[union-attr]
             except (RuntimeError, TypeError):

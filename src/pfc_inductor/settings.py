@@ -9,7 +9,7 @@ preferences across two stores.
 
 from __future__ import annotations
 
-SETTINGS_ORG = "indutor"
-SETTINGS_APP = "PFCInductorDesigner"
+SETTINGS_ORG = "MagnaDesign"
+SETTINGS_APP = "MagnaDesign"
 
 __all__ = ["SETTINGS_APP", "SETTINGS_ORG"]

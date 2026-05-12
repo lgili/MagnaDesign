@@ -35,13 +35,13 @@ import shutil
 import sys
 from pathlib import Path
 from typing import Iterable
+import importlib.resources
 
 from platformdirs import user_data_dir
 
 from pfc_inductor.models import Core, Material, Wire
+from pfc_inductor.settings import SETTINGS_APP, SETTINGS_ORG
 
-APP_NAME = "PFCInductorDesigner"
-APP_AUTHOR = "indutor"
 
 _PACKAGE_ROOT = Path(__file__).resolve().parent
 
@@ -109,7 +109,7 @@ _BUNDLED_PYETK = _BUNDLED_DATA / "pyetk"
 
 
 def user_data_path() -> Path:
-    p = Path(user_data_dir(APP_NAME, APP_AUTHOR))
+    p = Path(user_data_dir(SETTINGS_APP, SETTINGS_ORG))
     p.mkdir(parents=True, exist_ok=True)
     return p
 
@@ -129,6 +129,17 @@ def ensure_user_data() -> Path:
             src = src_mas if src_mas.exists() else src_legacy
             if src.exists():
                 shutil.copy2(src, dst)
+    # Handle material_data_base.json
+    dst = target / "material_data_base.json"
+    if not dst.exists():
+        try:
+            with importlib.resources.path("materialdatabase.data", "material_data_base.json") as src:
+                if src.exists():
+                    shutil.copy2(src, dst)
+        except (ModuleNotFoundError, FileNotFoundError):
+            # materialdatabase not found or data file missing
+            pass
+
     return target
 
 

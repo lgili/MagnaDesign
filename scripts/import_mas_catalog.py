@@ -377,7 +377,7 @@ def _user_data_dir() -> Optional[Path]:
         from platformdirs import user_data_dir
     except ImportError:
         return None
-    return Path(user_data_dir("PFCInductorDesigner", "indutor"))
+    return Path(user_data_dir("MagnaDesign", "MagnaDesign"))
 
 
 # ---------------------------------------------------------------------------

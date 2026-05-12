@@ -68,7 +68,7 @@ def _user_cores_file() -> Path | None:
         from platformdirs import user_data_dir
     except ImportError:
         return None
-    return Path(user_data_dir("PFCInductorDesigner", "indutor")) / "cores.json"
+    return Path(user_data_dir("MagnaDesign", "MagnaDesign")) / "cores.json"
 
 
 MU0 = 4 * math.pi * 1e-7

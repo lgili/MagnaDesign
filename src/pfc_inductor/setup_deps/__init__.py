@@ -172,6 +172,21 @@ def setup_fea(
     as ``ok=False`` with a detail message — they don't abort the rest.
     """
     report = SetupReport()
+
+    # Step 0: Path-with-spaces workaround. This MUST run first, as
+    # subsequent steps may trigger a `femmt` import, which would
+    # fail with a SyntaxError if the patching hasn't run yet.
+    try:
+        shim = install_path_workaround()
+        if shim is not None:
+            report.add("Workaround path com espaços", True, f"shim em {shim}")
+        else:
+            report.add("Workaround path com espaços", True, "não necessário")
+    except Exception as e:
+        report.add("Workaround path com espaços", False, str(e))
+        # This step is critical for fixing syntax errors, so we abort if it fails.
+        return report
+
     onelab_dir = Path(onelab_dir).expanduser() if onelab_dir else default_onelab_dir()
     report.onelab_dir = onelab_dir
 
@@ -224,17 +239,7 @@ def setup_fea(
     except Exception as e:
         report.add("Escrever config da FEMMT", False, str(e))
 
-    # 5. Path-with-spaces workaround (macOS only, in practice)
-    try:
-        shim = install_path_workaround()
-        if shim is not None:
-            report.add("Workaround path com espaços", True, f"shim em {shim}")
-        else:
-            report.add("Workaround path com espaços", True, "não necessário")
-    except Exception as e:
-        report.add("Workaround path com espaços", False, str(e))
-
-    # 6. Verify
+    # 5. Verify
     v = verify_fea_setup()
     if v.fea_ready:
         report.add(

@@ -56,7 +56,7 @@ def default_history_path() -> Path:
     """Return the platform's app-data directory + ``history.db``."""
     import platformdirs
 
-    base = Path(platformdirs.user_data_dir("MagnaDesign", "Anthropic"))
+    base = Path(platformdirs.user_data_dir("MagnaDesign", "MagnaDesign"))
     base.mkdir(parents=True, exist_ok=True)
     return base / "history.db"
 

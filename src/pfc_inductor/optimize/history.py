@@ -1,7 +1,7 @@
 """Persistence layer for optimizer Run History + Recent Picks.
 
 Two lightweight stores, both JSON files under
-``platformdirs.user_data_dir("PFCInductorDesigner", "indutor")``:
+``platformdirs.user_data_dir("MagnaDesign", "MagnaDesign")``:
 
 - ``optimizer_recent_picks.json`` — last 5 applied design triples
   ``(material_id, core_id, wire_id)`` plus a display label and an
@@ -49,7 +49,7 @@ MAX_RUN_HISTORY = 10
 
 def _history_dir() -> Path:
     """Resolve and ensure the user-data directory for both stores."""
-    path = Path(user_data_dir("PFCInductorDesigner", "indutor"))
+    path = Path(user_data_dir("MagnaDesign", "MagnaDesign"))
     path.mkdir(parents=True, exist_ok=True)
     return path
 

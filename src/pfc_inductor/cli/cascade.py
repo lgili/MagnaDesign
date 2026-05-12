@@ -219,7 +219,7 @@ def _cascade_cmd(
     if store_path is None:
         store_path = (
             Path(
-                user_data_dir("PFCInductorDesigner", "indutor"),
+                user_data_dir("MagnaDesign", "MagnaDesign"),
             )
             / "cascade.db"
         )
