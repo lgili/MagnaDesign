@@ -11,6 +11,7 @@ from __future__ import annotations
 __all__ = [
     "CoreGeometry",
     "build_ei",
+    "build_ei_axi",
 ]
 
 
@@ -23,4 +24,8 @@ def __getattr__(name: str):
         from pfc_inductor.fea.direct.geometry.ei import build_ei
 
         return build_ei
+    if name == "build_ei_axi":
+        from pfc_inductor.fea.direct.geometry.ei_axi import build_ei_axi
+
+        return build_ei_axi
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

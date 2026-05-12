@@ -34,8 +34,63 @@ question:
      inconsistent dimensions vs the analytical formula's
      assumptions about `Ae` / `lgap`.
 
-  Phase 1.2 will diagnose by running FEMMT on the same spec
-  and diffing the generated `.pro` files line-by-line.
+## Phase 1.3 diagnostics (this session)
+
+The 89-99 × discrepancy after Phase 1.1 is **not** a region-
+tagging or function-space bug — that was Phase 1.1's territory.
+Phase 1.3 ran four targeted experiments that narrowed the
+remaining work:
+
+1. **`L ∝ N²` scaling** holds exactly across N ∈ {40, 80, 160,
+   320} (ratios 4.000 / 16.000 to 3 dp). Source is being
+   applied consistently.
+2. **GetDP source integral** ``∫J_z dA over Coil_pos = 400.013``
+   for N·I = 400 — the prescribed source IS correctly handed
+   to the solver.
+3. **Region-tagged ν** distinguishes Core vs Air in the field
+   plot: ``|B|_core ≈ 5 mT`` vs ``|B|_air ≈ 0.8 mT`` (a 6 ×
+   concentration), but the absolute magnitude is 200 × smaller
+   than the analytical ~1 T in the gap. So μ_r IS being
+   honoured but the field doesn't *amplify* the way a wound
+   coil's would.
+4. **Axisymmetric variant** (new `geometry/ei_axi.py` +
+   `physics/magnetostatic_axi.py`) using FEMMT's `VolAxiSqu`
+   convention also produces ~50-78 μH plateaus. Topology
+   change alone doesn't recover the missing factor.
+
+The remaining gap is the **flux-linkage convention**. FEMMT
+models the coil bundle as a **circuit-coupled stranded
+winding** — a `GlobalQuantity` current DOF `ir` over the
+bundle with `BF_RegionZ` basis, coupled to the field via
+``-1/AreaCell × Dof{ir}`` in the Galerkin. Externally, a
+`Constraint Current_2D` pins `Is = I_prescribed`. Our direct
+backend prescribes J directly as a numerical constant, which
+is mathematically equivalent for the DC case **but only when
+the GlobalQuantity-coupled flux-linkage equation is also
+present**. Without it, the formulation captures the field
+strength but misses the per-turn linkage amplification.
+
+Phase 1.4 will add the GlobalQuantity / Hregion_i_2D /
+Voltage-Current constraint structure to our `.pro` template
+and run side-by-side against a curated EI from the catalog.
+
+## Status
+
+**Phase 1.1 — DC magnetostatic on EI cores, pipeline + correct
+region tagging.** Closed the "can we solve it ourselves at all?"
+question:
+
+- ✅ Gmsh + GetDP pipeline end-to-end (mesh, solve, parse, render).
+- ✅ Region tagging via `fragment` output map.
+- ✅ μ_r is honoured (B_core 6 × > B_air).
+- ✅ Calibration scaffold (`compare_backends`) ships an oracle
+  for Phase 1.4 iteration.
+- ✅ Axisymmetric variant (`ei_axi.py` + `magnetostatic_axi.py`)
+  ships as an alternative topology — same architecture, different
+  jacobian convention.
+- ⚠️ **L_dc ~100 × below the analytical ideal** on synthetic
+  test cases. Diagnosed (Phase 1.3) as a missing
+  `GlobalQuantity` circuit-coupling term. Phase 1.4 is the fix.
 
 Once L_dc lands within 5 % of FEMMT, Phase 2 adds more shapes;
 Phase 3 adds AC + thermal.

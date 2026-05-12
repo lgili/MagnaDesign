@@ -19,7 +19,10 @@ The module layout follows that order:
 
 from __future__ import annotations
 
-__all__ = ["MagnetostaticTemplate"]
+__all__ = [
+    "MagnetostaticAxiTemplate",
+    "MagnetostaticTemplate",
+]
 
 
 def __getattr__(name: str):
@@ -29,4 +32,10 @@ def __getattr__(name: str):
         )
 
         return MagnetostaticTemplate
+    if name == "MagnetostaticAxiTemplate":
+        from pfc_inductor.fea.direct.physics.magnetostatic_axi import (
+            MagnetostaticAxiTemplate,
+        )
+
+        return MagnetostaticAxiTemplate
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
