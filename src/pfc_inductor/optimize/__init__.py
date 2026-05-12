@@ -1,3 +1,4 @@
+from pfc_inductor.optimize import history
 from pfc_inductor.optimize.feasibility import (
     Verdict,
     core_quick_check,
@@ -36,6 +37,7 @@ __all__ = [
     "core_quick_check",
     "filter_viable_cores",
     "find_equivalents",
+    "history",
     "make_litz_wire",
     "optimal_strand_diameter_mm",
     "pareto_front",

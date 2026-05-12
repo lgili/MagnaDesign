@@ -120,6 +120,19 @@ class OptimizerFiltersBar(QFrame):
         outer.setContentsMargins(12, 10, 12, 10)
         outer.setSpacing(8)
 
+        # ---- Section header: "What to evaluate" ----------------------
+        # The bar groups two distinct concerns: (a) which catalogue
+        # entries enter the sweep, and (b) how the resulting rows are
+        # ranked. Pre-v0.4.15 these were stacked without a visual
+        # divider, and the UX audit flagged users hunting for the
+        # weight sliders because they read the chip row as the entire
+        # config. The two captions below carve the bar into "inputs"
+        # vs "ranking" without the full QGroupBox split (that would
+        # cost extra padding + duplicate borders in the embed shell).
+        section_evaluate = QLabel("What to evaluate")
+        section_evaluate.setProperty("role", "section")
+        outer.addWidget(section_evaluate)
+
         # ---- Row 1: chips --------------------------------------------
         chip_row = QHBoxLayout()
         chip_row.setSpacing(8)
@@ -147,6 +160,11 @@ class OptimizerFiltersBar(QFrame):
             )
 
         outer.addLayout(chip_row)
+
+        # ---- Section header: "How to rank" ---------------------------
+        section_rank = QLabel("How to rank")
+        section_rank.setProperty("role", "section")
+        outer.addWidget(section_rank)
 
         # ---- Row 2: objective combo ----------------------------------
         obj_row = QHBoxLayout()
@@ -340,11 +358,25 @@ class OptimizerFiltersBar(QFrame):
     def _qss() -> str:
         p = get_theme().palette
         r = get_theme().radius
+        # The ``[role="section"]`` selector targets the two section
+        # headers added in v0.4.15 ("What to evaluate" / "How to rank").
+        # ``font-weight: 600`` + a small letter-spacing gives them the
+        # same prominence as a card title without the box-padding
+        # cost of a real QGroupBox split — they read as section
+        # captions, not as widgets in their own right.
         return (
             f"QFrame#OptimizerFiltersBar {{"
             f"  background: {p.surface};"
             f"  border: 1px solid {p.border};"
             f"  border-radius: {r.card}px;"
+            f"}}"
+            f'QFrame#OptimizerFiltersBar QLabel[role="section"] {{'
+            f"  color: {p.text_secondary};"
+            f"  font-weight: 600;"
+            f"  font-size: 11px;"
+            f"  letter-spacing: 0.4px;"
+            f"  text-transform: uppercase;"
+            f"  padding-top: 4px;"
             f"}}"
         )
 

@@ -31,7 +31,9 @@ the page is purely a view / controller around that.
 
 from __future__ import annotations
 
+import atexit
 import time
+import weakref
 from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
@@ -1238,6 +1240,46 @@ class CascadePage(QWidget):
     _refresh_requested = Signal(str, str, object)
     """``(run_id, objective, cores_by_id)`` — dispatches a refresh."""
 
+    # ── Process-exit safety net ───────────────────────────────────
+    # Every live page registers itself here; an ``atexit`` hook
+    # (installed once) shuts down each live page's worker thread
+    # before the Python interpreter starts destroying Qt widgets.
+    #
+    # Why this exists in addition to ``aboutToQuit`` and
+    # ``closeEvent``: ``aboutToQuit`` only fires after
+    # ``QApplication.exec()`` returns, which never happens in
+    # pytest (the test fixtures construct ``QApplication`` but
+    # never run the event loop). The pages then leak across tests
+    # and at process exit Qt destroys their QThread children
+    # WHILE the threads are still running — Qt aborts with
+    # ``"QThread: Destroyed while thread is still running"``.
+    # The atexit hook catches that path: it runs *before* Python
+    # GC starts tearing down Qt objects, so we still have time to
+    # ``quit()``+``wait()`` each worker thread cleanly.
+    _live_instances: ClassVar[set[weakref.ReferenceType["CascadePage"]]] = set()
+    _atexit_registered: ClassVar[bool] = False
+
+    @classmethod
+    def _shutdown_all_at_exit(cls) -> None:
+        """atexit fallback — quit every live page's refresh thread.
+
+        Called once at interpreter shutdown. Iterates a copy of the
+        weakref set so the per-page ``_shutdown_refresh_thread``
+        calls (which may mutate the set via finalization) are safe.
+        Exceptions are swallowed — at this point we're racing with
+        interpreter teardown and any Qt call can fail in surprising
+        ways. The whole purpose is to avoid the ``QThread: Destroyed``
+        abort, so silent best-effort is the right policy.
+        """
+        for ref in list(cls._live_instances):
+            page = ref()
+            if page is None:
+                continue
+            try:
+                page._shutdown_refresh_thread()
+            except Exception:  # noqa: BLE001 — shutdown best-effort
+                pass
+
     def __init__(
         self,
         store_path: Optional[Path] = None,
@@ -1305,6 +1347,19 @@ class CascadePage(QWidget):
         _app = _QApplication.instance()
         if _app is not None:
             _app.aboutToQuit.connect(self._shutdown_refresh_thread)
+
+        # Process-exit safety net (see class docstring above
+        # ``_live_instances``). Track this instance via weakref —
+        # we don't want to keep the page alive ourselves — and
+        # install the global atexit hook on first construction.
+        # The hook iterates every live page and shuts down its
+        # worker thread; this catches the pytest path where
+        # ``aboutToQuit`` never fires because ``app.exec()`` is
+        # never called.
+        CascadePage._live_instances.add(weakref.ref(self))
+        if not CascadePage._atexit_registered:
+            atexit.register(CascadePage._shutdown_all_at_exit)
+            CascadePage._atexit_registered = True
 
         self._poll_timer = QTimer(self)
         self._poll_timer.setInterval(self.POLL_INTERVAL_MS)

@@ -20,6 +20,7 @@ from PySide6.QtCore import QObject, Qt, QThread, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QCheckBox,
+    QComboBox,
     QDialog,
     QGroupBox,
     QHBoxLayout,
@@ -61,6 +62,13 @@ def _figure_imports():
 
 from pfc_inductor.models import Core, Material, Spec, Wire
 from pfc_inductor.optimize import SweepResult, pareto_front, sweep
+from pfc_inductor.optimize.history import (
+    format_relative_age,
+    record_pick,
+    record_run,
+    recent_picks,
+    recent_runs,
+)
 from pfc_inductor.optimize.sweep import rank
 from pfc_inductor.ui.theme import get_theme
 from pfc_inductor.ui.widgets.optimizer_filters_bar import OptimizerFiltersBar
@@ -464,6 +472,24 @@ class OptimizerEmbed(QWidget):
         self.lbl_selection = QLabel("")
         self.lbl_selection.setProperty("role", "muted")
         status_row.addWidget(self.lbl_selection)
+        # Run history dropdown — last 10 sweep summaries with one-click
+        # "re-apply the past winner" without re-running the sweep. The
+        # JSON store under user_data_dir keeps metadata only (IDs +
+        # scalars), not the full SweepResult payload, so the file
+        # stays small and version-stable.
+        self.cmb_run_history = QComboBox()
+        self.cmb_run_history.setToolTip(
+            "Past sweeps — newest first. Pick a run to re-apply its "
+            "top design without re-running the sweep. Cleared on app "
+            "uninstall; stored under your user-data directory."
+        )
+        self.cmb_run_history.setMinimumWidth(220)
+        self.cmb_run_history.setMaximumWidth(280)
+        self.cmb_run_history.setSizeAdjustPolicy(
+            QComboBox.SizeAdjustPolicy.AdjustToContents
+        )
+        self.cmb_run_history.activated.connect(self._on_run_history_picked)
+        status_row.addWidget(self.cmb_run_history)
         # Pareto-front quick select — highlights every non-dominated
         # candidate in one click. Common workflow: run sweep, click
         # this, then Compare to see the trade-off curve in detail.
@@ -495,6 +521,11 @@ class OptimizerEmbed(QWidget):
         self.btn_export.clicked.connect(self._export_csv)
         status_row.addWidget(self.btn_export)
         v.addLayout(status_row)
+
+        # Initial population — the dropdown remembers history across
+        # sessions; populating here ensures it's filled on first paint
+        # even before the user runs anything.
+        self._reload_run_history_dropdown()
 
         self.table = QTableWidget(0, 10)
         # Column headers — terse engineer-friendly tags. Tooltips on
@@ -704,12 +735,38 @@ class OptimizerEmbed(QWidget):
 
     def _build_buttons(self) -> QHBoxLayout:
         h = QHBoxLayout()
+        # Recent picks dropdown — last 5 applied design triples,
+        # newest first. One click re-applies the triple via the same
+        # ``selection_applied`` signal the table-row "Apply" button
+        # uses. Lets the engineer flip between recent candidates
+        # without re-sweeping or re-finding them in the table.
+        lbl = QLabel("Recent picks:")
+        lbl.setProperty("role", "muted")
+        h.addWidget(lbl)
+        self.cmb_recent_picks = QComboBox()
+        self.cmb_recent_picks.setToolTip(
+            "Designs you've applied recently (last 5). Pick one to "
+            "re-apply its (material, core, wire) triple — useful when "
+            "comparing a handful of candidates back-and-forth."
+        )
+        self.cmb_recent_picks.setMinimumWidth(220)
+        self.cmb_recent_picks.setMaximumWidth(320)
+        self.cmb_recent_picks.setSizeAdjustPolicy(
+            QComboBox.SizeAdjustPolicy.AdjustToContents
+        )
+        self.cmb_recent_picks.activated.connect(self._on_recent_pick_picked)
+        h.addWidget(self.cmb_recent_picks)
         h.addStretch(1)
         self.btn_apply = QPushButton("Apply selection")
         self.btn_apply.setProperty("class", "Primary")
         self.btn_apply.setEnabled(False)
         self.btn_apply.clicked.connect(self._apply_selection)
         h.addWidget(self.btn_apply)
+
+        # Initial population — the recent-picks store is persistent,
+        # so populate on construction even before the user applies
+        # anything in this session.
+        self._reload_recent_picks_dropdown()
         return h
 
     # Above this many evaluations the sweep stops being interactive
@@ -944,6 +1001,16 @@ class OptimizerEmbed(QWidget):
         # Now that there are results, enable the post-sweep actions.
         self.btn_select_pareto.setEnabled(bool(self._pareto))
         self.btn_export.setEnabled(bool(results))
+
+        # Persist a summary of this run for the history dropdown.
+        # The ranking we record matches what the user is about to see
+        # in the table (rank() with the active objective + weights),
+        # so "top pick" in history = the row at the top of the table.
+        try:
+            self._record_run_summary(results)
+        except Exception:  # noqa: BLE001 — history is best-effort
+            pass
+        self._reload_run_history_dropdown()
         # Heavy-but-cheap-each repaints (table populate + chart
         # redraw) run on the GUI thread, but we sandwich them with
         # ``processEvents()`` so the OS cursor / window-server keep
@@ -1285,7 +1352,172 @@ class OptimizerEmbed(QWidget):
         if idx >= len(self._row_to_result):
             return
         sr = self._row_to_result[idx]
+        # Persist to the recent-picks store BEFORE emitting, so the
+        # dropdown is up-to-date even if the host disconnects from
+        # ``selection_applied`` synchronously.
+        label = self._build_pick_label(sr.material, sr.core, sr.wire)
+        record_pick(sr.material.id, sr.core.id, sr.wire.id, label)
+        self._reload_recent_picks_dropdown()
         self.selection_applied.emit(sr.material.id, sr.core.id, sr.wire.id)
+
+    # ─── Run history dropdown ─────────────────────────────────────
+
+    @staticmethod
+    def _build_pick_label(material: Material, core: Core, wire: Wire) -> str:
+        """Compact one-line description of a (mat, core, wire) triple.
+
+        Format: ``"M5 · AMCC-200 · AWG-14"``. Used by both the recent-
+        picks dropdown items and the run-history "top pick" field.
+        Keeps the label width predictable (the dropdown's max-width
+        is 320 px and Qt elides the rest).
+        """
+        m = getattr(material, "name", None) or material.id
+        c = getattr(core, "name", None) or getattr(core, "id", "core")
+        w = getattr(wire, "name", None) or getattr(wire, "id", "wire")
+        return f"{m} · {c} · {w}"
+
+    def _record_run_summary(self, results: list[SweepResult]) -> None:
+        """Snapshot the just-finished sweep into the run-history store.
+
+        Captures: cardinality, feasible count, active objective, and
+        the IDs + labels of the top-1 ranked design under the current
+        objective + weights. The full ranked table is NOT persisted —
+        the engineer can re-run the sweep if they want it back.
+        """
+        if not results:
+            return
+        objective = self.filters_bar.objective()
+        try:
+            weights = self.filters_bar.weights()
+        except AttributeError:
+            weights = None
+        # Reuse the same rank() the table uses so "top pick" matches
+        # what the user sees in row 0 at the moment the sweep lands.
+        ranked = rank(results, by=objective, weights=weights)
+        # ``rank`` may return only feasible rows depending on the
+        # objective; fall back to the first input if we're handed an
+        # empty list (defensive).
+        top = ranked[0] if ranked else results[0]
+        top_pick = {
+            "material_id": top.material.id,
+            "core_id": top.core.id,
+            "wire_id": top.wire.id,
+            "label": self._build_pick_label(top.material, top.core, top.wire),
+            "P_total_W": getattr(top, "P_total_W", None),
+            "volume_cm3": getattr(top, "volume_cm3", None),
+            "feasible": bool(getattr(top, "feasible", False)),
+        }
+        n_feasible = sum(1 for r in results if r.feasible)
+        # Compact "what was swept" summary for the dropdown label.
+        try:
+            mats = self.filters_bar.selected_materials()
+            cores = self.filters_bar.selected_cores()
+            wires = self.filters_bar.selected_wires()
+            filter_summary = f"{len(mats)}m × {len(cores)}c × {len(wires)}w"
+        except AttributeError:
+            filter_summary = ""
+        record_run(
+            n_combinations=len(results),
+            n_feasible=n_feasible,
+            objective=objective,
+            top_pick=top_pick,
+            filter_summary=filter_summary,
+        )
+
+    def _reload_run_history_dropdown(self) -> None:
+        """Refresh the run-history combo from disk. Idempotent."""
+        runs = recent_runs()
+        # Block signals during repopulation so ``activated`` doesn't
+        # fire for the initial setCurrentIndex(0).
+        self.cmb_run_history.blockSignals(True)
+        self.cmb_run_history.clear()
+        self.cmb_run_history.addItem("Run history…", None)
+        for entry in runs:
+            ts = entry.get("ts", "")
+            age = format_relative_age(ts) if ts else "unknown"
+            n_feas = entry.get("n_feasible", 0)
+            n_total = entry.get("n_combinations", 0)
+            label = f"{age} — {n_feas}/{n_total} feasible"
+            top = entry.get("top_pick") or {}
+            if top.get("label"):
+                # Show the top winner inline so the engineer can scan
+                # without clicking. Material · core · wire is short
+                # enough to fit alongside the count + age.
+                label = f"{age} — {top['label']}"
+            self.cmb_run_history.addItem(label, entry)
+        self.cmb_run_history.setCurrentIndex(0)
+        # Grey out the trigger when the store is empty.
+        self.cmb_run_history.setEnabled(len(runs) > 0)
+        self.cmb_run_history.blockSignals(False)
+
+    def _on_run_history_picked(self, idx: int) -> None:
+        """Re-apply the top pick of a past sweep.
+
+        The history entry carries only IDs + scalars — not the full
+        SweepResult — so the action is "re-apply the past winner"
+        rather than "reload the full ranked table". Re-running the
+        sweep with the same filters is the right path for a full
+        reload, and the cardinality estimate label tells the user
+        whether that's a reasonable click.
+        """
+        entry = self.cmb_run_history.itemData(idx)
+        # Reset the combo to the prompt label so the user can pick
+        # the same entry again without an intermediate "empty" state.
+        self.cmb_run_history.setCurrentIndex(0)
+        if not entry:
+            return
+        top = entry.get("top_pick") or {}
+        mat_id = top.get("material_id")
+        core_id = top.get("core_id")
+        wire_id = top.get("wire_id")
+        if not (mat_id and core_id and wire_id):
+            self._show_error(
+                "That history entry has no recorded top pick — "
+                "re-run the sweep to rebuild it.",
+            )
+            return
+        # Funnel through the same persistence path as a real apply,
+        # so picking from history bubbles up to "recent picks" too.
+        label = top.get("label") or f"{mat_id} · {core_id} · {wire_id}"
+        record_pick(mat_id, core_id, wire_id, label)
+        self._reload_recent_picks_dropdown()
+        self.selection_applied.emit(mat_id, core_id, wire_id)
+
+    # ─── Recent picks dropdown ────────────────────────────────────
+
+    def _reload_recent_picks_dropdown(self) -> None:
+        """Refresh the recent-picks combo from disk. Idempotent."""
+        picks = recent_picks()
+        self.cmb_recent_picks.blockSignals(True)
+        self.cmb_recent_picks.clear()
+        self.cmb_recent_picks.addItem("(no recent picks)" if not picks else "Pick recent…", None)
+        for entry in picks:
+            ts = entry.get("ts", "")
+            age = format_relative_age(ts) if ts else "—"
+            label = f"{age} — {entry.get('label', '')}"
+            self.cmb_recent_picks.addItem(label, entry)
+        self.cmb_recent_picks.setCurrentIndex(0)
+        self.cmb_recent_picks.setEnabled(len(picks) > 0)
+        self.cmb_recent_picks.blockSignals(False)
+
+    def _on_recent_pick_picked(self, idx: int) -> None:
+        """Re-apply a stored recent-picks triple. No re-run, just
+        emits ``selection_applied`` with the persisted IDs.
+        """
+        entry = self.cmb_recent_picks.itemData(idx)
+        self.cmb_recent_picks.setCurrentIndex(0)
+        if not entry:
+            return
+        mat_id = entry.get("material_id")
+        core_id = entry.get("core_id")
+        wire_id = entry.get("wire_id")
+        if not (mat_id and core_id and wire_id):
+            return
+        # Re-record so picking moves it to the top of the list (this
+        # is the standard "MRU" semantic — most recently used wins).
+        record_pick(mat_id, core_id, wire_id, entry.get("label", ""))
+        self._reload_recent_picks_dropdown()
+        self.selection_applied.emit(mat_id, core_id, wire_id)
 
     def _select_pareto_rows(self) -> None:
         """Multi-select every row that belongs to the Pareto front.

@@ -28,7 +28,9 @@ importable for tests but do not appear on screen.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+import atexit
+import weakref
+from typing import TYPE_CHECKING, ClassVar, Optional
 
 # ``CompareDialog`` is imported lazily inside ``_open_compare`` so the
 # matplotlib + reportlab font-registration cost only fires when the
@@ -204,6 +206,30 @@ class MainWindow(QMainWindow):
     models.
     """
 
+    # ── Process-exit safety net ───────────────────────────────────
+    # Mirrors the ``CascadePage`` pattern: ``aboutToQuit`` only fires
+    # after ``QApplication.exec()`` returns, which never happens in
+    # pytest (the test fixtures construct ``QApplication`` but never
+    # run the event loop). Leaked MainWindow instances would then
+    # have their design-worker thread destroyed by Qt mid-run at
+    # process exit, triggering ``"QThread: Destroyed while thread is
+    # still running"``. The atexit hook below catches that path
+    # before Python GC starts tearing down Qt widgets.
+    _live_instances: ClassVar[set[weakref.ReferenceType["MainWindow"]]] = set()
+    _atexit_registered: ClassVar[bool] = False
+
+    @classmethod
+    def _shutdown_all_at_exit(cls) -> None:
+        """atexit fallback — quit every live window's design thread."""
+        for ref in list(cls._live_instances):
+            win = ref()
+            if win is None:
+                continue
+            try:
+                win._shutdown_design_thread()
+            except Exception:  # noqa: BLE001 — shutdown best-effort
+                pass
+
     class _StateProvider:
         """Adapter that satisfies the ``SpecPanelLike`` protocol for the
         ``CalculationController``.
@@ -366,6 +392,15 @@ class MainWindow(QMainWindow):
             _app = QApplication.instance()
             if _app is not None:
                 _app.aboutToQuit.connect(self._shutdown_design_thread)
+
+            # Process-exit safety net — see ``_live_instances``
+            # comment above for why ``aboutToQuit`` isn't enough
+            # under pytest. Tracks this instance via weakref and
+            # installs the global atexit hook once.
+            MainWindow._live_instances.add(weakref.ref(self))
+            if not MainWindow._atexit_registered:
+                atexit.register(MainWindow._shutdown_all_at_exit)
+                MainWindow._atexit_registered = True
 
         # Initial calculation + FEA setup probe. In production we
         # defer both onto the next event-loop tick so ``__init__``
