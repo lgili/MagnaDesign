@@ -169,6 +169,21 @@ class CoreView3D(QWidget):
     def _setup_renderer(self):
         v = get_theme().viz3d
         self.plotter.set_background(v.bg_bottom, top=v.bg_top)
+
+        # MSAA — 8× multi-sample. VTK's default render window has
+        # ``MultiSamples=0`` which means *no* edge antialiasing; the
+        # result is the visibly jagged outlines users complained
+        # about on the bundled ``.app`` ("fica feio quando compilado").
+        # ``ren_win.SetMultiSamples(8)`` enables hardware MSAA at the
+        # OpenGL FBO level — much higher quality than FXAA on geometric
+        # edges, with negligible runtime cost on modern GPUs. We keep
+        # FXAA enabled below for the texture / line-cap edges MSAA
+        # doesn't cover.
+        try:
+            self.plotter.ren_win.SetMultiSamples(8)
+        except Exception:
+            pass
+
         # SSAA hangs the renderer on macOS 26.4 / Apple Silicon (VTK 9.x
         # + Cocoa-OpenGL combo): the bundled app sits at 0 % CPU inside
         # ``vtkSSAAPass::Render → vtkOpenGLRenderer::Clear`` and never

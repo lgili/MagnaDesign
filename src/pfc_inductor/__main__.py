@@ -117,6 +117,34 @@ def _load_initial_theme() -> str:
     return str(val) if val in ("light", "dark") else "light"
 
 
+def _splash_logo_candidates() -> list[Path]:
+    """Ordered list of PNG paths to try when loading the splash logo.
+
+    Lighter than ``_resolve_icon()``: we just want one big PNG to feed
+    into ``QPixmap``, no multi-resolution ``QIcon`` machinery. Prefer
+    the 512-px asset for retina sharpness; fall back to smaller sizes.
+    """
+    candidates: list[Path] = []
+    if getattr(sys, "frozen", False):
+        meipass = getattr(sys, "_MEIPASS", None)
+        if meipass:
+            candidates.append(Path(meipass) / "img")
+        candidates.append(Path(sys.executable).resolve().parent / "img")
+    pkg_root = Path(__file__).resolve().parent
+    candidates.append(pkg_root.parent.parent / "img")  # source checkout
+    candidates.append(pkg_root / "img")  # wheel layout
+
+    out: list[Path] = []
+    for img_dir in candidates:
+        if not img_dir.is_dir():
+            continue
+        for name in ("logo-512.png", "logo-256.png", "logo.png"):
+            p = img_dir / name
+            if p.exists():
+                out.append(p)
+    return out
+
+
 def _resolve_icon() -> QIcon:
     """Locate the launcher icon across deployment shapes.
 
@@ -519,8 +547,27 @@ def _run_gui(argv: list[str]) -> int:
     # NOTHING from ``pfc_inductor.ui.*`` here — those modules pull
     # in the full theme + style chain.
     from PySide6.QtCore import Qt
-    from PySide6.QtGui import QColor, QPainter, QPainterPath, QPixmap
+    from PySide6.QtGui import (
+        QColor,
+        QGuiApplication,
+        QLinearGradient,
+        QPainter,
+        QPainterPath,
+        QPixmap,
+    )
     from PySide6.QtWidgets import QApplication, QProgressBar, QSplashScreen
+
+    # HiDPI: pass-through fractional scale factors so the bundled
+    # ``.app`` / ``.exe`` doesn't render at 1× resolution on retina
+    # / 150 % DPI displays. Qt's default ``Round`` policy snaps
+    # 1.5× → 2× (oversharp) or 1.5× → 1× (blurry); ``PassThrough``
+    # uses the real ratio so VTK, matplotlib, and Qt-rendered text
+    # all match the OS's pixel grid. This MUST be set BEFORE
+    # ``QApplication`` is constructed — applying it later is a
+    # silent no-op.
+    QGuiApplication.setHighDpiScaleFactorRoundingPolicy(
+        Qt.HighDpiScaleFactorRoundingPolicy.PassThrough,
+    )
 
     app = QApplication([sys.argv[0], *argv])
 
@@ -535,96 +582,126 @@ def _run_gui(argv: list[str]) -> int:
         splash = None
         _splash_shown_at = None
     else:
-        width, height, radius = 560, 300, 18
+        # ---- Brand tokens (mirror ``ui/theme.py`` default light) ----
         BRAND_VIOLET = "#6D28D9"
+        BRAND_VIOLET_DARK = "#4C1D95"
         SURFACE = "#FFFFFF"
         BORDER = "#E4E4E7"
         TEXT = "#18181B"
         TEXT_MUTED = "#71717A"
         SURFACE_ELEVATED = "#F4F4F5"
 
-        pix = QPixmap(width, height)
+        # ---- Pixmap sized for the DPI we're actually rendering on ----
+        # ``primaryScreen().devicePixelRatio()`` returns 2.0 on retina,
+        # 1.0 on standard, 1.5 on 150 % Windows scaling, etc. We render
+        # the splash bitmap at the native resolution and tag it with
+        # the ratio so Qt scales it back down to logical pixels for
+        # layout — gives a crisp render on every display class.
+        screen = QGuiApplication.primaryScreen()
+        dpr = float(screen.devicePixelRatio()) if screen is not None else 1.0
+        # Logical dimensions; pixel dimensions are ``logical × dpr``.
+        width_l, height_l, radius_l = 600, 340, 20
+        width_p = int(width_l * dpr)
+        height_p = int(height_l * dpr)
+
+        pix = QPixmap(width_p, height_p)
+        pix.setDevicePixelRatio(dpr)
         pix.fill(QColor(0, 0, 0, 0))  # transparent margin
+
         painter = QPainter(pix)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        # Scale the painter so we can draw in logical coordinates and
+        # have Qt rasterise at native pixel density.
+        painter.scale(dpr, dpr)
 
-        # Rounded card body.
+        # ---- Rounded white card ----
         card = QPainterPath()
-        card.addRoundedRect(0.5, 0.5, width - 1, height - 1, radius, radius)
+        card.addRoundedRect(0.5, 0.5, width_l - 1, height_l - 1, radius_l, radius_l)
         painter.fillPath(card, QColor(SURFACE))
         painter.setPen(QColor(BORDER))
         painter.drawPath(card)
 
-        # Top violet band (only top corners rounded).
-        band_h = 64
+        # ---- Top violet gradient band ----
+        band_h = 88
         band = QPainterPath()
         band.moveTo(0, band_h)
-        band.lineTo(0, radius)
-        band.quadTo(0, 0, radius, 0)
-        band.lineTo(width - radius, 0)
-        band.quadTo(width, 0, width, radius)
-        band.lineTo(width, band_h)
+        band.lineTo(0, radius_l)
+        band.quadTo(0, 0, radius_l, 0)
+        band.lineTo(width_l - radius_l, 0)
+        band.quadTo(width_l, 0, width_l, radius_l)
+        band.lineTo(width_l, band_h)
         band.closeSubpath()
-        painter.fillPath(band, QColor(BRAND_VIOLET))
+        grad = QLinearGradient(0, 0, width_l, band_h)
+        grad.setColorAt(0.0, QColor(BRAND_VIOLET_DARK))
+        grad.setColorAt(1.0, QColor(BRAND_VIOLET))
+        painter.fillPath(band, grad)
 
-        # Brand wordmark — no theme font lookup, default Qt font is
-        # fine for a splash that's visible < 2 s.
-        painter.setPen(QColor("#FFFFFF"))
+        # ---- Logo (left side of body) ----
+        # Loaded directly with ``QPixmap`` (no QIcon multi-resolution
+        # machinery) for the cheapest possible path: a single file
+        # read + decode. The lookup mirrors ``_resolve_icon()`` but
+        # only takes the highest-res PNG so the splash looks crisp on
+        # retina.
+        logo_size_l = 132
+        logo_pix: Optional[QPixmap] = None
+        for candidate in _splash_logo_candidates():
+            cand_pix = QPixmap(str(candidate))
+            if not cand_pix.isNull():
+                logo_pix = cand_pix.scaled(
+                    int(logo_size_l * dpr),
+                    int(logo_size_l * dpr),
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+                logo_pix.setDevicePixelRatio(dpr)
+                break
+        logo_x = 36
+        logo_y = band_h - 26  # let the logo straddle the violet band
+        if logo_pix is not None:
+            painter.drawPixmap(logo_x, logo_y, logo_pix)
+
+        # ---- Wordmark (right of logo) ----
+        text_x = logo_x + logo_size_l + 22 if logo_pix is not None else 36
         from PySide6.QtGui import QFont
 
         f = QFont()
-        f.setPointSize(20)
+        f.setPointSize(28)
         f.setWeight(QFont.Weight.DemiBold)
-        painter.setFont(f)
-        painter.drawText(
-            24,
-            0,
-            width - 48,
-            band_h,
-            int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft),
-            "MagnaDesign",
-        )
-        f.setPointSize(10)
-        f.setWeight(QFont.Weight.Normal)
-        painter.setFont(f)
-        painter.setPen(QColor(255, 255, 255, 210))
-        painter.drawText(
-            24,
-            0,
-            width - 48,
-            band_h,
-            int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight),
-            "Inductor Design Suite",
-        )
-
-        # Body taglines (icon is loaded only if cheap; otherwise skip
-        # for speed — the user sees the wordmark within the band, no
-        # need to block paint on file-system icon resolution).
-        text_x = 32
-        f.setPointSize(13)
-        f.setWeight(QFont.Weight.Medium)
         painter.setFont(f)
         painter.setPen(QColor(TEXT))
         painter.drawText(
             text_x,
-            band_h + 32,
-            width - 2 * text_x,
-            28,
+            band_h + 4,
+            width_l - text_x - 24,
+            36,
             int(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft),
-            "Topology-aware design suite",
+            "MagnaDesign",
         )
-        f.setPointSize(10)
+        f.setPointSize(11)
         f.setWeight(QFont.Weight.Normal)
         painter.setFont(f)
         painter.setPen(QColor(TEXT_MUTED))
         painter.drawText(
             text_x,
-            band_h + 68,
-            width - 2 * text_x,
+            band_h + 44,
+            width_l - text_x - 24,
+            22,
+            int(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft),
+            "Inductor Design Suite",
+        )
+        f.setPointSize(10)
+        painter.setFont(f)
+        painter.setPen(QColor(TEXT_MUTED))
+        painter.drawText(
+            text_x,
+            band_h + 72,
+            width_l - text_x - 24,
             60,
             int(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
             | int(Qt.TextFlag.TextWordWrap),
-            "PFC inductors • passive chokes • line reactors\nFEMMT + ONELAB validation built-in",
+            "PFC inductors · passive chokes · line reactors\n"
+            "FEMMT + ONELAB FEA validation built-in",
         )
         painter.end()
 
@@ -637,12 +714,18 @@ def _run_gui(argv: list[str]) -> int:
         splash.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         splash.setMask(pix.mask())
 
-        # Indeterminate progress bar — animates while the rest of
-        # ``_run_gui`` works.
+        # ---- Indeterminate progress bar ----
+        bar_h = 4
+        bar_margin = 36
         bar = QProgressBar(splash)
         bar.setRange(0, 0)
         bar.setTextVisible(False)
-        bar.setGeometry(32, height - 56, width - 64, 4)
+        bar.setGeometry(
+            bar_margin,
+            height_l - bar_margin - bar_h - 8,
+            width_l - 2 * bar_margin,
+            bar_h,
+        )
         bar.setStyleSheet(
             "QProgressBar {"
             f"  background: {SURFACE_ELEVATED};"

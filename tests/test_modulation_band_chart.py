@@ -156,9 +156,14 @@ def test_band_chart_handles_all_failed_band_points(app) -> None:
     )
     chart = ModulationBandChart()
     try:
+        # Force the canvas to build BEFORE feeding the band — the
+        # matplotlib Figure is normally built lazily on the first
+        # ``showEvent`` (deferred-init pattern, see v0.4.12 lazy-load
+        # refactor) but this test never shows the widget. Calling
+        # ``_ensure_canvas_built`` directly is the supported escape
+        # hatch for tests that need to inspect ``_figure`` synchronously.
+        chart._ensure_canvas_built()
         chart.show_band(banded)
-        # No data path → caption is empty (set inside _render_empty
-        # which is called via show_band's "no points" branch).
         assert "Every band point failed" in chart._figure.axes[0].texts[0].get_text()
     finally:
         chart.deleteLater()

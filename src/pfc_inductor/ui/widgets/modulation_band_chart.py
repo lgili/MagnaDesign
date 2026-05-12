@@ -127,8 +127,30 @@ class ModulationBandChart(QWidget):
     def show_band(self, banded: BandedDesignResult) -> None:
         """Replace the chart with one line per metric across the
         band. Annotates the worst-case fsw on each subplot."""
-        # If the canvas isn't built yet, stash the payload and we'll
-        # render it on the first ``showEvent``.
+        # ---- Caption: always update, regardless of canvas state ----
+        # The caption is a plain ``QLabel`` (no matplotlib dep), so we
+        # set its text up-front. Tests assert against the caption
+        # right after ``show_band`` without needing the canvas to
+        # have built itself; deferring the caption with the rest of
+        # the rendering was the cause of the v0.4.12 CI failure on
+        # ``test_band_chart_show_band_renders_caption``.
+        if banded.band:
+            spec = banded.spec
+            fsw_points = [bp.fsw_kHz for bp in banded.band if bp.result is not None]
+            if fsw_points:
+                n_failed = len(banded.flagged_points)
+                modulation: Optional[str] = None
+                if spec.fsw_modulation is not None:
+                    modulation = spec.fsw_modulation.profile
+                caption = (
+                    f"Band: {fsw_points[0]:.1f} → {fsw_points[-1]:.1f} kHz · "
+                    f"{len(banded.band)} points · profile={modulation}"
+                )
+                if n_failed > 0:
+                    caption += f"  ⚠  {n_failed} engine failure(s)"
+                self._caption.setText(caption)
+
+        # ---- Canvas rendering: deferred if not built yet ----
         if not self._canvas_built:
             self._pending_banded = banded
             return
@@ -141,19 +163,6 @@ class ModulationBandChart(QWidget):
         if not fsw_points:
             self._render_empty(message="Every band point failed.")
             return
-
-        # Caption — gives the engineer the context the chart can't.
-        n_failed = len(banded.flagged_points)
-        modulation: Optional[str] = None
-        if spec.fsw_modulation is not None:
-            modulation = spec.fsw_modulation.profile
-        caption = (
-            f"Band: {fsw_points[0]:.1f} → {fsw_points[-1]:.1f} kHz · "
-            f"{len(banded.band)} points · profile={modulation}"
-        )
-        if n_failed > 0:
-            caption += f"  ⚠  {n_failed} engine failure(s)"
-        self._caption.setText(caption)
 
         assert self._figure is not None and self._canvas is not None
         self._figure.clear()

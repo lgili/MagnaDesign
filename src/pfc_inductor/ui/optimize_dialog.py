@@ -69,7 +69,8 @@ from pfc_inductor.ui.widgets.optimizer_filters_bar import OptimizerFiltersBar
 
 class _SweepWorker(QObject):
     progress = Signal(int, int)
-    done = Signal(list)
+    done = Signal(list, list)
+    """``(results, pareto)`` — pareto pre-computed off the GUI thread."""
     failed = Signal(str)
 
     def __init__(self, spec, cores, wires, materials, only_compat):
@@ -95,7 +96,13 @@ class _SweepWorker(QObject):
                 only_compatible_cores=self.only_compat,
                 progress_cb=lambda d, t: self.progress.emit(d, t),
             )
-            self.done.emit(results)
+            # Pareto front is O(n²) over feasible candidates — for a
+            # thousand-design sweep that's a million comparisons. Doing
+            # it here (in the worker thread) keeps it off the GUI
+            # thread, which was a measurable contributor to the
+            # post-sweep cursor-freeze the user reported on v0.4.12.
+            pareto = pareto_front(results)
+            self.done.emit(results, pareto)
         except Exception as e:
             self.failed.emit(str(e))
 
@@ -595,23 +602,29 @@ class OptimizerEmbed(QWidget):
         if total > 0:
             self.progress.setValue(int(100 * done / total))
 
-    def _on_done(self, results: list[SweepResult]):
+    def _on_done(self, results: list[SweepResult], pareto: list[SweepResult]):
         self._results = results
-        self._pareto = pareto_front(results)
-        self._refresh_table()
-        self._refresh_plot()
+        # Pareto was computed off-thread by the worker — no recompute
+        # on the GUI thread.
+        self._pareto = pareto
         self.progress.setValue(100)
-        # Cleanup is inline (not in a separate ``finished`` slot)
-        # to remove the race window where the button gets re-enabled
-        # before ``self._thread`` is cleared. ``wait(500)`` is
-        # virtually instant — by the time ``done`` fires, ``worker.run()``
-        # has already returned and the thread's event loop just needs
-        # one ``quit`` event to exit. Centralising cleanup also
-        # guarantees the button stays consistent with the thread
-        # state, which was the v0.4.x "fica sempre 100 por 100"
-        # bug — the user's second click landed inside the window
-        # where button was enabled but ``self._thread`` still pointed
-        # at a not-quite-finished QThread.
+        # Heavy-but-cheap-each repaints (table populate + chart
+        # redraw) run on the GUI thread, but we sandwich them with
+        # ``processEvents()`` so the OS cursor / window-server keep
+        # ticking — the user no longer sees a "everything frozen"
+        # spinning beachball moment. ``_refresh_table`` itself uses
+        # ``setUpdatesEnabled(False)`` to suppress per-cell paints
+        # so the cost there is mostly QTableWidgetItem allocation,
+        # which is well under the 16 ms frame budget on modern
+        # hardware even for the 200-row cap.
+        from PySide6.QtWidgets import QApplication as _QApp
+
+        self._refresh_table()
+        _QApp.processEvents()
+        self._refresh_plot()
+
+        # Async cleanup — see ``_teardown_thread`` for why we don't
+        # block here.
         self._teardown_thread()
 
     def _on_failed(self, msg: str):
@@ -619,25 +632,52 @@ class OptimizerEmbed(QWidget):
         self._teardown_thread()
 
     def _teardown_thread(self) -> None:
-        """Wait for the worker thread to truly finish, then clear
-        references and re-enable the Run button.
+        """Tear down the worker thread WITHOUT blocking the GUI.
 
-        Idempotent. Safe to call from both the success
-        (``_on_done``) and failure (``_on_failed``) paths.
+        Earlier rev did ``thread.wait(1000)`` here to guarantee the
+        thread had exited before re-enabling Run; that turned out to
+        be a visible cursor-freeze on slower machines (the wait
+        completed in microseconds on dev hardware, but on a busy
+        system it could land anywhere up to the 1 s cap). The fix is
+        to wire the cleanup to the thread's ``finished`` signal,
+        which fires from the GUI thread's event loop AFTER the
+        thread's event loop has truly exited — same correctness
+        guarantee, zero GUI-thread block.
+
+        Idempotent: safe to call from both the success (``_on_done``)
+        and failure (``_on_failed``) paths.
         """
         thread = self._thread
         worker = self._worker
-        self._thread = None
-        self._worker = None
+        # NOTE: we deliberately keep ``self._thread`` and
+        # ``self._worker`` populated until ``_on_thread_finished``
+        # fires — that way, if the user hits Run during the brief
+        # quit→exit window, the ``isRunning()`` guard at the top of
+        # ``_run_sweep`` still catches them and prevents starting a
+        # second sweep on top of a not-quite-dead thread.
         if thread is not None:
+            # Wire a one-shot cleanup before asking the thread to exit.
+            # ``finished`` is emitted by the thread itself once exec()
+            # returns; the slot fires queued on the GUI thread.
+            thread.finished.connect(lambda t=thread, w=worker: self._on_thread_finished(t, w))
             thread.quit()
-            # Block briefly until the event loop exits and ``run()``
-            # returns. This is microseconds in practice — the worker
-            # has already emitted its terminal signal and returned;
-            # all that's left is the QThread processing the queued
-            # quit event. The 1 s cap is a paranoid backstop.
-            thread.wait(1000)
-            thread.deleteLater()
+
+    def _on_thread_finished(self, thread: QThread, worker: Optional[QObject]) -> None:
+        """Async cleanup hook — runs on the GUI thread once the
+        sweep worker thread has truly exited.
+
+        Clears ``self._thread`` / ``self._worker`` and re-enables Run.
+        Schedules ``deleteLater`` on the thread + worker so we don't
+        leak QObjects across sweeps.
+        """
+        # If a new sweep was started before this slot fired (rare,
+        # but possible if the user is fast), don't clobber the new
+        # thread reference.
+        if self._thread is thread:
+            self._thread = None
+        if self._worker is worker:
+            self._worker = None
+        thread.deleteLater()
         if worker is not None:
             worker.deleteLater()
         self.btn_run.setEnabled(True)
@@ -651,32 +691,48 @@ class OptimizerEmbed(QWidget):
         rows = rank(rows, by=rank_key, feasible_first=True)
         rows = rows[:200]  # cap at 200 for UI responsiveness
 
-        self.table.setRowCount(len(rows))
-        pareto_set = {id(r) for r in self._pareto}
-        for i, r in enumerate(rows):
-            r0 = r.result
-            in_pareto = id(r) in pareto_set
-            cost_cell = f"{r.cost.currency} {r.cost.total_cost:.2f}" if r.cost is not None else "—"
-            cells = [
-                r.core.part_number,
-                r.wire.id,
-                r.material.name,
-                f"{r.volume_cm3:.1f}",
-                f"{r0.L_actual_uH:.0f}",
-                f"{r0.N_turns}",
-                f"{r0.losses.P_total_W:.2f}",
-                f"{r0.T_winding_C:.0f}",
-                cost_cell,
-                ("✓ Pareto" if in_pareto else "✓") if r.feasible else f"⚠ {r.n_warnings}",
-            ]
-            for c_idx, txt in enumerate(cells):
-                item = QTableWidgetItem(txt)
-                if not r.feasible:
-                    item.setForeground(Qt.GlobalColor.red)
-                elif in_pareto:
-                    item.setForeground(Qt.GlobalColor.darkGreen)
-                self.table.setItem(i, c_idx, item)
-        self._row_to_result = list(rows)
+        # Suspend per-cell repaints during the bulk populate. Without
+        # this Qt issues a layout / paint event for EACH ``setItem``
+        # call, which for 200 rows × 10 columns = 2 000 paint
+        # invalidations totalling 100–300 ms of GUI-thread work on
+        # slower machines (visible cursor stutter). Wrapping in
+        # ``setUpdatesEnabled(False)`` collapses it to a single paint
+        # at the end; ``blockSignals(True)`` similarly suppresses
+        # ``selectionChanged`` floods while the model is empty.
+        self.table.setUpdatesEnabled(False)
+        self.table.blockSignals(True)
+        try:
+            self.table.setRowCount(len(rows))
+            pareto_set = {id(r) for r in self._pareto}
+            for i, r in enumerate(rows):
+                r0 = r.result
+                in_pareto = id(r) in pareto_set
+                cost_cell = (
+                    f"{r.cost.currency} {r.cost.total_cost:.2f}" if r.cost is not None else "—"
+                )
+                cells = [
+                    r.core.part_number,
+                    r.wire.id,
+                    r.material.name,
+                    f"{r.volume_cm3:.1f}",
+                    f"{r0.L_actual_uH:.0f}",
+                    f"{r0.N_turns}",
+                    f"{r0.losses.P_total_W:.2f}",
+                    f"{r0.T_winding_C:.0f}",
+                    cost_cell,
+                    ("✓ Pareto" if in_pareto else "✓") if r.feasible else f"⚠ {r.n_warnings}",
+                ]
+                for c_idx, txt in enumerate(cells):
+                    item = QTableWidgetItem(txt)
+                    if not r.feasible:
+                        item.setForeground(Qt.GlobalColor.red)
+                    elif in_pareto:
+                        item.setForeground(Qt.GlobalColor.darkGreen)
+                    self.table.setItem(i, c_idx, item)
+            self._row_to_result = list(rows)
+        finally:
+            self.table.blockSignals(False)
+            self.table.setUpdatesEnabled(True)
 
         # Header: clearly say "X viable / Y total". When 0 viable, give
         # the user a concrete remediation path instead of just an empty

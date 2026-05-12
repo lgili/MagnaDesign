@@ -613,6 +613,12 @@ class FEAFieldGallery(QWidget):
         # newer ``fem_path`` is what the user wants now; the
         # stale worker can finish and emit into the void (the
         # connection is broken before we replace the worker).
+        # We do NOT block-wait here — ``thread.wait()`` on the GUI
+        # thread freezes the cursor for up to the timeout cap on a
+        # busy system. ``thread.quit()`` posts the exit event; the
+        # thread's existing ``thread.finished → deleteLater`` chain
+        # (wired below) cleans up async after exec() actually
+        # returns.
         if self._scan_thread is not None and self._scan_thread.isRunning():
             try:
                 self._scan_worker.finished.disconnect()  # type: ignore[union-attr]
@@ -621,7 +627,6 @@ class FEAFieldGallery(QWidget):
                 # ignore, the next quit() handles cleanup.
                 pass
             self._scan_thread.quit()
-            self._scan_thread.wait(500)
 
         # Show a transient "Scanning…" hint so the user sees
         # *something* during the worker's window. Without this

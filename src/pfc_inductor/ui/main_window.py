@@ -1665,8 +1665,11 @@ class MainWindow(QMainWindow):
         thread.started.connect(worker.run)
 
         def _on_done(info) -> None:
+            # Non-blocking thread quit — ``thread.wait()`` here would
+            # freeze the GUI for up to 1 s on a busy system. We just
+            # ask the thread to quit; ``thread.finished`` (wired to
+            # ``deleteLater`` below) handles the cleanup async.
             thread.quit()
-            thread.wait(1000)
             if info is None:
                 QMessageBox.information(
                     self,
