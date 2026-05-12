@@ -7,10 +7,38 @@ already consumes.
 
 ## Status
 
-**Phase 1 — DC magnetostatic on EI cores only.** Closes the
-"can we solve it ourselves at all?" question. Once the EI
-round-trip lands within 5 % of FEMMT's `L_dc_uH` on the same
-spec, Phase 2 adds more shapes; Phase 3 adds AC + thermal.
+**Phase 1.1 — DC magnetostatic on EI cores, pipeline + correct
+region tagging.** Closed the "can we solve it ourselves at all?"
+question:
+
+- ✅ Gmsh + GetDP pipeline end-to-end (mesh, solve, parse, render).
+- ✅ Region tagging via `fragment` output map (the centroid-based
+  approach in Phase 1.0 silently broke on concave shapes — the
+  C-shaped core's centroid falls inside its window-hole, so
+  the `Core` physical group was empty and the solver saw
+  `μ_r = μ₀` everywhere).
+- ⚠️ **L_dc absolute magnitude still ~89× below the analytical
+  ideal** `μ₀·N²·Ae / lgap`. The result *does* now respond to
+  `μ_r` (was constant in Phase 1.0), but saturates at ~78 μH
+  instead of ~7 mH for a 2000-permeability ferrite EI with a
+  0.5 mm gap. Working hypotheses (in order of likelihood):
+
+  1. Source-current convention. Standard GetDP `js[]` lookup
+     for a union region may need a different region structure;
+     the per-region split we tried didn't move the needle but
+     a single global `js0[Vol_S_Mag]` form might.
+  2. Form0 + BF_Node vs Form1P + BF_PerpendicularEdge — we
+     tried both; numerically identical in our tests, so probably
+     not the issue, but worth a closer look.
+  3. Geometry heuristic (`EICoreDims.from_core`) producing
+     inconsistent dimensions vs the analytical formula's
+     assumptions about `Ae` / `lgap`.
+
+  Phase 1.2 will diagnose by running FEMMT on the same spec
+  and diffing the generated `.pro` files line-by-line.
+
+Once L_dc lands within 5 % of FEMMT, Phase 2 adds more shapes;
+Phase 3 adds AC + thermal.
 
 ## Why this exists
 

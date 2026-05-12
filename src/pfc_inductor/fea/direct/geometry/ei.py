@@ -186,83 +186,48 @@ class EIGeometry(CoreGeometry):
         air_y0 = total_h / 2.0 - air_h / 2.0
         air_box = gmsh.model.occ.addRectangle(air_x0, air_y0, 0.0, air_w, air_h)
 
-        # Fragment: lets Gmsh figure out how the air box, core, and
-        # winding surfaces share boundaries so the resulting mesh
-        # is conformal across regions. After fragment the *air*
-        # surface = air_box ∖ (core ∪ coils ∪ gap).
-        fragments_in = [(2, air_box), (2, core_tag), (2, coil_left), (2, coil_right)]
+        # Fragment with tag tracking. The ``outDimTagsMap`` tells us
+        # which output tags each input mapped to — crucial for
+        # robust region classification. Pre-v0.4.16-debug we tagged
+        # by centroid which silently broke on concave shapes (the C-
+        # shaped core's centroid falls inside its window-hole), and
+        # the resulting mesh had NO physical group for ``Core`` so
+        # the solver saw ``μ_r = μ₀`` everywhere → L independent of
+        # the material — a 50× error against the analytical ideal.
+        #
+        # Input order is preserved in ``out_map``: index 0 is
+        # ``core``, then air_box, coil_left, coil_right, and finally
+        # gap (when present).
+        fragments_in: list[tuple[int, int]] = [(2, core_tag)]
+        fragments_in.append((2, air_box))
+        fragments_in.append((2, coil_left))
+        fragments_in.append((2, coil_right))
+        idx_gap = -1
         if gap_surface_tag is not None:
+            idx_gap = len(fragments_in)
             fragments_in.append((2, gap_surface_tag))
-        gmsh.model.occ.fragment(fragments_in, [])
 
-        # Sync OCC → Gmsh's model so the rest of the API sees the
-        # new surfaces. Without this physical groups + mesh fields
-        # would address ghost tags.
+        _out_all, out_map = gmsh.model.occ.fragment(fragments_in, [])
+
         gmsh.model.occ.synchronize()
 
-        # ---- Step 7: tag physical groups -------------------------
-        # After fragment we need to look up surface tags by their
-        # centroids — the original tags above may have been
-        # rewritten by the fragment operation. Walk every 2-D
-        # entity and classify by its center-of-mass location.
-        surfaces = gmsh.model.getEntities(2)
-        core_surfaces: list[int] = []
-        gap_surfaces: list[int] = []
-        coil_pos_surfaces: list[int] = []  # left window — current INTO page
-        coil_neg_surfaces: list[int] = []  # right window — current OUT
-        air_surfaces: list[int] = []
+        # ---- Step 7: tag physical groups via fragment output map ─
+        # Each entry of ``out_map`` corresponds to one input — the
+        # list of dimtags it became after fragment. Most inputs map
+        # 1:1 in our geometry, but a tool surface that lay across
+        # multiple object surfaces can split (won't happen here, but
+        # the code handles it gracefully).
+        def _tags(out_entries):
+            return [t for (d, t) in out_entries if d == 2]
 
-        for dim, tag in surfaces:
-            com = gmsh.model.occ.getCenterOfMass(dim, tag)
-            cx, cy = com[0], com[1]
-
-            # Outside the core extents? Air.
-            if not (0.0 <= cx <= total_w and 0.0 <= cy <= total_h):
-                air_surfaces.append(tag)
-                continue
-
-            # Inside the left window region?
-            in_left_window = outer < cx < outer + ww_w and yoke < cy < yoke + ww_h
-            in_right_window = (
-                outer + ww_w + cl_w < cx < outer + 2 * ww_w + cl_w and yoke < cy < yoke + ww_h
-            )
-
-            if in_left_window:
-                # Bobbin clearance ring around the coil is part of the
-                # air domain (with permeability 1). Anything outside
-                # the coil rectangle but inside the window is air.
-                coil_x0 = outer + clearance
-                coil_x1 = outer + ww_w - clearance
-                coil_y0 = yoke + clearance
-                coil_y1 = yoke + ww_h - clearance
-                if coil_x0 < cx < coil_x1 and coil_y0 < cy < coil_y1:
-                    coil_pos_surfaces.append(tag)
-                else:
-                    air_surfaces.append(tag)
-                continue
-            if in_right_window:
-                coil_x0 = outer + ww_w + cl_w + clearance
-                coil_x1 = outer + 2 * ww_w + cl_w - clearance
-                coil_y0 = yoke + clearance
-                coil_y1 = yoke + ww_h - clearance
-                if coil_x0 < cx < coil_x1 and coil_y0 < cy < coil_y1:
-                    coil_neg_surfaces.append(tag)
-                else:
-                    air_surfaces.append(tag)
-                continue
-
-            # Inside the center-leg gap slice?
-            if gap > 0.0:
-                gap_x0 = outer + ww_w
-                gap_x1 = outer + ww_w + cl_w
-                gap_y0 = yoke + (ww_h - gap) / 2.0
-                gap_y1 = gap_y0 + gap
-                if gap_x0 < cx < gap_x1 and gap_y0 < cy < gap_y1:
-                    gap_surfaces.append(tag)
-                    continue
-
-            # Otherwise it's solid core (yoke or leg).
-            core_surfaces.append(tag)
+        core_surfaces = _tags(out_map[0])
+        # The air box minus the core / coils / gap = the surrounding
+        # air. ``fragment`` already subtracted everything by
+        # conformity, so out_map[1] gives just the air remainder.
+        air_surfaces = _tags(out_map[1])
+        coil_pos_surfaces = _tags(out_map[2])
+        coil_neg_surfaces = _tags(out_map[3])
+        gap_surfaces = _tags(out_map[idx_gap]) if idx_gap >= 0 else []
 
         # Emit physical groups. Empty groups are skipped so the
         # ``.pro`` doesn't reference dead tags.

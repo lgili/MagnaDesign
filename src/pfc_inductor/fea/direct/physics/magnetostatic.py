@@ -168,6 +168,13 @@ Constraint {{
 
 // GetDP requires Jacobian + Integration blocks BEFORE the
 // FunctionSpace — they're referenced by name in Formulation.
+// We use the planar 2-D Jacobian (``Vol`` / ``Sur``) because an
+// EI core is genuinely planar — its cross-section is uniform
+// along the lamination-stack direction. FEMMT defaults to
+// axisymmetric (``VolAxiSqu``) which is right for toroidal /
+// pot / PQ but would distort EI geometry. Phase 2 will add
+// the axisymmetric variant in a separate ``physics`` template
+// when the toroidal geometry generator lands.
 Jacobian {{
   {{ Name JVol; Case {{ {{ Region All; Jacobian Vol; }} }} }}
   {{ Name JSur; Case {{ {{ Region All; Jacobian Sur; }} }} }}
@@ -188,15 +195,24 @@ Integration {{
 }}
 
 FunctionSpace {{
-  // Scalar nodal space for the z-component of the magnetic
-  // vector potential ``A_z`` (2-D planar — only A_z is non-zero).
-  {{ Name Hgrad_a; Type Form0;
+  // 2-D ``A_z`` formulation: a Form1P (1-form perpendicular to
+  // the cross-section plane) so that ``{{a}}`` represents the
+  // out-of-plane component of the magnetic vector potential and
+  // ``{{d a}}`` is its curl = the in-plane magnetic-flux density
+  // ``B = (∂A/∂y, -∂A/∂x)``. ``BF_PerpendicularEdge`` is the
+  // canonical Whitney-1-form basis attached to MESH NODES for the
+  // 2-D planar case (it's the basis FEMMT uses, and the GetDP
+  // book uses for its ``MagSta_a_2D`` reference formulation).
+  // The earlier Form0 + BF_Node combo we shipped in Phase 1.0
+  // compiled cleanly but gave L_dc that was constant in μ_r —
+  // GetDP was using the wrong constitutive law internally.
+  {{ Name Hcurl_a; Type Form1P;
      BasisFunction {{
-       {{ Name sn; NameOfCoef an; Function BF_Node;
+       {{ Name se; NameOfCoef ae; Function BF_PerpendicularEdge;
           Support Magnetic; Entity NodesOf[ All ]; }}
      }}
      Constraint {{
-       {{ NameOfCoef an; EntityType NodesOf;
+       {{ NameOfCoef ae; EntityType NodesOf;
           NameOfConstraint MagDirichlet; }}
      }}
   }}
@@ -205,19 +221,23 @@ FunctionSpace {{
 Formulation {{
   {{ Name Magnetostatic_a; Type FemEquation;
      Quantity {{
-       {{ Name a; Type Local; NameOfSpace Hgrad_a; }}
+       {{ Name a; Type Local; NameOfSpace Hcurl_a; }}
      }}
      Equation {{
-       // Weak form for the 2-D A_z formulation. ``{{d a}}`` is the
-       // exterior derivative (= ∇A_z for a Form0). Source term uses
-       // the explicit z-component of js[] since {{a}} is a scalar
-       // Form0 — pairing a 3-vector source directly with a scalar
-       // test function compiles but produces a silent zero RHS in
-       // GetDP (you only learn afterward that B = 0 everywhere).
+       // Weak form for the 2-D A_z formulation with Form1P.
+       // Source split across two explicit Galerkin terms (one per
+       // sub-region) so GetDP resolves ``js[r]`` against the local
+       // region rather than the union — the union form
+       // ``In Source`` was producing a numerically-small RHS in
+       // testing, possibly because ``js[]`` lookups for a union
+       // region fall through to the per-region definitions in
+       // unpredictable order.
        Galerkin {{ [ nu[] * Dof{{d a}} , {{d a}} ];
          In Magnetic; Jacobian JVol; Integration I_Gauss; }}
-       Galerkin {{ [ -CompZ[js[]] , {{a}} ];
-         In Source; Jacobian JVol; Integration I_Gauss; }}
+       Galerkin {{ [ -js[] , {{a}} ];
+         In Coil_pos; Jacobian JVol; Integration I_Gauss; }}
+       Galerkin {{ [ -js[] , {{a}} ];
+         In Coil_neg; Jacobian JVol; Integration I_Gauss; }}
      }}
   }}
 }}
