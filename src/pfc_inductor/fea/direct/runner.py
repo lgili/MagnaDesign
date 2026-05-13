@@ -179,7 +179,48 @@ def run_direct_fea(
         gmsh.finalize()
 
     # ---- Step 2: ``.pro`` rendering ------------------------------
-    mu_r = float(getattr(material, "mu_r", None) or getattr(material, "mu_r_initial", None) or 1.0)
+    # Material permeability — including DC-bias rolloff for powder
+    # cores. Phase 2.5c: powder-core EE/PQ (Magnetics Kool Mu shaped
+    # cores, Micrometals Mix-26 EER) carry the same ``rolloff`` block
+    # as their toroidal cousins. Applying it here lets the axi solver
+    # report realistic L on these cores under load — without the
+    # rolloff, μ_initial overstates L by 2-5× at typical PFC duty.
+    mu_r_initial = float(
+        getattr(material, "mu_r", None)
+        or getattr(material, "mu_r_initial", None)
+        or getattr(material, "mu_initial", None)
+        or 1.0
+    )
+    mu_r = mu_r_initial
+    if getattr(material, "rolloff", None) is not None:
+        # le for the axi geometry: 2 × (window_h + center_leg/2) is
+        # a reasonable approximation for the mean magnetic path length
+        # — matches what the analytical engine uses internally.
+        catalog_le_mm = getattr(core, "le_mm", None)
+        if catalog_le_mm and catalog_le_mm > 0:
+            le_m_for_rolloff = float(catalog_le_mm) * 1e-3
+        else:
+            # Fallback: derive le from geometry. For an EI core
+            # le ≈ 2·(yoke + window_h) — flux travels yoke + window
+            # twice (one full loop).
+            le_m_for_rolloff = 2 * (dims.yoke_h_mm + dims.window_h_mm) * 1e-3
+        from pfc_inductor.fea.direct.physics.saturation import compute_mu_eff_dc_bias
+
+        mu_r, _frac = compute_mu_eff_dc_bias(
+            material=material,
+            n_turns=int(n_turns),
+            current_A=float(current_A),
+            le_m=le_m_for_rolloff,
+            fallback_mu_r=mu_r_initial,
+        )
+        _LOG.info(
+            "axi rolloff: μ_init=%.1f → μ_eff=%.1f (factor %.3f at I=%.2fA, le=%.2fmm)",
+            mu_r_initial,
+            mu_r,
+            _frac,
+            current_A,
+            le_m_for_rolloff * 1000,
+        )
 
     # Coil bundle area calculation. For PLANAR, this is just the
     # window-minus-clearance rectangle. For AXISYMMETRIC, we apply
