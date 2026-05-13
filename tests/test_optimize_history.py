@@ -28,15 +28,27 @@ from pfc_inductor.optimize import history
 
 @pytest.fixture(autouse=True)
 def _sandbox_history_dir(monkeypatch, tmp_path: Path):
-    """Redirect ``platformdirs.user_data_dir`` into a tmp dir for the
-    duration of each test. Otherwise the tests would pollute the
-    real user-data directory and could interfere with each other.
+    """Redirect ``pfc_inductor.app_identity.app_data_dir`` into a
+    tmp dir for the duration of each test. Otherwise the tests
+    would pollute the real user-data directory and could interfere
+    with each other.
+
+    Note: the history module migrated from ``platformdirs.user_data_dir``
+    to the in-tree ``app_identity.app_data_dir`` helper as part of
+    the cross-platform path unification. The mock target moved
+    accordingly.
     """
 
-    def _fake_dir(*_args, **_kwargs) -> str:
-        return str(tmp_path)
+    def _fake_dir(*_args, **_kwargs) -> Path:
+        return tmp_path
 
-    monkeypatch.setattr(history, "user_data_dir", _fake_dir)
+    # Both call sites — the import on the history module and the
+    # original definition in app_identity — must be redirected so the
+    # patch holds regardless of which one tests touch first.
+    import pfc_inductor.app_identity as app_identity_mod
+
+    monkeypatch.setattr(history, "app_data_dir", _fake_dir)
+    monkeypatch.setattr(app_identity_mod, "app_data_dir", _fake_dir)
     yield
 
 
