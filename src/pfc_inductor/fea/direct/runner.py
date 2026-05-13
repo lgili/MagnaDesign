@@ -99,9 +99,12 @@ def run_direct_fea(
     _TOROIDAL_SHAPES = {"toroid", "toroidal", "t"}
 
     if shape in _TOROIDAL_SHAPES:
-        raise NotImplementedError(
-            f"Toroidal shapes need the B_φ formulation (Phase 2.5). "
-            f"Got shape={shape!r}. Use FEMMT in the meantime."
+        return _run_toroidal_analytical(
+            core=core,
+            material=material,
+            n_turns=n_turns,
+            current_A=current_A,
+            workdir=workdir,
         )
     if shape not in _AXI_SHAPES:
         raise NotImplementedError(
@@ -296,6 +299,86 @@ def run_direct_fea(
 
 
 # ─── Helpers ──────────────────────────────────────────────────────
+
+
+def _run_toroidal_analytical(
+    *,
+    core: object,
+    material: object,
+    n_turns: int,
+    current_A: float,
+    workdir: Path,
+) -> DirectFeaResult:
+    """Dispatch a toroidal core through the closed-form B_φ solver.
+
+    No mesh, no GetDP, no linear solve — the wound-toroidal
+    inductance is exact in closed form
+    (``L = μ·N²·HT·ln(OD/ID)/(2π)``). We still write a small
+    ``toroidal_report.txt`` to ``workdir`` so the cascade
+    introspection has something to point at, and we still return
+    the same ``DirectFeaResult`` contract as the EI/PQ runners so
+    the UI doesn't need to special-case the dispatch.
+
+    Wall time is microseconds — by far the fastest path in the
+    backend. The "solve_wall_s" field reflects only the time spent
+    inside this function (mostly the cold import of the physics
+    module on the first call).
+    """
+    import time as _time
+
+    from pfc_inductor.fea.direct.physics.magnetostatic_toroidal import (
+        solve_toroidal_from_core,
+    )
+
+    workdir.mkdir(parents=True, exist_ok=True)
+    t0 = _time.perf_counter()
+    out = solve_toroidal_from_core(
+        core=core,
+        material=material,
+        n_turns=int(n_turns),
+        current_A=float(current_A),
+    )
+    wall_s = _time.perf_counter() - t0
+
+    report_path = workdir / "toroidal_report.txt"
+    report_lines = [
+        "# Toroidal analytical solver — Phase 2.5 result",
+        f"core_id            = {getattr(core, 'id', '?')}",
+        f"material_id        = {getattr(material, 'id', '?')}",
+        f"OD_mm              = {getattr(core, 'OD_mm', None)}",
+        f"ID_mm              = {getattr(core, 'ID_mm', None)}",
+        f"HT_mm              = {getattr(core, 'HT_mm', None)}",
+        f"mu_r               = {getattr(material, 'mu_r', None)}",
+        f"n_turns            = {n_turns}",
+        f"current_A          = {current_A}",
+        f"L_uH               = {out.L_uH:.4f}",
+        f"B_pk_T             = {out.B_pk_T:.6f}",
+        f"B_avg_T            = {out.B_avg_T:.6f}",
+        f"energy_J           = {out.energy_J:.6e}",
+        f"method             = {out.method}",
+        f"wall_s             = {wall_s:.6f}",
+    ]
+    report_path.write_text("\n".join(report_lines) + "\n", encoding="utf-8")
+
+    _LOG.info(
+        "direct toroidal solve: L=%.3f μH · B_pk=%.4f T · B_avg=%.4f T · %.6fs",
+        out.L_uH,
+        out.B_pk_T,
+        out.B_avg_T,
+        wall_s,
+    )
+
+    return DirectFeaResult(
+        L_dc_uH=out.L_uH,
+        energy_J=out.energy_J,
+        B_pk_T=out.B_pk_T,
+        B_avg_T=out.B_avg_T,
+        mesh_n_elements=0,
+        mesh_n_nodes=0,
+        solve_wall_s=wall_s,
+        workdir=workdir,
+        field_pngs={},
+    )
 
 
 def _mesh_stats(gmsh_module) -> tuple[int, int]:

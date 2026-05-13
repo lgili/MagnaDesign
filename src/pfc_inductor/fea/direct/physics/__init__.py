@@ -23,6 +23,11 @@ __all__ = [
     "MagnetostaticAxiTemplate",
     "MagnetostaticGlobalQTemplate",
     "MagnetostaticTemplate",
+    "ToroidalInputs",
+    "ToroidalOutputs",
+    "solve_toroidal",
+    "solve_toroidal_aggregate",
+    "solve_toroidal_from_core",
 ]
 
 
@@ -45,4 +50,14 @@ def __getattr__(name: str):
         )
 
         return MagnetostaticGlobalQTemplate
+    if name in (
+        "ToroidalInputs",
+        "ToroidalOutputs",
+        "solve_toroidal",
+        "solve_toroidal_aggregate",
+        "solve_toroidal_from_core",
+    ):
+        from pfc_inductor.fea.direct.physics import magnetostatic_toroidal
+
+        return getattr(magnetostatic_toroidal, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
