@@ -334,3 +334,62 @@ about topology). If it does, we'd recover correct L without
 the round-leg approximation that axisymmetric forces. Worth
 trying first because it preserves the geometric fidelity of
 the EI's rectangular legs.
+
+## Phase 1.7 SMOKING-GUN result (continuation of this session)
+
+Checked the iron contribution to L by sweeping closed-vs-open
+core + comparing with `μ_r = 1`:
+
+```
+lgap=0.0 mm (closed): L_fem = 3851 μH   B_pk = 0.305 T
+lgap=0.5 mm:          L_fem = 3840 μH   B_pk = 0.304 T
+lgap=5.0 mm (huge):   L_fem = 3782 μH   B_pk = 0.305 T
+
+μ_r=1, lgap=0 (NO IRON AT ALL):  L_fem = 3250 μH
+```
+
+**The iron contributes only ~18 % to the FEM's L.** A real
+wound inductor's iron should multiply L by 100s-1000s vs
+air-core. Our axisymmetric model is essentially returning the
+air-core inductance with a small iron-concentration boost.
+
+What this means
+---------------
+The flux is NOT following the magnetic loop through the iron.
+Most flux stays in the air around the coil bundle, with only
+modest enhancement in the iron regions. Diagnosis: the
+**cylindrical-shell outer-leg approximation** (3 mm thick ring
+at r ≈ 25 mm) creates leakage paths the analytical
+`μ₀N²Ae/lgap` formula doesn't model. The leakage parallel-
+combines with the iron path and lowers the effective L.
+
+Confirmation:
+- B_core ≈ 6 × B_air (iron presents as low-reluctance but only
+  partially — about 18 % of flux goes through it).
+- L is insensitive to ``lgap`` (gap reluctance is irrelevant
+  because most flux bypasses the iron loop entirely).
+- L is insensitive to ``μ_r`` (going from 100 to 10 000 only
+  reduces L by 0.3 %).
+
+Path forward for Phase 2 (next session)
+---------------------------------------
+
+The cylindrical-shell EI is fundamentally a *poor* axisymmetric
+approximation for a rectangular-legged EI. Options:
+
+1. **Pivot to toroidal as first calibrated shape.** Toroidal IS
+   naturally axisymmetric (round leg + round window), so the
+   cylindrical-shell limitation doesn't apply. Implement
+   `geometry/toroidal.py`, run calibration end-to-end on a
+   curated toroidal from the catalog (thousands available).
+   **Lowest risk, fastest to a working calibrated backend.**
+2. **Replace EI axi geometry with TRUE 3-D EI model.** Heavy
+   lift but the only way to faithfully model rectangular-leg
+   EI cores. ~3-4 sessions of work.
+3. **Side-by-side FEMMT run on a curated EI.** Definitively
+   distinguish "our formulation has a bug" from "our
+   formulation models the wrong physical system". Needs a
+   valid `Spec` + `DesignResult` that FEMMT accepts.
+
+**Recommendation:** Option 1 (toroidal first). EI calibration
+ranges as Phase 2 after toroidal works.
