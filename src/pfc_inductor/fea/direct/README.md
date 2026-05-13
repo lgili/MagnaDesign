@@ -5,16 +5,28 @@ and GetDP (subprocess) directly, generates artifacts where we
 want them, returns the same `FeaResult` shape the cascade
 already consumes.
 
-## 📋 Canonical roadmap
+## 📋 Canonical spec
 
-**See [`OPENSPEC.md`](./OPENSPEC.md)** — the contract that defines
-what "better than FEMMT" means in measurable terms, the phased
-plan to get there, and the acceptance criteria each phase has to
-meet. Read that first if you're picking up this work.
+**See `openspec/changes/replace-femmt-with-direct-fea/`** — the
+OpenSpec change that defines what "better than FEMMT" means in
+measurable terms, the phased plan to get there, and the
+acceptance criteria each phase has to meet. Read those four
+files first if you're picking up this work:
 
-This README is the elevator pitch. `OPENSPEC.md` is the spec.
+- [`proposal.md`](../../../openspec/changes/replace-femmt-with-direct-fea/proposal.md)
+  — why, what changes, impact, non-goals.
+- [`tasks.md`](../../../openspec/changes/replace-femmt-with-direct-fea/tasks.md)
+  — phased checklist (Phase 1 done, Phase 2–5 ahead).
+- [`design.md`](../../../openspec/changes/replace-femmt-with-direct-fea/design.md)
+  — architecture decisions + physics rationale.
+- [`specs/fea-direct-backend/spec.md`](../../../openspec/changes/replace-femmt-with-direct-fea/specs/fea-direct-backend/spec.md)
+  — formal requirements with GIVEN/WHEN/THEN scenarios.
+
+This README is the elevator pitch.
 `PHASE_1_4_PLAN.md` is the working journal that tracks **what
-happened during Phase 1** in raw detail.
+happened during Phase 1** in raw experimental detail (kept for
+future readers who want the "why did the calibration end up here"
+context).
 
 ## Status
 

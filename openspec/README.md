@@ -14,9 +14,10 @@ Estrutura de propostas e tarefas para evoluir o aplicativo. Convenção
 
 ### Mudanças ativas (May 2026)
 
-5 changes pendentes — 3 bloqueadas em algo que não é
-engenharia (bench data, certificados, benchmark uplift) e 2
-propostas de topologia ainda não iniciadas. Catorze itens
+6 changes pendentes — 3 bloqueadas em algo que não é
+engenharia (bench data, certificados, benchmark uplift), 2
+propostas de topologia ainda não iniciadas, e 1 grande refactor
+(FEA replacement) em Phase 1/5. Catorze itens
 fecharam neste pass: validation-reference-set software
 scaffolding, worst-case, mfg-spec, compliance, vfd-modulation,
 acoustic, theory-docs, buck-CCM, **flyback-topology**,
@@ -29,6 +30,7 @@ crash-reporting. Ver seção "Mudanças arquivadas" abaixo.
 | `add-validation-reference-set`     | P0   | L       | Software scaffolding shipped (`76d0aa8`). Bloqueado em **bench data física** — 3 protótipos com impedância + B-coil + térmico. Notebooks publicam predicted-vs-measured no GitHub Pages quando os números chegarem. |
 | `add-cascade-optimizer`            | XL   | XL      | Phase A (Tier-0 + Tier-1 + RunStore + parallel + UI) shipped. Phases B/C/D (Tier-2 ODE / Tier-3 FEA / Tier-4 transient FEA) gated em benchmark com uplift demonstrado. |
 | `add-code-signed-installers`       | P0¹  | M       | Phase 1 CI scaffolding shipped (`4e7d919`). **Bloqueado em certificados** — macOS notarization + Windows Authenticode requerem credenciais não-engenharia. |
+| `replace-femmt-with-direct-fea`    | P1   | XL      | Phase 1 shipped (12 commits, `pfc_inductor/fea/direct/`): pipeline + calibrated EI axisymmetric within FEMMT physics envelope. Phases 2–5 next: AC harmonic + thermal + toroidal B_φ + 3-D mode + cascade dual-backend + FEMMT deprecation. |
 
 ¹ Operacional — sem isso não há adoção corporativa.
 
