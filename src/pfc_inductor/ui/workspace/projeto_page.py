@@ -86,6 +86,7 @@ class ProjetoPage(QWidget):
     fea_requested = Signal()
     similar_requested = Signal()
     litz_requested = Signal()
+    tweak_requested = Signal()
     export_html_requested = Signal()
     # Native PDF datasheet — see ExportarTab.export_pdf_requested.
     export_pdf_requested = Signal()
@@ -135,6 +136,7 @@ class ProjetoPage(QWidget):
         self.header.compare_requested.connect(self.compare_requested.emit)
         self.header.report_requested.connect(self._on_report_pressed)
         self.header.recalculate_requested.connect(self.recalculate_requested.emit)
+        self.header.tweak_requested.connect(self.tweak_requested.emit)
         self.header.name_changed.connect(self.name_changed.emit)
         col_v.addWidget(self.header)
 
@@ -283,6 +285,10 @@ class ProjetoPage(QWidget):
             last_saved_at=last_saved_at,
         )
 
+    def set_tweak_state(self, active: bool, tooltip: str = "") -> None:
+        """Forward to the header's "AJUSTADO" pill."""
+        self.header.set_tweak_state(active, tooltip)
+
     def set_current_selection(self, material: Material, core: Core, wire: Wire):
         self.scoreboard.set_current_selection(material, core, wire)
 
@@ -342,7 +348,7 @@ class ProjetoPage(QWidget):
             material,
         )
         self.exportar_tab.update_from_design(result, spec, core, wire, material)
-        self.scoreboard.update_from_result(result, spec)
+        self.scoreboard.update_from_result(result, spec, core)
         # Flash the persistent KPI strip so the user has an unambiguous
         # signal that the recalc / apply landed — without it, the
         # values shift silently and small spec tweaks can feel like

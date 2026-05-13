@@ -87,6 +87,14 @@ class DesignResult(BaseModel):
     waveform_iL_A: Optional[list[float]] = None
     waveform_B_T: Optional[list[float]] = None
 
+    # Air gap actually used by the design — set by the engine via
+    # ``_resolve_gap_and_AL``. Always ``0.0`` for powder/distributed-gap
+    # cores; non-zero for gapped ferrites (catalog gap if provided,
+    # auto-computed otherwise). The "Entreferro" card and the
+    # scoreboard read this so the engineer sees the working gap value
+    # without re-deriving it.
+    gap_actual_mm: Optional[float] = None
+
     # --- line reactor only ---
     pct_impedance_actual: Optional[float] = None
     voltage_drop_pct: Optional[float] = None

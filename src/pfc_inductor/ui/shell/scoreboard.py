@@ -27,9 +27,33 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from pfc_inductor.models import DesignResult, Spec
+from pfc_inductor.models import Core, DesignResult, Spec
 from pfc_inductor.ui.icons import icon as ui_icon
 from pfc_inductor.ui.theme import get_theme, on_theme_changed
+
+
+def _core_size_label(core: Optional[Core]) -> Optional[str]:
+    """Compact "physical size" label for the scoreboard.
+
+    Picks the most informative form for the geometry:
+
+    * Toroid (``OD_mm`` and ``HT_mm`` set) → ``"⌀36 × 11 mm"``.
+    * Anything else (EE/EI laminations, planar, pot) → effective
+      volume in cm³, ``"Ve = 12.4 cm³"`` — universal, never blanks.
+
+    Returns ``None`` if ``core`` is missing so the caller skips the
+    slot cleanly.
+    """
+    if core is None:
+        return None
+    od = getattr(core, "OD_mm", None)
+    ht = getattr(core, "HT_mm", None)
+    if od and ht:
+        return f"⌀{od:.0f}×{ht:.0f} mm"
+    ve_mm3 = getattr(core, "Ve_mm3", None)
+    if ve_mm3 and ve_mm3 > 0:
+        return f"Ve={ve_mm3 / 1000.0:.1f} cm³"
+    return None
 
 
 def _finite_kpi(
@@ -122,7 +146,10 @@ class Scoreboard(QFrame):
         self._refresh_save_text()
 
     def update_from_result(
-        self, result: Optional[DesignResult], spec: Optional[Spec] = None
+        self,
+        result: Optional[DesignResult],
+        spec: Optional[Spec] = None,
+        core: Optional[Core] = None,
     ) -> None:
         if result is None:
             self._kpi.setText("—")
@@ -141,10 +168,20 @@ class Scoreboard(QFrame):
         # scoreboard footer was missed in that pass.
         try:
             parts = [
+                f"N={int(result.N_turns)} v",
                 _finite_kpi("L", result.L_actual_uH, "{:.0f}", "µH"),
                 _finite_kpi("B", result.B_pk_T * 1000.0, "{:.0f}", "mT"),
                 _finite_kpi("ΔT", result.T_rise_C, "{:.0f}", "°C"),
             ]
+            # Show the air gap when it's non-zero — only meaningful
+            # for gapped ferrites; powder cores stay quiet (their
+            # distributed gap is baked into AL).
+            gap = getattr(result, "gap_actual_mm", None)
+            if gap is not None and gap > 0.005:
+                parts.append(f"gap={gap:.2f} mm")
+            size = _core_size_label(core)
+            if size is not None:
+                parts.append(size)
             topology = getattr(spec, "topology", None) if spec is not None else None
             if topology == "line_reactor":
                 thd = getattr(result, "thd_estimate_pct", None)

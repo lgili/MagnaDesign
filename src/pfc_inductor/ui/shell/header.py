@@ -38,6 +38,7 @@ class WorkspaceHeader(QFrame):
     compare_requested = Signal()
     report_requested = Signal()
     recalculate_requested = Signal()
+    tweak_requested = Signal()
 
     # Lowered from 64 to 56 px to recover vertical room for the bento
     # below — the project name + 3 CTAs comfortably fit at this height
@@ -122,6 +123,27 @@ class WorkspaceHeader(QFrame):
         self._btn_report.clicked.connect(self.report_requested.emit)
         self._apply_dynamic_property_refresh(self._btn_report)
 
+        self._btn_tweak = QPushButton("Tweak")
+        self._btn_tweak.setProperty("class", "Secondary")
+        self._btn_tweak.setIcon(ui_icon("sliders", color=get_theme().palette.text, size=16))
+        self._btn_tweak.setIconSize(QSize(16, 16))
+        self._btn_tweak.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_tweak.setToolTip(
+            "Ajustar protótipo: forçar voltas ou T ambiente diferente do solver"
+        )
+        self._btn_tweak.clicked.connect(self.tweak_requested.emit)
+        self._apply_dynamic_property_refresh(self._btn_tweak)
+
+        # ---- Tweak-active pill — visible only while DesignOverrides
+        # carries any non-None field. Sits to the right of "Saved" so
+        # the user sees "AJUSTADO" alongside the save state.
+        self._tweak_pill = QLabel("● AJUSTADO")
+        self._tweak_pill.setProperty("class", "Pill")
+        self._tweak_pill.setProperty("pill", "warning")
+        self._tweak_pill.setToolTip("Design rodando com ajustes manuais de protótipo")
+        self._tweak_pill.setVisible(False)
+        self._apply_dynamic_property_refresh(self._tweak_pill)
+
         self._btn_recalc = QPushButton("Recalculate")
         self._btn_recalc.setProperty("class", "Primary")
         self._btn_recalc.setIcon(
@@ -139,9 +161,11 @@ class WorkspaceHeader(QFrame):
         h.addWidget(self._btn_pencil, 0, Qt.AlignmentFlag.AlignVCenter)
         h.addSpacing(12)
         h.addWidget(self._status_pill, 0, Qt.AlignmentFlag.AlignVCenter)
+        h.addWidget(self._tweak_pill, 0, Qt.AlignmentFlag.AlignVCenter)
         h.addStretch(1)
         h.addWidget(self._btn_compare, 0, Qt.AlignmentFlag.AlignVCenter)
         h.addWidget(self._btn_report, 0, Qt.AlignmentFlag.AlignVCenter)
+        h.addWidget(self._btn_tweak, 0, Qt.AlignmentFlag.AlignVCenter)
         h.addWidget(self._btn_recalc, 0, Qt.AlignmentFlag.AlignVCenter)
 
         # Subscribe to theme changes so inline QSS refreshes.
@@ -158,6 +182,7 @@ class WorkspaceHeader(QFrame):
         # CTA button icons follow text/text_inverse depending on class.
         self._btn_compare.setIcon(ui_icon("compare", color=p.text, size=16))
         self._btn_report.setIcon(ui_icon("file-text", color=p.text, size=16))
+        self._btn_tweak.setIcon(ui_icon("sliders", color=p.text, size=16))
         self._btn_recalc.setIcon(ui_icon("refresh", color=p.text_inverse, size=16))
         # Refresh the save-status pill (which uses palette via QSS).
         self.set_save_status(
@@ -171,6 +196,19 @@ class WorkspaceHeader(QFrame):
     def set_project_name(self, name: str) -> None:
         if self._name_edit.text() != name:
             self._name_edit.setText(name)
+
+    def set_tweak_state(self, active: bool, tooltip: str = "") -> None:
+        """Toggle the "AJUSTADO" pill in the header.
+
+        ``active=True`` lights up the pill so the user knows the
+        displayed design is the overridden version, not the
+        solver's. ``tooltip`` lists the active overrides verbatim so
+        a hover answers "what's been changed".
+        """
+        self._tweak_pill.setVisible(active)
+        if tooltip:
+            self._tweak_pill.setToolTip(tooltip)
+        self._apply_dynamic_property_refresh(self._tweak_pill)
 
     def set_save_status(self, *, unsaved: bool, last_saved_at: Optional[datetime] = None) -> None:
         self._unsaved_state = unsaved

@@ -7,7 +7,7 @@ from pfc_inductor.models.cascade import (
     Tier3Result,
     Tier4Result,
 )
-from pfc_inductor.models.core import Core
+from pfc_inductor.models.core import Core, stack_core
 from pfc_inductor.models.material import (
     LossDatapoint,
     Material,
@@ -20,6 +20,7 @@ from pfc_inductor.models.modulation import (
     from_rpm_band,
     rpm_to_fsw,
 )
+from pfc_inductor.models.overrides import DesignOverrides
 from pfc_inductor.models.result import DesignResult, LossBreakdown
 from pfc_inductor.models.spec import Spec, Topology
 from pfc_inductor.models.wire import Wire, WireType
@@ -27,6 +28,7 @@ from pfc_inductor.models.wire import Wire, WireType
 __all__ = [
     "Candidate",
     "Core",
+    "DesignOverrides",
     "DesignResult",
     "FeasibilityEnvelope",
     "FswModulation",
@@ -37,6 +39,7 @@ __all__ = [
     "RolloffParams",
     "Spec",
     "SteinmetzParams",
+    "stack_core",
     "Tier0Result",
     "Tier1Result",
     "Tier2Result",

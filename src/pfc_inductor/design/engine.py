@@ -186,6 +186,82 @@ def _line_envelope_B_pk_T(
     return rf.B_dc_T(N, I_line_pk_A, AL_nH, Ae_mm2, mu_pct_at_peak)
 
 
+def _resolve_gap_and_AL(
+    core: Core,
+    material: Material,
+    L_req_uH: float,
+    I_pk_A: float,
+    Bsat_limit_T: float,
+    N_override: Optional[int],
+) -> tuple[Core, float]:
+    """Return ``(effective_core, gap_used_mm)`` accounting for the air gap.
+
+    Three regimes, decided by the material's rolloff field:
+
+    1. **Powder / rolloff materials** — the catalog ``AL_nH`` already
+       reflects the manufacturer's distributed gap and ``mu_pct``
+       handles DC-bias rolloff. Returns the core unchanged.
+
+    2. **Ferrite / no-rolloff with catalog or user-set ``lgap_mm > 0``**
+       — the catalog ``AL_nH`` for these cores is the *ungapped* value;
+       the engine recomputes ``AL_eff = μ₀·Ae / (le/μ_r + lgap)`` so
+       both the iron-path and gap reluctance are accounted for. Returns
+       a derived core with the corrected ``AL_nH``.
+
+    3. **Ferrite / no-rolloff with ``lgap_mm == 0``** — the engineering
+       no-op the user warned about. Auto-compute the gap from the
+       saturation constraint::
+
+           N_min = L · I_pk / (Bsat · Ae)        # energy-storage form
+           N     = ceil(N_min)
+           l_eff = N² · μ₀ · Ae / L              # required reluctance
+           lgap  = max(0, l_eff − le/μ_r)        # subtract iron path
+
+       Then ``AL_eff = μ₀·Ae / l_eff``. The forced-N path (``N_override``)
+       takes the user's N as authoritative and solves for the gap that
+       hits the L target.
+
+    The returned ``effective_core`` is a Pydantic copy with ``AL_nH``
+    and ``lgap_mm`` updated; ``Ae``, ``le``, ``Wa``, ``MLT`` etc. are
+    unchanged.
+    """
+    # Powder: distributed gap is baked into AL_nH. Trust the catalog.
+    if material.rolloff is not None:
+        return core, float(core.lgap_mm)
+
+    Ae_m2 = float(core.Ae_mm2) * 1e-6
+    le_m = float(core.le_mm) * 1e-3
+    mu_r = max(float(getattr(material, "mu_initial", 0.0) or 1.0), 1.0)
+    L_H = max(float(L_req_uH) * 1e-6, 1e-15)
+
+    if N_override is not None:
+        # User-forced N. The gap is whatever makes ``L = N²·μ₀·Ae/l_eff``
+        # land on ``L_req`` at that turn count.
+        N_use = max(1, int(N_override))
+        l_eff_m = rf.MU_0 * N_use * N_use * Ae_m2 / L_H
+        lgap_m = max(0.0, l_eff_m - le_m / mu_r)
+    elif core.lgap_mm > 0.0:
+        # Catalog (or user-override) gap. Recompute AL from geometry.
+        lgap_m = float(core.lgap_mm) * 1e-3
+    else:
+        # Auto-compute gap from the saturation constraint.
+        Bsat = max(float(Bsat_limit_T), 1e-6)
+        N_min = L_H * max(float(I_pk_A), 0.0) / (Bsat * Ae_m2)
+        N_use = max(1, math.ceil(N_min))
+        l_eff_m = rf.MU_0 * N_use * N_use * Ae_m2 / L_H
+        lgap_m = max(0.0, l_eff_m - le_m / mu_r)
+
+    l_eff_total_m = max(le_m / mu_r + lgap_m, 1e-9)
+    AL_eff_nH = (rf.MU_0 * Ae_m2 / l_eff_total_m) * 1e9
+    effective_core = core.model_copy(
+        update={
+            "AL_nH": float(AL_eff_nH),
+            "lgap_mm": float(lgap_m) * 1e3,
+        }
+    )
+    return effective_core, lgap_m * 1e3
+
+
 # Initial guess for the iterative thermal solver. The first ``total_loss``
 # evaluation needs *some* temperature; +30 K above ambient is a reasonable
 # midpoint between "design works comfortably" and "near thermal runaway"
@@ -202,6 +278,7 @@ def design(
     Vin_design_Vrms: Optional[float] = None,
     *,
     T_init_rise_K: float = _T_INIT_RISE_K_DEFAULT,
+    N_override: Optional[int] = None,
 ) -> DesignResult:
     """Run the full design pipeline.
 
@@ -217,6 +294,14 @@ def design(
         thermal solver. Pure tuning knob — does not change the converged
         answer, only the iteration count. Keep at the module default
         unless profiling a slow case.
+    N_override
+        Force the winding turn count. When provided, ``_solve_N`` is
+        skipped and the rest of the pipeline (rolloff, B_pk, copper /
+        core losses, thermal converge) runs against the user-given
+        ``N``. Used by the "Ajustar protótipo" panel — the engineer
+        types the turn count they actually wound and the engine
+        reports the resulting performance. If ``L_actual < L_required``
+        the ``warnings`` list flags it; the engine does not raise.
     """
     # ---- Interleaved boost PFC ----
     # Each of N parallel boost stages carries 1/N of the total
@@ -237,6 +322,7 @@ def design(
             material,
             Vin_design_Vrms=Vin_design_Vrms,
             T_init_rise_K=T_init_rise_K,
+            N_override=N_override,
         )
         n_phase = spec.n_interleave
         # Stash the multiplicity + topology marker in the
@@ -295,7 +381,36 @@ def design(
         I_rms_line = passive_choke.line_rms_current_A(spec, Vin_design)
         L_req = passive_choke.required_inductance_uH(spec, Vin_design)
 
-    N, L_actual, mu_at_peak = _solve_N(L_req, core, material, I_pk)
+    # Resolve the gap (and corresponding AL) BEFORE turn-count solving.
+    # For powder cores the call is a no-op (catalog AL is correct); for
+    # ferrites it auto-computes the gap if the catalog leaves it at 0,
+    # which keeps an ungapped E core from silently saturating.
+    Bsat_limit_pre = material.Bsat_100C_T * (1.0 - spec.Bsat_margin)
+    core, gap_used_mm = _resolve_gap_and_AL(
+        core,
+        material,
+        L_req_uH=L_req,
+        I_pk_A=I_pk,
+        Bsat_limit_T=Bsat_limit_pre,
+        N_override=N_override,
+    )
+
+    if N_override is not None:
+        # User-forced turn count — bypass the solver and just
+        # evaluate L at the given N with the rolloff applied.
+        # ``L_actual`` may fall below ``L_required``; we capture
+        # that downstream via the warnings list, not by raising.
+        N = int(N_override)
+        H_pk_for_mu = rf.H_from_NI(N, I_pk, core.le_mm, units="Oe")
+        mu_at_peak = rf.mu_pct(material, H_pk_for_mu)
+        L_actual = rf.inductance_uH(N, core.AL_nH, mu_at_peak)
+        if L_actual < L_req:
+            warnings.append(
+                f"L_actual={L_actual:.0f} µH below required {L_req:.0f} µH "
+                f"with forced N={N} (Δ={L_req - L_actual:+.0f} µH)"
+            )
+    else:
+        N, L_actual, mu_at_peak = _solve_N(L_req, core, material, I_pk)
 
     # Buck-CCM: now that L is sized, recompute I_pk to include the
     # worst-case ripple half so saturation is checked at the actual
@@ -663,6 +778,7 @@ def design(
         V_diode_pk_V=V_diode_pk_V,
         P_snubber_W=P_snubber_W,
         waveform_is_A=waveform_is_A,
+        gap_actual_mm=float(gap_used_mm),
         notes=(
             f"Design at Vin={Vin_design:.0f} Vrms (worst-case current). "
             f"Layers~{layers}. Material {material.name} ({material.vendor})."

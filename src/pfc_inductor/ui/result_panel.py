@@ -4,19 +4,20 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QFormLayout,
     QFrame,
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QPushButton,
     QScrollArea,
     QVBoxLayout,
     QWidget,
 )
 
-from pfc_inductor.models import DesignResult
+from pfc_inductor.models import DesignOverrides, DesignResult
 from pfc_inductor.physics import CostBreakdown
 
 
@@ -24,10 +25,18 @@ class ResultPanel(QWidget):
     """KPI groups for the active design.
 
     Visual hierarchy:
-      - Header: feasibility pill + headline label.
+      - Header: feasibility pill + "Ajustar" button + headline label.
       - KPI groups: one QGroupBox per logical area, with monospaced numerics.
       - Cost group hides automatically when no cost data is available.
       - Warnings group always present, with semantic pill colours.
+    """
+
+    tweak_requested = Signal()
+    """Emitted when the user clicks "Ajustar protótipo" in the header.
+
+    The host (MainWindow) handles the click — opens
+    :class:`pfc_inductor.ui.dialogs.TweakDialog`, applies the
+    resulting overrides, and triggers a recalc.
     """
 
     def __init__(self, parent: Optional[QWidget] = None):
@@ -77,9 +86,25 @@ class ResultPanel(QWidget):
 
         h.addStretch(1)
 
+        # "AJUSTADO" pill — only visible when DesignOverrides has any
+        # non-None field. Sits to the left of the feasibility pill so
+        # the user sees "AJUSTADO" before "FEASIBLE" / "WARNING(S)".
+        self.l_override_pill = QLabel("AJUSTADO")
+        self.l_override_pill.setProperty("pill", "warning")
+        self.l_override_pill.setToolTip("Design recalculado com ajustes manuais de protótipo.")
+        self.l_override_pill.setVisible(False)
+        h.addWidget(self.l_override_pill)
+
         self.l_pill = QLabel("—")
         self.l_pill.setProperty("pill", "neutral")
         h.addWidget(self.l_pill)
+
+        self.btn_tweak = QPushButton("Ajustar")
+        self.btn_tweak.setToolTip(
+            "Ajustar protótipo: forçar N de voltas ou T ambiente diferentes do solver."
+        )
+        self.btn_tweak.clicked.connect(self.tweak_requested.emit)
+        h.addWidget(self.btn_tweak)
         return h
 
     @staticmethod
@@ -298,6 +323,44 @@ class ResultPanel(QWidget):
             self.l_warnings.setText(
                 f'<span style="color:{p.success}">●</span> Nenhum aviso. Design factível.'
             )
+
+    def set_overrides(
+        self,
+        overrides: DesignOverrides,
+        *,
+        baseline_N: Optional[int] = None,
+        baseline_T_amb_C: Optional[float] = None,
+    ) -> None:
+        """Toggle the "AJUSTADO" pill and its diff tooltip.
+
+        ``overrides.is_empty()`` hides the pill. Otherwise the
+        tooltip enumerates each active override against the
+        baseline values passed in — that's how the user reads
+        "I asked for 32 turns, the solver said 30" without
+        opening the dialog again.
+        """
+        if overrides.is_empty():
+            self.l_override_pill.setVisible(False)
+            self.l_override_pill.setToolTip("")
+            return
+
+        bits: list[str] = []
+        if overrides.N_turns is not None:
+            if baseline_N is not None and baseline_N != overrides.N_turns:
+                bits.append(f"N = {overrides.N_turns} (solver: {baseline_N})")
+            else:
+                bits.append(f"N = {overrides.N_turns}")
+        if overrides.T_amb_C is not None:
+            if baseline_T_amb_C is not None and abs(baseline_T_amb_C - overrides.T_amb_C) > 1e-3:
+                bits.append(f"T_amb = {overrides.T_amb_C:.1f} °C (spec: {baseline_T_amb_C:.1f} °C)")
+            else:
+                bits.append(f"T_amb = {overrides.T_amb_C:.1f} °C")
+        if overrides.wire_id:
+            bits.append(f"fio: {overrides.wire_id}")
+        if overrides.core_id:
+            bits.append(f"núcleo: {overrides.core_id}")
+        self.l_override_pill.setVisible(True)
+        self.l_override_pill.setToolTip("Ajustes ativos:\n  • " + "\n  • ".join(bits))
 
     def set_cost(self, cost: CostBreakdown | None) -> None:
         if cost is None:

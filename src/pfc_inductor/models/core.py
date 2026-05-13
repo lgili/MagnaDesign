@@ -62,3 +62,56 @@ class Core(BaseModel):
         description="Core mass in grams. If absent, derived from Ve · rho.",
     )
     notes: str = ""
+
+
+def stack_core(core: Core, n_stacks: int) -> Core:
+    """Return a derived :class:`Core` representing ``n_stacks`` of ``core``
+    physically assembled together (stacked toroids, paralleled EI halves,
+    laminated EE sections).
+
+    Scaling rules — the magnetic equivalent of N identical cores in
+    parallel (cross-section adds, magnetic path stays the same):
+
+    * ``Ae_mm2 *= n``     — cross-sections add.
+    * ``Ve_mm3 *= n``     — volume scales linearly.
+    * ``AL_nH *= n``      — inductance index is proportional to Ae.
+    * ``Wa_mm2``          — unchanged (window per single core).
+    * ``le_mm``           — unchanged (one magnetic loop, same length).
+    * ``HT_mm *= n``      — physical stack is ``n×`` taller.
+    * ``MLT_mm``          — grows by ``2·HT_mm·(n-1)``: every extra
+      stacked layer adds two ``HT`` segments to the winding's perimeter.
+      Exact for toroids (where ``MLT ≈ 2·HT + (OD-ID)``); a close
+      approximation for EE/EI stacks. When ``HT_mm`` isn't known we
+      fall back to ``MLT_mm *= n^(1/3)`` — the cube-root keeps the
+      growth conservative on cores where the height field is empty.
+    * ``mass_g *= n``     — n cores' worth of ferrite.
+    * ``cost_per_piece *= n`` — represents the assembled magnetic
+      structure's cost. BOM-side multiplication is therefore implicit
+      in this single 'effective core' value.
+
+    Returns the original ``core`` unchanged when ``n_stacks <= 1`` so
+    callers can apply this blindly to a possibly-1 override value.
+    """
+    if n_stacks is None or n_stacks <= 1:
+        return core
+    n = int(n_stacks)
+    new_ht = core.HT_mm * n if core.HT_mm is not None else None
+    # MLT bump — exact for toroids, ≈ exact for EE/EI laminations.
+    if core.HT_mm is not None:
+        new_mlt = core.MLT_mm + 2.0 * core.HT_mm * (n - 1)
+    else:
+        new_mlt = core.MLT_mm * (n ** (1.0 / 3.0))
+    new_mass = core.mass_g * n if core.mass_g is not None else None
+    new_cost = core.cost_per_piece * n if core.cost_per_piece is not None else None
+    return core.model_copy(
+        update={
+            "Ae_mm2": core.Ae_mm2 * n,
+            "Ve_mm3": core.Ve_mm3 * n,
+            "AL_nH": core.AL_nH * n,
+            "HT_mm": new_ht,
+            "MLT_mm": new_mlt,
+            "mass_g": new_mass,
+            "cost_per_piece": new_cost,
+            "notes": (core.notes + f" [{n}× stacked]").strip(),
+        }
+    )

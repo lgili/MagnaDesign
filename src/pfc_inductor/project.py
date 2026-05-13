@@ -34,7 +34,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
-from pfc_inductor.models import Spec
+from pfc_inductor.models import DesignOverrides, Spec
 
 PROJECT_FILE_VERSION = "1.0"
 PROJECT_FILE_EXTENSION = ".pfc"
@@ -59,6 +59,7 @@ class ProjectFile(BaseModel):
     name: str = "Untitled Project"
     spec: Spec = Field(default_factory=Spec)
     selection: ProjectSelection = Field(default_factory=ProjectSelection)
+    overrides: DesignOverrides = Field(default_factory=DesignOverrides)
 
     model_config = {"extra": "ignore"}
 
@@ -70,6 +71,7 @@ class ProjectFile(BaseModel):
         material_id: str = "",
         core_id: str = "",
         wire_id: str = "",
+        overrides: DesignOverrides | None = None,
     ) -> ProjectFile:
         return cls(
             name=name,
@@ -79,6 +81,7 @@ class ProjectFile(BaseModel):
                 core_id=core_id,
                 wire_id=wire_id,
             ),
+            overrides=overrides or DesignOverrides(),
         )
 
 

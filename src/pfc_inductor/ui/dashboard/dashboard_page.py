@@ -36,7 +36,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
+from pfc_inductor.models import Core, DesignOverrides, DesignResult, Material, Spec, Wire
 from pfc_inductor.ui.dashboard.cards import (
     BobinamentoCard,
     EntreferroCard,
@@ -66,6 +66,7 @@ class DashboardPage(QWidget):
     litz_requested = Signal()
     report_requested = Signal()
     similar_requested = Signal()
+    tweak_requested = Signal()
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -166,6 +167,7 @@ class DashboardPage(QWidget):
         self.card_proximos.litz_requested.connect(self.litz_requested.emit)
         self.card_proximos.report_requested.connect(self.report_requested.emit)
         self.card_proximos.similar_requested.connect(self.similar_requested.emit)
+        self.card_proximos.tweak_requested.connect(self.tweak_requested.emit)
 
         # ---- collect cards for batch operations -----------------------
         # ``kpi_strip`` is included so ``update_from_design`` fans out
@@ -193,6 +195,12 @@ class DashboardPage(QWidget):
     ) -> None:
         for card in self._cards:
             card.update_from_design(result, spec, core, wire, material)
+
+    def set_overrides(self, overrides: DesignOverrides) -> None:
+        """Forward the active overrides to the cards that render
+        them (currently only ``ProximosPassosCard``'s "Ajustar
+        protótipo" action label)."""
+        self.card_proximos.set_overrides(overrides)
 
     def clear(self) -> None:
         for card in self._cards:

@@ -70,7 +70,7 @@ from pfc_inductor.data_loader import (
 )
 from pfc_inductor.design import design
 from pfc_inductor.errors import DesignError, ReportGenerationError
-from pfc_inductor.models import Core, Material, Spec, Wire
+from pfc_inductor.models import Core, DesignOverrides, Material, Spec, Wire, stack_core
 from pfc_inductor.project import (
     PROJECT_FILE_EXTENSION,
     ProjectFile,
@@ -158,9 +158,23 @@ class _DesignWorker(QObject):
     failed = Signal(str)
     """User-facing error message — surfaced via ``QMessageBox``."""
 
-    @Slot(object, object, object, object)
-    def compute(self, spec: object, core: object, wire: object, material: object) -> None:
+    @Slot(object, object, object, object, object)
+    def compute(
+        self,
+        spec: object,
+        core: object,
+        wire: object,
+        material: object,
+        n_override: object,
+    ) -> None:
         """Run ``design()`` and emit the result.
+
+        ``n_override`` is either an ``int`` (force the engine to use
+        that turn count) or ``None`` (engine solves for N normally).
+        Threaded through the worker as an ``object`` so the Qt
+        ``QueuedConnection`` marshaling stays uniform — same reason
+        ``spec`` / ``core`` / ``wire`` / ``material`` are typed as
+        ``object`` rather than their concrete Pydantic classes.
 
         Errors are split into two buckets:
 
@@ -174,7 +188,13 @@ class _DesignWorker(QObject):
           this is a bug to file.
         """
         try:
-            result = design(spec, core, wire, material)  # type: ignore[arg-type]
+            result = design(
+                spec,  # type: ignore[arg-type]
+                core,  # type: ignore[arg-type]
+                wire,  # type: ignore[arg-type]
+                material,  # type: ignore[arg-type]
+                N_override=n_override,  # type: ignore[arg-type]
+            )
         except DesignError as e:
             self.failed.emit(e.user_message())
             return
@@ -196,7 +216,7 @@ class MainWindow(QMainWindow):
     design_completed = _Signal(object, object, object, object, object)
     """``Signal(DesignResult, Spec, Core, Wire, Material)``."""
 
-    _calc_requested = _Signal(object, object, object, object)
+    _calc_requested = _Signal(object, object, object, object, object)
     """Internal: emitted to enqueue a calc on the design worker thread.
 
     Connected to ``_DesignWorker.compute`` via ``QueuedConnection`` in
@@ -204,6 +224,10 @@ class MainWindow(QMainWindow):
     ``QMetaObject.invokeMethod``) avoids the ``QMetaType`` registration
     requirement that fails for arbitrary Python objects like Pydantic
     models.
+
+    Payload is ``(spec, core, wire, material, n_override)`` —
+    ``n_override`` is ``int`` to force the engine's turn count or
+    ``None`` to let the solver pick.
     """
 
     # ── Process-exit safety net ───────────────────────────────────
@@ -381,7 +405,22 @@ class MainWindow(QMainWindow):
         # on the freshest inputs rather than racing through stale
         # intermediate values.
         self._calc_in_flight = False
-        self._calc_pending_inputs: Optional[tuple[Spec, Core, Wire, Material]] = None
+        # 5-tuple: (spec, core, wire, material, n_override). The
+        # last slot is ``None`` for the standard solver path and
+        # an ``int`` when ``DesignOverrides.N_turns`` is active.
+        self._calc_pending_inputs: Optional[
+            tuple[Spec, Core, Wire, Material, Optional[int]]
+        ] = None
+
+        # "Ajustar protótipo" overrides. Empty by default — the
+        # solver picks every value. Updated by ``_on_tweak_requested``
+        # after the user accepts :class:`TweakDialog`.
+        self._design_overrides: DesignOverrides = DesignOverrides()
+        # Snapshot of the solver's last unmodified turn count. Held
+        # so the Tweak dialog can show "solver said 30, you forced
+        # 32" without re-running the engine. Refreshed every time
+        # ``_on_calculate`` runs *without* an active N override.
+        self._baseline_N_solver: Optional[int] = None
 
         if self._async_recalc_enabled:
             self._start_design_worker()
@@ -878,6 +917,7 @@ class MainWindow(QMainWindow):
             material_id=self._current_material_id,
             core_id=self._current_core_id,
             wire_id=self._current_wire_id,
+            overrides=self._design_overrides,
         )
 
     def _apply_project(self, state: ProjectFile) -> None:
@@ -889,6 +929,15 @@ class MainWindow(QMainWindow):
             self._current_core_id = state.selection.core_id
         if state.selection.wire_id:
             self._current_wire_id = state.selection.wire_id
+        # Restore (or clear) prototype overrides — opening a project
+        # with no override returns the UI to the "solver picks
+        # everything" state without leaking stale tweaks from a
+        # previously-loaded session.
+        self._design_overrides = state.overrides
+        # New project state means the cached solver-N baseline is
+        # stale; let the next ``_on_calculate`` repopulate it.
+        self._baseline_N_solver = None
+        self._refresh_tweak_pill()
         self._on_calculate()
         self._workflow_state.mark_saved()
 
@@ -1116,6 +1165,7 @@ class MainWindow(QMainWindow):
         self.projeto_page.fea_requested.connect(self._open_fea)
         self.projeto_page.similar_requested.connect(self._open_similar_parts)
         self.projeto_page.litz_requested.connect(self._open_litz)
+        self.projeto_page.tweak_requested.connect(self._on_tweak_requested)
         self.projeto_page.export_html_requested.connect(self._export_report)
         self.projeto_page.export_pdf_requested.connect(
             self._export_report_pdf,
@@ -1301,8 +1351,8 @@ class MainWindow(QMainWindow):
         from PySide6.QtWidgets import QFileDialog
 
         try:
-            spec, core, wire, material = self._collect_inputs()
-            result = design(spec, core, wire, material)
+            spec, core, wire, material, n_override = self._resolve_effective_inputs()
+            result = design(spec, core, wire, material, N_override=n_override)
         except DesignError as e:
             QMessageBox.warning(self, "Error", e.user_message())
             return
@@ -1362,8 +1412,8 @@ class MainWindow(QMainWindow):
         from PySide6.QtWidgets import QFileDialog
 
         try:
-            spec, core, wire, material = self._collect_inputs()
-            result = design(spec, core, wire, material)
+            spec, core, wire, material, n_override = self._resolve_effective_inputs()
+            result = design(spec, core, wire, material, N_override=n_override)
         except DesignError as e:
             QMessageBox.warning(self, "Error", e.user_message())
             return
@@ -1428,8 +1478,8 @@ class MainWindow(QMainWindow):
         from PySide6.QtWidgets import QFileDialog
 
         try:
-            spec, core, wire, material = self._collect_inputs()
-            result = design(spec, core, wire, material)
+            spec, core, wire, material, n_override = self._resolve_effective_inputs()
+            result = design(spec, core, wire, material, N_override=n_override)
         except DesignError as e:
             QMessageBox.warning(self, "Error", e.user_message())
             return
@@ -1767,8 +1817,11 @@ class MainWindow(QMainWindow):
 
         # Cold-cache fallback. Synchronous because the caller (the
         # compare dialog) expects the slot to exist immediately.
-        spec, core, wire, material = self._collect_inputs()
-        result = design(spec, core, wire, material)
+        # Overrides apply here too — the compare dialog should show
+        # the as-built design the user has tweaked, not the solver's
+        # pristine choice.
+        spec, core, wire, material, n_override = self._resolve_effective_inputs()
+        result = design(spec, core, wire, material, N_override=n_override)
         # Populate the cache so subsequent calls hit the fast path.
         self._last_design_snapshot = (result, spec, core, wire, material)
         return CompareSlot(
@@ -2009,7 +2062,14 @@ class MainWindow(QMainWindow):
         )
         self._design_thread.start()
 
-    def _dispatch_calc(self, spec: Spec, core: Core, wire: Wire, material: Material) -> None:
+    def _dispatch_calc(
+        self,
+        spec: Spec,
+        core: Core,
+        wire: Wire,
+        material: Material,
+        n_override: Optional[int] = None,
+    ) -> None:
         """Send a calc request to the worker thread.
 
         Emits ``_calc_requested`` rather than calling
@@ -2017,9 +2077,14 @@ class MainWindow(QMainWindow):
         crosses thread boundaries safely via Qt's ``QueuedConnection``.
         See the ``_DesignWorker`` docstring for why we route through a
         signal instead of ``QMetaObject.invokeMethod``.
+
+        ``n_override`` is forwarded to the engine's ``N_override``
+        argument — non-``None`` skips the turn-count solver and
+        evaluates the design against the user-given N (the "Ajustar
+        protótipo" path).
         """
         assert self._design_worker is not None, "worker not started"
-        self._calc_requested.emit(spec, core, wire, material)
+        self._calc_requested.emit(spec, core, wire, material, n_override)
 
     @Slot(object, object, object, object, object)
     def _on_design_finished(
@@ -2144,8 +2209,147 @@ class MainWindow(QMainWindow):
         # without paying for another ``design()`` call.
         self._last_design_snapshot = (result, spec, core, wire, material)
 
+        # When this calc ran *without* an N override, the result's
+        # turn count is by definition the solver's pick — cache it so
+        # the Tweak dialog can show "solver said 30, you forced 32"
+        # without re-running the engine. Calcs that already carry an
+        # N override leave the baseline untouched.
+        if self._design_overrides.N_turns is None:
+            self._baseline_N_solver = int(result.N_turns)
+
+        # Update the header "AJUSTADO" pill so the user sees the
+        # design they're looking at is the overridden one.
+        self._refresh_tweak_pill()
+
         # Emit for subscribers (tests, future plug-ins).
         self.design_completed.emit(result, spec, core, wire, material)
+
+    def _refresh_tweak_pill(self) -> None:
+        """Sync the header's "AJUSTADO" pill with ``_design_overrides``."""
+        ov = self._design_overrides
+        if ov.is_empty():
+            self.projeto_page.set_tweak_state(False)
+            return
+        bits: list[str] = []
+        if ov.N_turns is not None:
+            if self._baseline_N_solver is not None and self._baseline_N_solver != ov.N_turns:
+                bits.append(f"N = {ov.N_turns} (solver: {self._baseline_N_solver})")
+            else:
+                bits.append(f"N = {ov.N_turns}")
+        if ov.T_amb_C is not None:
+            bits.append(f"T_amb = {ov.T_amb_C:.1f} °C")
+        if ov.n_stacks is not None and ov.n_stacks > 1:
+            bits.append(f"{ov.n_stacks}× núcleos empilhados")
+        if ov.gap_mm is not None:
+            bits.append(f"gap = {ov.gap_mm:.2f} mm")
+        if ov.wire_id:
+            bits.append(f"fio: {ov.wire_id}")
+        if ov.core_id:
+            bits.append(f"núcleo: {ov.core_id}")
+        tooltip = "Ajustes ativos:\n  • " + "\n  • ".join(bits)
+        self.projeto_page.set_tweak_state(True, tooltip)
+
+    def _on_tweak_requested(self) -> None:
+        """Open the "Ajustar protótipo" dialog and apply the result.
+
+        Pulls the baseline N (solver's last pick) and the current
+        spec's ``T_amb_C`` for the dialog's reference labels. After
+        the user accepts, ``_design_overrides`` is replaced and a
+        recalc fires through the standard ``_on_calculate`` path —
+        same code that runs on Ctrl+R, so the worker / coalescing
+        plumbing is exercised end-to-end.
+        """
+        from pfc_inductor.ui.dialogs import TweakDialog
+
+        # Baseline N for the "solver said X" label. Prefer the
+        # cached solver-only run; fall back to the last snapshot's
+        # N (which may already be an overridden value, but is still
+        # a reasonable starting point).
+        if self._baseline_N_solver is not None:
+            baseline_N = self._baseline_N_solver
+        elif self._last_design_snapshot is not None:
+            # ``_last_design_snapshot[0]`` is a ``DesignResult`` at
+            # runtime (typed ``object`` in the tuple annotation so
+            # the snapshot field can hold opaque objects across
+            # ``QueuedConnection`` boundaries without a circular
+            # import). The ``getattr`` keeps pyright honest.
+            last_result = self._last_design_snapshot[0]
+            baseline_N = int(getattr(last_result, "N_turns", 30))
+        else:
+            baseline_N = 30  # arbitrary safe default before first calc
+
+        try:
+            current_spec = self.projeto_page.spec_panel.get_spec()
+            baseline_T = float(current_spec.T_amb_C)
+        except Exception:
+            baseline_T = 40.0
+
+        # Baseline gap — pull from the last design's actual gap
+        # (engine-computed for ferrites, 0 for powder). Falls back
+        # to 0 before any successful calc.
+        baseline_gap = 0.0
+        if self._last_design_snapshot is not None:
+            last_result = self._last_design_snapshot[0]
+            g = getattr(last_result, "gap_actual_mm", None)
+            if g is not None:
+                baseline_gap = float(g)
+
+        dlg = TweakDialog(
+            self,
+            baseline_N=baseline_N,
+            baseline_T_amb_C=baseline_T,
+            baseline_gap_mm=baseline_gap,
+            current=self._design_overrides,
+        )
+        if dlg.exec() != dlg.DialogCode.Accepted:
+            return
+
+        new_overrides = dlg.overrides()
+        if new_overrides == self._design_overrides:
+            # User hit Apply without changing anything — skip the
+            # recalc to avoid burning a worker dispatch on a no-op.
+            # Pydantic ``BaseModel`` defines ``__eq__`` on fields so
+            # the comparison is field-wise without manual unpacking.
+            return
+
+        self._design_overrides = new_overrides
+        self._workflow_state.mark_dirty()
+        self._refresh_tweak_pill()
+        self._on_calculate()
+
+    def _resolve_effective_inputs(self) -> tuple[Spec, Core, Wire, Material, Optional[int]]:
+        """Collect raw inputs and apply ``self._design_overrides``.
+
+        Returns the (spec, core, wire, material, n_override) tuple
+        the engine actually runs against. ``n_override`` is ``None``
+        when no turn-count tweak is active. The spec may carry an
+        overridden ``T_amb_C``; the core / wire ids may be swapped
+        out for the catalog entries named in the overrides.
+        """
+        spec, core, wire, material = self._collect_inputs()
+        ov = self._design_overrides
+        if ov.core_id:
+            try:
+                core = self._find_core(ov.core_id)
+            except Exception:
+                pass  # fall back to selection if id no longer in catalog
+        if ov.wire_id:
+            try:
+                wire = self._find_wire(ov.wire_id)
+            except Exception:
+                pass
+        if ov.T_amb_C is not None:
+            spec = spec.model_copy(update={"T_amb_C": float(ov.T_amb_C)})
+        if ov.n_stacks is not None and ov.n_stacks > 1:
+            # Replace the core with its stacked variant before the
+            # engine sees it. ``stack_core`` is a no-op for n=1, so
+            # callers can apply this blindly without re-checking.
+            core = stack_core(core, ov.n_stacks)
+        if ov.gap_mm is not None:
+            # Force the gap. The engine's ``_resolve_gap_and_AL`` will
+            # see ``lgap_mm > 0`` and use it instead of auto-computing.
+            core = core.model_copy(update={"lgap_mm": float(ov.gap_mm)})
+        return spec, core, wire, material, ov.N_turns
 
     def _on_calculate(self) -> None:
         """Recompute the design from the current spec / core / wire / material.
@@ -2163,8 +2367,8 @@ class MainWindow(QMainWindow):
         """
         if not self._async_recalc_enabled:
             try:
-                spec, core, wire, material = self._collect_inputs()
-                result = design(spec, core, wire, material)
+                spec, core, wire, material, n_override = self._resolve_effective_inputs()
+                result = design(spec, core, wire, material, N_override=n_override)
             except DesignError as e:
                 QMessageBox.warning(self, "Calculation error", e.user_message())
                 return
@@ -2174,7 +2378,7 @@ class MainWindow(QMainWindow):
         # Async path. Input collection is cheap (<1 ms) and stays
         # on the main thread; only ``design()`` itself is heavy.
         try:
-            spec, core, wire, material = self._collect_inputs()
+            spec, core, wire, material, n_override = self._resolve_effective_inputs()
         except DesignError as e:
             QMessageBox.warning(self, "Calculation error", e.user_message())
             return
@@ -2184,9 +2388,9 @@ class MainWindow(QMainWindow):
             # latest pending; the previous pending (if any) is
             # discarded — we always converge on the freshest values
             # rather than racing through stale intermediates.
-            self._calc_pending_inputs = (spec, core, wire, material)
+            self._calc_pending_inputs = (spec, core, wire, material, n_override)
             return
 
         self._calc_in_flight = True
         self._set_recalc_busy(True)
-        self._dispatch_calc(spec, core, wire, material)
+        self._dispatch_calc(spec, core, wire, material, n_override)

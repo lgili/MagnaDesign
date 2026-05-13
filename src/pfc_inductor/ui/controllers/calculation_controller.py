@@ -21,7 +21,14 @@ from pfc_inductor.errors import (
     CatalogError,
     SpecValidationError,
 )
-from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
+from pfc_inductor.models import (
+    Core,
+    DesignOverrides,
+    DesignResult,
+    Material,
+    Spec,
+    Wire,
+)
 
 
 class SpecPanelLike(Protocol):
@@ -157,6 +164,43 @@ class CalculationController:
         inputs = self.collect_inputs()
         result = design(inputs.spec, inputs.core, inputs.wire, inputs.material)
         return inputs, result
+
+    def calculate_with_overrides(
+        self,
+        overrides: DesignOverrides,
+    ) -> tuple[CalculationInputs, DesignResult]:
+        """Recompute applying the "Ajustar protótipo" overrides.
+
+        Overrides replace the corresponding piece of the canonical
+        input — a non-empty ``core_id`` swaps the catalog core, a
+        non-empty ``T_amb_C`` rewrites the spec's ambient before the
+        engine sees it, and so on. Fields left ``None`` fall back to
+        the project's selection.
+
+        The returned :class:`CalculationInputs` reflects the **effective**
+        inputs after override resolution, so callers (history, report,
+        persistence) record the build as it was actually evaluated.
+        """
+        base = self.collect_inputs()
+        core = self.find_core(overrides.core_id) if overrides.core_id else base.core
+        wire = self.find_wire(overrides.wire_id) if overrides.wire_id else base.wire
+        spec = base.spec
+        if overrides.T_amb_C is not None:
+            spec = spec.model_copy(update={"T_amb_C": overrides.T_amb_C})
+        effective = CalculationInputs(
+            spec=spec,
+            core=core,
+            wire=wire,
+            material=base.material,
+        )
+        result = design(
+            effective.spec,
+            effective.core,
+            effective.wire,
+            effective.material,
+            N_override=overrides.N_turns,
+        )
+        return effective, result
 
 
 # ---------------------------------------------------------------------------
