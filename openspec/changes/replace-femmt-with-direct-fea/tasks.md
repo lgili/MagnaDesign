@@ -235,14 +235,27 @@ no regressions in `compare_backends` CI.
 
 ### 5.1 — Cascade Tier 3 dual-backend mode
 
-- [ ] `backend` kwarg on `optimize/cascade/tier3.run_tier3()` —
-      `"femmt"` (default through Phase 5.2) or `"direct"`.
-- [ ] UI: add a "FEA backend" toggle in **Configurações** with
-      a "Recommended: direct (faster, more accurate)" hint when
-      the benchmark gates have all passed.
+- [x] `PFC_FEA_BACKEND` env override in `fea/runner.py`
+      `validate_design` — opts in to the direct backend without
+      changing the Tier 3 signature (3df3271). Cascade Tier 3
+      transparently picks up the new backend; on failure it
+      logs a warning and falls back to the legacy shape-based
+      dispatch — never crashes the orchestrator.
+- [x] `_validate_design_direct` adapter projects DirectFeaResult
+      → FEAValidation so the cascade's "disagrees_with_tier1"
+      flag works identically for both backends (3df3271).
+- [x] Four tests lock in: toroidal routes to direct, pct_error
+      populated, default dispatch unchanged, unknown env value
+      falls back silently (3df3271).
+- [x] UI toggle in **Configurações** — combo with Auto / Direct
+      / FEMMT / FEMM, persisted via QSettings, sets the env var
+      eagerly on launch (3dc1821).
+- [x] CLI access via `magnadesign fea` (b04ad18) with
+      `--backend` / `--compare` flags for benchmarking and
+      one-shot validation.
 - [ ] CI: `compare_backends` runs on every PR with both flags
       against the 10-core benchmark set. Regression in either
-      backend fails the PR.
+      backend fails the PR. (Awaits Phase 2.0 case-set expansion.)
 
 ### 5.2 — Cutover (`direct` becomes default)
 
