@@ -7,29 +7,56 @@ existing `pfc_inductor/fea/femmt_runner.py` adapter stays in tree
 through Phase 5.2 as a fallback backend and is moved to
 `vendor/legacy/` at Phase 5.3.
 
-Module layout (per responsibility, not per shape):
+Module layout (May 2026 — per responsibility, not per shape):
 
 ```
 fea/direct/
-├── __init__.py           # lazy re-exports (no Gmsh import on toplevel)
-├── models.py             # DirectFeaResult, BCKind, EICoreDims
-├── geometry/             # one file per shape; same RegionTag protocol
-│   ├── base.py           # CoreGeometry ABC, RegionTag constants
-│   ├── ei.py             # 2-D planar EI
-│   ├── ei_axi.py         # 2-D axisymmetric EI
-│   ├── toroidal.py       # toroidal half-meridian (geom only)
-│   └── (Phase 2+: ee.py, pq.py, etd.py, custom_3d.py)
-├── physics/              # one file per problem class
-│   ├── magnetostatic.py        # planar DC
-│   ├── magnetostatic_axi.py    # axisymmetric DC w/ VolAxiSqu
-│   ├── magnetostatic_globalq.py # circuit-coupled DC (foundation for AC)
-│   └── (Phase 2+: magnetostatic_ac.py, magnetostatic_toroidal.py,
-│                  thermal.py, transient.py, magnetostatic_3d.py)
-├── solver.py             # subprocess GetDP, Cancellable, timeout
-├── postproc.py           # parsers + L extraction (energy + flux-link)
-├── calibration.py        # compare_backends oracle
-└── runner.py             # public API
+├── __init__.py             # lazy re-exports (no Gmsh import on toplevel)
+├── models.py               # DirectFeaResult, BCKind, EICoreDims, _femmt_db_lookup
+├── geometry/               # one file per shape; same RegionTag protocol
+│   ├── base.py             # CoreGeometry ABC, RegionTag constants
+│   ├── ei.py               # 2-D planar EI
+│   ├── ei_axi.py           # 2-D axisymmetric EI
+│   └── toroidal.py         # toroidal half-meridian (geometry, kept for
+│                           #    future FEM toroidal; current solver is
+│                           #    purely analytical so the geometry is
+│                           #    bypassed by the dispatcher)
+├── physics/                # one file per problem class
+│   ├── magnetostatic.py            # planar DC (Phase 1, FEM path)
+│   ├── magnetostatic_axi.py        # axisymmetric DC w/ VolAxiSqu
+│   │                                #   (Phase 1; has the structural
+│   │                                #    calibration bug — opt-in only)
+│   ├── magnetostatic_globalq.py    # circuit-coupled DC foundation
+│   ├── magnetostatic_ac.py         # Phase 2.1 — AC harmonic (FEM)
+│   ├── magnetostatic_toroidal.py   # Phase 2.5 — analytical toroidal
+│   │                                #   (closed-form, geometric + aggregate)
+│   ├── reluctance_axi.py           # Phase 2.6 — analytical reluctance
+│   │                                #   (default for non-toroidal axi)
+│   ├── saturation.py               # Phase 2.5b — DC-bias μ rolloff
+│   ├── dowell_ac.py                # Phase 2.8 — Dowell AC resistance
+│   └── thermal.py                  # Phase 3.2α — lumped natural-conv
+├── solver.py               # subprocess GetDP, Cancellable, timeout
+├── postproc.py             # parsers + L extraction + complex (AC) scalar
+├── calibration.py          # compare_backends oracle
+└── runner.py               # public API — dispatches:
+                            #   shape ∈ toroidal → analytical toroidal
+                            #   else, AL+no-gap-override → AL fast path
+                            #   else, backend="reluctance" (default)
+                            #   backend="axi" or "planar" → FEM (opt-in)
+                            #   + automatic Dowell when frequency_Hz is set
+                            #   + automatic thermal when P_cu_W/P_core_W set
 ```
+
+CLI entry: ``magnadesign fea`` (Phase 5.1) wires this to the
+``run_direct_fea`` API for shell access + ``--compare`` mode that
+runs both backends side-by-side.
+
+Cascade Tier 3 dispatch (Phase 5.1): the legacy
+``pfc_inductor.fea.runner.validate_design`` gained a
+``PFC_FEA_BACKEND`` env override that routes through
+``_validate_design_direct`` when set. UI selector under
+**Configurações → FEA backend** persists the choice via
+``QSettings``.
 
 Why per responsibility:
 

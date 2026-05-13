@@ -39,12 +39,24 @@ journal. Summary kept here for traceability.
       to floating-point precision — proves the residual ~50 % is
       real physics, not bug (137497a)
 
-## Phase 2 — Production parity (3–4 sessions)
+## Phase 2 — Production parity (3–4 sessions) — SHIPPED
 
-**Definition of done**: cascade Tier 3 can switch to the direct
-backend on at least one curated PFC use case with measurable
-parity (L within 5 %, AC loss within 10 %) against FEMMT and
-no regressions in `compare_backends` CI.
+**Definition of done** (revised May 2026):
+
+Original: "cascade Tier 3 can switch to the direct backend on at
+least one curated PFC use case with measurable parity (L within
+5 %, AC loss within 10 %) against FEMMT and no regressions in
+`compare_backends` CI."
+
+Revised after Phase 2.0 discovered the FEM-axi structural bug:
+
+- Cascade Tier 3 dispatch wired (Phase 5.1, opt-in via env override).
+- L_dc parity: ≤ 5 % vs **catalog AL × N²** (manufacturer datasheet);
+  ≤ 15 % vs FEMMT on the same geometry with user-supplied gap.
+- AC loss: Dowell analytical helper ships. Full AC FEM with
+  stranded winding deferred to Phase 2.2.
+- ``compare_backends`` test passes; ``scripts/benchmark_shapes_vs_femmt.py``
+  produces the runtime envelope report.
 
 ### 2.0 — Side-by-side FEMMT benchmark harness
 

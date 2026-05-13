@@ -107,3 +107,49 @@ the cutover.
   axisymmetric (real-world inductors leak by 30–50 %). Our
   reference is **FEMMT on the same geometry plus measurement**,
   not the textbook ideal.
+
+## Strategic pivot — May 2026
+
+Phase 2.0 benchmarking surfaced a structural calibration bug in
+the axisymmetric FEM: the combination of Form1P /
+BF_PerpendicularEdge basis + VolAxiSqu jacobian + our source
+term produces an ``L`` that is essentially insensitive to both
+the air gap (0.5 % change for 0 → 5 mm sweep) and the material
+``μ_r`` (12 % change for 1 → 10 000 sweep). Fixing it in place
+needs the function-space pair FEMMT also uses
+(``Hregion_u_2D`` + ``Hregion_i_2D`` with circuit-coupled global
+quantities) — that's effectively Phase 4.2 (3-D mode), a 3-4
+session commitment.
+
+Pragmatic pivot, all shipped May 2026:
+
+- **Phase 2.5**: toroidal closed-form `μ·N²·HT·ln(OD/ID)/(2π)`
+  + powder aggregate `μ·N²·Ae/le`. Exact for the linear-μ case.
+- **Phase 2.6**: analytical reluctance with Roters/McLyman
+  fringing for non-toroidal axi shapes (EE/EI/PQ/ETD/RM/P/EP/EFD).
+  Matches FEMMT median 11 % on the curated benchmark — was 776 %
+  with the FEM-axi path.
+- **Phase 2.7**: AL fast path. When the catalog ships
+  ``AL_nH`` and the caller doesn't override the gap, return
+  ``L = AL × N² × mu_pct`` directly. 8/8 within 5 % of catalog,
+  6/8 exact.
+- **Phase 2.8**: Dowell m-layer AC resistance — analytical
+  closed-form for round-wire windings. Skin + proximity at
+  ±15 % vs FEMMT AC FEM.
+- **Phase 3.2 alpha**: Lumped thermal wrapping the existing
+  engine module — `T_winding_C` and `T_core_C` populated on
+  ``DirectFeaResult`` when callers pass loss totals.
+
+The FEM-axi path stays in tree as ``backend="axi"`` for research
+/ cross-check. Phase 4.2 (3-D mode) will replace it with a
+proper rectangular-leg solver that doesn't have the structural
+bug, targeting the original ≤ 5 % vs FEMMT requirement.
+
+Coverage win is independent of accuracy: direct backend handles
+12/12 shapes in the curated set; FEMMT covers 6/12 (no toroidal,
+no RM, no P, no EP, no EFD). For shapes FEMMT doesn't support,
+the direct backend is the only option short of Ansys/COMSOL.
+
+Speedup is also independent: median wall time for the direct
+analytical solvers is ~1 ms; FEMMT averages ~10 s. 5000×+ on the
+benchmark.

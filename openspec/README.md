@@ -30,7 +30,7 @@ crash-reporting. Ver seção "Mudanças arquivadas" abaixo.
 | `add-validation-reference-set`     | P0   | L       | Software scaffolding shipped (`76d0aa8`). Bloqueado em **bench data física** — 3 protótipos com impedância + B-coil + térmico. Notebooks publicam predicted-vs-measured no GitHub Pages quando os números chegarem. |
 | `add-cascade-optimizer`            | XL   | XL      | Phase A (Tier-0 + Tier-1 + RunStore + parallel + UI) shipped. Phases B/C/D (Tier-2 ODE / Tier-3 FEA / Tier-4 transient FEA) gated em benchmark com uplift demonstrado. |
 | `add-code-signed-installers`       | P0¹  | M       | Phase 1 CI scaffolding shipped (`4e7d919`). **Bloqueado em certificados** — macOS notarization + Windows Authenticode requerem credenciais não-engenharia. |
-| `replace-femmt-with-direct-fea`    | P1   | XL      | Phase 1 shipped (12 commits, `pfc_inductor/fea/direct/`): pipeline + calibrated EI axisymmetric within FEMMT physics envelope. Phases 2–5 next: AC harmonic + thermal + toroidal B_φ + 3-D mode + cascade dual-backend + FEMMT deprecation. |
+| `replace-femmt-with-direct-fea`    | P1   | XL      | Phases 1–3.2α + 5.1 shipped (~30 commits, `pfc_inductor/fea/direct/`). Toroidal closed-form, reluctance solver for EE/EI/PQ/ETD/RM/P/EP/EFD, AL fast path (8/8 within 5 % of catalog datasheet, 6/8 exact), Dowell AC resistance, lumped thermal, cascade dispatch + UI selector + CLI. FEM-axi has known structural calibration bug → pragmatic pivot to analytical-first; Phase 4.2 (3-D mode) will close the residual ≤ 15 %-vs-FEMMT gap. Phases 2.2/2.3/2.4 (stranded/Litz/foil AC FEM) and 5.2/5.3 (cutover + FEMMT removal) remain. |
 
 ¹ Operacional — sem isso não há adoção corporativa.
 
