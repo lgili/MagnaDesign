@@ -6,7 +6,7 @@
 # a mass-rename of import sites; the ``magnadesign`` CLI entry point
 # below is the new public name.
 name = "magnadesign"
-version = "0.4.16"
+version = "0.5.0"
 description = "MagnaDesign — topology-aware desktop suite for inductor design across PFC, passive chokes, and line reactors"
 readme = "README.md"
 requires-python = ">=3.11,<3.13"  # FEMMT 0.5.x bounds upper end at 3.12
@@ -37,6 +37,13 @@ dependencies = [
     # browser-print pitfalls (background colours stripped, font
     # substitution, fragile page breaks).
     "reportlab>=4.0",
+    # Typst renderer for the engineering project report. The pip
+    # wheel embeds a per-OS native binary (mac/linux/win), so we get
+    # crisp PDF typography (proper math, kerning, headers, table
+    # break repetition) without a system-level LaTeX install. The
+    # legacy ReportLab project-report path stays as fallback when
+    # ``typst.compile`` raises (sandboxed environments, etc.).
+    "typst>=0.13",
     # FEA validation backend (FEMMT) — promoted from ``[fea]`` to
     # a default dep in v0.4.10. The GUI's "Validate (FEA)" button
     # is now a first-class feature, not optional, so every install

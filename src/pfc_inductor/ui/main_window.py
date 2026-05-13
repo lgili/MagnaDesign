@@ -1497,18 +1497,50 @@ class MainWindow(QMainWindow):
         from pfc_inductor.report import generate_project_report
 
         try:
-            # The optional ``project_id`` falls back to the same
-            # spec/core/material hash the datasheet uses for its
-            # P/N — so the two artefacts cross-reference.
-            out = generate_project_report(
-                spec,
-                core,
-                material,
-                wire,
-                result,
-                path,
-                designer=self._workflow_state.project_name or "—",
-            )
+            # Prefer the Typst-rendered report — typography is
+            # reference-grade and every engine-evaluated equation is
+            # surfaced in symbolic → substituted → result form. Falls
+            # back to the legacy ReportLab generator when the typst
+            # wheel is missing or the template fails (sandboxed envs,
+            # corrupt fonts, etc.) so the export button never dead-ends.
+            from pathlib import Path as _Path
+
+            out: Optional[_Path] = None
+            try:
+                from pfc_inductor.report.pdf_project_typst import (
+                    generate_project_report_typst,
+                )
+
+                out = generate_project_report_typst(
+                    spec,
+                    core,
+                    material,
+                    wire,
+                    result,
+                    path,
+                    designer=self._workflow_state.project_name or "—",
+                )
+            except Exception as typst_err:
+                # Soft fallback — log and use the legacy renderer. We
+                # catch broadly because the failure modes range from
+                # missing pip wheel (ImportError) to template syntax
+                # (TypstCompileError) to platform-specific binary
+                # issues — none of them should kill the export.
+                import logging
+
+                logging.getLogger(__name__).warning(
+                    "Typst project report unavailable (%s); falling back to ReportLab",
+                    typst_err,
+                )
+                out = generate_project_report(
+                    spec,
+                    core,
+                    material,
+                    wire,
+                    result,
+                    path,
+                    designer=self._workflow_state.project_name or "—",
+                )
         except (OSError, ValueError, KeyError) as e:
             err = ReportGenerationError(
                 f"Failed to generate the project report: {e}",
