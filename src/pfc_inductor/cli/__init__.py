@@ -40,6 +40,7 @@ from pfc_inductor.cli import circuit as _circuit_cmd
 from pfc_inductor.cli import compliance as _compliance_cmd
 from pfc_inductor.cli import datasheet as _datasheet_cmd
 from pfc_inductor.cli import design as _design_cmd
+from pfc_inductor.cli import fea as _fea_cmd
 from pfc_inductor.cli import mfg_spec as _mfg_spec_cmd
 from pfc_inductor.cli import report as _report_cmd
 from pfc_inductor.cli import sweep as _sweep_cmd
@@ -95,6 +96,7 @@ _catalog_cmd.register(cli)
 _report_cmd.register(cli)
 _mfg_spec_cmd.register(cli)
 _circuit_cmd.register(cli)
+_fea_cmd.register(cli)
 
 
 # Names of registered subcommands. Used by ``__main__.main`` to
