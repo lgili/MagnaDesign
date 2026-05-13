@@ -63,6 +63,7 @@ def compile_to_pdf(
     output_path: Path | str,
     *,
     root: Optional[Path] = None,
+    extra_files: Optional[dict[str, bytes]] = None,
 ) -> Path:
     """Compile a Typst source string to a PDF on disk.
 
@@ -80,6 +81,12 @@ def compile_to_pdf(
         directory of the temp ``.typ`` file we write internally,
         which is fine for self-contained templates (which is what
         the project report uses).
+    extra_files
+        Map of ``"name.ext" → bytes`` that gets written next to the
+        ``.typ`` file before compile. Used to embed matplotlib-rendered
+        PNGs (waveforms, loss breakdowns) via ``#image("name.png")``
+        without going through base64 inlining. Every file lives in
+        the scratch dir and dies with it after compile.
 
     Returns
     -------
@@ -104,6 +111,14 @@ def compile_to_pdf(
     with tempfile.TemporaryDirectory(prefix="magnadesign-typst-") as tmpdir:
         src_path = Path(tmpdir) / "project.typ"
         src_path.write_text(typst_source, encoding="utf-8")
+        for fname, blob in (extra_files or {}).items():
+            # Keep the file names flat (no nested paths) so the Typst
+            # template's ``#image("name.png")`` resolves against
+            # ``root`` directly. The Path() wrap is just a guard
+            # against accidental ``../`` traversal in caller-supplied
+            # names.
+            safe = Path(fname).name
+            (Path(tmpdir) / safe).write_bytes(blob)
         try:
             typst.compile(
                 str(src_path),

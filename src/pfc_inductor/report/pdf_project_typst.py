@@ -65,6 +65,7 @@ def generate_project_report_typst(
 
     See module docstring for the contract.
     """
+    figures = _render_figures(spec, result)
     typst_source = _render_template(
         spec=spec,
         core=core,
@@ -74,8 +75,9 @@ def generate_project_report_typst(
         designer=designer,
         revision=revision,
         project_id=project_id or _hash_project_id(spec, core, material),
+        available_figures=set(figures.keys()),
     )
-    return compile_to_pdf(typst_source, output_path)
+    return compile_to_pdf(typst_source, output_path, extra_files=figures)
 
 
 # ---------------------------------------------------------------------------
@@ -91,6 +93,7 @@ def _render_template(
     designer: str,
     revision: str,
     project_id: str,
+    available_figures: set[str] = frozenset(),
 ) -> str:
     ctx = _compute_context(spec, core, material, wire, result)
     # Per-topology operating-point + required-inductance derivation
@@ -100,6 +103,7 @@ def _render_template(
     # topology because it operates on the engine's universal
     # outputs (N, B_pk, Ku, R_dc/ac, P_*, T_winding).
     ctx["topology_body"] = _render_topology_body(spec, ctx)
+    ctx["figures_block"] = _render_figures_block(available_figures)
     ctx.update(
         designer=_esc(designer),
         revision=_esc(revision),
@@ -437,6 +441,175 @@ para a derivação completa.
   $L_("real") = {ctx["L_actual"]}$ µH ({ctx["N"]} voltas).
 ]
 """
+
+
+# ---------------------------------------------------------------------------
+# Figure rendering — matplotlib → PNG bytes → ``extra_files`` of compile_to_pdf
+# ---------------------------------------------------------------------------
+def _render_figures_block(available: set[str]) -> str:
+    """Return the Typst markup for the figures section.
+
+    Only references files in ``available`` so a topology that didn't
+    produce a waveform sample doesn't trip a "file not found" at
+    compile time. When no figures are available the block becomes a
+    short note so the report doesn't end abruptly at section 9.
+    """
+    if not available:
+        return ""
+
+    blocks = []
+    blocks.append("= 10. Formas de onda e perdas\n\n")
+    blocks.append(
+        "As figuras abaixo são geradas direto do resultado do engine "
+        "— a forma de onda no domínio do tempo (1-2 ciclos de rede ou "
+        "chaveamento, conforme topologia) e a distribuição dos quatro "
+        "componentes de perda (Cu DC, Cu AC, núcleo banda de linha, "
+        "núcleo banda de ripple).\n\n"
+    )
+    if "fig_waveform.png" in available:
+        blocks.append("== 10.1. Corrente no indutor\n\n")
+        blocks.append('#align(center)[#image("fig_waveform.png", width: 100%)]\n\n')
+    if "fig_losses.png" in available:
+        blocks.append("== 10.2. Distribuição de perdas\n\n")
+        blocks.append('#align(center)[#image("fig_losses.png", width: 100%)]\n\n')
+    return "".join(blocks)
+
+
+def _render_figures(spec: Spec, result: DesignResult) -> dict[str, bytes]:
+    """Build the per-design PNG blobs the Typst template references.
+
+    Returned filenames must match the ``#image("name.png")`` calls in
+    the template. Each helper isolates its matplotlib figure (own
+    ``Figure`` object, closed before returning) so the engine's
+    background-thread workers don't leak global pyplot state.
+    """
+    figures: dict[str, bytes] = {}
+    wf_png = _make_waveform_png(spec, result)
+    if wf_png:
+        figures["fig_waveform.png"] = wf_png
+    loss_png = _make_loss_breakdown_png(result)
+    if loss_png:
+        figures["fig_losses.png"] = loss_png
+    return figures
+
+
+def _make_waveform_png(spec: Spec, result: DesignResult) -> bytes | None:
+    """Inductor current vs time over one (or two) line cycles.
+
+    The engine populates ``waveform_t_s`` / ``waveform_iL_A`` for
+    every topology that has a meaningful time-domain shape (boost,
+    buck, flyback, line reactor). When absent we return ``None`` so
+    the caller skips the figure cleanly.
+    """
+    t = result.waveform_t_s
+    i = result.waveform_iL_A
+    if not t or not i:
+        return None
+    try:
+        import io
+
+        import matplotlib
+
+        matplotlib.use("Agg", force=True)
+        import matplotlib.pyplot as plt
+    except ImportError:
+        return None
+
+    fig, ax = plt.subplots(figsize=(6.5, 2.6), dpi=140)
+    ax.plot(
+        [x * 1e3 for x in t],
+        i,
+        color="#2364AA",
+        linewidth=0.7,
+    )
+    ax.set_xlabel("Tempo (ms)", fontsize=9)
+    ax.set_ylabel(_waveform_y_label(spec.topology), fontsize=9)
+    ax.set_title(
+        f"Corrente no indutor — {_topology_label(spec.topology)}",
+        fontsize=10,
+        pad=8,
+    )
+    ax.grid(True, linestyle=":", linewidth=0.4, color="#ccc")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.tick_params(labelsize=8)
+    fig.tight_layout()
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+    return buf.getvalue()
+
+
+def _waveform_y_label(topology: str) -> str:
+    if topology == "flyback":
+        return "I primário (A)"
+    if topology in ("line_reactor", "passive_choke"):
+        return "I linha (A)"
+    return "I indutor (A)"
+
+
+def _make_loss_breakdown_png(result: DesignResult) -> bytes | None:
+    """Horizontal stacked bar of the four loss components.
+
+    The four-way split (Cu DC, Cu AC, Núcleo linha, Núcleo ripple) is
+    exactly what the engine emits in ``LossBreakdown`` — no
+    re-derivation here, just a visual grouping the customer can scan
+    in <1 s.
+    """
+    try:
+        import io
+
+        import matplotlib
+
+        matplotlib.use("Agg", force=True)
+        import matplotlib.pyplot as plt
+    except ImportError:
+        return None
+
+    L = result.losses
+    parts = [
+        ("Cu DC", L.P_cu_dc_W, "#2364AA"),
+        ("Cu AC (fsw)", L.P_cu_ac_W, "#3DA5D9"),
+        ("Núcleo (linha)", L.P_core_line_W, "#73BFB8"),
+        ("Núcleo (ripple)", L.P_core_ripple_W, "#FEC601"),
+    ]
+    total = sum(p[1] for p in parts)
+    if total <= 0:
+        return None
+
+    fig, ax = plt.subplots(figsize=(6.5, 1.6), dpi=140)
+    cumulative = 0.0
+    for label, value, color in parts:
+        if value <= 0:
+            continue
+        ax.barh([0], [value], left=cumulative, color=color, edgecolor="white", linewidth=1.0)
+        # In-bar label when the slice is wide enough; otherwise skip
+        # so tiny components don't print over their neighbours.
+        if value / total > 0.05:
+            ax.text(
+                cumulative + value / 2,
+                0,
+                f"{label}\n{value:.2f} W",
+                ha="center",
+                va="center",
+                fontsize=8,
+                color="white" if color in ("#2364AA", "#73BFB8") else "#222",
+            )
+        cumulative += value
+    ax.set_xlim(0, total * 1.02)
+    ax.set_ylim(-0.6, 0.6)
+    ax.set_yticks([])
+    ax.set_xlabel("Perda (W)", fontsize=9)
+    ax.set_title(f"Distribuição de perdas — total {total:.2f} W", fontsize=10, pad=8)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_visible(False)
+    ax.tick_params(labelsize=8)
+    fig.tight_layout()
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+    return buf.getvalue()
 
 
 def _hash_project_id(spec: Spec, core: Core, material: Material) -> str:
@@ -1118,11 +1291,13 @@ Convergência (3-6 iterações típicas):
   [$T_("max")$], [Limite do spec], [{T_max} °C],
 )
 
+{figures_block}
+
 // ────────────────────────────────────────────────────────────────────
-// 10. Resumo
+// 11. Resumo
 // ────────────────────────────────────────────────────────────────────
 #pagebreak()
-= 10. Resumo do projeto
+= 11. Resumo do projeto
 
 #block(
   width: 100%,
