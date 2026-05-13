@@ -162,3 +162,36 @@ both are FEMMT-unfriendly), fall back to the analytical
 ~1 focused session. The .pro template is the only file that
 substantially changes; everything else (geometry, postproc,
 runner, calibration) is already in place.
+
+## Empirical data from Phase 1.3 (end of session)
+
+A quick "what if I just scale J by N?" experiment ruled out the
+naive interpretation:
+
+- Original: ``J = N·I/A_coil`` → L_fem = 78 μH at N=80
+- Scaled: ``J = N²·I/A_coil`` → L_fem = 502 000 μH
+- Expected if energy ∝ J²: ``L_naive × N⁴ / N² = 78 × N² = 499 200 μH`` ✓
+- Analytical reference at μ_r = 2000: 6930 μH
+
+So naive J → N² · J scales L by N² (= 6400 ×) which **overshoots
+the 100 × gap by ~70 ×**. The right fix is NOT a flat
+multiplicative scaling — it's the **circuit-coupled
+formulation** (GlobalQuantity / Hregion_i_2D / Current_2D
+constraint), which enforces ``∫J·v dΩ = I_total`` as a global
+equation instead of distributing N·I across the bundle. The
+energy-method extraction then yields the per-N² inductance
+amplification automatically because the global current DOF
+links flux properly.
+
+This also explains why the axisymmetric variant (Phase 1.3) on
+its own didn't fix it: switching the topology without adding
+the global-current coupling still leaves you with the
+"distributed-J" formulation. **Both pieces are needed** —
+axisymmetric topology AND GlobalQuantity.
+
+Open question for Phase 1.4: planar 2-D + GlobalQuantity might
+also work mathematically (the global current DOF doesn't care
+about topology). If it does, we'd recover correct L without
+the round-leg approximation that axisymmetric forces. Worth
+trying first because it preserves the geometric fidelity of
+the EI's rectangular legs.
