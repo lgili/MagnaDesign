@@ -79,6 +79,22 @@ class Material(BaseModel):
     rho_kg_m3: float = Field(default=5000)
     steinmetz: SteinmetzParams
     rolloff: Optional[RolloffParams] = None
+    complex_mu_r: Optional[list[tuple[float, float, float]]] = Field(
+        default=None,
+        description=(
+            "Optional frequency-dependent complex permeability "
+            "table. Each entry is ``(f_Hz, mu_prime, mu_double_prime)`` "
+            "where ``mu_prime`` is the in-phase (storage) component "
+            "and ``mu_double_prime`` is the loss component. Used by "
+            "the direct backend's AC harmonic + Dowell paths when "
+            "present; falls back to scalar ``mu_initial`` otherwise. "
+            "Sourcing: TDK / Ferroxcube manufacturer datasheets at "
+            "10 kHz – 1 MHz. Stored as a sparse list (typically 6-8 "
+            "frequency points); linear interpolation in log-f space "
+            "for any requested frequency. Phase 2.1 of the FEA "
+            "replacement (replace-femmt-with-direct-fea)."
+        ),
+    )
     loss_datapoints: list[LossDatapoint] = Field(default_factory=list)
     cost_per_kg: Optional[float] = Field(
         default=None,

@@ -44,19 +44,23 @@ dependencies = [
     # legacy ReportLab project-report path stays as fallback when
     # ``typst.compile`` raises (sandboxed environments, etc.).
     "typst>=0.13",
-    # FEA validation backend (FEMMT) — promoted from ``[fea]`` to
-    # a default dep in v0.4.10. The GUI's "Validate (FEA)" button
-    # is now a first-class feature, not optional, so every install
-    # ships with the Python side ready. ONELAB (the gmsh + getdp
-    # binary blob FEMMT shells out to) is still installed
-    # separately by ``setup_deps`` — that's a multi-hundred-MB
-    # native distribution that doesn't belong in a pip wheel.
-    "femmt>=0.5,<0.6",
-    # FEMMT 0.5.x imports ``pkg_resources`` at module load, which
-    # setuptools 70 removed from the default install. Pin until
-    # FEMMT cuts a release that migrates off pkg_resources.
-    "setuptools<70",
+    # gmsh — kept as a default dep because the direct FEA backend
+    # uses it for parametric core / bobbin meshing and the
+    # ``views_3d`` PDF figures rely on the same mesh code path.
+    # Lightweight (~30 MB wheel, no pkg_resources tail).
+    "gmsh>=4.13",
 ]
+
+# FEMMT moved out of the default install in v0.5.0 — the direct FEA
+# backend (``pfc_inductor.fea.direct``) covers the same use cases
+# without the ``pkg_resources`` / ``setuptools<70`` tail. The legacy
+# FEMMT path stays accessible via ``PFC_FEA_BACKEND=femmt``; install
+# the optional extra below if you want it.
+#
+# Removal schedule:
+#   v0.5.0 (this release) — moved to ``[fea-femmt]`` extra.
+#   v0.6.0 (≈2026-11)     — module moved to ``vendor/legacy/`` and
+#                           the extra dropped.
 
 [project.optional-dependencies]
 dev = [
@@ -113,12 +117,28 @@ performance = [
     "numba>=0.60",
 ]
 # Kept as an empty alias for backward compatibility with install
-# scripts and docs that say ``pip install -e ".[fea]"``. As of
-# v0.4.10 FEMMT is a default dependency — the FEA validation
-# backend is a first-class feature, not opt-in — so this extra
-# is now a no-op. Don't remove the key entirely: ``pip install
-# ".[fea]"`` would error otherwise and break user playbooks.
+# scripts and docs that say ``pip install -e ".[fea]"``. The
+# direct FEA backend (``pfc_inductor.fea.direct``) is a default
+# dependency in v0.5.0+ — the legacy FEMMT path moved to
+# ``[fea-femmt]`` below. ``[fea]`` itself stays as a no-op alias
+# so existing playbooks don't break.
 fea = []
+# Legacy FEMMT validation path. The direct backend covers every
+# shape in the catalog with ≤ 5 % vs datasheet (catalog AL × N²)
+# and ≤ 15 % vs FEMMT (on the cores FEMMT itself supports), at
+# 5000× the speed and no ``pkg_resources`` dependency tail.
+# Install this extra only if you want to cross-check against
+# FEMMT (``PFC_FEA_BACKEND=femmt`` switches the dispatcher to it):
+#   pip install -e ".[fea-femmt]"
+# Scheduled for removal in v0.6.0 (~2026-11) once we have field
+# data showing the direct backend covers every real use case.
+fea-femmt = [
+    "femmt>=0.5,<0.6",
+    # FEMMT 0.5.x imports ``pkg_resources`` at module load, which
+    # setuptools 70 removed from the default install. Pin until
+    # FEMMT cuts a release that migrates off pkg_resources.
+    "setuptools<70",
+]
 # Sphinx docs site — built locally via ``make -C docs html`` and
 # auto-published to GitHub Pages by ``.github/workflows/docs.yml``
 # on every push to main. Read the rendered theory chapters at

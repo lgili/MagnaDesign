@@ -59,6 +59,7 @@ def run_direct_fea(
     T_amb_C: float = 25.0,
     frequency_Hz: Optional[float] = None,
     n_layers: int = 1,
+    current_rms_A: Optional[float] = None,
     getdp_exe: Optional[Path] = None,
     timeout_s: float = 600.0,
 ) -> DirectFeaResult:
@@ -119,9 +120,12 @@ def run_direct_fea(
             wire=wire,
             n_turns=n_turns,
             core=core,
+            material=material,
             frequency_Hz=frequency_Hz,
             n_layers=n_layers,
             T_winding_C=result.T_winding_C,
+            current_rms_A=current_rms_A,
+            P_core_W=P_core_W,
         )
     if shape not in _AXI_SHAPES:
         # Fall through anyway — the reluctance solver works on any
@@ -155,9 +159,12 @@ def run_direct_fea(
             wire=wire,
             n_turns=n_turns,
             core=core,
+            material=material,
             frequency_Hz=frequency_Hz,
             n_layers=n_layers,
             T_winding_C=result.T_winding_C,
+            current_rms_A=current_rms_A,
+            P_core_W=P_core_W,
         )
 
     # Lazy imports — keep cold import cost off the boot path.
@@ -395,21 +402,26 @@ def _apply_dowell_ac_if_requested(
     wire: object,
     n_turns: int,
     core: object,
+    material: Optional[object] = None,
     frequency_Hz: Optional[float],
     n_layers: int,
     T_winding_C: Optional[float],
+    current_rms_A: Optional[float] = None,
+    P_core_W: Optional[float] = None,
 ) -> DirectFeaResult:
-    """Compute Dowell AC resistance if a frequency is supplied.
+    """Compute Dowell AC resistance + loss totals if a frequency
+    is supplied.
 
     The cascade Tier 3 / UI passes ``frequency_Hz`` (typically
     the switching frequency for the boost-PFC case) and gets
-    ``R_ac_mOhm`` + ``L_ac_uH`` back on the result.
+    ``R_ac_mOhm`` + ``L_ac_uH`` + ``P_cu_ac_W`` + ``P_core_W``
+    back on the result.
 
     For a single-tone AC analysis, L_ac ≈ L_dc (the inductance
     doesn't change much with frequency below the winding self-
-    resonance). The full AC FEM (Phase 2.2 stranded) would compute
-    L_ac vs L_dc explicitly; for this analytical path we just set
-    ``L_ac = L_dc`` and let the Dowell helper drive R_ac.
+    resonance). When the material carries a ``complex_mu_r``
+    table (Phase 2.1 datasheet field), we interpolate and apply
+    the real-part correction to L_ac.
     """
     if frequency_Hz is None or frequency_Hz <= 0:
         return result
@@ -441,12 +453,39 @@ def _apply_dowell_ac_if_requested(
         frequency_Hz=float(frequency_Hz),
         T_winding_C=T_C,
     )
+
+    # Compute P_cu_ac_W from the supplied RMS current (when given).
+    # ``current_A`` on the runner call is typically peak, not RMS,
+    # so this helper accepts a separate optional RMS argument.
+    P_cu_ac_W: Optional[float] = None
+    if current_rms_A is not None and current_rms_A > 0:
+        R_ac_Ohm = out.R_ac_mOhm * 1e-3
+        P_cu_ac_W = float(current_rms_A) ** 2 * R_ac_Ohm
+
+    # Complex μ adjustment to L_ac (Phase 2.1).
+    L_ac_uH = result.L_dc_uH
+    if material is not None:
+        from pfc_inductor.fea.direct.physics.saturation import complex_mu_r_at
+
+        cmu = complex_mu_r_at(material, float(frequency_Hz))
+        if cmu is not None:
+            mu_prime, _mu_pp = cmu
+            mu_initial = float(
+                getattr(material, "mu_r", None) or getattr(material, "mu_initial", None) or mu_prime
+            )
+            if mu_initial > 0:
+                # Frequency-dependent ratio relative to the
+                # small-signal (DC) reference. Multiplicative on L_ac.
+                L_ac_uH = result.L_dc_uH * mu_prime / mu_initial
+
     from dataclasses import replace as _replace
 
     return _replace(
         result,
         R_ac_mOhm=out.R_ac_mOhm,
-        L_ac_uH=result.L_dc_uH,  # ≈ DC for low-to-moderate f
+        L_ac_uH=L_ac_uH,
+        P_cu_ac_W=P_cu_ac_W,
+        P_core_W=(float(P_core_W) if P_core_W is not None else result.P_core_W),
     )
 
 

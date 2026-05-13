@@ -32,6 +32,45 @@ from typing import Optional
 from pfc_inductor.physics import rolloff as _rolloff
 
 
+def complex_mu_r_at(material: object, frequency_Hz: float) -> Optional[tuple[float, float]]:
+    """Interpolate the material's ``complex_mu_r`` table at frequency.
+
+    Returns ``(mu_prime, mu_double_prime)`` for the requested
+    frequency, interpolated linearly in log-f space. Returns
+    ``None`` when the material has no ``complex_mu_r`` table —
+    callers should fall back to scalar ``mu_initial``.
+
+    Phase 2.1 of the FEA replacement: lets the AC harmonic /
+    Dowell paths model frequency-dependent core inductance and
+    loss without needing a separate complex-μ FEM template.
+    """
+    import math as _m
+
+    table = getattr(material, "complex_mu_r", None)
+    if not table or frequency_Hz <= 0:
+        return None
+
+    pts = sorted((float(f), float(mp), float(mpp)) for f, mp, mpp in table)
+    if len(pts) == 0:
+        return None
+    if len(pts) == 1 or frequency_Hz <= pts[0][0]:
+        return pts[0][1], pts[0][2]
+    if frequency_Hz >= pts[-1][0]:
+        return pts[-1][1], pts[-1][2]
+
+    from itertools import pairwise
+
+    log_f = _m.log10(frequency_Hz)
+    for (f_lo, mp_lo, mpp_lo), (f_hi, mp_hi, mpp_hi) in pairwise(pts):
+        if f_lo <= frequency_Hz <= f_hi:
+            t = (log_f - _m.log10(f_lo)) / (_m.log10(f_hi) - _m.log10(f_lo))
+            return (
+                mp_lo + t * (mp_hi - mp_lo),
+                mpp_lo + t * (mpp_hi - mpp_lo),
+            )
+    return None
+
+
 def compute_mu_eff_dc_bias(
     *,
     material: object,
@@ -144,6 +183,7 @@ _ = math.pi
 
 
 __all__ = [
+    "complex_mu_r_at",
     "compute_mu_eff_dc_bias",
     "ferrite_saturation_factor",
     "solve_self_consistent_mu",

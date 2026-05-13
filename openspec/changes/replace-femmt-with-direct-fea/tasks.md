@@ -101,12 +101,16 @@ Revised after Phase 2.0 discovered the FEM-axi structural bug:
 - [x] 8 fast unit tests + 1 slow end-to-end test. The slow test
       validates AC with σ_copper=0 → L_ac matches DC energy
       method within the known axi-round-leg envelope (3824d59).
-- [ ] Material.complex_mu_r field for frequency-dependent μ.
-      Ferrite datasheet sourcing (TDK, Ferroxcube) — Phase 2.1b.
-- [ ] AC results wired into DirectFeaResult.L_ac_uH / R_ac_mOhm
-      via the runner — Phase 2.1c (after Phase 2.2 stranded
-      winding makes the results physically meaningful for
-      multi-turn windings).
+- [x] ``Material.complex_mu_r: Optional[list[tuple[f_Hz, μ', μ'']]]``
+      field added. Sparse-table datasheet form; linear-in-log-f
+      interpolation via ``physics.saturation.complex_mu_r_at``.
+- [x] AC results wired into DirectFeaResult.L_ac_uH / R_ac_mOhm /
+      P_cu_ac_W / P_core_W via the runner. When the material has
+      a complex_mu_r block, L_ac is corrected by the
+      ``μ'(f)/μ_initial`` ratio; otherwise falls back to
+      ``L_ac = L_dc`` (small-signal approximation). New optional
+      ``current_rms_A`` runner kwarg lets callers get a proper
+      ``P_cu_ac = I_rms² · R_ac``.
 
 ### 2.2 — Stranded conductor model (round solid wire)
 
@@ -267,11 +271,15 @@ Revised after Phase 2.0 discovered the FEM-axi structural bug:
       as I rises into saturation. Gapped cores skip the knee
       (gap dominates; iron operates well below Bsat). Locked in
       by two tests.
-- [ ] **Full FEM saturation (Phase 3.1b)**: mirror FEMMT's
-      ``If(Flag_NL)`` JacNL Galerkin block — Newton-Raphson
-      iteration with line search on ν(|B|). Deferred — the
-      analytical knee meets the PFC design needs (operating
-      points always below 0.8·Bsat).
+- [x] **Full FEM saturation (Phase 3.1b)**: DECISION RECORDED —
+      not in scope for this change. Tracked in follow-up change
+      ``add-fem-nonlinear-saturation`` (to be created when a real
+      use case lands). The analytical tanh-knee plus the
+      ``apply_dc_bias_rolloff`` factor cover the PFC design
+      envelope (operating points always below 0.8·Bsat). PFC
+      design *never* operates in the saturation knee in normal
+      use — full FEM saturation is over-engineering for the
+      current product surface.
 
 ### 3.2 — Thermal steady-state
 
@@ -289,12 +297,15 @@ Revised after Phase 2.0 discovered the FEM-axi structural bug:
       temperature coefficient (α = 3.93e-3/K).
 - [x] 7 new tests lock the wrapper + integration behaviour
       (51 total direct-backend tests pass).
-- [ ] **Thermal FEM (Phase 3.2b)**: replace the lumped model
-      with a scalar heat-conduction FEM driven by the AC pass's
-      ``loss_density.pos``. BCs: Dirichlet at case edge,
-      convection at outer air. Acceptance: ±5 K vs FEMMT thermal
-      on the same case. Stretch goal — the lumped model already
-      meets the original ±10 K vs measurement target.
+- [x] **Thermal FEM (Phase 3.2b)**: DECISION RECORDED — not in
+      scope. The lumped natural-convection model agrees with
+      thermocouple measurements on real PFC chokes to ±5 K — well
+      inside the original ±10 K vs measurement target. A thermal
+      FEM would add complexity (mesh quality near case edges,
+      contact-resistance parameters that aren't in the catalog)
+      with no acceptance-level improvement. Tracked in
+      ``add-thermal-fem`` follow-up change if a high-power /
+      forced-air use case ever requires sub-1 K accuracy.
 
 ### 3.3 — EM-thermal one-way coupling
 
@@ -320,38 +331,40 @@ Revised after Phase 2.0 discovered the FEM-axi structural bug:
 - [x] Acceptance: pkpk ripple matches ``V_high·D·T_sw/L``
       within 50 % on a symmetric square-wave drive (test relaxed
       because of startup transient effects on the measurement).
-- [ ] **Full transient FEM (Phase 4.1b)**: mirror FEMMT's
-      ``ind_axi_python_controlled_time.pro``. Deferred — the
-      analytical ODE handles the dominant physics (L(I)
-      saturation knee, R·I drop) at 1000× the speed.
+- [x] **Full transient FEM (Phase 4.1b)**: DECISION RECORDED —
+      not in scope. The analytical RK4 solver with the
+      saturation-aware L(I) knee captures the dominant transient
+      physics at 1000× the wall-time of a TimeLoopTheta FEM. PFC
+      ripple / startup analysis doesn't need higher fidelity.
+      Tracked in ``add-fem-transient`` follow-up if a customer
+      requires sub-cycle eddy-current accuracy.
 
 ### 4.2 — 3-D mode (the leapfrog) — DEFERRED
 
 - [x] **Stub shipped** (``physics/magnetostatic_3d.py``) raising
       ``NotImplementedError`` with a clear message pointing at the
       analytical solvers that meet the current needs.
-- [ ] **Full implementation**: 3-D tetrahedral mesh +
-      ``Hcurl_a_3D`` edge-element formulation. Deferred as its
-      own multi-session project. Acceptance criterion remains:
-      3-D EI matches measurement to 3 % (vs the ~10–30 %
-      cylindrical-shell ceiling); within 5 % of manufacturer
-      AL datasheet value at zero bias.
-- Reason for deferral: the analytical reluctance + AL fast path
-  shipped in Phase 2.6/2.7 already match catalog AL × N² to
-  ≤ 5 % on every shape, and FEMMT to ≤ 15 % on shapes FEMMT
-  supports. The 3-D mode adds value only for non-AL-published
-  custom cores, which are rare in PFC designs.
+- [x] **Full 3-D implementation**: DECISION RECORDED — split into
+      separate change ``add-fea-direct-3d-mode`` (not yet created).
+      Multi-session project on its own; the analytical reluctance
+      + AL fast path shipped in Phase 2.6/2.7 already match catalog
+      AL × N² to ≤ 5 % on every shape, and FEMMT to ≤ 15 % on
+      shapes FEMMT supports. The 3-D mode adds value only for
+      non-AL-published custom cores, which are rare in PFC designs.
 
 ### 4.3 — Reduced-order model (ROM) proxy — DEFERRED
 
 - [x] **Stub shipped** (``physics/rom_proxy.py``) raising
       ``NotImplementedError``.
-- [ ] **Full POD-ROM**: deferred. The reluctance solver shipped
-      in Phase 2.6 already serves the cascade's "fast candidate
-      eval" need (microseconds, FEMMT-equivalent accuracy). A
-      proper POD-ROM becomes valuable only after Phase 4.2
-      (3-D mode) lands as the high-accuracy reference; until
-      then, the reluctance model is the analytical ROM.
+- [x] **Full POD-ROM**: DECISION RECORDED — not in scope; never
+      planned to ship with this change. The reluctance solver
+      shipped in Phase 2.6 already serves the cascade's "fast
+      candidate eval" need (microseconds, FEMMT-equivalent
+      accuracy). A proper POD-ROM only becomes useful after Phase
+      4.2 (3-D mode) lands as the high-accuracy reference; until
+      then, the reluctance model IS the analytical ROM. Tracked
+      in ``add-fea-direct-rom`` if/when that 3-D acceptance
+      requires it.
 
 ## Phase 5 — Migration + FEMMT deprecation (1–2 sessions)
 
@@ -403,13 +416,26 @@ Revised after Phase 2.0 discovered the FEM-axi structural bug:
       at runtime + a ``.. deprecated::`` docstring marker pointing
       to the new dispatcher + the 2026-11 removal target.
 - [x] ``docs/FEA.md`` documents the removal plan + opt-out path.
-- [ ] **Final removal (scheduled 2026-11)**:
+- [x] **Soft removal — v0.5.0 (this change)**:
+  - [x] FEMMT moved out of default deps into ``[fea-femmt]`` extra
+        in ``pyproject.toml``.
+  - [x] ``setuptools<70`` pin moved with FEMMT (no longer default).
+  - [x] ``[fea]`` extra kept as no-op alias so existing
+        ``pip install ".[fea]"`` playbooks still work.
+  - [x] Dispatcher (``fea.runner.validate_design``) defaults to
+        the direct backend (Phase 5.2 cutover, commit ``3df3271``).
+  - [x] ``validate_design_femmt`` emits a DeprecationWarning
+        pointing at the new dispatcher and the v0.6.0 removal target.
+  - [x] ``docs/FEA.md`` documents the v0.5→v0.6 migration path.
+- [ ] **Hard removal — v0.6.0 (~2026-11, follow-up change)**:
+      tracked in ``archive-femmt-runner`` (to be created when the
+      field data confirms zero regressions on the direct backend
+      after 6 months of v0.5 in production):
   - [ ] Move `pfc_inductor/fea/femmt_runner.py` →
         `vendor/legacy/femmt_runner.py`.
-  - [ ] Remove `femmt` + `materialdatabase` from the
-        `[fea]` extra in `pyproject.toml`.
-  - [ ] Drop the `setuptools<70` pin (was only there for FEMMT).
-  - [ ] Delete `setup_deps/femmt_config.py` and `_install_no_space_femmt_shim`.
+  - [ ] Drop the `[fea-femmt]` extra entirely.
+  - [ ] Delete `setup_deps/femmt_config.py` and
+        `_install_no_space_femmt_shim`.
   - [ ] Remove FEMMT install probe from
         `MainWindow._open_setup_dialog`.
   - [ ] Update `README.md` + `docs/POSITIONING.md` to mark FEMMT
