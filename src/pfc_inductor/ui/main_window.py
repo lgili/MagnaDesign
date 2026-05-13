@@ -408,9 +408,7 @@ class MainWindow(QMainWindow):
         # 5-tuple: (spec, core, wire, material, n_override). The
         # last slot is ``None`` for the standard solver path and
         # an ``int`` when ``DesignOverrides.N_turns`` is active.
-        self._calc_pending_inputs: Optional[
-            tuple[Spec, Core, Wire, Material, Optional[int]]
-        ] = None
+        self._calc_pending_inputs: Optional[tuple[Spec, Core, Wire, Material, Optional[int]]] = None
 
         # "Ajustar protótipo" overrides. Empty by default — the
         # solver picks every value. Updated by ``_on_tweak_requested``

@@ -226,13 +226,13 @@ def test_main_window_n_stacks_override_doubles_inductance():
         win._on_calculate()
         assert win._last_design_snapshot is not None
         single_result = win._last_design_snapshot[0]
-        single_N = int(getattr(single_result, "N_turns"))
-        single_L = float(getattr(single_result, "L_actual_uH"))
+        single_N = int(single_result.N_turns)
+        single_L = float(single_result.L_actual_uH)
 
         win._design_overrides = DesignOverrides(n_stacks=2, N_turns=single_N)
         win._on_calculate()
         stacked_result = win._last_design_snapshot[0]
-        stacked_L = float(getattr(stacked_result, "L_actual_uH"))
+        stacked_L = float(stacked_result.L_actual_uH)
         # Doubled Ae·AL at same N → ~doubled L.
         assert stacked_L > single_L * 1.7
     finally:
@@ -292,9 +292,7 @@ def test_controller_calculate_with_overrides_applies_tamb(baseline_inputs):
             return mat.id
 
     ctrl = CalculationController(_Panel(), [mat], [core], [wire])
-    inputs, result = ctrl.calculate_with_overrides(
-        DesignOverrides(T_amb_C=spec.T_amb_C + 25.0)
-    )
+    inputs, result = ctrl.calculate_with_overrides(DesignOverrides(T_amb_C=spec.T_amb_C + 25.0))
     assert inputs.spec.T_amb_C == pytest.approx(spec.T_amb_C + 25.0)
     # Hotter ambient → hotter winding (everything else equal).
     _, baseline = ctrl.calculate()
@@ -353,7 +351,7 @@ def test_main_window_tweak_pipeline_forces_n():
         win._on_calculate()
         assert win._last_design_snapshot is not None
         base_result = win._last_design_snapshot[0]
-        base_N = int(getattr(base_result, "N_turns"))
+        base_N = int(base_result.N_turns)
         assert win._baseline_N_solver == base_N
 
         # Apply N override and re-run.
@@ -362,7 +360,7 @@ def test_main_window_tweak_pipeline_forces_n():
         win._on_calculate()
         assert win._last_design_snapshot is not None
         forced_result = win._last_design_snapshot[0]
-        assert int(getattr(forced_result, "N_turns")) == forced_N
+        assert int(forced_result.N_turns) == forced_N
         # Solver baseline must stay pinned at the pre-override value —
         # the override run does not update it.
         assert win._baseline_N_solver == base_N

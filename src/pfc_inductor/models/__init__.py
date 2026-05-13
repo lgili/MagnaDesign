@@ -39,7 +39,6 @@ __all__ = [
     "RolloffParams",
     "Spec",
     "SteinmetzParams",
-    "stack_core",
     "Tier0Result",
     "Tier1Result",
     "Tier2Result",
@@ -50,4 +49,5 @@ __all__ = [
     "WireType",
     "from_rpm_band",
     "rpm_to_fsw",
+    "stack_core",
 ]
