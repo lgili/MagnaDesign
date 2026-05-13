@@ -37,12 +37,15 @@ jobs:
           - os: ubuntu-latest
             artifact_name: magnadesign-linux-x86_64
             archive_ext: tar.gz
+            spec_file: packaging/magnadesign-macos.spec  # one-folder shape; works on Linux
           - os: macos-latest
             artifact_name: magnadesign-macos-arm64
             archive_ext: zip
+            spec_file: packaging/magnadesign-macos.spec
           - os: windows-latest
             artifact_name: magnadesign-windows-x86_64
             archive_ext: zip
+            spec_file: packaging/magnadesign-win.spec
 
     steps:
       - name: Checkout
@@ -87,12 +90,18 @@ jobs:
           pip install -e .
           pip install pyinstaller==6.11.1
 
-      # ---------- Build with the shared spec --------------------------
+      # ---------- Build with the per-OS spec --------------------------
       - name: Build with PyInstaller
         # ``--clean`` wipes the cache so two consecutive tag builds
         # don't pick up stale data files. ``--noconfirm`` avoids the
         # interactive "overwrite dist/" prompt.
-        run: pyinstaller --clean --noconfirm packaging/magnadesign.spec
+        #
+        # Per-OS specs (Phase: separate macOS app-bundle vs Windows
+        # one-file exe):
+        #   • macOS / Linux → ``magnadesign-macos.spec`` (one-folder
+        #     + BUNDLE for the .app on Darwin).
+        #   • Windows → ``magnadesign-win.spec`` (single ``.exe``).
+        run: pyinstaller --clean --noconfirm ${{ matrix.spec_file }}
 
       # ---------- macOS: code-sign + notarise -------------------------
       # Gated on the certificate secrets being present so a fresh
@@ -209,14 +218,16 @@ jobs:
             $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe"
           }
 
+          # Windows ships as a single-file ``.exe`` (one-file spec) —
+          # signtool acts on ``dist\magnadesign.exe`` directly.
           & $signtool sign `
             /f $certPath `
             /p $env:WINDOWS_CERT_PASSWORD `
             /tr $tsUrl /td sha256 /fd sha256 `
             /a `
-            "dist\magnadesign\magnadesign.exe"
+            "dist\magnadesign.exe"
 
-          & $signtool verify /pa /v "dist\magnadesign\magnadesign.exe"
+          & $signtool verify /pa /v "dist\magnadesign.exe"
 
           Remove-Item $certPath -Force
 
@@ -225,23 +236,18 @@ jobs:
       # we only test the import graph by invoking with --version-style
       # noop. Skipped on the actual binary; instead we sanity-check the
       # presence of the bundled ``data/`` and main executable.
-      - name: Verify build outputs (Linux/Windows)
-        if: runner.os != 'macOS'
+      - name: Verify build outputs (Linux)
+        if: runner.os == 'Linux'
         shell: bash
         run: |
           set -e
-          if [[ "${{ runner.os }}" == "Linux" ]]; then
-            test -x dist/magnadesign/magnadesign || {
-              echo "::error::missing executable"; exit 1; }
-          else
-            test -f dist/magnadesign/magnadesign.exe || {
-              echo "::error::missing executable"; exit 1; }
-          fi
+          test -x dist/magnadesign/magnadesign || {
+            echo "::error::missing executable"; exit 1; }
           # PyInstaller 6.x ships data under ``_internal/`` by default;
-          # the spec pins it back to flat (``contents_directory='.'``)
-          # so ``data/`` lives next to the executable. Accept both so
-          # an accidental layout regression doesn't silently ship a
-          # broken bundle.
+          # the macOS/Linux spec pins it back to flat
+          # (``contents_directory='.'``) so ``data/`` lives next to the
+          # executable. Accept both so an accidental layout regression
+          # doesn't silently ship a broken bundle.
           if [[ -d dist/magnadesign/data ]]; then
             echo "OK — flat layout (data/ next to executable)"
           elif [[ -d dist/magnadesign/_internal/data ]]; then
@@ -250,6 +256,26 @@ jobs:
             echo "::error::missing bundled data/ directory"; exit 1
           fi
           echo "OK — bundle layout looks sane"
+
+      - name: Verify build outputs (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # Windows is single-file (one-file spec): ``dist\magnadesign.exe``
+          # contains the runtime, ``data/``, and every wheel pinned into
+          # the bootloader archive. Verify the executable exists and is
+          # non-trivial in size (a busted build often produces a tiny
+          # stub).
+          if (-not (Test-Path "dist/magnadesign.exe")) {
+            Write-Host "::error::missing dist/magnadesign.exe"
+            exit 1
+          }
+          $size = (Get-Item "dist/magnadesign.exe").Length / 1MB
+          Write-Host ("OK — single-file executable: {0:N1} MB" -f $size)
+          if ($size -lt 50) {
+            Write-Host "::error::executable suspiciously small (< 50 MB) — check PyInstaller log"
+            exit 1
+          }
 
       - name: Verify build outputs (macOS)
         if: runner.os == 'macOS'
@@ -290,10 +316,11 @@ jobs:
       - name: Package (Windows)
         if: runner.os == 'Windows'
         # PowerShell's Compress-Archive is fine for ~500 MB and is
-        # always present. No per-runner zip install needed.
+        # always present. Single-file build → zip just the .exe so
+        # the user gets one drag-and-drop file.
         shell: pwsh
         run: |
-          Compress-Archive -Path dist/magnadesign `
+          Compress-Archive -Path "dist/magnadesign.exe" `
             -DestinationPath "${{ matrix.artifact_name }}.zip" `
             -CompressionLevel Optimal
           Get-Item "${{ matrix.artifact_name }}.zip" |
@@ -362,7 +389,7 @@ jobs:
             echo "### How to run"
             echo "- **Linux:** \`tar -xzf magnadesign-linux-x86_64.tar.gz && ./magnadesign/magnadesign\`"
             echo "- **macOS:** unzip and drag \`magnadesign.app\` into \`/Applications\`. First launch: right-click → Open to bypass Gatekeeper."
-            echo "- **Windows:** unzip and run \`magnadesign\\magnadesign.exe\`. Windows SmartScreen may warn — click *More info → Run anyway*."
+            echo "- **Windows:** unzip and run \`magnadesign.exe\` (single file, no installer). Windows SmartScreen may warn — click *More info → Run anyway*."
             echo ""
             echo "FEA validation (FEMMT + ONELAB) is **not** bundled. Install it via *Configurações → Setup FEA* inside the app on first use."
           } >> body.md

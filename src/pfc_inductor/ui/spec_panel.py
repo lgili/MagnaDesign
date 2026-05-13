@@ -22,7 +22,9 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QFormLayout,
     QGroupBox,
+    QHBoxLayout,
     QPushButton,
+    QRadioButton,
     QVBoxLayout,
     QWidget,
 )
@@ -82,6 +84,10 @@ class SpecPanel(QWidget):
         body.addWidget(self._dc_input_box)
         self._converter_box = self._build_converter_box()
         body.addWidget(self._converter_box)
+        self._flyback_box = self._build_flyback_box()
+        body.addWidget(self._flyback_box)
+        self._interleave_box = self._build_interleave_box()
+        body.addWidget(self._interleave_box)
         self._line_reactor_box = self._build_line_reactor_box()
         body.addWidget(self._line_reactor_box)
         body.addWidget(self._build_thermal_box())
@@ -134,6 +140,88 @@ class SpecPanel(QWidget):
         form.addRow("V de linha:", self.sp_vline)
         form.addRow("I nominal (RMS):", self.sp_irated)
         form.addRow("Target inductance:", self.sp_l_req)
+        return box
+
+    def _build_flyback_box(self) -> QGroupBox:
+        """Flyback-specific parameters — visible only when
+        ``topology == 'flyback'``.
+
+        Three fields the engine reads only for the flyback path:
+
+        * ``flyback_mode`` — operating mode at design time
+          (DCM is the textbook default; CCM with reflected-voltage
+          assumptions is the alternative for higher-power isolated
+          designs). Picked here as a radio pair so the engineer
+          sees the choice without having to read the Spec docstring.
+        * ``turns_ratio_n`` — primary:secondary turns ratio. Drives
+          the reflected-voltage stress on the primary MOSFET and the
+          peak-to-average current ratio on the secondary diode.
+        * ``window_split_primary`` — fraction of the bobbin window
+          allocated to the primary winding (0.30–0.65, default 0.45).
+          Above 0.5 favours primary copper at the cost of secondary
+          AC loss; below it inverts the trade-off.
+        """
+        box = QGroupBox("FLYBACK")
+        form = QFormLayout(box)
+        # Mode picker — radio pair rather than combobox so both
+        # options stay visible and discoverable.
+        mode_row = QWidget()
+        mode_layout = QHBoxLayout(mode_row)
+        mode_layout.setContentsMargins(0, 0, 0, 0)
+        mode_layout.setSpacing(8)
+        self.rb_flyback_dcm = QRadioButton("DCM")
+        self.rb_flyback_dcm.setChecked(True)
+        self.rb_flyback_ccm = QRadioButton("CCM")
+        mode_layout.addWidget(self.rb_flyback_dcm)
+        mode_layout.addWidget(self.rb_flyback_ccm)
+        mode_layout.addStretch(1)
+        form.addRow("Modo:", mode_row)
+
+        self.sp_turns_ratio = self._dspin(0.5, 20.0, 4.0, 0.1, "")
+        form.addRow("Turns ratio Np/Ns:", self.sp_turns_ratio)
+
+        self.sp_window_split = self._dspin(0.30, 0.65, 0.45, 0.01, "")
+        form.addRow("Window split (primário):", self.sp_window_split)
+
+        # Wire the changed signal so the debounced recalc picks up
+        # turns-ratio / mode edits.
+        self.rb_flyback_dcm.toggled.connect(self.changed.emit)
+        self.sp_turns_ratio.valueChanged.connect(self.changed.emit)
+        self.sp_window_split.valueChanged.connect(self.changed.emit)
+        return box
+
+    def _build_interleave_box(self) -> QGroupBox:
+        """Interleaved-boost phase count — visible only when
+        ``topology == 'interleaved_boost_pfc'``.
+
+        The topology picker offers 2-phase and 3-phase as separate
+        cards, but engineers often want to flip between them without
+        re-opening the modal. The inline radio here is the round-trip
+        editor.
+        """
+        box = QGroupBox("INTERLEAVED BOOST")
+        form = QFormLayout(box)
+        phases_row = QWidget()
+        phases_layout = QHBoxLayout(phases_row)
+        phases_layout.setContentsMargins(0, 0, 0, 0)
+        phases_layout.setSpacing(8)
+        self.rb_interleave_2 = QRadioButton("2 phases")
+        self.rb_interleave_2.setChecked(True)
+        self.rb_interleave_3 = QRadioButton("3 phases")
+        phases_layout.addWidget(self.rb_interleave_2)
+        phases_layout.addWidget(self.rb_interleave_3)
+        phases_layout.addStretch(1)
+        form.addRow("Number of phases:", phases_row)
+
+        def _on_phases_toggled(_checked: bool) -> None:
+            new_n = 3 if self.rb_interleave_3.isChecked() else 2
+            if new_n != self._n_interleave:
+                self._n_interleave = new_n
+                self.topology_changed.emit(self._topology, new_n)
+                self.changed.emit()
+
+        self.rb_interleave_2.toggled.connect(_on_phases_toggled)
+        self.rb_interleave_3.toggled.connect(_on_phases_toggled)
         return box
 
     # ------------------------------------------------------------------
@@ -244,6 +332,8 @@ class SpecPanel(QWidget):
         is_lr = self._topology == "line_reactor"
         is_buck = self._topology == "buck_ccm"
         is_flyback = self._topology == "flyback"
+        is_passive = self._topology == "passive_choke"
+        is_interleaved = self._topology == "interleaved_boost_pfc"
         is_dc_input = is_buck or is_flyback
         # Line-reactor block: visible only for line_reactor.
         self._line_reactor_box.setVisible(is_lr)
@@ -256,6 +346,33 @@ class SpecPanel(QWidget):
         # for every topology except line_reactor (which has its own
         # electrical fields).
         self._converter_box.setVisible(not is_lr)
+        # Flyback-only fields: turns ratio + mode + window split.
+        self._flyback_box.setVisible(is_flyback)
+        # Interleave count selector: only for interleaved_boost_pfc.
+        self._interleave_box.setVisible(is_interleaved)
+        # ``fsw`` is meaningless for passive_choke (unswitched
+        # filter — only Vin / Pout / Ku matter). Hide the spinbox to
+        # keep the panel honest. The widget stays in the form so the
+        # value persists if the user toggles back.
+        if hasattr(self, "sp_fsw"):
+            self.sp_fsw.setEnabled(not is_passive)
+            self.sp_fsw.setToolTip(
+                "Not applicable to passive choke (unswitched filter)"
+                if is_passive
+                else "Converter switching frequency"
+            )
+        # Sync the interleave radio buttons with the internal state
+        # so toggling topology in / out of interleaved_boost preserves
+        # the user's last 2 vs 3 choice.
+        if hasattr(self, "rb_interleave_2"):
+            blocker_2 = self.rb_interleave_2.blockSignals(True)
+            blocker_3 = self.rb_interleave_3.blockSignals(True)
+            try:
+                self.rb_interleave_3.setChecked(self._n_interleave == 3)
+                self.rb_interleave_2.setChecked(self._n_interleave != 3)
+            finally:
+                self.rb_interleave_2.blockSignals(blocker_2)
+                self.rb_interleave_3.blockSignals(blocker_3)
 
     # ------------------------------------------------------------------
     # Topology-default helpers — keep the UI runnable when toggling
@@ -460,6 +577,23 @@ class SpecPanel(QWidget):
             # VFD band — populates from the saved spec; no-op when
             # the spec doesn't carry a band (legacy `.pfc`).
             self.modulation_group.from_modulation(spec.fsw_modulation)
+            # Flyback-only fields: only populate when topology matches.
+            # The spinbox values persist across topology toggles so a
+            # user who experimented with flyback and switched away
+            # finds their last settings on return.
+            if spec.topology == "flyback":
+                mode = (spec.flyback_mode or "dcm").lower()
+                self.rb_flyback_ccm.setChecked(mode == "ccm")
+                self.rb_flyback_dcm.setChecked(mode != "ccm")
+                if spec.turns_ratio_n:
+                    self.sp_turns_ratio.setValue(float(spec.turns_ratio_n))
+                self.sp_window_split.setValue(float(spec.window_split_primary))
+            # Interleaved-boost: pull n_interleave so the inline radio
+            # matches the picker-dialog choice on project load.
+            if spec.topology == "interleaved_boost_pfc":
+                self._n_interleave = int(spec.n_interleave or 2)
+                self.rb_interleave_3.setChecked(self._n_interleave == 3)
+                self.rb_interleave_2.setChecked(self._n_interleave != 3)
         finally:
             self.blockSignals(False)
         # Single fan-out at the end — host re-reads via ``get_spec``.
@@ -542,6 +676,18 @@ class SpecPanel(QWidget):
             # still runs. The ModulationGroup's derived-label has
             # already shown the error to the user.
             fsw_modulation = None
+        # Flyback-only fields. Only emit them when topology is flyback;
+        # for any other topology the engine ignores them, but leaving
+        # them at None keeps the spec snapshot small and the serialised
+        # JSON honest about what the user actually configured.
+        if topo == "flyback":
+            flyback_mode = "ccm" if self.rb_flyback_ccm.isChecked() else "dcm"
+            turns_ratio_n = self.sp_turns_ratio.value()
+            window_split_primary = self.sp_window_split.value()
+        else:
+            flyback_mode = None
+            turns_ratio_n = None
+            window_split_primary = 0.45  # Spec default
         return Spec(
             topology=topo,
             Vin_min_Vrms=v_min_ac,
@@ -566,4 +712,7 @@ class SpecPanel(QWidget):
             Vin_dc_max_V=vin_dc_max,
             ripple_ratio=ripple_ratio,
             fsw_modulation=fsw_modulation,
+            flyback_mode=flyback_mode,
+            turns_ratio_n=turns_ratio_n,
+            window_split_primary=window_split_primary,
         )

@@ -65,7 +65,7 @@ def generate_project_report_typst(
 
     See module docstring for the contract.
     """
-    figures = _render_figures(spec, result)
+    figures = _render_figures(spec, result, core=core, wire=wire, material=material)
     typst_source = _render_template(
         spec=spec,
         core=core,
@@ -673,16 +673,66 @@ def _render_figures_block(available: set[str]) -> str:
     if "fig_losses.png" in available:
         blocks.append("== 10.2. Loss breakdown\n\n")
         blocks.append('#align(center)[#image("fig_losses.png", width: 100%)]\n\n')
+
+    # 3-D mechanical views: 4 orthographic projections (iso / front /
+    # top / side) in a 2×2 grid. Each is the same parametric mesh
+    # the dashboard's Núcleo card draws, rendered offscreen by
+    # pyvista. We only emit the section when at least one view came
+    # back; partial sets (e.g. iso missing because of a transient
+    # OpenGL hiccup) still render the available three.
+    view_pairs = [
+        ("iso", "fig_3d_iso.png", "Isometric"),
+        ("front", "fig_3d_front.png", "Front (y-axis)"),
+        ("top", "fig_3d_top.png", "Top (z-axis)"),
+        ("side", "fig_3d_side.png", "Side (x-axis)"),
+    ]
+    available_views = [(label, fname) for _key, fname, label in view_pairs if fname in available]
+    if available_views:
+        blocks.append("== 10.3. Mechanical 3-D views\n\n")
+        blocks.append(
+            "Parametric views of the assembled inductor — core, "
+            "bobbin and winding rendered from the same geometry "
+            "rules used by the cascade FEA validator and the "
+            "dashboard's Núcleo card.\n\n"
+        )
+        # 2×2 grid: pair the views and emit a #grid with the available
+        # subset.
+        cells = []
+        for label, fname in available_views:
+            cells.append(
+                f'  [ #image("{fname}", width: 100%) #v(-0.4em) '
+                f"#text(size: 7pt, fill: gray)[*{label}*] ]"
+            )
+        blocks.append(
+            "#grid(\n"
+            f"  columns: {min(2, len(cells))},\n"
+            "  column-gutter: 6pt,\n"
+            "  row-gutter: 6pt,\n" + ",\n".join(cells) + "\n)\n\n"
+        )
     return "".join(blocks)
 
 
-def _render_figures(spec: Spec, result: DesignResult) -> dict[str, bytes]:
+def _render_figures(
+    spec: Spec,
+    result: DesignResult,
+    *,
+    core=None,
+    wire=None,
+    material=None,
+) -> dict[str, bytes]:
     """Build the per-design PNG blobs the Typst template references.
 
     Returned filenames must match the ``#image("name.png")`` calls in
     the template. Each helper isolates its matplotlib figure (own
     ``Figure`` object, closed before returning) so the engine's
     background-thread workers don't leak global pyplot state.
+
+    The optional ``core`` / ``wire`` / ``material`` arguments unlock
+    the 3-D mechanical-view rendering (4 orthographic projections
+    from the same parametric mesh the dashboard's Núcleo card uses).
+    When pyvista can't initialise (headless host without OpenGL) the
+    helper returns ``None`` for each view and the section is silently
+    skipped from the PDF.
     """
     figures: dict[str, bytes] = {}
     wf_png = _make_waveform_png(spec, result)
@@ -691,7 +741,41 @@ def _render_figures(spec: Spec, result: DesignResult) -> dict[str, bytes]:
     loss_png = _make_loss_breakdown_png(result)
     if loss_png:
         figures["fig_losses.png"] = loss_png
+    if core is not None and wire is not None and material is not None:
+        figures.update(_make_3d_view_pngs(core, wire, material, result))
     return figures
+
+
+def _make_3d_view_pngs(core, wire, material, result: DesignResult) -> dict[str, bytes]:
+    """Render the iso / front / top / side 3-D views as raw PNG bytes.
+
+    Reuses :func:`pfc_inductor.report.views_3d.render_views` (returns
+    base64 strings) and decodes them back into raw bytes so Typst's
+    ``#image`` directive can read them as extra files. When pyvista is
+    unavailable (no GL on the host) each view comes back ``None`` and
+    we just omit it — the report still compiles without the gallery.
+    """
+    import base64
+
+    from pfc_inductor.report.views_3d import render_views
+
+    try:
+        base64_views = render_views(core, wire, int(result.N_turns), material)
+    except Exception:
+        # 3-D rendering should never break the PDF — log the failure
+        # via the report log channel if available, but always return
+        # an empty dict so the figures section just skips this group.
+        return {}
+
+    out: dict[str, bytes] = {}
+    for view_name, b64 in base64_views.items():
+        if not b64:
+            continue
+        try:
+            out[f"fig_3d_{view_name}.png"] = base64.b64decode(b64)
+        except (ValueError, TypeError):
+            continue
+    return out
 
 
 def _make_waveform_png(spec: Spec, result: DesignResult) -> bytes | None:

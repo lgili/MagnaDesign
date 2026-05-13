@@ -2312,6 +2312,7 @@ class MainWindow(QMainWindow):
         else:
             baseline_N = 30  # arbitrary safe default before first calc
 
+        current_spec = None
         try:
             current_spec = self.projeto_page.spec_panel.get_spec()
             baseline_T = float(current_spec.T_amb_C)
@@ -2340,6 +2341,33 @@ class MainWindow(QMainWindow):
         except AttributeError:
             pass
 
+        # Topology-aware catalog filter: hand the dialog only the
+        # cores whose default material is appropriate for the current
+        # topology (mirrors the filter the Otimizador + the topology-
+        # picker dialog apply — same policy table). Wires stay
+        # unfiltered: copper / Litz applies to every topology in
+        # principle.
+        current_topo = "boost_ccm"
+        if current_spec is not None:
+            try:
+                current_topo = current_spec.topology
+            except Exception:
+                pass
+
+        eligible_materials = materials_for_topology(self._materials, current_topo)
+        eligible_material_ids = {m.id for m in eligible_materials}
+        eligible_cores = [
+            c
+            for c in self._cores
+            if getattr(c, "default_material_id", None) in eligible_material_ids
+        ]
+        # If the policy collapses the list to zero (e.g. unknown
+        # topology), fall back to the full catalog so the user can
+        # still pick something — losing the dialog entirely is worse
+        # than relaxing the filter.
+        if not eligible_cores:
+            eligible_cores = self._cores
+
         dlg = TweakDialog(
             self,
             baseline_N=baseline_N,
@@ -2347,7 +2375,7 @@ class MainWindow(QMainWindow):
             baseline_gap_mm=baseline_gap,
             current=self._design_overrides,
             wires=self._wires,
-            cores=self._cores,
+            cores=eligible_cores,
             baseline_wire_id=baseline_wire_id,
             baseline_core_id=baseline_core_id,
         )
