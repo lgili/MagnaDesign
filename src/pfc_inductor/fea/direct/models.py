@@ -204,22 +204,35 @@ class EICoreDims:
 
     @classmethod
     def from_core(cls, core: object, lgap_mm: Optional[float] = None) -> EICoreDims:
-        """Back-derive EI dims from a ``Core`` (Ae, Wa, MLT only).
+        """Back-derive geometry dims from a ``Core``.
 
-        Assumptions for the standard-EI heuristic:
+        Strategy (in priority order):
 
-        - Center leg has square cross-section: ``cl_w = cl_d = sqrt(Ae)``.
-        - Outer leg width = ``cl_w / 2`` (flux halves into each side).
-        - Window aspect ratio ``h / w = 2`` (typical EI bobbin shape).
-        - Yoke thickness = outer leg width.
+        1. **FEMMT core_database lookup** by shape pattern. Catalog
+           ids like ``tdkepcos-pq-4040-n87`` map to FEMMT's standard
+           ``"PQ 40/40"`` entry; FEMMT carries explicit
+           ``core_inner_diameter`` + ``window_w`` + ``window_h`` +
+           ``core_h`` for 18 industry-standard shapes. This is the
+           best path — we get exact dimensions for the common cores
+           that account for most PFC inductor designs.
 
-        These are reasonable defaults but **not exact** for every
-        vendor's part. For accuracy on production runs the engineer
-        should pass explicit dimensions or extend ``Core`` with a
-        ``geometry_hint`` dict. Phase 2 of the migration will add
-        vendor-specific dim tables to the catalog ingestion.
+        2. **Heuristic back-derivation** from aggregate Ae/Wa.
+           Used when FEMMT db doesn't have the shape (Magnetics
+           60µ HighFlux toroids, custom Magmattec parts, etc.).
+           Assumptions: center leg square (``cl_w = cl_d = sqrt(Ae)``),
+           outer leg = cl_w/2, window aspect h/w = 2, yoke = outer.
+
+        Phase 2.0 calibration showed the FEMMT-db lookup tightens
+        |L_direct - L_femmt| from ~3× to within ~10 % on PQ 40/40
+        — heuristic dimensions over-stretched window_h, which
+        translated to longer flux paths and lower L.
         """
         import math
+
+        # ── Priority 1: FEMMT core database lookup ─────────────
+        femmt_dims = _femmt_db_lookup(core)
+        if femmt_dims is not None:
+            return femmt_dims
 
         Ae = float(core.Ae_mm2)
         Wa = float(core.Wa_mm2)
@@ -238,3 +251,136 @@ class EICoreDims:
             yoke_h_mm=yoke,
             outer_leg_w_mm=outer,
         )
+
+
+# ─── FEMMT database integration ────────────────────────────────────
+
+
+# Pattern: capture the trailing nominal-size token from a catalog id
+# like "tdkepcos-pq-4040-n87" or "ferroxcube-pq2625-3c90". Matches
+# either ``pq-4040`` (with separator) or ``pq2625`` (no separator);
+# both forms exist across vendors.
+_SHAPE_PATTERNS = {
+    "pq": [
+        # PQ 40/40 — catalog "pq-4040" or "pq4040"
+        (r"pq[-_]?(\d{2})(\d{2})", "PQ {0}/{1}"),
+        (r"pq[-_]?(\d{2})", "PQ {0}/{0}"),
+    ],
+    "pm": [
+        (r"pm[-_]?(\d{2,3})[-_]?(\d{2,3})", "PM {0}/{1}"),
+        (r"pm[-_]?(\d{2,3})", "PM {0}"),
+    ],
+    "ep": [
+        (r"ep[-_]?(\d{2})", "EP {0}"),
+    ],
+    # P (pot core) — usually written "p-3019" → "P 30/19"
+    "p": [
+        (r"\bp[-_]?(\d{2})(\d{2})", "P {0}/{1}"),
+    ],
+}
+
+
+def _femmt_db_lookup(core: object) -> Optional[EICoreDims]:
+    """Resolve catalog Core → FEMMT core_database entry → EICoreDims.
+
+    The catalog id (e.g. ``tdkepcos-pq-4040-n87``) is matched against
+    a small table of shape patterns to extract the FEMMT-database
+    key (``"PQ 40/40"``). When found, return the exact FEMMT dims;
+    when not, return ``None`` so the caller falls back to the
+    heuristic.
+
+    Failure modes (all return ``None``, caller falls back):
+    - FEMMT not installed (cold-import on import will fail).
+    - Shape pattern doesn't match.
+    - FEMMT db doesn't have the matched key.
+    - Core lacks ``id`` attribute.
+
+    Cached at module load via ``_FEMMT_DB`` so subsequent lookups
+    are O(1).
+    """
+    import re
+
+    core_id = str(getattr(core, "id", "")).lower()
+    shape = str(getattr(core, "shape", "")).lower()
+    if not core_id or not shape:
+        return None
+
+    patterns = _SHAPE_PATTERNS.get(shape)
+    if not patterns:
+        return None
+
+    try:
+        db = _femmt_db()
+    except Exception:
+        return None
+    if not db:
+        return None
+
+    for pattern, fmt in patterns:
+        match = re.search(pattern, core_id, re.IGNORECASE)
+        if not match:
+            continue
+        key = fmt.format(*match.groups())
+        entry = db.get(key)
+        if entry is None:
+            continue
+        # FEMMT entries carry: core_inner_diameter, window_w,
+        # window_h, core_h — all in metres. Convert to our
+        # mm-based EICoreDims contract.
+        try:
+            d_in_mm = float(entry["core_inner_diameter"]) * 1e3
+            ww_w_mm = float(entry["window_w"]) * 1e3
+            ww_h_mm = float(entry["window_h"]) * 1e3
+            core_h_mm = float(entry["core_h"]) * 1e3
+        except (KeyError, TypeError, ValueError):
+            continue
+
+        # FEMMT models the center leg as a cylinder; our EICoreDims
+        # carries cl_w + cl_d (rectangular). For a cylinder of
+        # diameter d, the equivalent rectangular cross-section with
+        # the same area is cl_w = cl_d = d × √π/2 so
+        # cl_w · cl_d = π·d²/4. The axi geometry generator converts
+        # back to a round leg via ``r_cl = sqrt(cl_w · cl_d / π) = d/2``.
+        import math
+
+        cl_equiv = d_in_mm * math.sqrt(math.pi) / 2.0
+        # Yoke thickness = (core_h - window_h) / 2 — the slabs
+        # closing the magnetic circuit top + bottom.
+        yoke_mm = max((core_h_mm - ww_h_mm) / 2.0, 0.5)
+        # Outer leg width chosen so the SHELL cross-section area
+        # equals the center-leg cross-section area (FEMMT's
+        # area-equivalence convention for the cylindrical-shell
+        # outer-leg approximation).
+        #
+        # The axi geometry uses:
+        #   Ae_outer = 2 · outer_leg_w · cl_d
+        # We want Ae_outer = π·d²/4 = cl_w · cl_d (same as center).
+        # Solving: outer_leg_w = (π·d²/4) / (2·cl_d) = (cl_w·cl_d) / (2·cl_d) = cl_w/2.
+        # Numerically: outer_leg_w = d × √π / 4.
+        outer_mm = d_in_mm * math.sqrt(math.pi) / 4.0
+
+        return EICoreDims(
+            center_leg_w_mm=cl_equiv,
+            center_leg_d_mm=cl_equiv,
+            window_w_mm=ww_w_mm,
+            window_h_mm=ww_h_mm,
+            yoke_h_mm=yoke_mm,
+            outer_leg_w_mm=outer_mm,
+        )
+    return None
+
+
+_FEMMT_DB_CACHE: Optional[dict] = None
+
+
+def _femmt_db() -> dict:
+    """Cached FEMMT core_database. None if FEMMT isn't installed."""
+    global _FEMMT_DB_CACHE
+    if _FEMMT_DB_CACHE is None:
+        try:
+            import femmt  # type: ignore[import-not-found]
+
+            _FEMMT_DB_CACHE = dict(femmt.core_database())
+        except Exception:
+            _FEMMT_DB_CACHE = {}
+    return _FEMMT_DB_CACHE

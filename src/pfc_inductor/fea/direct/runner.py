@@ -53,6 +53,7 @@ def run_direct_fea(
     current_A: float,
     workdir: Path,
     backend: str = "axi",
+    gap_mm: Optional[float] = None,
     getdp_exe: Optional[Path] = None,
     timeout_s: float = 600.0,
 ) -> DirectFeaResult:
@@ -136,13 +137,31 @@ def run_direct_fea(
 
     workdir.mkdir(parents=True, exist_ok=True)
 
+    # Resolve the actual gap to feed the geometry. Priority order
+    # mirrors what ``femmt_runner.py`` does (Phase 2.0 fix):
+    # 1. Explicit ``gap_mm`` parameter (caller knows best).
+    # 2. ``core.lgap_mm`` from the catalog (gapped cores).
+    # 3. 0 (closed core).
+    # The Phase 1.9 engine fix populates ``result.gap_actual_mm``
+    # for ungapped ferrites; callers should pass that as ``gap_mm``
+    # to make sure the FEA models the same gap the analytical
+    # engine assumed (otherwise the FEM solves "closed core with
+    # huge L and saturating B" — see Phase 2.0 commit message).
+    effective_gap_mm: float
+    if gap_mm is not None and gap_mm > 0:
+        effective_gap_mm = float(gap_mm)
+    elif getattr(core, "lgap_mm", 0) and core.lgap_mm > 0:  # type: ignore[attr-defined]
+        effective_gap_mm = float(core.lgap_mm)  # type: ignore[attr-defined]
+    else:
+        effective_gap_mm = 0.0
+
     # ---- Step 1: geometry + mesh ---------------------------------
     gmsh.initialize([])
     try:
         gmsh.option.setNumber("General.Terminal", 0)
         gmsh.option.setNumber("General.Verbosity", 2)
 
-        _build(gmsh, core=core)
+        _build(gmsh, core=core, lgap_mm=effective_gap_mm)
 
         dims = EICoreDims.from_core(core)
         diag = max(dims.total_w_mm, dims.total_h_mm) * 1e-3

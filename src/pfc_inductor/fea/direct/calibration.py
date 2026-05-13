@@ -151,8 +151,18 @@ def _run_direct(
     n_turns: int,
     current_A: float,
     workdir: Path,
+    gap_mm: Optional[float] = None,
 ) -> BackendOutcome:
-    """Run the direct ONELAB backend, catching all failures."""
+    """Run the direct ONELAB backend, catching all failures.
+
+    ``gap_mm`` is plumbed through to ``run_direct_fea`` so that
+    side-by-side comparisons feed the **same** gap to both
+    backends. Without this, the direct backend would model a
+    closed core when the catalog has ``lgap_mm = 0`` even though
+    the engine auto-computed a real gap to limit B<Bsat. That
+    mismatch was the primary source of the 3 × overshoot we
+    measured on small PQ ferrites in the initial Phase 2.0 run.
+    """
     from pfc_inductor.fea.direct.runner import run_direct_fea
 
     t0 = time.perf_counter()
@@ -164,6 +174,7 @@ def _run_direct(
             n_turns=n_turns,
             current_A=current_A,
             workdir=workdir,
+            gap_mm=gap_mm,
         )
         return BackendOutcome(
             backend="direct",
@@ -320,6 +331,15 @@ def compare_backends(
     outcomes: dict[str, BackendOutcome] = {}
 
     if include_direct:
+        # When a design_result is available, propagate its
+        # ``gap_actual_mm`` to the direct backend so it models the
+        # same gap FEMMT does (both use the engine's auto-computed
+        # gap for ungapped ferrites).
+        gap_from_engine: Optional[float] = None
+        if design_result is not None:
+            g = getattr(design_result, "gap_actual_mm", None)
+            if g and g > 0:
+                gap_from_engine = float(g)
         outcomes["direct"] = _run_direct(
             core=core,
             material=material,
@@ -327,6 +347,7 @@ def compare_backends(
             n_turns=n_turns,
             current_A=current_A,
             workdir=workdir_root / "direct",
+            gap_mm=gap_from_engine,
         )
 
     if include_femmt and spec is not None and design_result is not None:
