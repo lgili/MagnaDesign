@@ -12,6 +12,7 @@ __all__ = [
     "CoreGeometry",
     "build_ei",
     "build_ei_axi",
+    "build_toroidal",
 ]
 
 
@@ -28,4 +29,8 @@ def __getattr__(name: str):
         from pfc_inductor.fea.direct.geometry.ei_axi import build_ei_axi
 
         return build_ei_axi
+    if name == "build_toroidal":
+        from pfc_inductor.fea.direct.geometry.toroidal import build_toroidal
+
+        return build_toroidal
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
