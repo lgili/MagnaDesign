@@ -393,3 +393,78 @@ approximation for a rectangular-legged EI. Options:
 
 **Recommendation:** Option 1 (toroidal first). EI calibration
 ranges as Phase 2 after toroidal works.
+
+## Phase 1.9 — production reality check (continuation)
+
+Ran the calibrated axi backend on REAL catalog cores (6
+dongxing silicon-steel EIs) and compared to analytical:
+
+```
+Core ID                     Ae   Wa   le   L_fem   L_ana    ratio
+dongxing-ei6020-50h800     400  300  117   24897  824024   0.030
+dongxing-ei4117-50cs1300   240  125   80   35792  709630   0.050
+dongxing-ei2817-50h1300    170   80   65   44564  610367   0.073
+dongxing-ei3311-50h800     121   91   64   47373  440734   0.107
+dongxing-ei3311-50h1300    121   91   64   47373  440734   0.107
+dongxing-ei3311-50cs1300   121   91   64   47373  440734   0.107
+```
+
+(N=200, I=5 A, μ_r=5000 — typical line-reactor configuration.)
+
+These are **closed-core SiSteel** EIs (``lgap = 0``). Analytical
+predicts huge L because reluctance is dominated by the iron
+path ``le/μ_r``, which is very small. With ``μ_r = 5000`` and
+``le = 117 mm``, the equivalent gap is only ``117/5000 = 23 μm`` —
+the iron carries virtually all the flux in the ideal model.
+
+Our FEM gives 3-11 % of analytical because the **cylindrical-
+shell-outer-leg leakage path** (identified in Phase 1.7)
+becomes the dominant reluctance when ``lgap → 0`` and the
+"correct" iron path becomes near-zero reluctance. The leakage
+acts in parallel with the iron and dramatically reduces L.
+
+Implications for production
+---------------------------
+1. **Gapped ferrite EIs** (typical PFC inductors): ~50 %
+   accuracy. Usable for ranking + sizing, not for absolute
+   inductance.
+2. **Closed-core SiSteel EIs** (line reactors): ~10 % accuracy.
+   Not usable for production inductance values.
+3. **Toroidals**: formulation mismatch (Phase 1.8); not yet
+   functional.
+
+**The ``fea.direct`` backend is NOT YET a drop-in replacement
+for FEMMT** on real PFC inductor designs. Use cases that work:
+- Pipeline / architecture validation ✅
+- Relative ranking of candidates (with consistent geometry) ✅
+- Field visualization for design intuition ✅
+
+Use cases that need FEMMT:
+- Production design with reliable L_dc values
+- Saturation analysis (nonlinear μ(B))
+- AC losses (skin/proximity/core)
+- Validation of cascade Tier 3 results
+
+Where Phase 1 ended up
+-----------------------
+Across 10 commits (~3000 LOC) we shipped:
+
+- Working pipeline: Gmsh + GetDP + parsers + PNGs.
+- Robust region tagging (fragment output_map pattern).
+- Calibration scaffold + 7 tests in CI.
+- Planar + axi backends with 2π·R correction.
+- GlobalQuantity template (mathematically equivalent to
+  constant-J for DC; needed for AC Phase 2).
+- Toroidal geometry (ready; formulation pending).
+
+The architecture is well-established. The remaining
+calibration gap is **fundamental** — needs either 3-D FEM
+(too slow) or a proper rectangular-legged 2-D EI formulation
+that doesn't exist in the standard FEMMT literature either
+(FEMMT also uses the cylindrical-shell approximation, which
+is why even FEMMT's EI numbers don't match analytical
+exactly).
+
+**For production use**, the recommendation stands: keep FEMMT
+as the cascade Tier 3 backend. ``fea.direct`` serves the
+architectural / educational / experimental role.
