@@ -93,6 +93,13 @@ def _render_template(
     project_id: str,
 ) -> str:
     ctx = _compute_context(spec, core, material, wire, result)
+    # Per-topology operating-point + required-inductance derivation
+    # gets rendered separately and injected at the {topology_body}
+    # placeholder. The rest of the template (components, gap,
+    # flux, window, losses, thermal, summary) is common to every
+    # topology because it operates on the engine's universal
+    # outputs (N, B_pk, Ku, R_dc/ac, P_*, T_winding).
+    ctx["topology_body"] = _render_topology_body(spec, ctx)
     ctx.update(
         designer=_esc(designer),
         revision=_esc(revision),
@@ -113,6 +120,323 @@ def _topology_label(t: str) -> str:
         "buck_ccm": "Buck CCM (DC-DC step-down)",
         "flyback": "Flyback (isolated DC-DC)",
     }.get(t, t)
+
+
+# ---------------------------------------------------------------------------
+# Per-topology body — sections 1.1 (operating point) + 2 (L derivation).
+# Each function returns a Typst markup string with values substituted
+# inline via f-string. The result is concatenated into the master
+# template AFTER ``str.format`` runs on the rest, so any literal
+# curly braces in Typst syntax (``#if x {{ ... }}``) need no escaping
+# at this stage. Bodies stay deliberately free of ``{`` characters
+# beyond the f-string substitutions to avoid format collisions
+# during the wrapping step.
+# ---------------------------------------------------------------------------
+
+
+def _render_topology_body(spec: Spec, ctx: dict) -> str:
+    """Dispatch to the per-topology body renderer."""
+    t = spec.topology
+    if t == "boost_ccm":
+        return _body_boost_ccm(spec, ctx)
+    if t == "interleaved_boost_pfc":
+        return _body_interleaved_boost_pfc(spec, ctx)
+    if t == "buck_ccm":
+        return _body_buck_ccm(spec, ctx)
+    if t == "flyback":
+        return _body_flyback(spec, ctx)
+    if t == "line_reactor":
+        return _body_line_reactor(spec, ctx)
+    if t == "passive_choke":
+        return _body_passive_choke(spec, ctx)
+    return _body_generic(spec, ctx)
+
+
+def _body_boost_ccm(spec: Spec, ctx: dict) -> str:
+    return rf"""== 1.1. Ponto de operação no pior caso
+
+A corrente de entrada do PFC é forçada a seguir a forma de onda da
+tensão de entrada (lei do controle PFC), produzindo um envelope
+retificado de meia onda na frequência da rede com ripple de
+chaveamento sobreposto. O pior caso de corrente é em $V_(i n,m i n)$
+e o pior caso de ripple é onde $v_(i n)(t) = V_(o u t)/2$.
+
+$ I_(i n,p k) = sqrt(2) dot P_(i n)/V_(i n,m i n) = sqrt(2) dot {ctx["Pout"]}/({ctx["eta"]}% dot {ctx["Vin_min"]}) = {ctx["I_in_pk"]} thin "A" $
+
+$ I_(i n,r m s) = P_(i n)/V_(i n,m i n) = {ctx["Pout"]}/({ctx["eta"]}% dot {ctx["Vin_min"]}) = {ctx["I_in_rms"]} thin "A" $
+
+$ V_(i n,p k) = sqrt(2) dot V_(i n,m i n) = sqrt(2) dot {ctx["Vin_min"]} = {ctx["Vin_pk"]} thin "V" $
+
+O ciclo de trabalho varia ao longo do semiciclo:
+$d(t) = 1 - V_(i n,p k) abs(sin omega t)/V_(o u t)$. No pico da senóide
+$d_(p k) = 1 - V_(i n,p k)/V_(o u t) = {ctx["D_at_peak"]}$%. No cruzamento por zero $d arrow 100$%.
+
+= 2. Indutância requerida
+
+O ripple pico-a-pico do indutor varia ao longo do ciclo de rede e
+atinge seu máximo quando $v_(i n)(t) = V_(o u t)/2$
+(Erickson & Maksimovic, Cap. 18):
+
+$ Delta i_(L,p p,m a x) = V_(o u t)/(4 dot L dot f_(s w)) $
+
+Para limitar esse pico a uma fração $Delta I_(r i p)/100$ do pico de
+linha $I_(i n,p k)$, isolamos $L$:
+
+$ L_(min) = V_(o u t)/(4 dot f_(s w) dot Delta I_(r i p,A)) = {ctx["Vout"]}/(4 dot {ctx["fsw_kHz"]} thin "kHz" dot {ctx["delta_I_target"]} thin "A") = {ctx["L_req"]} thin mu"H" $
+
+onde $Delta I_(r i p,A) = (Delta I_(r i p) \%) dot I_(i n,p k) = {ctx["delta_I_target"]} thin "A"$ é o ripple alvo.
+
+#block(fill: rgb("#f6f9fc"), inset: 10pt, radius: 3pt)[
+  *Resultado:* $L_(min) = {ctx["L_req"]} thin mu"H"$ — indutância mínima
+  que o engine usa como alvo do solver. Ripple pico-a-pico atendido:
+  $Delta i_(L,p p,m a x) = {ctx["delta_I_worst"]} thin "A"$ no pior caso.
+]
+"""
+
+
+def _body_interleaved_boost_pfc(spec: Spec, ctx: dict) -> str:
+    """Per-phase boost CCM with the Hwu-Yau interleaved badge.
+
+    The engine routes each phase through ``boost_ccm.design`` with
+    ``Pout = Total/N``; the report mirrors that, plus a note on the
+    aggregate input ripple cancellation that justifies the topology.
+    """
+    n_phase = getattr(spec, "n_interleave", 2)
+    return rf"""== 1.1. Ponto de operação (por fase, $N$ = {n_phase})
+
+O conversor é composto de {n_phase} estágios boost-CCM em paralelo
+chaveados com defasagem $360°\/{n_phase} = {360 / n_phase:.0f}°$.
+Cada fase é dimensionada como um boost CCM independente com
+$P_("out,fase") = P_("out,total")\/N = {ctx["Pout"]} thin "W"\/{n_phase}$.
+O ripple agregado de entrada cancela nos pontos $D in {{1\/N, 2\/N, dots,
+(N - 1)\/N}}$ pela análise de Hwu-Yau, aparecendo em $N dot f_(s w)$
+no filtro EMI residual.
+
+$ P_("out,fase") = P_("out")\/N = {ctx["Pout"]}\/{n_phase} = {float(ctx["Pout"]) / n_phase:.0f} thin "W" $
+
+$ I_(i n,p k,"fase") = sqrt(2) dot P_("out,fase")/(eta dot V_(i n,m i n)) = {ctx["I_in_pk"]} thin "A" $
+
+= 2. Indutância requerida (por fase)
+
+Cada fase segue Erickson Cap. 18 para boost CCM com ripple máximo em
+$v_(i n) = V_(o u t)/2$:
+
+$ L_(min) = V_(o u t)/(4 dot f_(s w) dot Delta I_(r i p,A)) = {ctx["Vout"]}/(4 dot {ctx["fsw_kHz"]} thin "kHz" dot {ctx["delta_I_target"]} thin "A") = {ctx["L_req"]} thin mu"H" $
+
+#block(fill: rgb("#f6f9fc"), inset: 10pt, radius: 3pt)[
+  *Resultado:* a BOM lista *{n_phase}× núcleos idênticos*
+  com $L_("por fase") = {ctx["L_actual"]} thin mu"H"$. A
+  capacitância de entrada/EMI fica reduzida por $N$ vezes pela
+  cancelação de ripple no nó comum.
+]
+"""
+
+
+def _body_buck_ccm(spec: Spec, ctx: dict) -> str:
+    """Buck CCM textbook walk-through.
+
+    Worst-case ripple grows with $V_(i n)$ (smaller $D$ → larger
+    $1 - D$), so the L sizing happens at $V_(i n,m a x)$. We restate
+    the volt-seconds balance, the duty derivation with efficiency
+    correction, and the L_min closed form.
+    """
+    Vin_dc_min = getattr(spec, "Vin_dc_min_V", None) or spec.Vin_min_Vrms
+    Vin_dc = getattr(spec, "Vin_dc_V", None) or spec.Vin_nom_Vrms
+    Vin_dc_max = getattr(spec, "Vin_dc_max_V", None) or spec.Vin_max_Vrms
+    Iout = spec.Pout_W / max(spec.Vout_V, 1.0)
+    D_min = spec.Vout_V / max(Vin_dc_max * spec.eta, 1e-9)
+    return rf"""== 1.1. Ponto de operação
+
+Buck CCM step-down: o indutor conduz a corrente de saída
+$I_("out") = P_("out") \/ V_("out")$ continuamente, com ripple
+triangular sobreposto. O caso de pior ripple é em $V_(i n,m a x)$
+(menor $D$ → maior $1 - D$).
+
+$ I_("out") = P_("out") / V_("out") = {spec.Pout_W:.0f}/{spec.Vout_V:.1f} = {Iout:.2f} thin "A" $
+
+A relação de tensão (balance volt-segundo com correção de
+eficiência, $D = V_("out")/(V_("in") dot eta)$):
+
+$ D_(min) = V_("out")/(V_(i n,m a x) dot eta) = {spec.Vout_V:.1f}/({Vin_dc_max:.1f} dot {spec.eta * 100:.1f}%) = {D_min * 100:.1f}% $
+
+$ T_(s w) = 1/f_(s w) = 1/{spec.f_sw_kHz} thin "kHz" = {1e6 / (spec.f_sw_kHz * 1000):.2f} thin mu"s" $
+
+#table(
+  columns: (auto, 1fr, auto),
+  align: (left, left, right),
+  inset: (x: 6pt, y: 4pt),
+  table.header[Símbolo][Descrição][Valor],
+  [$V_(i n,m i n)$], [Tensão DC de entrada (worst case corrente)], [{Vin_dc_min:.1f} V],
+  [$V_(i n)$], [Tensão DC nominal], [{Vin_dc:.1f} V],
+  [$V_(i n,m a x)$], [Tensão DC máxima (worst case ripple)], [{Vin_dc_max:.1f} V],
+  [$I_("out")$], [Corrente DC de saída], [{Iout:.2f} A],
+  [$D_(min)$], [Ciclo de trabalho mínimo (em $V_(i n,m a x)$)], [{D_min * 100:.1f} %],
+)
+
+= 2. Indutância requerida
+
+Pelo balanço volt-segundo, $V_("out") = V_("in") dot D - L dot
+(d i_L)/d t$. Durante o off-time $(1-D) dot T_(s w)$ o ripple de
+corrente é:
+
+$ Delta i_(L,p p) = V_("out") dot (1 - D)/(L dot f_(s w)) $
+
+Para manter $Delta i_(L,p p) lt.eq r dot I_("out")$ (com $r$ = ripple-ratio):
+
+$ L_(min) = V_("out") dot (1 - D_(min))/(r dot I_("out") dot f_(s w)) = {spec.Vout_V:.1f} dot (1 - {D_min:.3f})/({ctx["ripple_pct"]}% dot {Iout:.2f} dot {spec.f_sw_kHz} thin "kHz") = {ctx["L_req"]} thin mu"H" $
+
+#block(fill: rgb("#f6f9fc"), inset: 10pt, radius: 3pt)[
+  *Resultado:* $L_(min) = {ctx["L_req"]} thin mu"H"$.
+  O engine usa $L_("real") = {ctx["L_actual"]} thin mu"H"$ ({ctx["N"]} voltas).
+]
+"""
+
+
+def _body_flyback(spec: Spec, ctx: dict) -> str:
+    """Flyback DCM textbook (CCM mode comment at the bottom).
+
+    Primary inductance bounded by D_max in DCM:
+    Lp_max = η·Vin²·D_max² / (2·Pout·fsw).
+    """
+    Vin_min = getattr(spec, "Vin_dc_min_V", None) or spec.Vin_min_Vrms
+    D_max = 0.45  # default the engine assumes
+    Lp_dcm_uH = (spec.eta * Vin_min**2 * D_max**2) / (2.0 * spec.Pout_W * spec.f_sw_kHz * 1e3) * 1e6
+    return rf"""== 1.1. Ponto de operação
+
+Flyback isolado em DCM (modo padrão do engine, $D_(m a x) approx 0.45$).
+O primário do indutor acoplado armazena energia durante o on-time
+e transfere para o secundário no off-time. O dimensionamento é por
+balanço de energia armazenada.
+
+$ V_(i n,m i n) = {Vin_min:.1f} thin "V" $
+
+$ P_(i n) = P_("out")/eta = {spec.Pout_W:.0f}/{spec.eta * 100:.1f}% = {spec.Pout_W / spec.eta:.1f} thin "W" $
+
+= 2. Indutância primária máxima (DCM)
+
+O critério DCM é $D + D_2 lt 1$, com $D$ on-time normalizado e
+$D_2$ tempo de demagnetização. Resolvendo o balanço energia
+armazenada → entregue por ciclo:
+
+$ L_(p,m a x)^("DCM") = (eta dot V_(i n,m i n)^2 dot D_(m a x)^2)/(2 dot P_("out") dot f_(s w)) $
+
+$ L_(p,m a x)^("DCM") = ({spec.eta * 100:.1f}% dot {Vin_min:.1f}^2 dot {D_max:.2f}^2)/(2 dot {spec.Pout_W:.0f} dot {spec.f_sw_kHz} thin "kHz") = {Lp_dcm_uH:.0f} thin mu"H" $
+
+Em CCM (alternativo) o engine usa $L_p = V_(i n) dot D/(Delta I_p
+dot f_(s w))$ dimensionado pra 60% de ripple no primário.
+
+#block(fill: rgb("#f6f9fc"), inset: 10pt, radius: 3pt)[
+  *Resultado:* $L_(p,"real") = {ctx["L_actual"]} thin mu"H"$ no primário
+  ({ctx["N"]} voltas). A razão de espiras + tensões refletidas
+  ficam nos parâmetros derivados (vide datasheet em separado).
+]
+"""
+
+
+def _body_line_reactor(spec: Spec, ctx: dict) -> str:
+    """3φ / 1φ line reactor — sized by %Z impedance target.
+
+    L = X_L / (2π·f_line), X_L = (%Z/100) · V_phase / I_rated.
+    """
+    import math as _math
+
+    n_ph = getattr(spec, "n_phases", 1)
+    V_LL_or_Vph = spec.Vin_nom_Vrms
+    V_phase = V_LL_or_Vph / (_math.sqrt(3.0) if n_ph == 3 else 1.0)
+    I_rated = getattr(spec, "I_rated_Arms", 0.0) or 1.0
+    Z_base = V_phase / max(I_rated, 1e-6)
+    pct_Z = getattr(spec, "pct_impedance", 4.0) or 4.0
+    X_L = Z_base * pct_Z / 100.0
+    omega = 2 * _math.pi * spec.f_line_Hz
+    L_mH = (X_L / omega) * 1000.0
+    return rf"""== 1.1. Ponto de operação ({n_ph}φ)
+
+Reator de linha série com o retificador, dimensionado pelo
+critério de queda percentual de impedância ($%Z$). O reator não
+chaveia: vê apenas a fundamental de rede com seus harmônicos.
+
+$ V_("fase") = {f"{V_LL_or_Vph:.1f}\\,V/" + 'sqrt(3) = ' if n_ph == 3 else ''}{V_phase:.1f} thin "V" $
+
+$ I_("rated") = {I_rated:.2f} thin "A"_("rms") $
+
+$ Z_("base") = V_("fase")/I_("rated") = {V_phase:.1f}/{I_rated:.2f} = {Z_base:.2f} thin Omega $
+
+= 2. Indutância requerida pelo $%Z$
+
+A reatância alvo, na frequência da rede, é uma fração $%Z$ da
+impedância de base:
+
+$ X_L = (%Z\/100) dot Z_("base") = ({pct_Z:.1f}%) dot {Z_base:.2f} = {X_L:.3f} thin Omega $
+
+A indutância correspondente é $L = X_L \/ omega$:
+
+$ L = X_L/(2 pi dot f_("line")) = {X_L:.3f}/(2 pi dot {spec.f_line_Hz:.0f} thin "Hz") = {L_mH:.2f} thin "mH" $
+
+#block(fill: rgb("#f6f9fc"), inset: 10pt, radius: 3pt)[
+  *Resultado:* $L = {L_mH:.2f}$ mH (alvo do spec: ${getattr(spec, "L_req_mH", L_mH):.2f}$ mH).
+  Engine sintetizou {ctx["N"]} voltas para atingir
+  ${ctx["L_actual_mH"]}$ mH no núcleo selecionado.
+]
+"""
+
+
+def _body_passive_choke(spec: Spec, ctx: dict) -> str:
+    """AC-side passive choke for THD reduction.
+
+    L = k(THD) · Z_base / (2π·f_line) — Erickson Ch.18 passive PFC.
+    """
+    import math as _math
+
+    target_thd = 0.30
+    Pin = spec.Pout_W / spec.eta
+    Z_base = spec.Vin_min_Vrms**2 / max(Pin, 1.0)
+    k = 0.35 * (0.30 / max(target_thd, 0.05))
+    omega = 2 * _math.pi * spec.f_line_Hz
+    L_uH = k * Z_base / omega * 1e6
+    return rf"""== 1.1. Ponto de operação
+
+Choque passivo PFC em série com o retificador AC. Sem chaveamento:
+o indutor só vê a corrente fundamental de rede mais harmônicos.
+Dimensionamento pelo critério empírico de THD alvo (Erickson Cap.
+18, AND8016).
+
+$ P_(i n) = P_("out")/eta = {spec.Pout_W:.0f}/{spec.eta * 100:.1f}% = {Pin:.1f} thin "W" $
+
+$ Z_("base") = V_(i n,m i n)^2/P_(i n) = {spec.Vin_min_Vrms:.0f}^2/{Pin:.1f} = {Z_base:.2f} thin Omega $
+
+= 2. Indutância requerida
+
+O coeficiente $k("THD")$ vem do ajuste empírico de Erickson Cap.
+18 (passive PFC com LC). Pra THD alvo de {target_thd * 100:.0f}%:
+
+$ k("THD") = 0.35 dot ({0.3:.1f}/"THD"_("target")) = {k:.3f} $
+
+$ L = k dot Z_("base")/(2 pi dot f_("line")) = {k:.3f} dot {Z_base:.2f}/(2 pi dot {spec.f_line_Hz:.0f} thin "Hz") = {L_uH:.0f} thin mu"H" $
+
+#block(fill: rgb("#f6f9fc"), inset: 10pt, radius: 3pt)[
+  *Resultado:* $L approx {L_uH:.0f}$ µH. Engine sintetizou {ctx["N"]}
+  voltas para ${ctx["L_actual"]}$ µH no núcleo escolhido.
+  THD prática depende do bulk-cap + impedância da linha.
+]
+"""
+
+
+def _body_generic(spec: Spec, ctx: dict) -> str:
+    """Fallback for topologies without a dedicated body."""
+    return rf"""== 1.1. Topologia: {spec.topology}
+
+Esta topologia não tem narrativa de derivação dedicada nesta versão
+do relatório Typst. Os valores universais (resistência, perdas,
+térmica) abaixo são válidos; consulte o datasheet ReportLab legacy
+para a derivação completa.
+
+= 2. Indutância requerida
+
+#block(fill: rgb("#f6f9fc"), inset: 10pt, radius: 3pt)[
+  *Resultado do engine:* $L_(min) = {ctx["L_req"]}$ µH,
+  $L_("real") = {ctx["L_actual"]}$ µH ({ctx["N"]} voltas).
+]
+"""
 
 
 def _hash_project_id(spec: Spec, core: Core, material: Material) -> str:
@@ -506,50 +830,7 @@ ponto $v_(i n)(t) = V_(o u t)/2$.
   [margem $B_(s a t)$], [Margem aplicada sobre $B_(s a t)$], [{Bsat_margin_pct} %],
 )
 
-== 1.1. Ponto de operação no pior caso
-
-A corrente de entrada do PFC é forçada a seguir a forma de onda da
-tensão de entrada (lei do controle PFC), produzindo um envelope
-retificado de meia onda na frequência da rede com ripple de
-chaveamento sobreposto.
-
-$ I_(i n,p k) = sqrt(2) dot P_(i n)/V_(i n,m i n) = sqrt(2) dot ({Pout}/({eta}\\% dot {Vin_min}\\,V)) = {I_in_pk} thin "A" $
-
-$ I_(i n,r m s) = P_(i n)/V_(i n,m i n) = {Pout}/({eta}\\% dot {Vin_min}\\,V) = {I_in_rms} thin "A" $
-
-$ V_(i n,p k) = sqrt(2) dot V_(i n,m i n) = sqrt(2) dot {Vin_min}\\,V = {Vin_pk} thin "V" $
-
-O ciclo de trabalho varia ao longo do semiciclo: $d(t) = 1 - V_(i n,p k)\\,|sin omega t|/V_(o u t)$.
-No pico da senóide: $d_(p k) = 1 - V_(i n,p k)/V_(o u t) = {D_at_peak}\\,%$.
-No cruzamento por zero: $d arrow 100\\,%$.
-
-// ────────────────────────────────────────────────────────────────────
-// 2. Indutância requerida
-// ────────────────────────────────────────────────────────────────────
-= 2. Indutância requerida
-
-O ripple pico-a-pico do indutor varia ao longo do ciclo de rede e
-atinge seu máximo quando $v_(i n)(t) = V_(o u t)/2$
-(Erickson & Maksimovic, Cap. 18):
-
-$ Delta i_(L,p p,m a x) = V_(o u t)/(4 dot L dot f_(s w)) $
-
-Para limitar esse pico a uma fração $Delta I_(r i p)/100$ do pico de
-linha $I_(i n,p k)$, isolamos $L$:
-
-$ L_(min) = V_(o u t)/(4 dot f_(s w) dot Delta I_(r i p,A)) = {Vout}/(4 dot {fsw_kHz}\\,"kHz" dot {delta_I_target}\\,"A") = {L_req} thin mu"H" $
-
-onde $Delta I_(r i p,A) = (Delta I_(r i p)\\,%) dot I_(i n,p k) = {delta_I_target}\\,"A"$ é o ripple alvo.
-
-#block(
-  fill: rgb("#f6f9fc"),
-  inset: 10pt,
-  radius: 3pt,
-)[
-  *Resultado:* $L_(min) = {L_req} thin mu"H"$
-  — indutância mínima que o engine usa como alvo do solver.
-  Ripple pico-a-pico atendido: $Delta i_(L,p p,m a x) = {delta_I_worst}\\,"A"$ no pior caso.
-]
+{topology_body}
 
 // ────────────────────────────────────────────────────────────────────
 // 3. Núcleo + material escolhidos
