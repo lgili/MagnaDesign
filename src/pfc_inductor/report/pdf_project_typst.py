@@ -81,6 +81,79 @@ def generate_project_report_typst(
 
 
 # ---------------------------------------------------------------------------
+# Typst math-subscript sanitiser
+# ---------------------------------------------------------------------------
+# Typst's math parser treats ``V_(out)`` as ``V`` with subscript equal
+# to the value of identifier ``out``. Only a handful of names are
+# defined in the math scope (``in``, ``max``, ``min``); everything
+# else fails to compile with "unknown variable: <name>". The fix is
+# to wrap multi-character identifier subscripts in a string —
+# ``V_("out")`` — so Typst renders the literal text. Doing this at
+# template render time is much safer than scrubbing the Python
+# source.
+#
+# Implementation:
+# * Iterate over every ``$...$`` math segment in the rendered Typst.
+# * For each ``_(...)`` and ``^(...)`` group, replace the contents
+#   with a quoted string when the contents are pure-alpha and not in
+#   the small whitelist of identifiers Typst already knows about.
+# * Leave operator-bearing groups (``B_(sat)^*``, ``(1-x)``, etc.)
+#   untouched — they're already valid expressions.
+_MATH_SAFE_IDENTS = frozenset({"in", "max", "min"})
+
+
+def _quote_typst_subscripts(typst_source: str) -> str:
+    """Wrap identifier-only math subscripts in strings.
+
+    Operates on the final Typst source (post-format-substitution).
+    Every ``$...$`` block is inspected; every ``_(name)`` or
+    ``^(name)`` whose ``name`` is alphabetic and not whitelisted gets
+    rewritten to ``_("name")`` / ``^("name")``. Multi-token groups
+    like ``in,pk`` are quoted as one string (``"in,pk"``) so Typst
+    renders them verbatim — matches the legacy notation engineers
+    expect.
+    """
+    import re
+
+    def _quote_if_needed(group: str) -> str:
+        parts = [t.strip() for t in group.split(",")]
+        # Each part is acceptable if it is:
+        #   * a pure identifier (``Cu``, ``in``)
+        #   * a number (``20``)
+        #   * an identifier+digits (``Cu20``)
+        #   * already a string literal (``"phase"`` — pre-quoted)
+        # Anything else (operators, parens, math ops) means this is a
+        # real sub-expression and we leave it alone.
+        safe_re = re.compile(r'[A-Za-z][A-Za-z0-9]*|[0-9]+|"[^"]*"')
+        if not all(safe_re.fullmatch(t) for t in parts):
+            return group
+        # If every part is already a built-in identifier or a
+        # pre-quoted string, nothing to do.
+        bare_parts = [t.strip('"') if t.startswith('"') else t for t in parts]
+        if all(p in _MATH_SAFE_IDENTS for p in bare_parts if not p.isdigit()):
+            return group
+        # Strip any pre-existing quotes and re-emit as a single string
+        # — ``in,pk,"phase"`` becomes ``"in,pk,phase"``. Typst renders
+        # the literal text in the subscript, preserving the comma
+        # separation engineers expect to see.
+        joined = ",".join(bare_parts)
+        return f'"{joined}"'
+
+    def _rewrite_subscripts(math_seg: str) -> str:
+        return re.sub(
+            r"([_^])\(([^()]+)\)",
+            lambda m: f"{m.group(1)}({_quote_if_needed(m.group(2))})",
+            math_seg,
+        )
+
+    return re.sub(
+        r"\$([^$]*)\$",
+        lambda m: "$" + _rewrite_subscripts(m.group(1)) + "$",
+        typst_source,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Template rendering — single Typst source, fully self-contained
 # ---------------------------------------------------------------------------
 def _render_template(
@@ -114,7 +187,11 @@ def _render_template(
         topology_label=_esc(_topology_label(spec.topology)),
         spec=spec,
     )
-    return _TEMPLATE.format(**ctx)
+    # Sanitise math subscripts before handing to Typst. The template
+    # uses the readable ``V_(out)`` notation everywhere; this pass
+    # rewrites every problematic subscript to ``V_("out")`` so Typst
+    # doesn't fail with "unknown variable: out".
+    return _quote_typst_subscripts(_TEMPLATE.format(**ctx))
 
 
 def _render_cover_summary(spec: Spec, ctx: dict) -> str:
@@ -183,7 +260,11 @@ def _render_cover_summary(spec: Spec, ctx: dict) -> str:
         except KeyError:
             spec_val = getattr(spec, key, "—")
             value = str(spec_val) if spec_val is not None else "—"
-        grid_rows.append(f"      {label}, [{value}],")
+        # Both label and value must be wrapped in content brackets
+        # ``[...]`` so Typst treats them as grid cells. A bare
+        # ``*Designer*`` outside ``[...]`` is parsed as the
+        # multiplication operator and fails with "unexpected star".
+        grid_rows.append(f"      [{label}], [{value}],")
 
     grid_markup = f"""
     #grid(
@@ -287,7 +368,10 @@ def _render_spec_table(spec: Spec, ctx: dict) -> str:
             }
         )
 
-    table_rows = ["table.header[Variable][Description][Value]"]
+    # Trailing comma is required — every table cell (including the
+    # header) needs to be comma-separated, or Typst raises "expected
+    # comma".
+    table_rows = ["  table.header[Variable][Description][Value],"]
 
     for key, (symbol, desc, value_template) in fields.items():
         # Format the value from the context, falling back to the spec attribute
@@ -1513,7 +1597,7 @@ The lumped model is natural convection plus radiation, with a
 combined coefficient $h = {h_conv}$ W/m²/K. The surface area of the
 assembled inductor:
 
-$ A_("surf") = pi dot OD dot HT + pi dot ID dot HT + 2 dot pi/4 dot (OD^2 - ID^2) = {A_surf_cm2} thin "cm"^2 $
+$ A_("surf") = pi dot "OD" dot "HT" + pi dot "ID" dot "HT" + 2 dot pi/4 dot ("OD"^2 - "ID"^2) = {A_surf_cm2} thin "cm"^2 $
 
 The temperature rise is solved iteratively because $rho_(Cu)(T)$
 feeds back into the copper loss:
@@ -1587,7 +1671,7 @@ Convergence (3-6 iterations typical):
   table.header[Criterion][Rule][Achieved][Status],
   [Saturation], [$B_(pk) lt.eq B_(sat)^*$], [{B_pk_mT} mT $lt.eq$ {B_limit_mT} mT], [{ok_B}],
   [Window], [$K_u lt.eq K_(u,max)$], [{Ku_actual_pct} % $lt.eq$ {Ku_max_pct} %], [{ok_Ku}],
-  [Thermal], [$T_("winding") lt.eq T_("max)$], [{T_winding} °C $lt.eq$ {T_max} °C], [{ok_T}],
+  [Thermal], [$T_("winding") lt.eq T_("max")$], [{T_winding} °C $lt.eq$ {T_max} °C], [{ok_T}],
 )
 
 == Engine warnings

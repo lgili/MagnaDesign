@@ -1532,6 +1532,18 @@ class MainWindow(QMainWindow):
                     "Typst project report unavailable (%s); falling back to ReportLab",
                     typst_err,
                 )
+                # User-visible toast: a silent fallback masks bugs
+                # like a stale template that never updates. Surface
+                # the failure so the engineer notices the regression
+                # and reports it. We don't block — the legacy PDF
+                # still saves below.
+                from pfc_inductor.ui.widgets.toast import Toast as _T
+
+                _T.show_message(
+                    self,
+                    f"Typst report failed ({type(typst_err).__name__}: {typst_err}). "
+                    f"Falling back to legacy renderer.",
+                )
                 out = generate_project_report(
                     spec,
                     core,
