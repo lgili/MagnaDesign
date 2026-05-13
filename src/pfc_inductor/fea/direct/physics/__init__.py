@@ -21,6 +21,7 @@ from __future__ import annotations
 
 __all__ = [
     "MagnetostaticAxiTemplate",
+    "MagnetostaticGlobalQTemplate",
     "MagnetostaticTemplate",
 ]
 
@@ -38,4 +39,10 @@ def __getattr__(name: str):
         )
 
         return MagnetostaticAxiTemplate
+    if name == "MagnetostaticGlobalQTemplate":
+        from pfc_inductor.fea.direct.physics.magnetostatic_globalq import (
+            MagnetostaticGlobalQTemplate,
+        )
+
+        return MagnetostaticGlobalQTemplate
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

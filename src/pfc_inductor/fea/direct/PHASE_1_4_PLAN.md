@@ -163,6 +163,78 @@ both are FEMMT-unfriendly), fall back to the analytical
 substantially changes; everything else (geometry, postproc,
 runner, calibration) is already in place.
 
+## Phase 1.4 IMPLEMENTATION RESULT (this session)
+
+Implemented `MagnetostaticGlobalQTemplate` in
+`physics/magnetostatic_globalq.py` — full FEMMT-mirroring
+structure with `Hregion_i_2D` function space, `Is`/`Us`
+GlobalQuantity, `Current_2D`/`Voltage_2D` constraints, and
+the `-1/AreaCell × Dof{ir}` Galerkin source term.
+
+**Empirical result: L_fem = 78.41 μH** — exactly the same as
+the constant-J formulation.
+
+### Why structurally equivalent
+
+For DC magnetostatic with no resistance and no eddy currents,
+all three formulations collapse to the same weak form:
+
+- **Constant J**:    ``∫ ν∇A·∇v dΩ = ∫ J_const · v dΩ``
+- **CompZ source**:  ``∫ ν∇A·∇v dΩ = ∫ J_const,z · v dΩ``
+- **GlobalQuantity**: ``∫ ν∇A·∇v dΩ = ∫ (ir/AreaCell) · v dΩ``
+  with the side constraint ``ir = I_prescribed``
+
+In the last form ``ir/AreaCell = I_prescribed/A_bundle = J_const``.
+After the constraint resolves, all three integrate to identical
+RHS values. The ``GlobalTerm Us · Is_test = 0`` adds a row that
+forces ``Us = 0`` (correct for DC), but doesn't affect A.
+
+### So the 100× gap is real (and structural)
+
+This rules out the "missing GlobalQuantity factor" hypothesis.
+The remaining options for the calibration gap are:
+
+1. **2-D planar is the wrong geometric simplification** for
+   a wound EI inductor. With +J in one window and −J in the
+   other, we're solving "two parallel bus bars in iron" — the
+   transmission-line geometry. The wound-coil flux-linkage
+   factor N² is built-in but the geometric L per turn is
+   determined by bus-bar physics, not solenoid physics. The
+   measured 12.25 nH/turn² is the bus-bar value for this
+   geometry. **This is the canonical, deep result.**
+
+2. **Fix via axisymmetric**: model the EI as a round-leg
+   approximation and revolve. The wire becomes a true loop
+   around the axis (not a parallel pair) and the flux linkage
+   recovers naturally. The Phase 1.3 axi attempt landed at
+   48 μH instead of 6930 μH, but that geometry had its own
+   issues (mesh near r=0, the cylindrical-shell-outer-leg
+   approximation). The right move is to debug + tighten the
+   axisymmetric variant, not to keep trying to coax 2-D planar
+   into being something it isn't.
+
+3. **Fix via 3-D**: out of scope. 10-100× slower for marginal
+   gain.
+
+### Recommended Phase 1.5
+
+Pivot effort onto fixing the existing `ei_axi.py` +
+`magnetostatic_axi.py` pair. Concrete steps:
+
+- Audit `EIAxisymmetricGeometry.build`: verify the air-gap
+  position, the outer-air-box ranges, the mesh field near
+  `r = 0` (which has the natural ``A_φ = 0`` BC).
+- Run the `μ_r` sweep on the axi geometry and verify it now
+  responds: with the right boundary and mesh, the L should
+  rise toward the analytical with high μ_r.
+- If axi gets within 10 % of analytical, declare Phase 1
+  done and move to Phase 2 (more shapes).
+
+The `GlobalQuantity` template stays in tree — it'll be the
+right form once we add AC (where ``Dt[a]`` couples Us = jωL·I
+gives a different `L` extraction path) and circuit-coupled
+problems. So this implementation isn't wasted work.
+
 ## Empirical data from Phase 1.3 (end of session)
 
 A quick "what if I just scale J by N?" experiment ruled out the
