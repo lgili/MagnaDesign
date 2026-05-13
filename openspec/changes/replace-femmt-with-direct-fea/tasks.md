@@ -169,6 +169,33 @@ no regressions in `compare_backends` CI.
       For powder-shaped EE/PQ cores (future catalog additions)
       the FEA now reports realistic load-time L.
 
+### 2.6 — Reluctance solver for non-toroidal axi shapes
+
+- [x] **The FEM-based axi backend has a structural calibration
+      bug** discovered via benchmark sweep: L is insensitive to
+      both the air gap AND the material μ_r. Root cause: the
+      Form1P/BF_PerpendicularEdge basis interacts with the
+      VolAxiSqu jacobian in a way our source term doesn't
+      compensate. Fixing it properly requires the 3-D mode
+      (Phase 4.2). (Empirical: sweeping μ_r from 1 to 10000
+      changes L by only 12 %; sweeping gap from 0 to 5 mm
+      changes L by 0.5 %.)
+- [x] Pragmatic replacement: ``physics/reluctance_axi.py``
+      ships a closed-form reluctance solver with Roters/McLyman
+      fringing (696f7dd). Runner default backend is now
+      ``"reluctance"``.
+- [x] Benchmark results vs FEMMT on the same geometry:
+        Case           |Δ|%   (was with FEM-axi)
+        PQ 40/40        9.2%  (50.6%)
+        PQ 35/35       13.8%  (94.2%)
+        PQ 50/50       11.0%  (23.8%)
+        ETD 29/16/10    9.5% (378.9%)
+        E 105/55        5.3% (6760.4%)
+      Median |Δ|: 11 % (was 776 %). Within 15 %: 5/5 cases
+      where FEMMT itself works. 4460× faster than FEMMT.
+- [x] 9 new tests in tests/test_direct_reluctance.py lock the
+      calibration in.
+
 ## Phase 3 — Extended physics (2–3 sessions)
 
 ### 3.1 — Saturation μ(B)
