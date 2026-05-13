@@ -1,7 +1,28 @@
-"""High-level orchestration for FEA validation — picks the right backend."""
+"""High-level orchestration for FEA validation — picks the right backend.
+
+Backend selection priority (highest first)
+==========================================
+
+1. **Env override** ``PFC_FEA_BACKEND``: when set to ``direct``,
+   ``femmt``, or ``femm``, forces that backend regardless of
+   shape-based heuristics. Useful for benchmark sweeps and CI
+   gating during the FEMMT-replacement migration.
+
+2. **Direct backend for supported shapes**: toroidal cores
+   (analytical microsecond solve) and EE/EI/PQ via the direct
+   axisymmetric round-leg approximation. Currently opt-in
+   (``PFC_FEA_BACKEND=direct``); becomes default in Phase 5.2.
+
+3. **Shape-based legacy**: FEMMT for EE/PQ/ETD, legacy FEMM
+   (xfemm/femm.exe) for toroidal at high N, etc.
+
+4. **First available fallback**.
+"""
 
 from __future__ import annotations
 
+import logging
+import os
 import tempfile
 from pathlib import Path
 from typing import Optional
@@ -16,6 +37,8 @@ from pfc_inductor.fea.probe import (
 )
 from pfc_inductor.models import Core, DesignResult, Material, Spec, Wire
 from pfc_inductor.visual.core_3d import infer_shape
+
+_LOG = logging.getLogger(__name__)
 
 
 def validate_design(
@@ -46,7 +69,36 @@ def validate_design(
     user gets a result, just from a different backend.
     """
     shape = infer_shape(core)
-    backend = select_backend_for_shape(shape)
+
+    # Env override — Phase 5.1 dual-backend gate. Setting
+    # ``PFC_FEA_BACKEND=direct`` routes through the in-tree
+    # ONELAB + analytical solver (toroidal: closed-form, others: axi
+    # round-leg). The env var must be set BEFORE this function
+    # entry; the cascade orchestrator copies it from the user's
+    # Configurações pane on each run.
+    env_backend = os.environ.get("PFC_FEA_BACKEND", "").strip().lower()
+    if env_backend == "direct":
+        try:
+            return _validate_design_direct(
+                spec,
+                core,
+                wire,
+                material,
+                result,
+                output_dir=output_dir,
+                timeout_s=timeout_s,
+            )
+        except Exception as exc:
+            _LOG.warning(
+                "PFC_FEA_BACKEND=direct requested but failed (%s); falling back to legacy dispatch.",
+                exc,
+            )
+            backend = select_backend_for_shape(shape)
+    elif env_backend in ("femmt", "femm"):
+        backend = env_backend
+        _LOG.info("PFC_FEA_BACKEND override: %s", backend)
+    else:
+        backend = select_backend_for_shape(shape)
 
     # Deferred import — keeps the FEMMT module out of the orchestrator's
     # startup path when only the legacy FEMM backend is needed.
@@ -95,6 +147,77 @@ def validate_design(
     raise FEMMNotAvailable(
         "No FEA backend available. Install FEMMT "
         "(`pip install pfc-inductor-designer[fea]`) or a FEMM binary."
+    )
+
+
+def _validate_design_direct(
+    spec: Spec,
+    core: Core,
+    wire: Wire,
+    material: Material,
+    result: DesignResult,
+    output_dir: Optional[Path] = None,
+    timeout_s: int = 120,
+) -> FEAValidation:
+    """Direct backend adapter — maps DirectFeaResult → FEAValidation.
+
+    Bridges the Phase 2 direct backend (``pfc_inductor.fea.direct``)
+    into the cascade's expected FEAValidation contract. The direct
+    backend returns a richer DirectFeaResult; we project its fields
+    into the legacy shape so Tier 3 / the UI's FEA dialog can
+    consume either.
+    """
+    from pfc_inductor.fea.direct.runner import run_direct_fea
+
+    if output_dir is None:
+        output_dir = Path(tempfile.mkdtemp(prefix="pfc_fea_direct_"))
+    else:
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Pass the engine's auto-gap to the direct backend so EE/PQ
+    # ferrite cores see the same gap geometry the analytical model
+    # sized for L_required.
+    gap_mm = getattr(result, "gap_actual_mm", None) or None
+
+    direct_res = run_direct_fea(
+        core=core,
+        material=material,
+        wire=wire,
+        n_turns=int(result.N_turns),
+        current_A=float(result.I_line_pk_A),
+        workdir=output_dir,
+        gap_mm=gap_mm,
+        timeout_s=int(timeout_s),
+    )
+
+    # Project DirectFeaResult → FEAValidation. The analytical fields
+    # come from DesignResult; pct_error is computed by the model.
+    L_an = float(getattr(result, "L_actual_uH", 0.0) or 0.0)
+    B_an = float(getattr(result, "B_pk_T", 0.0) or 0.0)
+    L_pct_err = (direct_res.L_dc_uH - L_an) / L_an * 100.0 if L_an > 0 else 0.0
+    B_pct_err = (direct_res.B_pk_T - B_an) / B_an * 100.0 if B_an > 0 else 0.0
+
+    # Flux linkage = L · I (Wb) for the analytical comparison.
+    flux_Wb = direct_res.L_dc_uH * 1e-6 * float(result.I_line_pk_A)
+
+    return FEAValidation(
+        L_FEA_uH=direct_res.L_dc_uH,
+        L_analytic_uH=L_an,
+        L_pct_error=L_pct_err,
+        B_pk_FEA_T=direct_res.B_pk_T,
+        B_pk_analytic_T=B_an,
+        B_pct_error=B_pct_err,
+        flux_linkage_FEA_Wb=flux_Wb,
+        test_current_A=float(result.I_line_pk_A),
+        solve_time_s=direct_res.solve_wall_s,
+        femm_binary="direct (ONELAB + analytical)",
+        fem_path=str(direct_res.workdir or output_dir),
+        log_excerpt="",
+        notes=(
+            f"direct backend, mesh n_elements={direct_res.mesh_n_elements}, "
+            f"gap_mm={gap_mm or 0:.3f}"
+        ),
     )
 
 
