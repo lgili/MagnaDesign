@@ -119,59 +119,71 @@ def _render_template(
 
 def _render_cover_summary(spec: Spec, ctx: dict) -> str:
     """Return the Typst markup for the cover page summary grid."""
-    
+
     # Common fields for all topologies
     fields = {
-        "designer": ('*Designer*', '{designer}'),
-        "project_id": ('*Identifier*', '`{project_id}`'),
-        "revision": ('*Revision*', '{revision}'),
-        "date_iso": ('*Date*', '{date_iso}'),
-        "topology_label": ('*Topology*', '{topology_label}'),
-        "Pout_W": ('*Output power*', '{Pout} W'),
+        "designer": ("*Designer*", "{designer}"),
+        "project_id": ("*Identifier*", "`{project_id}`"),
+        "revision": ("*Revision*", "{revision}"),
+        "date_iso": ("*Date*", "{date_iso}"),
+        "topology_label": ("*Topology*", "{topology_label}"),
+        "Pout_W": ("*Output power*", "{Pout} W"),
     }
 
     if spec.topology == "boost_ccm":
-        fields.update({
-            "Vin_min_Vrms": ('*Input voltage*', '{Vin_min}–265 V#sub[rms]'),
-            "Vout_V": ('*Bus voltage*', '{Vout} V'),
-            "f_sw_kHz": ('*Switching frequency*', '{fsw_kHz} kHz'),
-        })
+        fields.update(
+            {
+                "Vin_min_Vrms": ("*Input voltage*", "{Vin_min}–265 V#sub[rms]"),
+                "Vout_V": ("*Bus voltage*", "{Vout} V"),
+                "f_sw_kHz": ("*Switching frequency*", "{fsw_kHz} kHz"),
+            }
+        )
     elif spec.topology == "passive_choke":
-        fields.update({
-            "Vin_min_Vrms": ('*Input voltage*', '{Vin_min} V#sub[rms]'),
-        })
+        fields.update(
+            {
+                "Vin_min_Vrms": ("*Input voltage*", "{Vin_min} V#sub[rms]"),
+            }
+        )
     elif spec.topology == "line_reactor":
-        fields.update({
-            "Vin_nom_Vrms": ('*Input voltage*', '{Vin_nom_Vrms} V#sub[rms]'),
-            "I_rated_Arms": ('*Rated current*', '{I_rated_Arms} A'),
-        })
+        fields.update(
+            {
+                "Vin_nom_Vrms": ("*Input voltage*", "{Vin_nom_Vrms} V#sub[rms]"),
+                "I_rated_Arms": ("*Rated current*", "{I_rated_Arms} A"),
+            }
+        )
     elif spec.topology == "buck_ccm":
-        fields.update({
-            "Vin_dc_V": ('*Input voltage*', '{Vin_dc_V} V'),
-            "Vout_V": ('*Bus voltage*', '{Vout} V'),
-            "f_sw_kHz": ('*Switching frequency*', '{fsw_kHz} kHz'),
-        })
+        fields.update(
+            {
+                "Vin_dc_V": ("*Input voltage*", "{Vin_dc_V} V"),
+                "Vout_V": ("*Bus voltage*", "{Vout} V"),
+                "f_sw_kHz": ("*Switching frequency*", "{fsw_kHz} kHz"),
+            }
+        )
     elif spec.topology == "interleaved_boost_pfc":
-        fields.update({
-            "Vin_min_Vrms": ('*Input voltage*', '{Vin_min}–265 V#sub[rms]'),
-            "Vout_V": ('*Bus voltage*', '{Vout} V'),
-            "f_sw_kHz": ('*Switching frequency*', '{fsw_kHz} kHz'),
-        })
+        fields.update(
+            {
+                "Vin_min_Vrms": ("*Input voltage*", "{Vin_min}–265 V#sub[rms]"),
+                "Vout_V": ("*Bus voltage*", "{Vout} V"),
+                "f_sw_kHz": ("*Switching frequency*", "{fsw_kHz} kHz"),
+            }
+        )
     elif spec.topology == "flyback":
-        fields.update({
-            "Vin_dc_V": ('*Input voltage*', '{Vin_dc_V} V'),
-            "Vout_V": ('*Bus voltage*', '{Vout} V'),
-            "f_sw_kHz": ('*Switching frequency*', '{fsw_kHz} kHz'),
-        })
+        fields.update(
+            {
+                "Vin_dc_V": ("*Input voltage*", "{Vin_dc_V} V"),
+                "Vout_V": ("*Bus voltage*", "{Vout} V"),
+                "f_sw_kHz": ("*Switching frequency*", "{fsw_kHz} kHz"),
+            }
+        )
 
     grid_rows = []
     for key, (label, value_template) in fields.items():
         try:
             value = value_template.format(**ctx)
         except KeyError:
-            spec_val = getattr(spec, key, '—')
-            value = str(spec_val) if spec_val is not None else '—'
-        grid_rows.append(f'      {label}, [{value}],')
+            spec_val = getattr(spec, key, "—")
+            value = str(spec_val) if spec_val is not None else "—"
+        grid_rows.append(f"      {label}, [{value}],")
 
     grid_markup = f"""
     #grid(
@@ -183,79 +195,110 @@ def _render_cover_summary(spec: Spec, ctx: dict) -> str:
 """
     return grid_markup
 
+
 def _render_spec_table(spec: Spec, ctx: dict) -> str:
     """Return the Typst markup for the input specification table."""
-    
+
     # Common fields for all topologies
     fields = {
-        "Pout_W": ('$P_(out)$', "Output power", '{Pout} W'),
-        "eta": ('$eta$', "Assumed efficiency", '{eta} %'),
-        "T_amb_C": ('$T_(amb)$', "Ambient temperature", '{T_amb} °C'),
-        "T_max_C": ('$T_(max)$', "Max. winding temperature", '{T_max} °C'),
-        "Ku_max": ('$K_(u,max)$', "Maximum window fill factor", '{Ku_max_pct} %'),
-        "Bsat_margin": ('$B_(sat)$ margin', "Margin applied to $B_(sat)$", '{Bsat_margin_pct} %'),
+        "Pout_W": ("$P_(out)$", "Output power", "{Pout} W"),
+        "eta": ("$eta$", "Assumed efficiency", "{eta} %"),
+        "T_amb_C": ("$T_(amb)$", "Ambient temperature", "{T_amb} °C"),
+        "T_max_C": ("$T_(max)$", "Max. winding temperature", "{T_max} °C"),
+        "Ku_max": ("$K_(u,max)$", "Maximum window fill factor", "{Ku_max_pct} %"),
+        "Bsat_margin": ("$B_(sat)$ margin", "Margin applied to $B_(sat)$", "{Bsat_margin_pct} %"),
     }
 
     if spec.topology == "boost_ccm":
-        fields.update({
-            "Vin_min_Vrms": ('$V_(in,min)$', "Minimum AC voltage (worst-case current)", '{Vin_min} V#sub[rms]'),
-            "Vout_V": ('$V_(out)$', "DC bus voltage", '{Vout} V'),
-            "f_sw_kHz": ('$f_(sw)$', "Switching frequency", '{fsw_kHz} kHz'),
-            "f_line_Hz": ('$f_(line)$', "Line frequency", '{fline} Hz'),
-            "ripple_pct": ('$Delta I_(rip)$', "Target ripple (% of line peak)", '{ripple_pct} %'),
-        })
+        fields.update(
+            {
+                "Vin_min_Vrms": (
+                    "$V_(in,min)$",
+                    "Minimum AC voltage (worst-case current)",
+                    "{Vin_min} V#sub[rms]",
+                ),
+                "Vout_V": ("$V_(out)$", "DC bus voltage", "{Vout} V"),
+                "f_sw_kHz": ("$f_(sw)$", "Switching frequency", "{fsw_kHz} kHz"),
+                "f_line_Hz": ("$f_(line)$", "Line frequency", "{fline} Hz"),
+                "ripple_pct": (
+                    "$Delta I_(rip)$",
+                    "Target ripple (% of line peak)",
+                    "{ripple_pct} %",
+                ),
+            }
+        )
     elif spec.topology == "passive_choke":
-        fields.update({
-            "Vin_min_Vrms": ('$V_(in,min)$', "Minimum AC voltage", '{Vin_min} V#sub[rms]'),
-            "f_line_Hz": ('$f_(line)$', "Line frequency", '{fline} Hz'),
-        })
+        fields.update(
+            {
+                "Vin_min_Vrms": ("$V_(in,min)$", "Minimum AC voltage", "{Vin_min} V#sub[rms]"),
+                "f_line_Hz": ("$f_(line)$", "Line frequency", "{fline} Hz"),
+            }
+        )
     elif spec.topology == "line_reactor":
-        fields.update({
-            "Vin_nom_Vrms": ('$V_(in,nom)$', "Nominal AC voltage", '{Vin_nom_Vrms} V#sub[rms]'),
-            "I_rated_Arms": ('$I_(rated)$', "Rated RMS current", '{I_rated_Arms} A'),
-            "f_line_Hz": ('$f_(line)$', "Line frequency", '{fline} Hz'),
-            "n_phases": ('$n_(phases)$', "Number of phases", '{n_phases}'),
-            "L_req_mH": ('$L_(req)$', "Required inductance", '{L_req_mH} mH'),
-        })
+        fields.update(
+            {
+                "Vin_nom_Vrms": ("$V_(in,nom)$", "Nominal AC voltage", "{Vin_nom_Vrms} V#sub[rms]"),
+                "I_rated_Arms": ("$I_(rated)$", "Rated RMS current", "{I_rated_Arms} A"),
+                "f_line_Hz": ("$f_(line)$", "Line frequency", "{fline} Hz"),
+                "n_phases": ("$n_(phases)$", "Number of phases", "{n_phases}"),
+                "L_req_mH": ("$L_(req)$", "Required inductance", "{L_req_mH} mH"),
+            }
+        )
     elif spec.topology == "buck_ccm":
-        fields.update({
-            "Vin_dc_V": ('$V_(in,dc)$', "DC input voltage", '{Vin_dc_V} V'),
-            "Vout_V": ('$V_(out)$', "DC bus voltage", '{Vout} V'),
-            "f_sw_kHz": ('$f_(sw)$', "Switching frequency", '{fsw_kHz} kHz'),
-            "ripple_ratio": ('$r$', "Ripple ratio (ΔI/Iout)", '{ripple_ratio}'),
-        })
+        fields.update(
+            {
+                "Vin_dc_V": ("$V_(in,dc)$", "DC input voltage", "{Vin_dc_V} V"),
+                "Vout_V": ("$V_(out)$", "DC bus voltage", "{Vout} V"),
+                "f_sw_kHz": ("$f_(sw)$", "Switching frequency", "{fsw_kHz} kHz"),
+                "ripple_ratio": ("$r$", "Ripple ratio (ΔI/Iout)", "{ripple_ratio}"),
+            }
+        )
     elif spec.topology == "interleaved_boost_pfc":
-        fields.update({
-            "Vin_min_Vrms": ('$V_(in,min)$', "Minimum AC voltage (worst-case current)", '{Vin_min} V#sub[rms]'),
-            "Vout_V": ('$V_(out)$', "DC bus voltage", '{Vout} V'),
-            "f_sw_kHz": ('$f_(sw)$', "Switching frequency", '{fsw_kHz} kHz'),
-            "f_line_Hz": ('$f_(line)$', "Line frequency", '{fline} Hz'),
-            "ripple_pct": ('$Delta I_(rip)$', "Target ripple (% of line peak)", '{ripple_pct} %'),
-            "n_interleave": ('$n_(interleave)$', "Number of interleaved phases", '{n_interleave}'),
-        })
+        fields.update(
+            {
+                "Vin_min_Vrms": (
+                    "$V_(in,min)$",
+                    "Minimum AC voltage (worst-case current)",
+                    "{Vin_min} V#sub[rms]",
+                ),
+                "Vout_V": ("$V_(out)$", "DC bus voltage", "{Vout} V"),
+                "f_sw_kHz": ("$f_(sw)$", "Switching frequency", "{fsw_kHz} kHz"),
+                "f_line_Hz": ("$f_(line)$", "Line frequency", "{fline} Hz"),
+                "ripple_pct": (
+                    "$Delta I_(rip)$",
+                    "Target ripple (% of line peak)",
+                    "{ripple_pct} %",
+                ),
+                "n_interleave": (
+                    "$n_(interleave)$",
+                    "Number of interleaved phases",
+                    "{n_interleave}",
+                ),
+            }
+        )
     elif spec.topology == "flyback":
-        fields.update({
-            "Vin_dc_V": ('$V_(in,dc)$', "DC input voltage", '{Vin_dc_V} V'),
-            "Vout_V": ('$V_(out)$', "DC bus voltage", '{Vout} V'),
-            "f_sw_kHz": ('$f_(sw)$', "Switching frequency", '{fsw_kHz} kHz'),
-            "flyback_mode": ('mode', "Flyback mode", '{flyback_mode}'),
-            "turns_ratio_n": ('n', "Turns ratio (Np/Ns)", '{turns_ratio_n}'),
-        })
-    
-    table_rows = [
-        "table.header[Variable][Description][Value]"
-    ]
-    
+        fields.update(
+            {
+                "Vin_dc_V": ("$V_(in,dc)$", "DC input voltage", "{Vin_dc_V} V"),
+                "Vout_V": ("$V_(out)$", "DC bus voltage", "{Vout} V"),
+                "f_sw_kHz": ("$f_(sw)$", "Switching frequency", "{fsw_kHz} kHz"),
+                "flyback_mode": ("mode", "Flyback mode", "{flyback_mode}"),
+                "turns_ratio_n": ("n", "Turns ratio (Np/Ns)", "{turns_ratio_n}"),
+            }
+        )
+
+    table_rows = ["table.header[Variable][Description][Value]"]
+
     for key, (symbol, desc, value_template) in fields.items():
         # Format the value from the context, falling back to the spec attribute
         try:
             value = value_template.format(**ctx)
         except KeyError:
             # Fallback for fields not in context dict, e.g. from the spec itself
-            spec_val = getattr(spec, key, '—')
-            value = str(spec_val) if spec_val is not None else '—'
+            spec_val = getattr(spec, key, "—")
+            value = str(spec_val) if spec_val is not None else "—"
 
-        table_rows.append(f'  [{symbol}], [{desc}], [{value}],')
+        table_rows.append(f"  [{symbol}], [{desc}], [{value}],")
 
     table_markup = f"""
 #table(
@@ -271,6 +314,7 @@ def _render_spec_table(spec: Spec, ctx: dict) -> str:
 )
 """
     return table_markup
+
 
 def _topology_label(t: str) -> str:
     return {
@@ -516,7 +560,7 @@ Line reactor in series with the rectifier, sized by the
 percent impedance drop ($%Z$) criterion. The reactor does not
 switch: it only sees the line fundamental and its harmonics.
 
-$ V_("phase") = {f"{V_LL_or_Vph:.1f}\\,V/" + 'sqrt(3) = ' if n_ph == 3 else ''}{V_phase:.1f} thin "V" $
+$ V_("phase") = {f"{V_LL_or_Vph:.1f}\\,V/" + "sqrt(3) = " if n_ph == 3 else ""}{V_phase:.1f} thin "V" $
 
 $ I_("rated") = {I_rated:.2f} thin "A"_("rms") $
 
@@ -953,9 +997,7 @@ def _compute_context(
         P_core_ripple=_fmt(L.P_core_ripple_W, 3),
         P_core_tot=_fmt(L.P_core_total_W, 3),
         P_total=_fmt(L.P_total_W, 2),
-        eta_inductor=_fmt(
-            (1.0 - L.P_total_W / max(spec.Pout_W, 1.0)) * 100.0, 3
-        ),
+        eta_inductor=_fmt((1.0 - L.P_total_W / max(spec.Pout_W, 1.0)) * 100.0, 3),
         P_v_line_mW=_fmt(P_v_line_mW, 3),
         # Thermal
         T_winding=_fmt(T_w, 1),
@@ -979,7 +1021,6 @@ def _compute_context(
         topology_label="",
         spec_table="",
         cover_summary="",
-        )
     )
 
 
@@ -1016,12 +1057,7 @@ def _esc(s) -> str:
     if s is None:
         return ""
     s = str(s)
-    return (
-        s.replace("\\", "\\\\")
-        .replace('"', '\\"')
-        .replace("#", "\\#")
-        .replace("@", "\\@")
-    )
+    return s.replace("\\", "\\\\").replace('"', '\\"').replace("#", "\\#").replace("@", "\\@")
 
 
 # ---------------------------------------------------------------------------
@@ -1482,4 +1518,3 @@ Convergence (3-6 iterations typical):
   Generated by MagnaDesign on {date_iso} · project `{project_id}` · revision {revision}
 ]
 """
-
