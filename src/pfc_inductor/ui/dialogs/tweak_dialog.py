@@ -14,11 +14,12 @@ standard ``_on_calculate`` path with the overrides applied.
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, Sequence
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,
+    QComboBox,
     QDialog,
     QDialogButtonBox,
     QDoubleSpinBox,
@@ -26,12 +27,13 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QSizePolicy,
     QSpinBox,
     QVBoxLayout,
     QWidget,
 )
 
-from pfc_inductor.models import DesignOverrides
+from pfc_inductor.models import Core, DesignOverrides, Wire
 
 
 class TweakDialog(QDialog):
@@ -52,15 +54,26 @@ class TweakDialog(QDialog):
         baseline_T_amb_C: float,
         baseline_gap_mm: float = 0.0,
         current: Optional[DesignOverrides] = None,
+        # Optional catalogs for wire/core swap selectors. When None,
+        # the rows are skipped — keeps the dialog usable in legacy
+        # callers that don't have catalog handles ready.
+        wires: Optional[Sequence[Wire]] = None,
+        cores: Optional[Sequence[Core]] = None,
+        baseline_wire_id: str = "",
+        baseline_core_id: str = "",
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle("Ajustar protótipo")
         self.setModal(True)
-        self.setMinimumWidth(420)
+        self.setMinimumWidth(460)
 
         self._baseline_N = int(baseline_N)
         self._baseline_T_amb_C = float(baseline_T_amb_C)
         self._baseline_gap_mm = float(baseline_gap_mm)
+        self._wires = list(wires) if wires else []
+        self._cores = list(cores) if cores else []
+        self._baseline_wire_id = str(baseline_wire_id)
+        self._baseline_core_id = str(baseline_core_id)
 
         outer = QVBoxLayout(self)
         outer.setSpacing(10)
@@ -136,6 +149,55 @@ class TweakDialog(QDialog):
         )
         form.addRow(self.cb_G, self._row("Entreferro", self.sp_G, self.lbl_G_calc))
 
+        # ---- Wire swap ----------------------------------------------
+        # Optional — only emitted when the caller passes a wires
+        # catalog. The combo shows every catalog wire with a compact
+        # "id — type/AWG" label so the engineer can pick the wire they
+        # actually had in stock.
+        self.cb_W = QCheckBox()
+        self.cmb_W = QComboBox()
+        self.cmb_W.setEditable(False)
+        self.cmb_W.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self.cmb_W.setMaxVisibleItems(15)
+        if self._wires:
+            for w in self._wires:
+                self.cmb_W.addItem(_wire_label(w), w.id)
+            self._select_combo_id(self.cmb_W, self._baseline_wire_id)
+            self.lbl_W_calc = QLabel("(do projeto)")
+        else:
+            self.cmb_W.addItem("(catálogo indisponível)", "")
+            self.lbl_W_calc = QLabel("")
+            self.cb_W.setEnabled(False)
+        self.lbl_W_calc.setProperty("role", "muted")
+        self.lbl_W_calc.setToolTip(
+            "Substituir o fio escolhido pelo solver pelo fio que você "
+            "tem em estoque. Útil pra revalidar o projeto contra um "
+            "AWG diferente sem mudar o spec."
+        )
+        form.addRow(self.cb_W, self._row("Fio", self.cmb_W, self.lbl_W_calc))
+
+        # ---- Core swap ----------------------------------------------
+        self.cb_C = QCheckBox()
+        self.cmb_C = QComboBox()
+        self.cmb_C.setEditable(False)
+        self.cmb_C.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self.cmb_C.setMaxVisibleItems(15)
+        if self._cores:
+            for c in self._cores:
+                self.cmb_C.addItem(_core_label(c), c.id)
+            self._select_combo_id(self.cmb_C, self._baseline_core_id)
+            self.lbl_C_calc = QLabel("(do projeto)")
+        else:
+            self.cmb_C.addItem("(catálogo indisponível)", "")
+            self.lbl_C_calc = QLabel("")
+            self.cb_C.setEnabled(False)
+        self.lbl_C_calc.setProperty("role", "muted")
+        self.lbl_C_calc.setToolTip(
+            "Trocar o núcleo magnético sem refazer o sweep. Útil pra "
+            "comparar o mesmo bobinamento em cores próximos do catálogo."
+        )
+        form.addRow(self.cb_C, self._row("Núcleo", self.cmb_C, self.lbl_C_calc))
+
         outer.addLayout(form)
 
         # Disable spin boxes until the checkbox is ticked — keeps
@@ -144,10 +206,14 @@ class TweakDialog(QDialog):
         self.cb_T.toggled.connect(self.sp_T.setEnabled)
         self.cb_S.toggled.connect(self.sp_S.setEnabled)
         self.cb_G.toggled.connect(self.sp_G.setEnabled)
+        self.cb_W.toggled.connect(self.cmb_W.setEnabled)
+        self.cb_C.toggled.connect(self.cmb_C.setEnabled)
         self.sp_N.setEnabled(False)
         self.sp_T.setEnabled(False)
         self.sp_S.setEnabled(False)
         self.sp_G.setEnabled(False)
+        self.cmb_W.setEnabled(False)
+        self.cmb_C.setEnabled(False)
 
         # Pre-fill from existing overrides.
         if current is not None:
@@ -163,6 +229,12 @@ class TweakDialog(QDialog):
             if current.gap_mm is not None:
                 self.cb_G.setChecked(True)
                 self.sp_G.setValue(float(current.gap_mm))
+            if current.wire_id is not None and self._wires:
+                self.cb_W.setChecked(True)
+                self._select_combo_id(self.cmb_W, current.wire_id)
+            if current.core_id is not None and self._cores:
+                self.cb_C.setChecked(True)
+                self._select_combo_id(self.cmb_C, current.core_id)
 
         # ---- Buttons --------------------------------------------
         self.btn_reset = QPushButton("Resetar ajuste")
@@ -197,22 +269,84 @@ class TweakDialog(QDialog):
         return w
 
     def _clear(self) -> None:
-        """Reset to "no overrides" state — both checkboxes off,
-        spin boxes back to baseline."""
+        """Reset to "no overrides" state — every checkbox off,
+        spin boxes / combos back to baseline."""
         self.cb_N.setChecked(False)
         self.cb_T.setChecked(False)
         self.cb_S.setChecked(False)
         self.cb_G.setChecked(False)
+        self.cb_W.setChecked(False)
+        self.cb_C.setChecked(False)
         self.sp_N.setValue(self._baseline_N)
         self.sp_T.setValue(self._baseline_T_amb_C)
         self.sp_S.setValue(1)
         self.sp_G.setValue(max(self._baseline_gap_mm, 0.10))
+        if self._wires:
+            self._select_combo_id(self.cmb_W, self._baseline_wire_id)
+        if self._cores:
+            self._select_combo_id(self.cmb_C, self._baseline_core_id)
 
     def overrides(self) -> DesignOverrides:
         """Read the dialog state back into a :class:`DesignOverrides`."""
+        wire_id = None
+        if self.cb_W.isChecked() and self._wires:
+            data = self.cmb_W.currentData()
+            wire_id = str(data) if data else None
+        core_id = None
+        if self.cb_C.isChecked() and self._cores:
+            data = self.cmb_C.currentData()
+            core_id = str(data) if data else None
         return DesignOverrides(
             N_turns=int(self.sp_N.value()) if self.cb_N.isChecked() else None,
             T_amb_C=float(self.sp_T.value()) if self.cb_T.isChecked() else None,
             n_stacks=int(self.sp_S.value()) if self.cb_S.isChecked() else None,
             gap_mm=float(self.sp_G.value()) if self.cb_G.isChecked() else None,
+            wire_id=wire_id,
+            core_id=core_id,
         )
+
+    # ── Helpers ──────────────────────────────────────────────────────
+    @staticmethod
+    def _select_combo_id(combo: QComboBox, item_id: str) -> None:
+        """Set the combo's current index to whichever entry has the
+        matching ``itemData`` id. No-op when the id isn't present —
+        leaves the combo on its first item (which is the default
+        "do-nothing" entry)."""
+        if not item_id:
+            return
+        idx = combo.findData(item_id)
+        if idx >= 0:
+            combo.setCurrentIndex(idx)
+
+
+# ─── Label helpers ───────────────────────────────────────────────────
+
+
+def _wire_label(w: Wire) -> str:
+    """Short, scannable label for a Wire in a combo entry."""
+    parts: list[str] = [w.id]
+    awg = getattr(w, "awg", None)
+    if awg is not None:
+        parts.append(f"AWG {awg}")
+    d_mm = getattr(w, "diameter_mm", None)
+    if d_mm is not None:
+        try:
+            parts.append(f"⌀{float(d_mm):.2f} mm")
+        except (TypeError, ValueError):
+            pass
+    return " · ".join(parts)
+
+
+def _core_label(c: Core) -> str:
+    """Short, scannable label for a Core in a combo entry."""
+    parts: list[str] = [c.id]
+    shape = getattr(c, "shape", "")
+    if shape:
+        parts.append(str(shape))
+    Ae = getattr(c, "Ae_mm2", None)
+    if Ae is not None:
+        try:
+            parts.append(f"Ae={float(Ae):.0f}mm²")
+        except (TypeError, ValueError):
+            pass
+    return " · ".join(parts)

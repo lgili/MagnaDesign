@@ -2292,12 +2292,28 @@ class MainWindow(QMainWindow):
             if g is not None:
                 baseline_gap = float(g)
 
+        # Pull the currently-selected wire/core ids so the dialog's
+        # combo boxes can show them as the baseline (and let the user
+        # swap to a different catalog entry without leaving the
+        # Tweak workflow).
+        baseline_wire_id = ""
+        baseline_core_id = ""
+        try:
+            baseline_wire_id = self._current_wire_id
+            baseline_core_id = self._current_core_id
+        except AttributeError:
+            pass
+
         dlg = TweakDialog(
             self,
             baseline_N=baseline_N,
             baseline_T_amb_C=baseline_T,
             baseline_gap_mm=baseline_gap,
             current=self._design_overrides,
+            wires=self._wires,
+            cores=self._cores,
+            baseline_wire_id=baseline_wire_id,
+            baseline_core_id=baseline_core_id,
         )
         if dlg.exec() != dlg.DialogCode.Accepted:
             return

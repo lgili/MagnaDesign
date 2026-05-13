@@ -395,3 +395,118 @@ def test_main_window_save_load_preserves_overrides(tmp_path):
         assert win._design_overrides.T_amb_C == pytest.approx(55.0)
     finally:
         win.close()
+
+
+# ─── Tweak dialog wire/core selector polish ──────────────────────────
+
+
+def test_tweak_dialog_without_catalogs_renders_disabled_combos():
+    """When no wires/cores are passed in, the swap combos exist but
+    are disabled — keeps legacy callers (that don't have catalogs
+    ready) from blowing up."""
+    import os
+
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtWidgets import QApplication
+
+    inst = QApplication.instance() or QApplication([])
+    assert inst is not None
+    from pfc_inductor.ui.dialogs import TweakDialog
+
+    dlg = TweakDialog(
+        baseline_N=30,
+        baseline_T_amb_C=40.0,
+    )
+    assert dlg.cb_W.isEnabled() is False
+    assert dlg.cb_C.isEnabled() is False
+    # ``overrides()`` still returns a valid DesignOverrides with both
+    # ids None.
+    o = dlg.overrides()
+    assert o.wire_id is None
+    assert o.core_id is None
+    dlg.close()
+
+
+def test_tweak_dialog_with_catalogs_pre_selects_baseline_and_swaps(db):
+    """Pre-selecting the baseline wire/core in the combos + flipping
+    to a different catalog entry should round-trip through
+    ``overrides()``."""
+    import os
+
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtWidgets import QApplication
+
+    inst = QApplication.instance() or QApplication([])
+    assert inst is not None
+    from pfc_inductor.ui.dialogs import TweakDialog
+
+    _materials, cores, wires = db
+    assert len(wires) >= 2, "need at least 2 wires to test swap"
+    assert len(cores) >= 2, "need at least 2 cores to test swap"
+
+    baseline_wire = wires[0]
+    baseline_core = cores[0]
+    alt_wire = wires[1]
+    alt_core = cores[1]
+
+    dlg = TweakDialog(
+        baseline_N=30,
+        baseline_T_amb_C=40.0,
+        wires=wires,
+        cores=cores,
+        baseline_wire_id=baseline_wire.id,
+        baseline_core_id=baseline_core.id,
+    )
+    # Combo defaults to the baseline.
+    assert dlg.cmb_W.currentData() == baseline_wire.id
+    assert dlg.cmb_C.currentData() == baseline_core.id
+    # Without ticking the checkboxes, overrides() returns None for both.
+    o = dlg.overrides()
+    assert o.wire_id is None
+    assert o.core_id is None
+
+    # Tick the swap boxes and select the alternates.
+    dlg.cb_W.setChecked(True)
+    dlg.cb_C.setChecked(True)
+    dlg.cmb_W.setCurrentIndex(dlg.cmb_W.findData(alt_wire.id))
+    dlg.cmb_C.setCurrentIndex(dlg.cmb_C.findData(alt_core.id))
+    o = dlg.overrides()
+    assert o.wire_id == alt_wire.id
+    assert o.core_id == alt_core.id
+    dlg.close()
+
+
+def test_tweak_dialog_reset_clears_wire_core_swaps(db):
+    """Clicking ``_clear`` resets the swap checkboxes + combos."""
+    import os
+
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtWidgets import QApplication
+
+    inst = QApplication.instance() or QApplication([])
+    assert inst is not None
+    from pfc_inductor.ui.dialogs import TweakDialog
+
+    _materials, cores, wires = db
+    dlg = TweakDialog(
+        baseline_N=30,
+        baseline_T_amb_C=40.0,
+        wires=wires,
+        cores=cores,
+        baseline_wire_id=wires[0].id,
+        baseline_core_id=cores[0].id,
+        current=DesignOverrides(wire_id=wires[1].id, core_id=cores[1].id),
+    )
+    # Pre-fill applied the override.
+    assert dlg.cb_W.isChecked() is True
+    assert dlg.cb_C.isChecked() is True
+    assert dlg.cmb_W.currentData() == wires[1].id
+    assert dlg.cmb_C.currentData() == cores[1].id
+    # Reset.
+    dlg._clear()
+    assert dlg.cb_W.isChecked() is False
+    assert dlg.cb_C.isChecked() is False
+    # Combos snap back to the baseline.
+    assert dlg.cmb_W.currentData() == wires[0].id
+    assert dlg.cmb_C.currentData() == cores[0].id
+    dlg.close()
