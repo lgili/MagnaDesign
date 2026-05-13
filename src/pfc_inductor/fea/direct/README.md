@@ -5,6 +5,17 @@ and GetDP (subprocess) directly, generates artifacts where we
 want them, returns the same `FeaResult` shape the cascade
 already consumes.
 
+## 📋 Canonical roadmap
+
+**See [`OPENSPEC.md`](./OPENSPEC.md)** — the contract that defines
+what "better than FEMMT" means in measurable terms, the phased
+plan to get there, and the acceptance criteria each phase has to
+meet. Read that first if you're picking up this work.
+
+This README is the elevator pitch. `OPENSPEC.md` is the spec.
+`PHASE_1_4_PLAN.md` is the working journal that tracks **what
+happened during Phase 1** in raw detail.
+
 ## Status
 
 **Phase 1.1 — DC magnetostatic on EI cores, pipeline + correct
