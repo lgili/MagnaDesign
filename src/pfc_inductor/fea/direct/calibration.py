@@ -190,11 +190,27 @@ def _run_femmt(
     result,
     workdir: Path,
 ) -> BackendOutcome:
-    """Run FEMMT validation. Returns an outcome with ``error`` set
-    if FEMMT isn't installed or hits any other failure path.
+    """Run FEMMT validation through our adapter. Returns an outcome
+    with ``error`` set if FEMMT isn't installed or hits any other
+    failure path.
+
+    Wired to ``pfc_inductor.fea.femmt_runner.validate_design_femmt``
+    (the same path the cascade Tier 3 production code uses). That
+    adapter takes care of:
+
+    - subprocess isolation against GetDP SIGSEGV
+    - ``pkg_resources`` availability probe (setuptools<70)
+    - ONELAB binary discovery
+    - turn-count sanity check (FEMMT crashes above ~150 turns)
+
+    Returns L_dc_uH from FEMMT's ``L_FEA_uH`` field. Note that
+    FEMMT's number is an inductance at zero DC bias from the
+    flux-linkage / current ratio; the direct backend's
+    ``DirectFeaResult.L_dc_uH`` is the equivalent quantity, so
+    direct comparison is meaningful.
     """
-    from pfc_inductor.errors import FEMMNotAvailable, FEMMSolveError
     from pfc_inductor.fea.femmt_runner import validate_design_femmt
+    from pfc_inductor.fea.models import FEMMNotAvailable, FEMMSolveError
 
     t0 = time.perf_counter()
     try:
@@ -206,16 +222,30 @@ def _run_femmt(
             result=result,
             output_dir=workdir,
         )
-        # The FEMMT validation type stores L under a few possible names
-        # across versions — be defensive.
-        L = getattr(val, "L_uH", None) or getattr(val, "L_dc_uH", None)
-        B = getattr(val, "B_pk_T", None) or getattr(val, "B_peak_T", None)
+        # FEAValidation uses ``L_FEA_uH``/``B_pk_FEA_T``; older
+        # branches used different names — be defensive against
+        # version drift.
+        L = (
+            getattr(val, "L_FEA_uH", None)
+            or getattr(val, "L_uH", None)
+            or getattr(val, "L_dc_uH", None)
+        )
+        B = (
+            getattr(val, "B_pk_FEA_T", None)
+            or getattr(val, "B_pk_T", None)
+            or getattr(val, "B_peak_T", None)
+        )
         return BackendOutcome(
             backend="femmt",
             L_dc_uH=float(L) if L is not None else None,
             B_pk_T=float(B) if B is not None else None,
             wall_s=time.perf_counter() - t0,
             workdir=workdir,
+            extra={
+                "femm_binary": getattr(val, "femm_binary", ""),
+                "L_analytic_uH": getattr(val, "L_analytic_uH", None),
+                "L_pct_error": getattr(val, "L_pct_error", None),
+            },
         )
     except FEMMNotAvailable as exc:
         return BackendOutcome(

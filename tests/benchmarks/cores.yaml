@@ -1,0 +1,87 @@
+# Curated benchmark suite — direct backend vs FEMMT side-by-side.
+#
+# Each entry exercises both backends on a real catalog inductor and
+# records the FEMMT result as the oracle. Tolerance gates assert
+# `|L_direct - L_femmt| / L_femmt < L_tol_pct` on every entry.
+#
+# Selection criteria for additions:
+# - N ≤ 150 turns (FEMMT's gmsh ceiling; higher counts segfault)
+# - Material has known mu_r (ferrite, NOT silicon steel — FEMMT
+#   doesn't handle laminations well via its A_φ formulation)
+# - Spec produces a feasible design under the analytical engine
+# - Mix of small / mid / large Ae so the cylindrical-shell
+#   approximation is exercised across the geometry envelope
+#
+# Format:
+# - id            — stable identifier (used in test names)
+# - core_id       — catalog id (must exist in current catalog)
+# - material_id   — catalog id (defaults to core.default_material_id)
+# - wire_id       — catalog id (defaults to AWG18)
+# - spec          — Spec fields; only non-default values listed
+# - tolerance     — per-metric tolerance gates
+#   - L_dc_pct    — |direct - femmt| / femmt × 100 (default 5)
+#   - B_pk_pct    — same for peak flux density (default 10)
+# - notes         — free-form context for future readers
+
+benchmarks:
+  - id: pq40-n87-mid
+    core_id: tdkepcos-pq-4040-n87
+    material_id: tdkepcos-n87
+    wire_id: AWG18
+    spec:
+      topology: boost_ccm
+      Pout_W: 500.0
+      Vin_min_Vrms: 85.0
+      Vin_max_Vrms: 265.0
+      Vin_nom_Vrms: 220.0
+      Vout_V: 400.0
+      f_sw_kHz: 130.0
+      ripple_pct: 40.0
+    tolerance:
+      L_dc_pct: 50
+      B_pk_pct: 30
+    notes: |
+      Mid-sized PQ ferrite, ~39 turns. Phase 2.0 starting envelope:
+      direct is ~3× above FEMMT due to round-leg approximation
+      mismatch on this aspect ratio. Tightening to 5% is the
+      Phase 2 calibration goal.
+
+  - id: pq35-n87-small
+    core_id: tdkepcos-pq-3535-n87
+    material_id: tdkepcos-n87
+    wire_id: AWG18
+    spec:
+      topology: boost_ccm
+      Pout_W: 500.0
+      Vin_min_Vrms: 85.0
+      Vin_max_Vrms: 265.0
+      Vin_nom_Vrms: 220.0
+      Vout_V: 400.0
+      f_sw_kHz: 130.0
+      ripple_pct: 40.0
+    tolerance:
+      L_dc_pct: 80
+      B_pk_pct: 50
+    notes: |
+      Smaller PQ ferrite; the round-leg approximation diverges most
+      here. Phase 2 calibration target.
+
+  - id: pq50-n87-large
+    core_id: tdkepcos-pq-5050-n87
+    material_id: tdkepcos-n87
+    wire_id: AWG18
+    spec:
+      topology: boost_ccm
+      Pout_W: 500.0
+      Vin_min_Vrms: 85.0
+      Vin_max_Vrms: 265.0
+      Vin_nom_Vrms: 220.0
+      Vout_V: 400.0
+      f_sw_kHz: 130.0
+      ripple_pct: 40.0
+    tolerance:
+      L_dc_pct: 20
+      B_pk_pct: 30
+    notes: |
+      Larger PQ ferrite. Phase 2.0 result was within 15 % of FEMMT,
+      validating the framework. The "well-conditioned" case.

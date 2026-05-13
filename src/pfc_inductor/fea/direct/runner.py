@@ -86,10 +86,27 @@ def run_direct_fea(
     import math as _math
 
     shape = str(getattr(core, "shape", "")).lower()
-    if shape != "ei":
+
+    # Axisymmetric round-leg shapes all use the same cylindrical-
+    # shell-outer-leg geometry — they only differ in dimensions
+    # (which we back-derive from Ae/Wa/le via EICoreDims.from_core).
+    # This is the same simplification FEMMT applies: every core
+    # except true toroidals gets the axisymmetric round-leg
+    # treatment. Toroidals need a different physics class (Phase 2.5,
+    # B_φ formulation) — flagged below.
+    _AXI_SHAPES = {"ei", "ee", "e", "pq", "etd", "rm", "ep", "efd", "eq", "p"}
+    _TOROIDAL_SHAPES = {"toroid", "toroidal", "t"}
+
+    if shape in _TOROIDAL_SHAPES:
         raise NotImplementedError(
-            f"Direct backend Phase 1 only supports 'ei' cores, got {shape!r}. "
-            f"Use the FEMMT backend or wait for Phase 2."
+            f"Toroidal shapes need the B_φ formulation (Phase 2.5). "
+            f"Got shape={shape!r}. Use FEMMT in the meantime."
+        )
+    if shape not in _AXI_SHAPES:
+        raise NotImplementedError(
+            f"Direct backend does not yet support shape={shape!r}. "
+            f"Supported axisymmetric: {sorted(_AXI_SHAPES)}. "
+            f"Toroidal pending Phase 2.5."
         )
 
     # Lazy imports — keep cold import cost off the boot path.

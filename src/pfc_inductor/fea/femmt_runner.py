@@ -992,7 +992,25 @@ def _bobbin_validation(
         #    silicon-steel laminations ship as "no published gap").
         #    A fixed 10 µm here mismatches the catalog AL by 5–30×;
         #    back-solve the equivalent gap from AL_nH instead.
-        if core.lgap_mm and core.lgap_mm > 0:
+        # Priority order for the air gap fed to FEMMT:
+        # 1. ``result.gap_actual_mm`` — set by the engine's Phase 1.9
+        #    ferrite-auto-gap path. When the catalog ships an
+        #    "ungapped" ferrite (lgap_mm=0, AL_nH=manufacturer value
+        #    on the closed core), the engine solves for the gap that
+        #    keeps B below Bsat. FEMMT MUST see this gap, otherwise
+        #    it models a closed core and produces unphysical results
+        #    (B_pk > Bsat × 10, L 30× too high). This priority was a
+        #    Phase 2.0 fix during the FEMMT benchmark harness setup.
+        # 2. ``core.lgap_mm`` from the catalog (gapped catalog cores).
+        # 3. ``_equivalent_air_gap_m`` back-solving from AL_nH (last
+        #    resort for cores with no explicit gap but a meaningful
+        #    AL_nH).
+        gap_origin: str
+        engine_gap = getattr(result, "gap_actual_mm", None)
+        if engine_gap and engine_gap > 0:
+            gap_m = float(engine_gap) * 1e-3
+            gap_origin = "engine.gap_actual_mm (Phase 1.9 auto-gap)"
+        elif core.lgap_mm and core.lgap_mm > 0:
             gap_m = core.lgap_mm * 1e-3
             gap_origin = "catalog lgap_mm"
         else:
