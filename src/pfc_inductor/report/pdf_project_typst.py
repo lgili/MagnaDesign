@@ -104,6 +104,8 @@ def _render_template(
     # outputs (N, B_pk, Ku, R_dc/ac, P_*, T_winding).
     ctx["topology_body"] = _render_topology_body(spec, ctx)
     ctx["figures_block"] = _render_figures_block(available_figures)
+    ctx["spec_table"] = _render_spec_table(spec, ctx)
+    ctx["cover_summary"] = _render_cover_summary(spec, ctx)
     ctx.update(
         designer=_esc(designer),
         revision=_esc(revision),
@@ -114,6 +116,161 @@ def _render_template(
     )
     return _TEMPLATE.format(**ctx)
 
+
+def _render_cover_summary(spec: Spec, ctx: dict) -> str:
+    """Return the Typst markup for the cover page summary grid."""
+    
+    # Common fields for all topologies
+    fields = {
+        "designer": ('*Designer*', '{designer}'),
+        "project_id": ('*Identifier*', '`{project_id}`'),
+        "revision": ('*Revision*', '{revision}'),
+        "date_iso": ('*Date*', '{date_iso}'),
+        "topology_label": ('*Topology*', '{topology_label}'),
+        "Pout_W": ('*Output power*', '{Pout} W'),
+    }
+
+    if spec.topology == "boost_ccm":
+        fields.update({
+            "Vin_min_Vrms": ('*Input voltage*', '{Vin_min}–265 V#sub[rms]'),
+            "Vout_V": ('*Bus voltage*', '{Vout} V'),
+            "f_sw_kHz": ('*Switching frequency*', '{fsw_kHz} kHz'),
+        })
+    elif spec.topology == "passive_choke":
+        fields.update({
+            "Vin_min_Vrms": ('*Input voltage*', '{Vin_min} V#sub[rms]'),
+        })
+    elif spec.topology == "line_reactor":
+        fields.update({
+            "Vin_nom_Vrms": ('*Input voltage*', '{Vin_nom_Vrms} V#sub[rms]'),
+            "I_rated_Arms": ('*Rated current*', '{I_rated_Arms} A'),
+        })
+    elif spec.topology == "buck_ccm":
+        fields.update({
+            "Vin_dc_V": ('*Input voltage*', '{Vin_dc_V} V'),
+            "Vout_V": ('*Bus voltage*', '{Vout} V'),
+            "f_sw_kHz": ('*Switching frequency*', '{fsw_kHz} kHz'),
+        })
+    elif spec.topology == "interleaved_boost_pfc":
+        fields.update({
+            "Vin_min_Vrms": ('*Input voltage*', '{Vin_min}–265 V#sub[rms]'),
+            "Vout_V": ('*Bus voltage*', '{Vout} V'),
+            "f_sw_kHz": ('*Switching frequency*', '{fsw_kHz} kHz'),
+        })
+    elif spec.topology == "flyback":
+        fields.update({
+            "Vin_dc_V": ('*Input voltage*', '{Vin_dc_V} V'),
+            "Vout_V": ('*Bus voltage*', '{Vout} V'),
+            "f_sw_kHz": ('*Switching frequency*', '{fsw_kHz} kHz'),
+        })
+
+    grid_rows = []
+    for key, (label, value_template) in fields.items():
+        try:
+            value = value_template.format(**ctx)
+        except KeyError:
+            spec_val = getattr(spec, key, '—')
+            value = str(spec_val) if spec_val is not None else '—'
+        grid_rows.append(f'      {label}, [{value}],')
+
+    grid_markup = f"""
+    #grid(
+      columns: (auto, 1fr),
+      column-gutter: 1.2cm,
+      row-gutter: 6pt,
+{chr(10).join(grid_rows)}
+    )
+"""
+    return grid_markup
+
+def _render_spec_table(spec: Spec, ctx: dict) -> str:
+    """Return the Typst markup for the input specification table."""
+    
+    # Common fields for all topologies
+    fields = {
+        "Pout_W": ('$P_(out)$', "Output power", '{Pout} W'),
+        "eta": ('$eta$', "Assumed efficiency", '{eta} %'),
+        "T_amb_C": ('$T_(amb)$', "Ambient temperature", '{T_amb} °C'),
+        "T_max_C": ('$T_(max)$', "Max. winding temperature", '{T_max} °C'),
+        "Ku_max": ('$K_(u,max)$', "Maximum window fill factor", '{Ku_max_pct} %'),
+        "Bsat_margin": ('$B_(sat)$ margin', "Margin applied to $B_(sat)$", '{Bsat_margin_pct} %'),
+    }
+
+    if spec.topology == "boost_ccm":
+        fields.update({
+            "Vin_min_Vrms": ('$V_(in,min)$', "Minimum AC voltage (worst-case current)", '{Vin_min} V#sub[rms]'),
+            "Vout_V": ('$V_(out)$', "DC bus voltage", '{Vout} V'),
+            "f_sw_kHz": ('$f_(sw)$', "Switching frequency", '{fsw_kHz} kHz'),
+            "f_line_Hz": ('$f_(line)$', "Line frequency", '{fline} Hz'),
+            "ripple_pct": ('$Delta I_(rip)$', "Target ripple (% of line peak)", '{ripple_pct} %'),
+        })
+    elif spec.topology == "passive_choke":
+        fields.update({
+            "Vin_min_Vrms": ('$V_(in,min)$', "Minimum AC voltage", '{Vin_min} V#sub[rms]'),
+            "f_line_Hz": ('$f_(line)$', "Line frequency", '{fline} Hz'),
+        })
+    elif spec.topology == "line_reactor":
+        fields.update({
+            "Vin_nom_Vrms": ('$V_(in,nom)$', "Nominal AC voltage", '{Vin_nom_Vrms} V#sub[rms]'),
+            "I_rated_Arms": ('$I_(rated)$', "Rated RMS current", '{I_rated_Arms} A'),
+            "f_line_Hz": ('$f_(line)$', "Line frequency", '{fline} Hz'),
+            "n_phases": ('$n_(phases)$', "Number of phases", '{n_phases}'),
+            "L_req_mH": ('$L_(req)$', "Required inductance", '{L_req_mH} mH'),
+        })
+    elif spec.topology == "buck_ccm":
+        fields.update({
+            "Vin_dc_V": ('$V_(in,dc)$', "DC input voltage", '{Vin_dc_V} V'),
+            "Vout_V": ('$V_(out)$', "DC bus voltage", '{Vout} V'),
+            "f_sw_kHz": ('$f_(sw)$', "Switching frequency", '{fsw_kHz} kHz'),
+            "ripple_ratio": ('$r$', "Ripple ratio (ΔI/Iout)", '{ripple_ratio}'),
+        })
+    elif spec.topology == "interleaved_boost_pfc":
+        fields.update({
+            "Vin_min_Vrms": ('$V_(in,min)$', "Minimum AC voltage (worst-case current)", '{Vin_min} V#sub[rms]'),
+            "Vout_V": ('$V_(out)$', "DC bus voltage", '{Vout} V'),
+            "f_sw_kHz": ('$f_(sw)$', "Switching frequency", '{fsw_kHz} kHz'),
+            "f_line_Hz": ('$f_(line)$', "Line frequency", '{fline} Hz'),
+            "ripple_pct": ('$Delta I_(rip)$', "Target ripple (% of line peak)", '{ripple_pct} %'),
+            "n_interleave": ('$n_(interleave)$', "Number of interleaved phases", '{n_interleave}'),
+        })
+    elif spec.topology == "flyback":
+        fields.update({
+            "Vin_dc_V": ('$V_(in,dc)$', "DC input voltage", '{Vin_dc_V} V'),
+            "Vout_V": ('$V_(out)$', "DC bus voltage", '{Vout} V'),
+            "f_sw_kHz": ('$f_(sw)$', "Switching frequency", '{fsw_kHz} kHz'),
+            "flyback_mode": ('mode', "Flyback mode", '{flyback_mode}'),
+            "turns_ratio_n": ('n', "Turns ratio (Np/Ns)", '{turns_ratio_n}'),
+        })
+    
+    table_rows = [
+        "table.header[Variable][Description][Value]"
+    ]
+    
+    for key, (symbol, desc, value_template) in fields.items():
+        # Format the value from the context, falling back to the spec attribute
+        try:
+            value = value_template.format(**ctx)
+        except KeyError:
+            # Fallback for fields not in context dict, e.g. from the spec itself
+            spec_val = getattr(spec, key, '—')
+            value = str(spec_val) if spec_val is not None else '—'
+
+        table_rows.append(f'  [{symbol}], [{desc}], [{value}],')
+
+    table_markup = f"""
+#table(
+  columns: (auto, 1fr, auto),
+  align: (left, left, right),
+  stroke: (x, y) => if y == 0 {{{{
+    (bottom: 0.7pt)
+  }}}} else {{{{
+    (bottom: 0.2pt + rgb("#ddd"))
+  }}}},
+  inset: (x: 6pt, y: 5pt),
+{chr(10).join(table_rows)}
+)
+"""
+    return table_markup
 
 def _topology_label(t: str) -> str:
     return {
@@ -157,43 +314,43 @@ def _render_topology_body(spec: Spec, ctx: dict) -> str:
 
 
 def _body_boost_ccm(spec: Spec, ctx: dict) -> str:
-    return rf"""== 1.1. Ponto de operação no pior caso
+    return rf"""== 1.1. Worst-case operating point
 
-A corrente de entrada do PFC é forçada a seguir a forma de onda da
-tensão de entrada (lei do controle PFC), produzindo um envelope
-retificado de meia onda na frequência da rede com ripple de
-chaveamento sobreposto. O pior caso de corrente é em $V_(i n,m i n)$
-e o pior caso de ripple é onde $v_(i n)(t) = V_(o u t)/2$.
+The PFC input current is forced to follow the input voltage waveform
+(PFC control law), producing a half-wave rectified envelope at the
+line frequency with switching ripple superimposed. The worst-case
+current is at $V_(in,min)$ and the worst-case ripple is where
+$v_(in)(t) = V_(out)/2$.
 
-$ I_(i n,p k) = sqrt(2) dot P_(i n)/V_(i n,m i n) = sqrt(2) dot {ctx["Pout"]}/({ctx["eta"]}% dot {ctx["Vin_min"]}) = {ctx["I_in_pk"]} thin "A" $
+$ I_(in,pk) = sqrt(2) dot P_(in)/V_(in,min) = sqrt(2) dot {ctx["Pout"]}/({ctx["eta"]}% dot {ctx["Vin_min"]}) = {ctx["I_in_pk"]} thin "A" $
 
-$ I_(i n,r m s) = P_(i n)/V_(i n,m i n) = {ctx["Pout"]}/({ctx["eta"]}% dot {ctx["Vin_min"]}) = {ctx["I_in_rms"]} thin "A" $
+$ I_(in,rms) = P_(in)/V_(in,min) = {ctx["Pout"]}/({ctx["eta"]}% dot {ctx["Vin_min"]}) = {ctx["I_in_rms"]} thin "A" $
 
-$ V_(i n,p k) = sqrt(2) dot V_(i n,m i n) = sqrt(2) dot {ctx["Vin_min"]} = {ctx["Vin_pk"]} thin "V" $
+$ V_(in,pk) = sqrt(2) dot V_(in,min) = sqrt(2) dot {ctx["Vin_min"]} = {ctx["Vin_pk"]} thin "V" $
 
-O ciclo de trabalho varia ao longo do semiciclo:
-$d(t) = 1 - V_(i n,p k) abs(sin omega t)/V_(o u t)$. No pico da senóide
-$d_(p k) = 1 - V_(i n,p k)/V_(o u t) = {ctx["D_at_peak"]}$%. No cruzamento por zero $d arrow 100$%.
+The duty cycle varies throughout the half-cycle:
+$d(t) = 1 - V_(in,pk) abs(sin omega t)/V_(out)$. At the sine peak
+$d_(pk) = 1 - V_(in,pk)/V_(out) = {ctx["D_at_peak"]}$%. At zero crossing $d arrow 100$%.
 
-= 2. Indutância requerida
+= 2. Required inductance
 
-O ripple pico-a-pico do indutor varia ao longo do ciclo de rede e
-atinge seu máximo quando $v_(i n)(t) = V_(o u t)/2$
-(Erickson & Maksimovic, Cap. 18):
+The inductor's peak-to-peak ripple varies throughout the line cycle
+and reaches its maximum when $v_(in)(t) = V_(out)/2$
+(Erickson & Maksimovic, Ch. 18):
 
-$ Delta i_(L,p p,m a x) = V_(o u t)/(4 dot L dot f_(s w)) $
+$ Delta i_(L,pp,max) = V_(out)/(4 dot L dot f_(sw)) $
 
-Para limitar esse pico a uma fração $Delta I_(r i p)/100$ do pico de
-linha $I_(i n,p k)$, isolamos $L$:
+To limit this peak to a fraction $Delta I_(rip)/100$ of the line
+peak $I_(in,pk)$, we isolate $L$:
 
-$ L_(min) = V_(o u t)/(4 dot f_(s w) dot Delta I_(r i p,A)) = {ctx["Vout"]}/(4 dot {ctx["fsw_kHz"]} thin "kHz" dot {ctx["delta_I_target"]} thin "A") = {ctx["L_req"]} thin mu"H" $
+$ L_(min) = V_(out)/(4 dot f_(sw) dot Delta I_(rip,A)) = {ctx["Vout"]}/(4 dot {ctx["fsw_kHz"]} thin "kHz" dot {ctx["delta_I_target"]} thin "A") = {ctx["L_req"]} thin mu"H" $
 
-onde $Delta I_(r i p,A) = (Delta I_(r i p) \%) dot I_(i n,p k) = {ctx["delta_I_target"]} thin "A"$ é o ripple alvo.
+where $Delta I_(rip,A) = (Delta I_(rip) \%) dot I_(in,pk) = {ctx["delta_I_target"]} thin "A"$ is the target ripple.
 
 #block(fill: rgb("#f6f9fc"), inset: 10pt, radius: 3pt)[
-  *Resultado:* $L_(min) = {ctx["L_req"]} thin mu"H"$ — indutância mínima
-  que o engine usa como alvo do solver. Ripple pico-a-pico atendido:
-  $Delta i_(L,p p,m a x) = {ctx["delta_I_worst"]} thin "A"$ no pior caso.
+  *Result:* $L_(min) = {ctx["L_req"]} thin mu"H"$ — minimum inductance
+  the engine uses as a solver target. Peak-to-peak ripple met:
+  $Delta i_(L,pp,max) = {ctx["delta_I_worst"]} thin "A"$ in the worst case.
 ]
 """
 
@@ -206,32 +363,32 @@ def _body_interleaved_boost_pfc(spec: Spec, ctx: dict) -> str:
     aggregate input ripple cancellation that justifies the topology.
     """
     n_phase = getattr(spec, "n_interleave", 2)
-    return rf"""== 1.1. Ponto de operação (por fase, $N$ = {n_phase})
+    return rf"""== 1.1. Operating point (per phase, $N$ = {n_phase})
 
-O conversor é composto de {n_phase} estágios boost-CCM em paralelo
-chaveados com defasagem $360°\/{n_phase} = {360 / n_phase:.0f}°$.
-Cada fase é dimensionada como um boost CCM independente com
-$P_("out,fase") = P_("out,total")\/N = {ctx["Pout"]} thin "W"\/{n_phase}$.
-O ripple agregado de entrada cancela nos pontos $D in {{1\/N, 2\/N, dots,
-(N - 1)\/N}}$ pela análise de Hwu-Yau, aparecendo em $N dot f_(s w)$
-no filtro EMI residual.
+The converter is composed of {n_phase} parallel boost-CCM stages
+switched with a phase shift of $360°\/{n_phase} = {360 / n_phase:.0f}°$.
+Each phase is sized as an independent boost CCM with
+$P_("out,phase") = P_("out,total")\/N = {ctx["Pout"]} thin "W"\/{n_phase}$.
+The aggregate input ripple cancels at points $D in {{{{1\/N, 2\/N, dots,
+(N - 1)\/N}}}}$ by Hwu-Yau analysis, appearing at $N dot f_(sw)$
+in the residual EMI filter.
 
-$ P_("out,fase") = P_("out")\/N = {ctx["Pout"]}\/{n_phase} = {float(ctx["Pout"]) / n_phase:.0f} thin "W" $
+$ P_("out,phase") = P_("out")\/N = {ctx["Pout"]}\/{n_phase} = {float(ctx["Pout"]) / n_phase:.0f} thin "W" $
 
-$ I_(i n,p k,"fase") = sqrt(2) dot P_("out,fase")/(eta dot V_(i n,m i n)) = {ctx["I_in_pk"]} thin "A" $
+$ I_(in,pk,"phase") = sqrt(2) dot P_("out,phase")/(eta dot V_(in,min)) = {ctx["I_in_pk"]} thin "A" $
 
-= 2. Indutância requerida (por fase)
+= 2. Required inductance (per phase)
 
-Cada fase segue Erickson Cap. 18 para boost CCM com ripple máximo em
-$v_(i n) = V_(o u t)/2$:
+Each phase follows Erickson Ch. 18 for boost CCM with maximum ripple at
+$v_(in) = V_(out)/2$:
 
-$ L_(min) = V_(o u t)/(4 dot f_(s w) dot Delta I_(r i p,A)) = {ctx["Vout"]}/(4 dot {ctx["fsw_kHz"]} thin "kHz" dot {ctx["delta_I_target"]} thin "A") = {ctx["L_req"]} thin mu"H" $
+$ L_(min) = V_(out)/(4 dot f_(sw) dot Delta I_(rip,A)) = {ctx["Vout"]}/(4 dot {ctx["fsw_kHz"]} thin "kHz" dot {ctx["delta_I_target"]} thin "A") = {ctx["L_req"]} thin mu"H" $
 
 #block(fill: rgb("#f6f9fc"), inset: 10pt, radius: 3pt)[
-  *Resultado:* a BOM lista *{n_phase}× núcleos idênticos*
-  com $L_("por fase") = {ctx["L_actual"]} thin mu"H"$. A
-  capacitância de entrada/EMI fica reduzida por $N$ vezes pela
-  cancelação de ripple no nó comum.
+  *Result:* the BOM lists *{n_phase}× identical cores*
+  with $L_("per phase") = {ctx["L_actual"]} thin mu"H"$. The
+  input capacitance/EMI is reduced by a factor of $N$ due to
+  ripple cancellation at the common node.
 ]
 """
 
@@ -239,8 +396,8 @@ $ L_(min) = V_(o u t)/(4 dot f_(s w) dot Delta I_(r i p,A)) = {ctx["Vout"]}/(4 d
 def _body_buck_ccm(spec: Spec, ctx: dict) -> str:
     """Buck CCM textbook walk-through.
 
-    Worst-case ripple grows with $V_(i n)$ (smaller $D$ → larger
-    $1 - D$), so the L sizing happens at $V_(i n,m a x)$. We restate
+    Worst-case ripple grows with $V_(in)$ (smaller $D$ → larger
+    $1 - D$), so the L sizing happens at $V_(in,max)$. We restate
     the volt-seconds balance, the duty derivation with efficiency
     correction, and the L_min closed form.
     """
@@ -249,49 +406,49 @@ def _body_buck_ccm(spec: Spec, ctx: dict) -> str:
     Vin_dc_max = getattr(spec, "Vin_dc_max_V", None) or spec.Vin_max_Vrms
     Iout = spec.Pout_W / max(spec.Vout_V, 1.0)
     D_min = spec.Vout_V / max(Vin_dc_max * spec.eta, 1e-9)
-    return rf"""== 1.1. Ponto de operação
+    return rf"""== 1.1. Operating point
 
-Buck CCM step-down: o indutor conduz a corrente de saída
-$I_("out") = P_("out") \/ V_("out")$ continuamente, com ripple
-triangular sobreposto. O caso de pior ripple é em $V_(i n,m a x)$
-(menor $D$ → maior $1 - D$).
+Buck CCM step-down: the inductor continuously conducts the output
+current $I_("out") = P_("out") \/ V_("out")$, with a triangular
+ripple superimposed. The worst-case ripple is at $V_(in,max)$
+(smaller $D$ → larger $1 - D$).
 
 $ I_("out") = P_("out") / V_("out") = {spec.Pout_W:.0f}/{spec.Vout_V:.1f} = {Iout:.2f} thin "A" $
 
-A relação de tensão (balance volt-segundo com correção de
-eficiência, $D = V_("out")/(V_("in") dot eta)$):
+The voltage ratio (volt-second balance with efficiency
+correction, $D = V_("out")/(V_("in") dot eta)$):
 
-$ D_(min) = V_("out")/(V_(i n,m a x) dot eta) = {spec.Vout_V:.1f}/({Vin_dc_max:.1f} dot {spec.eta * 100:.1f}%) = {D_min * 100:.1f}% $
+$ D_(min) = V_("out")/(V_(in,max) dot eta) = {spec.Vout_V:.1f}/({Vin_dc_max:.1f} dot {spec.eta * 100:.1f}%) = {D_min * 100:.1f}% $
 
-$ T_(s w) = 1/f_(s w) = 1/{spec.f_sw_kHz} thin "kHz" = {1e6 / (spec.f_sw_kHz * 1000):.2f} thin mu"s" $
+$ T_(sw) = 1/f_(sw) = 1/{spec.f_sw_kHz} thin "kHz" = {1e6 / (spec.f_sw_kHz * 1000):.2f} thin mu"s" $
 
 #table(
   columns: (auto, 1fr, auto),
   align: (left, left, right),
   inset: (x: 6pt, y: 4pt),
-  table.header[Símbolo][Descrição][Valor],
-  [$V_(i n,m i n)$], [Tensão DC de entrada (worst case corrente)], [{Vin_dc_min:.1f} V],
-  [$V_(i n)$], [Tensão DC nominal], [{Vin_dc:.1f} V],
-  [$V_(i n,m a x)$], [Tensão DC máxima (worst case ripple)], [{Vin_dc_max:.1f} V],
-  [$I_("out")$], [Corrente DC de saída], [{Iout:.2f} A],
-  [$D_(min)$], [Ciclo de trabalho mínimo (em $V_(i n,m a x)$)], [{D_min * 100:.1f} %],
+  table.header[Symbol][Description][Value],
+  [$V_(in,min)$], [DC input voltage (worst-case current)], [{Vin_dc_min:.1f} V],
+  [$V_(in)$], [Nominal DC voltage], [{Vin_dc:.1f} V],
+  [$V_(in,max)$], [Maximum DC voltage (worst-case ripple)], [{Vin_dc_max:.1f} V],
+  [$I_("out")$], [DC output current], [{Iout:.2f} A],
+  [$D_(min)$], [Minimum duty cycle (at $V_(in,max)$)], [{D_min * 100:.1f} %],
 )
 
-= 2. Indutância requerida
+= 2. Required inductance
 
-Pelo balanço volt-segundo, $V_("out") = V_("in") dot D - L dot
-(d i_L)/d t$. Durante o off-time $(1-D) dot T_(s w)$ o ripple de
-corrente é:
+From volt-second balance, $V_("out") = V_("in") dot D - L dot
+(d i_L)/d t$. During the off-time $(1-D) dot T_(sw)$, the
+current ripple is:
 
-$ Delta i_(L,p p) = V_("out") dot (1 - D)/(L dot f_(s w)) $
+$ Delta i_(L,pp) = V_("out") dot (1 - D)/(L dot f_(sw)) $
 
-Para manter $Delta i_(L,p p) lt.eq r dot I_("out")$ (com $r$ = ripple-ratio):
+To keep $Delta i_(L,pp) lt.eq r dot I_("out")$ (with $r$ = ripple-ratio):
 
-$ L_(min) = V_("out") dot (1 - D_(min))/(r dot I_("out") dot f_(s w)) = {spec.Vout_V:.1f} dot (1 - {D_min:.3f})/({ctx["ripple_pct"]}% dot {Iout:.2f} dot {spec.f_sw_kHz} thin "kHz") = {ctx["L_req"]} thin mu"H" $
+$ L_(min) = V_("out") dot (1 - D_(min))/(r dot I_("out") dot f_(sw)) = {spec.Vout_V:.1f} dot (1 - {D_min:.3f})/({ctx["ripple_pct"]}% dot {Iout:.2f} dot {spec.f_sw_kHz} thin "kHz") = {ctx["L_req"]} thin mu"H" $
 
 #block(fill: rgb("#f6f9fc"), inset: 10pt, radius: 3pt)[
-  *Resultado:* $L_(min) = {ctx["L_req"]} thin mu"H"$.
-  O engine usa $L_("real") = {ctx["L_actual"]} thin mu"H"$ ({ctx["N"]} voltas).
+  *Result:* $L_(min) = {ctx["L_req"]} thin mu"H"$.
+  The engine uses $L_("real") = {ctx["L_actual"]} thin mu"H"$ ({ctx["N"]} turns).
 ]
 """
 
@@ -305,34 +462,34 @@ def _body_flyback(spec: Spec, ctx: dict) -> str:
     Vin_min = getattr(spec, "Vin_dc_min_V", None) or spec.Vin_min_Vrms
     D_max = 0.45  # default the engine assumes
     Lp_dcm_uH = (spec.eta * Vin_min**2 * D_max**2) / (2.0 * spec.Pout_W * spec.f_sw_kHz * 1e3) * 1e6
-    return rf"""== 1.1. Ponto de operação
+    return rf"""== 1.1. Operating point
 
-Flyback isolado em DCM (modo padrão do engine, $D_(m a x) approx 0.45$).
-O primário do indutor acoplado armazena energia durante o on-time
-e transfere para o secundário no off-time. O dimensionamento é por
-balanço de energia armazenada.
+Isolated flyback in DCM (engine's default mode, $D_(max) approx 0.45$).
+The coupled inductor's primary stores energy during the on-time
+and transfers it to the secondary during the off-time. Sizing is by
+stored energy balance.
 
-$ V_(i n,m i n) = {Vin_min:.1f} thin "V" $
+$ V_(in,min) = {Vin_min:.1f} thin "V" $
 
-$ P_(i n) = P_("out")/eta = {spec.Pout_W:.0f}/{spec.eta * 100:.1f}% = {spec.Pout_W / spec.eta:.1f} thin "W" $
+$ P_(in) = P_("out")/eta = {spec.Pout_W:.0f}/{spec.eta * 100:.1f}% = {spec.Pout_W / spec.eta:.1f} thin "W" $
 
-= 2. Indutância primária máxima (DCM)
+= 2. Maximum primary inductance (DCM)
 
-O critério DCM é $D + D_2 lt 1$, com $D$ on-time normalizado e
-$D_2$ tempo de demagnetização. Resolvendo o balanço energia
-armazenada → entregue por ciclo:
+The DCM criterion is $D + D_2 < 1$, with $D$ as the normalized on-time
+and $D_2$ as the demagnetization time. Solving the stored → delivered
+energy balance per cycle:
 
-$ L_(p,m a x)^("DCM") = (eta dot V_(i n,m i n)^2 dot D_(m a x)^2)/(2 dot P_("out") dot f_(s w)) $
+$ L_(p,max)^("DCM") = (eta dot V_(in,min)^2 dot D_(max)^2)/(2 dot P_("out") dot f_(sw)) $
 
-$ L_(p,m a x)^("DCM") = ({spec.eta * 100:.1f}% dot {Vin_min:.1f}^2 dot {D_max:.2f}^2)/(2 dot {spec.Pout_W:.0f} dot {spec.f_sw_kHz} thin "kHz") = {Lp_dcm_uH:.0f} thin mu"H" $
+$ L_(p,max)^("DCM") = ({spec.eta * 100:.1f}% dot {Vin_min:.1f}^2 dot {D_max:.2f}^2)/(2 dot {spec.Pout_W:.0f} dot {spec.f_sw_kHz} thin "kHz") = {Lp_dcm_uH:.0f} thin mu"H" $
 
-Em CCM (alternativo) o engine usa $L_p = V_(i n) dot D/(Delta I_p
-dot f_(s w))$ dimensionado pra 60% de ripple no primário.
+In CCM (alternative), the engine uses $L_p = V_(in) dot D/(Delta I_p
+dot f_(sw))$, sized for 60% primary ripple.
 
 #block(fill: rgb("#f6f9fc"), inset: 10pt, radius: 3pt)[
-  *Resultado:* $L_(p,"real") = {ctx["L_actual"]} thin mu"H"$ no primário
-  ({ctx["N"]} voltas). A razão de espiras + tensões refletidas
-  ficam nos parâmetros derivados (vide datasheet em separado).
+  *Result:* $L_(p,"real") = {ctx["L_actual"]} thin mu"H"$ on the primary
+  ({ctx["N"]} turns). The turns ratio + reflected voltages
+  are in the derived parameters (see separate datasheet).
 ]
 """
 
@@ -353,33 +510,33 @@ def _body_line_reactor(spec: Spec, ctx: dict) -> str:
     X_L = Z_base * pct_Z / 100.0
     omega = 2 * _math.pi * spec.f_line_Hz
     L_mH = (X_L / omega) * 1000.0
-    return rf"""== 1.1. Ponto de operação ({n_ph}φ)
+    return rf"""== 1.1. Operating point ({n_ph}φ)
 
-Reator de linha série com o retificador, dimensionado pelo
-critério de queda percentual de impedância ($%Z$). O reator não
-chaveia: vê apenas a fundamental de rede com seus harmônicos.
+Line reactor in series with the rectifier, sized by the
+percent impedance drop ($%Z$) criterion. The reactor does not
+switch: it only sees the line fundamental and its harmonics.
 
-$ V_("fase") = {f"{V_LL_or_Vph:.1f}\\,V/" + 'sqrt(3) = ' if n_ph == 3 else ''}{V_phase:.1f} thin "V" $
+$ V_("phase") = {f"{V_LL_or_Vph:.1f}\\,V/" + 'sqrt(3) = ' if n_ph == 3 else ''}{V_phase:.1f} thin "V" $
 
 $ I_("rated") = {I_rated:.2f} thin "A"_("rms") $
 
-$ Z_("base") = V_("fase")/I_("rated") = {V_phase:.1f}/{I_rated:.2f} = {Z_base:.2f} thin Omega $
+$ Z_("base") = V_("phase")/I_("rated") = {V_phase:.1f}/{I_rated:.2f} = {Z_base:.2f} thin Omega $
 
-= 2. Indutância requerida pelo $%Z$
+= 2. Required inductance by $%Z$
 
-A reatância alvo, na frequência da rede, é uma fração $%Z$ da
-impedância de base:
+The target reactance, at the line frequency, is a fraction $%Z$ of the
+base impedance:
 
 $ X_L = (%Z\/100) dot Z_("base") = ({pct_Z:.1f}%) dot {Z_base:.2f} = {X_L:.3f} thin Omega $
 
-A indutância correspondente é $L = X_L \/ omega$:
+The corresponding inductance is $L = X_L \/ omega$:
 
 $ L = X_L/(2 pi dot f_("line")) = {X_L:.3f}/(2 pi dot {spec.f_line_Hz:.0f} thin "Hz") = {L_mH:.2f} thin "mH" $
 
 #block(fill: rgb("#f6f9fc"), inset: 10pt, radius: 3pt)[
-  *Resultado:* $L = {L_mH:.2f}$ mH (alvo do spec: ${getattr(spec, "L_req_mH", L_mH):.2f}$ mH).
-  Engine sintetizou {ctx["N"]} voltas para atingir
-  ${ctx["L_actual_mH"]}$ mH no núcleo selecionado.
+  *Result:* $L = {L_mH:.2f}$ mH (spec target: ${getattr(spec, "L_req_mH", L_mH):.2f}$ mH).
+  The engine synthesized {ctx["N"]} turns to achieve
+  ${ctx["L_actual_mH"]}$ mH on the selected core.
 ]
 """
 
@@ -397,48 +554,48 @@ def _body_passive_choke(spec: Spec, ctx: dict) -> str:
     k = 0.35 * (0.30 / max(target_thd, 0.05))
     omega = 2 * _math.pi * spec.f_line_Hz
     L_uH = k * Z_base / omega * 1e6
-    return rf"""== 1.1. Ponto de operação
+    return rf"""== 1.1. Operating point
 
-Choque passivo PFC em série com o retificador AC. Sem chaveamento:
-o indutor só vê a corrente fundamental de rede mais harmônicos.
-Dimensionamento pelo critério empírico de THD alvo (Erickson Cap.
+Passive PFC choke in series with the AC rectifier. No switching:
+the inductor only sees the fundamental line current plus harmonics.
+Sizing is by the empirical target THD criterion (Erickson Ch.
 18, AND8016).
 
-$ P_(i n) = P_("out")/eta = {spec.Pout_W:.0f}/{spec.eta * 100:.1f}% = {Pin:.1f} thin "W" $
+$ P_(in) = P_("out")/eta = {spec.Pout_W:.0f}/{spec.eta * 100:.1f}% = {Pin:.1f} thin "W" $
 
-$ Z_("base") = V_(i n,m i n)^2/P_(i n) = {spec.Vin_min_Vrms:.0f}^2/{Pin:.1f} = {Z_base:.2f} thin Omega $
+$ Z_("base") = V_(in,min)^2/P_(in) = {spec.Vin_min_Vrms:.0f}^2/{Pin:.1f} = {Z_base:.2f} thin Omega $
 
-= 2. Indutância requerida
+= 2. Required inductance
 
-O coeficiente $k("THD")$ vem do ajuste empírico de Erickson Cap.
-18 (passive PFC com LC). Pra THD alvo de {target_thd * 100:.0f}%:
+The $k("THD")$ coefficient comes from the empirical fit in Erickson Ch.
+18 (passive PFC with LC). For a target THD of {target_thd * 100:.0f}%:
 
 $ k("THD") = 0.35 dot ({0.3:.1f}/"THD"_("target")) = {k:.3f} $
 
 $ L = k dot Z_("base")/(2 pi dot f_("line")) = {k:.3f} dot {Z_base:.2f}/(2 pi dot {spec.f_line_Hz:.0f} thin "Hz") = {L_uH:.0f} thin mu"H" $
 
 #block(fill: rgb("#f6f9fc"), inset: 10pt, radius: 3pt)[
-  *Resultado:* $L approx {L_uH:.0f}$ µH. Engine sintetizou {ctx["N"]}
-  voltas para ${ctx["L_actual"]}$ µH no núcleo escolhido.
-  THD prática depende do bulk-cap + impedância da linha.
+  *Result:* $L approx {L_uH:.0f}$ µH. The engine synthesized {ctx["N"]}
+  turns for ${ctx["L_actual"]}$ µH on the chosen core.
+  Practical THD depends on the bulk cap + line impedance.
 ]
 """
 
 
 def _body_generic(spec: Spec, ctx: dict) -> str:
     """Fallback for topologies without a dedicated body."""
-    return rf"""== 1.1. Topologia: {spec.topology}
+    return rf"""== 1.1. Topology: {spec.topology}
 
-Esta topologia não tem narrativa de derivação dedicada nesta versão
-do relatório Typst. Os valores universais (resistência, perdas,
-térmica) abaixo são válidos; consulte o datasheet ReportLab legacy
-para a derivação completa.
+This topology does not have a dedicated derivation narrative in this
+version of the Typst report. The universal values below (resistance,
+losses, thermal) are valid; consult the legacy ReportLab datasheet
+for the full derivation.
 
-= 2. Indutância requerida
+= 2. Required inductance
 
 #block(fill: rgb("#f6f9fc"), inset: 10pt, radius: 3pt)[
-  *Resultado do engine:* $L_(min) = {ctx["L_req"]}$ µH,
-  $L_("real") = {ctx["L_actual"]}$ µH ({ctx["N"]} voltas).
+  *Engine result:* $L_(min) = {ctx["L_req"]}$ µH,
+  $L_("real") = {ctx["L_actual"]}$ µH ({ctx["N"]} turns).
 ]
 """
 
@@ -458,19 +615,19 @@ def _render_figures_block(available: set[str]) -> str:
         return ""
 
     blocks = []
-    blocks.append("= 10. Formas de onda e perdas\n\n")
+    blocks.append("= 10. Waveforms and losses\n\n")
     blocks.append(
-        "As figuras abaixo são geradas direto do resultado do engine "
-        "— a forma de onda no domínio do tempo (1-2 ciclos de rede ou "
-        "chaveamento, conforme topologia) e a distribuição dos quatro "
-        "componentes de perda (Cu DC, Cu AC, núcleo banda de linha, "
-        "núcleo banda de ripple).\n\n"
+        "The figures below are generated directly from the engine's "
+        "output — the time-domain waveform (1-2 line or switching "
+        "cycles, depending on topology) and the breakdown of the four "
+        "loss components (Cu DC, Cu AC, core line-band, "
+        "core ripple-band).\n\n"
     )
     if "fig_waveform.png" in available:
-        blocks.append("== 10.1. Corrente no indutor\n\n")
+        blocks.append("== 10.1. Inductor current\n\n")
         blocks.append('#align(center)[#image("fig_waveform.png", width: 100%)]\n\n')
     if "fig_losses.png" in available:
-        blocks.append("== 10.2. Distribuição de perdas\n\n")
+        blocks.append("== 10.2. Loss breakdown\n\n")
         blocks.append('#align(center)[#image("fig_losses.png", width: 100%)]\n\n')
     return "".join(blocks)
 
@@ -522,10 +679,10 @@ def _make_waveform_png(spec: Spec, result: DesignResult) -> bytes | None:
         color="#2364AA",
         linewidth=0.7,
     )
-    ax.set_xlabel("Tempo (ms)", fontsize=9)
+    ax.set_xlabel("Time (ms)", fontsize=9)
     ax.set_ylabel(_waveform_y_label(spec.topology), fontsize=9)
     ax.set_title(
-        f"Corrente no indutor — {_topology_label(spec.topology)}",
+        f"Inductor current — {_topology_label(spec.topology)}",
         fontsize=10,
         pad=8,
     )
@@ -542,16 +699,16 @@ def _make_waveform_png(spec: Spec, result: DesignResult) -> bytes | None:
 
 def _waveform_y_label(topology: str) -> str:
     if topology == "flyback":
-        return "I primário (A)"
+        return "Primary I (A)"
     if topology in ("line_reactor", "passive_choke"):
-        return "I linha (A)"
-    return "I indutor (A)"
+        return "Line I (A)"
+    return "Inductor I (A)"
 
 
 def _make_loss_breakdown_png(result: DesignResult) -> bytes | None:
     """Horizontal stacked bar of the four loss components.
 
-    The four-way split (Cu DC, Cu AC, Núcleo linha, Núcleo ripple) is
+    The four-way split (Cu DC, Cu AC, Core line, Core ripple) is
     exactly what the engine emits in ``LossBreakdown`` — no
     re-derivation here, just a visual grouping the customer can scan
     in <1 s.
@@ -570,8 +727,8 @@ def _make_loss_breakdown_png(result: DesignResult) -> bytes | None:
     parts = [
         ("Cu DC", L.P_cu_dc_W, "#2364AA"),
         ("Cu AC (fsw)", L.P_cu_ac_W, "#3DA5D9"),
-        ("Núcleo (linha)", L.P_core_line_W, "#73BFB8"),
-        ("Núcleo (ripple)", L.P_core_ripple_W, "#FEC601"),
+        ("Core (line)", L.P_core_line_W, "#73BFB8"),
+        ("Core (ripple)", L.P_core_ripple_W, "#FEC601"),
     ]
     total = sum(p[1] for p in parts)
     if total <= 0:
@@ -599,8 +756,8 @@ def _make_loss_breakdown_png(result: DesignResult) -> bytes | None:
     ax.set_xlim(0, total * 1.02)
     ax.set_ylim(-0.6, 0.6)
     ax.set_yticks([])
-    ax.set_xlabel("Perda (W)", fontsize=9)
-    ax.set_title(f"Distribuição de perdas — total {total:.2f} W", fontsize=10, pad=8)
+    ax.set_xlabel("Loss (W)", fontsize=9)
+    ax.set_title(f"Loss breakdown — total {total:.2f} W", fontsize=10, pad=8)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
     ax.spines["left"].set_visible(False)
@@ -758,7 +915,7 @@ def _compute_context(
         B_limit_mT=_fmt(B_limit_mT, 0),
         sat_margin_pct=_fmt(sat_margin, 1),
         gap_mm=_fmt(gap_mm, 3) if gap_mm > 0 else "—",
-        gap_status=("calculado pelo engine" if gap_mm > 0 else "núcleo de pó (gap distribuído)"),
+        gap_status=("calculated by engine" if gap_mm > 0 else "powder core (distributed gap)"),
         # Material
         mat_id=_esc(material.id),
         mat_name=_esc(material.name),
@@ -810,7 +967,7 @@ def _compute_context(
         ok_B="✓" if result.B_pk_T <= result.B_sat_limit_T else "✗",
         ok_Ku="✓" if result.Ku_actual <= result.Ku_max else "✗",
         ok_T="✓" if result.T_winding_C <= spec.T_max_C else "✗",
-        feasible="VIÁVEL" if result.is_feasible() else "REVER",
+        feasible="FEASIBLE" if result.is_feasible() else "REVISE",
         feasible_color="#2C7A3F" if result.is_feasible() else "#B8302B",
         # Warnings list (joined)
         warnings_block=_render_warnings(result.warnings),
@@ -820,12 +977,15 @@ def _compute_context(
         revision="",
         project_id="",
         topology_label="",
+        spec_table="",
+        cover_summary="",
+        )
     )
 
 
 def _render_warnings(warnings: list[str]) -> str:
     if not warnings:
-        return "Sem avisos. Design dentro de todas as margens do spec."
+        return "No warnings. Design is within all spec margins."
     bullets = "\n".join(f"  - {_esc(w)}" for w in warnings)
     return bullets
 
@@ -871,7 +1031,7 @@ def _esc(s) -> str:
 # ---------------------------------------------------------------------------
 _TEMPLATE = r"""
 #set document(
-  title: "Relatório de Projeto — Indutor PFC",
+  title: "Project Report — PFC Inductor",
   author: "MagnaDesign",
 )
 
@@ -884,7 +1044,7 @@ _TEMPLATE = r"""
       #grid(
         columns: (1fr, auto),
         align: (left, right),
-        [MagnaDesign · Indutor PFC · {project_id}],
+        [MagnaDesign · PFC Inductor · {project_id}],
         [Rev. {revision} · {date_iso}],
       )
       #line(length: 100%, stroke: 0.4pt + rgb("#bbb"))
@@ -895,14 +1055,14 @@ _TEMPLATE = r"""
     #grid(
       columns: (1fr, auto, 1fr),
       align: (left, center, right),
-      [Confidencial — uso interno],
-      [Pág. #counter(page).display() / #counter(page).final().first()],
+      [Confidential — internal use only],
+      [Page #counter(page).display() of #counter(page).final().first()],
       [{topology_label}],
     )
   ],
 )
 
-#set text(font: "New Computer Modern", size: 10.5pt, lang: "pt")
+#set text(font: "New Computer Modern", size: 10.5pt, lang: "en")
 #set par(justify: true, leading: 0.65em, first-line-indent: 0pt)
 #show heading.where(level: 1): it => [
   #set text(size: 18pt, weight: "bold", fill: rgb("#1a1a1a"))
@@ -931,7 +1091,7 @@ _TEMPLATE = r"""
 #align(center)[
   #text(size: 9pt, fill: rgb("#888"))[MagnaDesign · Engineering Report]
   #v(0.6cm)
-  #text(size: 26pt, weight: "bold")[Projeto de indutor PFC]
+  #text(size: 26pt, weight: "bold")[PFC Inductor Design]
   #v(0.2cm)
   #text(size: 13pt, fill: rgb("#345"))[{topology_label}]
   #v(2.5cm)
@@ -944,27 +1104,14 @@ _TEMPLATE = r"""
   )[
     #set align(left)
     #set text(size: 10pt)
-    #grid(
-      columns: (auto, 1fr),
-      column-gutter: 1.2cm,
-      row-gutter: 6pt,
-      [*Projeto*], [{designer}],
-      [*Identificador*], [`{project_id}`],
-      [*Revisão*], [{revision}],
-      [*Data*], [{date_iso}],
-      [*Topologia*], [{topology_label}],
-      [*Potência de saída*], [{Pout} W],
-      [*Tensão de entrada*], [{Vin_min}--265 V#sub[rms]],
-      [*Tensão de barramento*], [{Vout} V],
-      [*Frequência de chaveamento*], [{fsw_kHz} kHz],
-    )
+    {cover_summary}
   ]
   #v(1cm)
   #text(size: 9pt, fill: rgb("#555"))[
-    Este documento descreve cada passo do dimensionamento — equação,
-    valores substituídos e resultado — pra que o engenheiro possa
-    auditar e reproduzir o cálculo. Toda a matemática mostrada aqui é
-    a mesma que o engine MagnaDesign executou.
+    This document describes every step of the design process — equation,
+    substituted values, and result — so the engineer can
+    audit and reproduce the calculation. All the math shown here is
+    the same that the MagnaDesign engine executed.
   ]
 ]
 #pagebreak()
@@ -972,147 +1119,123 @@ _TEMPLATE = r"""
 // ────────────────────────────────────────────────────────────────────
 // 1. Spec
 // ────────────────────────────────────────────────────────────────────
-= 1. Especificação de entrada
+= 1. Input specification
 
-A especificação fixada pelo usuário define a janela de operação
-contra a qual o engine dimensiona o indutor. O caso de pior corrente
-ocorre na tensão de entrada mínima ($V_(i n,m i n)$), e o caso de
-pior ripple ocorre na tensão de saída sobre o indutor, em torno do
-ponto $v_(i n)(t) = V_(o u t)/2$.
+The user-defined specification sets the operating window
+against which the engine sizes the inductor.
 
-#table(
-  columns: (auto, 1fr, auto),
-  align: (left, left, right),
-  stroke: (x, y) => if y == 0 {{
-    (bottom: 0.7pt)
-  }} else {{
-    (bottom: 0.2pt + rgb("#ddd"))
-  }},
-  inset: (x: 6pt, y: 5pt),
-  table.header[Variável][Descrição][Valor],
-  [$V_(i n,m i n)$], [Tensão AC mínima (worst case corrente)], [{Vin_min} V#sub[rms]],
-  [$V_(o u t)$], [Tensão de barramento DC], [{Vout} V],
-  [$P_(o u t)$], [Potência de saída], [{Pout} W],
-  [$eta$], [Eficiência assumida], [{eta} %],
-  [$f_(s w)$], [Frequência de chaveamento], [{fsw_kHz} kHz],
-  [$f_(l i n e)$], [Frequência da rede], [{fline} Hz],
-  [$Delta I_(r i p)$], [Ripple alvo (% do pico de linha)], [{ripple_pct} %],
-  [$T_(a m b)$], [Temperatura ambiente], [{T_amb} °C],
-  [$T_(m a x)$], [Temperatura máx. do enrolamento], [{T_max} °C],
-  [$K_(u,m a x)$], [Preenchimento máximo da janela], [{Ku_max_pct} %],
-  [margem $B_(s a t)$], [Margem aplicada sobre $B_(s a t)$], [{Bsat_margin_pct} %],
-)
+{spec_table}
 
 {topology_body}
 
 // ────────────────────────────────────────────────────────────────────
-// 3. Núcleo + material escolhidos
+// 3. Selected core + material
 // ────────────────────────────────────────────────────────────────────
-= 3. Componentes selecionados
+= 3. Selected components
 
-== 3.1. Núcleo
+== 3.1. Core
 
 #table(
   columns: (auto, 1fr),
   align: (left, left),
-  stroke: (x, y) => if y == 0 {{ (bottom: 0.7pt) }} else {{ (bottom: 0.2pt + rgb("#ddd")) }},
+  stroke: (x, y) => if y == 0 {{{{ (bottom: 0.7pt) }}}} else {{{{ (bottom: 0.2pt + rgb("#ddd")) }}}},
   inset: (x: 6pt, y: 4pt),
-  table.header[Parâmetro][Valor],
-  [Identificador], [`{core_id}`],
-  [Fornecedor / part-number], [{core_vendor} / {core_part}],
-  [Formato], [{core_shape}],
-  [$A_e$ — área magnética], [{Ae_mm2} mm² = {Ae_cm2} cm²],
-  [$W_a$ — janela], [{Wa_mm2} mm²],
-  [$l_e$ — caminho magnético], [{le_mm} mm],
-  [$V_e$ — volume efetivo], [{Ve_mm3} mm³ = {Ve_cm3} cm³],
-  [MLT — comprimento médio por volta], [{MLT_mm} mm],
-  [$A_L$ nominal (do catálogo)], [{AL_nominal} nH/N²],
-  [Dimensões externas (toroide)], [OD = {OD_mm} mm · ID = {ID_mm} mm · HT = {HT_mm} mm],
+  table.header[Parameter][Value],
+  [Identifier], [`{core_id}`],
+  [Vendor / part-number], [{core_vendor} / {core_part}],
+  [Shape], [{core_shape}],
+  [$A_e$ — magnetic area], [{Ae_mm2} mm² = {Ae_cm2} cm²],
+  [$W_a$ — window area], [{Wa_mm2} mm²],
+  [$l_e$ — magnetic path length], [{le_mm} mm],
+  [$V_e$ — effective volume], [{Ve_mm3} mm³ = {Ve_cm3} cm³],
+  [MLT — mean length per turn], [{MLT_mm} mm],
+  [Nominal $A_L$ (from catalog)], [{AL_nominal} nH/N²],
+  [Outer dimensions (toroid)], [OD = {OD_mm} mm · ID = {ID_mm} mm · HT = {HT_mm} mm],
 )
 
-== 3.2. Material magnético
+== 3.2. Magnetic material
 
 #table(
   columns: (auto, 1fr),
   align: (left, left),
-  stroke: (x, y) => if y == 0 {{ (bottom: 0.7pt) }} else {{ (bottom: 0.2pt + rgb("#ddd")) }},
+  stroke: (x, y) => if y == 0 {{{{ (bottom: 0.7pt) }}}} else {{{{ (bottom: 0.2pt + rgb("#ddd")) }}}},
   inset: (x: 6pt, y: 4pt),
-  table.header[Parâmetro][Valor],
-  [Identificador / fornecedor], [`{mat_id}` · {mat_vendor}],
-  [Família], [{mat_name}],
-  [Permeabilidade inicial $mu_r$], [{mu_r}],
-  [$B_(s a t)$ a 25 °C], [{B_sat_25_mT} mT],
-  [$B_(s a t)$ a 100 °C], [{B_sat_100_mT} mT],
+  table.header[Parameter][Value],
+  [Identifier / vendor], [`{mat_id}` · {mat_vendor}],
+  [Family], [{mat_name}],
+  [Initial permeability $mu_r$], [{mu_r}],
+  [$B_(sat)$ at 25 °C], [{B_sat_25_mT} mT],
+  [$B_(sat)$ at 100 °C], [{B_sat_100_mT} mT],
   [Steinmetz $alpha$], [{steinmetz_alpha}],
   [Steinmetz $beta$], [{steinmetz_beta}],
-  [Steinmetz $P_(v,r e f)$ \@ ($f_(r e f)$, $B_(r e f)$)], [{steinmetz_Pv_ref} mW/cm³ \@ ({steinmetz_f_ref} kHz, {steinmetz_B_ref} mT)],
-  [$f_(m i n)$ válida do modelo de perdas], [{steinmetz_f_min} kHz],
+  [Steinmetz $P_(v,ref)$ @ ($f_(ref)$, $B_(ref)$)], [{steinmetz_Pv_ref} mW/cm³ @ ({steinmetz_f_ref} kHz, {steinmetz_B_ref} mT)],
+  [Valid $f_(min)$ for loss model], [{steinmetz_f_min} kHz],
 )
 
-== 3.3. Fio
+== 3.3. Wire
 
 #table(
   columns: (auto, 1fr),
   align: (left, left),
-  stroke: (x, y) => if y == 0 {{ (bottom: 0.7pt) }} else {{ (bottom: 0.2pt + rgb("#ddd")) }},
+  stroke: (x, y) => if y == 0 {{{{ (bottom: 0.7pt) }}}} else {{{{ (bottom: 0.2pt + rgb("#ddd")) }}}},
   inset: (x: 6pt, y: 4pt),
-  table.header[Parâmetro][Valor],
-  [Identificador / tipo], [`{wire_id}` · {wire_type}],
+  table.header[Parameter][Value],
+  [Identifier / type], [`{wire_id}` · {wire_type}],
   [AWG], [{wire_awg}],
-  [Diâmetro externo (com isolação)], [{wire_d_mm} mm],
-  [Diâmetro do cobre], [{wire_d_cu_mm} mm],
-  [Área de cobre (por condutor)], [{wire_A_cu_mm2} mm²],
-  [Fios em paralelo (litz / strands)], [{wire_n_strands}],
-  [Área total de cobre], [{A_cu_total_mm2} mm²],
+  [Outer diameter (with insulation)], [{wire_d_mm} mm],
+  [Copper diameter], [{wire_d_cu_mm} mm],
+  [Copper area (per strand)], [{wire_A_cu_mm2} mm²],
+  [Parallel wires (litz / strands)], [{wire_n_strands}],
+  [Total copper area], [{A_cu_total_mm2} mm²],
 )
 
 // ────────────────────────────────────────────────────────────────────
-// 4. Solução do número de voltas + entreferro
+// 4. Turns + gap solution
 // ────────────────────────────────────────────────────────────────────
-= 4. Voltas, $A_L$ efetivo e entreferro
+= 4. Turns, effective $A_L$, and air gap
 
-A indutância de um indutor enrolado em núcleo magnético é
-$L = N² dot A_L$, onde $A_L$ depende do material e do estado de
-saturação. O engine resolve em duas trilhas distintas dependendo do
-tipo do material:
+The inductance of a wound magnetic core is
+$L = N² dot A_L$, where $A_L$ depends on the material and its
+saturation state. The engine solves this in two distinct paths
+depending on the material type:
 
-== 4.1. Resolução do entreferro
+== 4.1. Air gap resolution
 
-A escolha do núcleo influencia o cálculo: núcleos de pó (Magnetics
-Kool-Mu, High-Flux, Sendust) têm gap distribuído implícito no
-material — $A_L$ catálogo é o efetivo e a saturação é tratada via
-curva de roll-off $mu(H)$. Núcleos de ferrite ($mu_r$ alto, sem
-roll-off) precisam de um entreferro explícito calculado a partir do
-balanço de energia magnética.
+The core choice influences the calculation: powder cores (Magnetics
+Kool-Mu, High-Flux, Sendust) have a distributed gap implicit in the
+material — the catalog $A_L$ is effective and saturation is handled
+via the $mu(H)$ roll-off curve. Ferrite cores ($mu_r$ high, no
+roll-off) require an explicit air gap calculated from the
+magnetic energy balance.
 
 #block(
   fill: rgb("#f6f9fc"),
   inset: 10pt,
   radius: 3pt,
 )[
-  *Status do gap:* {gap_status}. \
-  *Valor utilizado:* $l_(g a p) = {gap_mm}$ mm.
+  *Gap status:* {gap_status}. \
+  *Value used:* $l_(gap) = {gap_mm}$ mm.
 ]
 
-Para o caso ferrite (com $mu_r approx {mu_r}$), o engine impõe a
-restrição de saturação:
+For the ferrite case (with $mu_r approx {mu_r}$), the engine imposes the
+saturation constraint:
 
-$ N_(min,s a t) = ceil((L dot I_(p k))/(B_(s a t)^* dot A_e)) $
+$ N_(min,sat) = ceil((L dot I_(pk))/(B_(sat)^* dot A_e)) $
 
-onde $B_(s a t)^* = B_(s a t)(100\\,°"C") dot (1 - "margem") = {B_limit_mT}$ mT.
-Substituindo:
+where $B_(sat)^* = B_(sat)(100\\,°"C") dot (1 - "margin") = {B_limit_mT}$ mT.
+Substituting:
 
-$ N_(min,s a t) = ceil(({L_actual}\\,mu"H" dot {I_in_pk}\\,"A")/({B_limit_mT}\\,"mT" dot {Ae_mm2}\\,"mm"^2)) approx {N} thick "voltas" $
+$ N_(min,sat) = ceil(({L_actual}\\,mu"H" dot {I_in_pk}\\,"A")/({B_limit_mT}\\,"mT" dot {Ae_mm2}\\,"mm"^2)) approx {N} thick "turns" $
 
-Com $N$ definido, o entreferro fica:
+With $N$ defined, the air gap becomes:
 
-$ l_(g a p) = (N^2 dot mu_0 dot A_e)/L - l_e/mu_r $
+$ l_(gap) = (N^2 dot mu_0 dot A_e)/L - l_e/mu_r $
 
-E o $A_L$ efetivo é:
+And the effective $A_L$ is:
 
-$ A_L^("eff") = (mu_0 dot A_e)/(l_e/mu_r + l_(g a p)) = {AL_eff} thin "nH"\\/N^2 $
+$ A_L^("eff") = (mu_0 dot A_e)/(l_e/mu_r + l_(gap)) = {AL_eff} thin "nH"\\/N^2 $
 
-== 4.2. Indutância resultante
+== 4.2. Resulting inductance
 
 $ L_("real") = N² dot A_L^("eff") dot mu(H) = {N}^2 dot {AL_eff}\\,"nH" dot {mu_pct}\\,% = {L_actual} thin mu"H" $
 
@@ -1121,183 +1244,183 @@ $ L_("real") = N² dot A_L^("eff") dot mu(H) = {N}^2 dot {AL_eff}\\,"nH" dot {mu
   inset: 10pt,
   radius: 3pt,
 )[
-  *Resultado:* $N = {N}$ voltas · $L_("real") = {L_actual} thin mu"H"$
-  ({L_actual_mH} mH) vs. requerido $L_(m i n) = {L_req}$ µH.
+  *Result:* $N = {N}$ turns · $L_("real") = {L_actual} thin mu"H"$
+  ({L_actual_mH} mH) vs. required $L_(min) = {L_req}$ µH.
 ]
 
 // ────────────────────────────────────────────────────────────────────
-// 5. Fluxo magnético e saturação
+// 5. Magnetic flux and saturation
 // ────────────────────────────────────────────────────────────────────
-= 5. Densidade de fluxo e saturação
+= 5. Flux density and saturation
 
-O campo $H$ no pico de corrente de linha:
+The $H$ field at the peak line current:
 
-$ H_(p k) = (N dot I_(i n,p k))/l_e = ({N} dot {I_in_pk}\\,"A")/{le_mm}\\,"mm" = {H_pk_Am} thin "A/m" = {H_pk_Oe} thin "Oe" $
+$ H_(pk) = (N dot I_(in,pk))/l_e = ({N} dot {I_in_pk}\\,"A")/{le_mm}\\,"mm" = {H_pk_Am} thin "A/m" = {H_pk_Oe} thin "Oe" $
 
-A densidade de fluxo magnético no núcleo no pico da onda:
+The magnetic flux density in the core at the wave peak:
 
-$ B_(p k) = (L dot I_(i n,p k))/(N dot A_e) = ({L_actual_mH}\\,"mH" dot {I_in_pk}\\,"A")/({N} dot {Ae_mm2}\\,"mm"^2) = {B_pk_mT} thin "mT" $
+$ B_(pk) = (L dot I_(in,pk))/(N dot A_e) = ({L_actual_mH}\\,"mH" dot {I_in_pk}\\,"A")/({N} dot {Ae_mm2}\\,"mm"^2) = {B_pk_mT} thin "mT" $
 
-Comparando com a margem de saturação:
+Comparing with the saturation margin:
 
 #table(
   columns: (auto, 1fr, auto, auto),
   align: (left, left, right, center),
-  stroke: (x, y) => if y == 0 {{ (bottom: 0.7pt) }} else {{ (bottom: 0.2pt + rgb("#ddd")) }},
+  stroke: (x, y) => if y == 0 {{{{ (bottom: 0.7pt) }}}} else {{{{ (bottom: 0.2pt + rgb("#ddd")) }}}},
   inset: (x: 6pt, y: 4pt),
-  table.header[Métrica][Definição][Valor][Status],
-  [$B_(p k)$], [Pico de fluxo computado], [{B_pk_mT} mT], [—],
-  [$B_(s a t)^*$], [Limite = $B_(s a t)(100\\,°"C") dot (1 - "margem")$], [{B_limit_mT} mT], [—],
-  [Margem], [$(B_(s a t)^* - B_(p k))/B_(s a t)^*$], [{sat_margin_pct} %], [{ok_B}],
+  table.header[Metric][Definition][Value][Status],
+  [$B_(pk)$], [Computed peak flux], [{B_pk_mT} mT], [—],
+  [$B_(sat)^*$], [Limit = $B_(sat)(100\\,°"C") dot (1 - "margin")$], [{B_limit_mT} mT], [—],
+  [Margin], [$(B_(sat)^* - B_(pk))/B_(sat)^*$], [{sat_margin_pct} %], [{ok_B}],
 )
 
 // ────────────────────────────────────────────────────────────────────
-// 6. Preenchimento de janela
+// 6. Window fill
 // ────────────────────────────────────────────────────────────────────
-= 6. Janela e fabricabilidade
+= 6. Window and manufacturability
 
-A área total de cobre ocupada pelo enrolamento:
+The total copper area occupied by the winding:
 
-$ A_("cobre,tot") = N dot A_("cu,fio") dot n_("strands") = {N} dot {wire_A_cu_mm2}\\,"mm"^2 dot {wire_n_strands} = {A_cu_total_mm2} thin "mm"^2 $
+$ A_("copper,tot") = N dot A_("cu,wire") dot n_("strands") = {N} dot {wire_A_cu_mm2}\\,"mm"^2 dot {wire_n_strands} = {A_cu_total_mm2} thin "mm"^2 $
 
-O preenchimento da janela:
+The window fill factor:
 
-$ K_u = A_("cobre,tot") / W_a = {A_cu_total_mm2}\\,"mm"^2 / {Wa_mm2}\\,"mm"^2 = {Ku_actual_pct}\\,% $
+$ K_u = A_("copper,tot") / W_a = {A_cu_total_mm2}\\,"mm"^2 / {Wa_mm2}\\,"mm"^2 = {Ku_actual_pct}\\,% $
 
 #table(
   columns: (auto, 1fr, auto, auto),
   align: (left, left, right, center),
-  stroke: (x, y) => if y == 0 {{ (bottom: 0.7pt) }} else {{ (bottom: 0.2pt + rgb("#ddd")) }},
+  stroke: (x, y) => if y == 0 {{{{ (bottom: 0.7pt) }}}} else {{{{ (bottom: 0.2pt + rgb("#ddd")) }}}},
   inset: (x: 6pt, y: 4pt),
-  table.header[Métrica][Definição][Valor][Status],
-  [$K_u$], [Preenchimento atual], [{Ku_actual_pct} %], [{ok_Ku}],
-  [$K_(u,m a x)$], [Limite (spec)], [{Ku_max_pct} %], [—],
-  [Camadas estimadas], [Pra cálculo Dowell], [{layers}], [—],
-  [Comprimento total de fio], [$l_("fio") = N dot "MLT"$], [{l_wire_m} m], [—],
+  table.header[Metric][Definition][Value][Status],
+  [$K_u$], [Actual fill factor], [{Ku_actual_pct} %], [{ok_Ku}],
+  [$K_(u,max)$], [Limit (spec)], [{Ku_max_pct} %], [—],
+  [Estimated layers], [For Dowell calculation], [{layers}], [—],
+  [Total wire length], [$l_("wire") = N dot "MLT"$], [{l_wire_m} m], [—],
 )
 
 // ────────────────────────────────────────────────────────────────────
-// 7. Resistência DC + AC
+// 7. DC + AC Resistance
 // ────────────────────────────────────────────────────────────────────
-= 7. Resistência e perdas no cobre
+= 7. Resistance and copper losses
 
-== 7.1. Resistência DC
+== 7.1. DC Resistance
 
-A resistividade do cobre cresce com a temperatura segundo o
-coeficiente $alpha_(C u) = 3,93 dot 10^(-3)$/°C:
+Copper resistivity increases with temperature according to the
+coefficient $alpha_(Cu) = 3.93 dot 10^(-3)$/°C:
 
-$ rho_(C u)(T) = rho_(C u,20) dot (1 + alpha_(C u) dot (T - 20)) $
+$ rho_(Cu)(T) = rho_(Cu,20) dot (1 + alpha_(Cu) dot (T - 20)) $
 
-Avaliada em $T = T_("enrolamento") = {T_winding}$ °C:
+Evaluated at $T = T_("winding") = {T_winding}$ °C:
 
-$ rho_(C u)({T_winding}\\,°"C") = {rho_20}\\,Omega dot "m" dot (1 + 0{{,}}00393 dot ({T_winding} - 20)) = {rho_at_T}\\,Omega dot "m" $
+$ rho_(Cu)({T_winding}\\,°"C") = {rho_20}\\,Omega dot "m" dot (1 + 0.00393 dot ({T_winding} - 20)) = {rho_at_T}\\,Omega dot "m" $
 
-$ R_("dc") = (rho_(C u) dot N dot "MLT")/A_("cu,fio") = ({rho_at_T}\\,Omega"·m" dot {N} dot {MLT_mm}\\,"mm")/{wire_A_cu_mm2}\\,"mm"^2 = {R_dc_mOhm} thin "mΩ" $
+$ R_("dc") = (rho_(Cu) dot N dot "MLT")/A_("cu,wire") = ({rho_at_T}\\,Omega"·m" dot {N} dot {MLT_mm}\\,"mm")/{wire_A_cu_mm2}\\,"mm"^2 = {R_dc_mOhm} thin "mΩ" $
 
-== 7.2. Resistência AC (Dowell)
+== 7.2. AC Resistance (Dowell)
 
-Em $f_(s w) = {fsw_kHz}$ kHz, o efeito pelicular e a proximidade
-entre voltas elevam $R_("ac")$ acima de $R_("dc")$. O fator de
-correção $F_R$ vem do modelo de Dowell para condutor redondo
-(ou Litz, quando aplicável) com a contagem de camadas estimada.
+At $f_(sw) = {fsw_kHz}$ kHz, the skin effect and proximity
+between turns raise $R_("ac")$ above $R_("dc")$. The correction
+factor $F_R$ comes from the Dowell model for round conductors
+(or Litz, when applicable) with the estimated layer count.
 
-$ R_("ac") = R_("dc") dot F_R("camadas"={layers}, f={fsw_kHz}\\,"kHz", T={T_winding}\\,°"C") $
+$ R_("ac") = R_("dc") dot F_R("layers"={layers}, f={fsw_kHz}\\,"kHz", T={T_winding}\\,°"C") $
 
 $ F_R = {F_R} arrow.r R_("ac") = {R_ac_mOhm} thin "mΩ" $
 
-== 7.3. Perdas no cobre
+== 7.3. Copper losses
 
-$ P_(C u,d c) = I_("rms,linha")^2 dot R_("dc") = ({I_in_rms}\\,"A")^2 dot {R_dc_mOhm}\\,"mΩ" = {P_cu_dc} thin "W" $
+$ P_(Cu,dc) = I_("rms,line")^2 dot R_("dc") = ({I_in_rms}\\,"A")^2 dot {R_dc_mOhm}\\,"mΩ" = {P_cu_dc} thin "W" $
 
-$ P_(C u,a c) = I_("rms,ripple")^2 dot R_("ac") = ({I_ripple_rms}\\,"A")^2 dot {R_ac_mOhm}\\,"mΩ" = {P_cu_ac} thin "W" $
+$ P_(Cu,ac) = I_("rms,ripple")^2 dot R_("ac") = ({I_ripple_rms}\\,"A")^2 dot {R_ac_mOhm}\\,"mΩ" = {P_cu_ac} thin "W" $
 
 #block(
   fill: rgb("#f6f9fc"),
   inset: 10pt,
   radius: 3pt,
 )[
-  *Total no cobre:* $P_("cobre") = P_(C u,d c) + P_(C u,a c) = {P_cu_tot}$ W
+  *Total copper loss:* $P_("copper") = P_(Cu,dc) + P_(Cu,ac) = {P_cu_tot}$ W
 ]
 
 // ────────────────────────────────────────────────────────────────────
-// 8. Perdas no núcleo
+// 8. Core losses
 // ────────────────────────────────────────────────────────────────────
-= 8. Perdas no núcleo
+= 8. Core losses
 
-O modelo de Steinmetz parametriza a perda volumétrica em função da
-frequência e da amplitude de fluxo:
+The Steinmetz model parameterizes volumetric loss as a function of
+frequency and flux amplitude:
 
-$ P_v thin ["mW"\/"cm"^3] = P_(v,r e f) dot (f/f_(r e f))^alpha dot (B/B_(r e f))^beta $
+$ P_v thin ["mW"\/"cm"^3] = P_(v,ref) dot (f/f_(ref))^alpha dot (B/B_(ref))^beta $
 
-Os coeficientes deste material (do catálogo):
+The coefficients for this material (from the catalog):
 $alpha = {steinmetz_alpha}$,
 $beta = {steinmetz_beta}$,
-$P_(v,r e f) = {steinmetz_Pv_ref}$ mW/cm³ \@
-$(f_(r e f) = {steinmetz_f_ref}$ kHz,
-$B_(r e f) = {steinmetz_B_ref}$ mT$)$.
+$P_(v,ref) = {steinmetz_Pv_ref}$ mW/cm³ @
+$(f_(ref) = {steinmetz_f_ref}$ kHz,
+$B_(ref) = {steinmetz_B_ref}$ mT$)$.
 
-== 8.1. Banda de linha (envelope $2 dot f_("rede")$)
+== 8.1. Line band (envelope $2 dot f_("line")$)
 
-$ P_("núcleo,linha") = P_v(f_("rede"), B_(p k)) dot V_e = {P_core_line} thin "W" $
+$ P_("core,line") = P_v(f_("line"), B_(pk)) dot V_e = {P_core_line} thin "W" $
 
-Quando $f_("rede") < f_(min) = {steinmetz_f_min}$ kHz o modelo é
-extrapolado e o engine zera a banda (evita previsão fora da faixa
-calibrada).
+When $f_("line") < f_(min) = {steinmetz_f_min}$ kHz, the model is
+extrapolated and the engine zeroes out this band (avoids predicting
+outside the calibrated range).
 
-== 8.2. Banda de chaveamento (iGSE em $Delta B_(p p)(t)$)
+== 8.2. Switching band (iGSE on $Delta B_(pp)(t)$)
 
-A onda triangular em $f_(s w)$ tem amplitude $Delta B_(p p)$ que
-varia ao longo do semiciclo de rede. O engine aplica iGSE
-(Mühlethaler 2012) sobre o array $Delta B_(p p)(t)$ pra capturar o
-efeito não-linear $lr(angle.l B^beta angle.r) >> lr(angle.l B angle.r)^beta$ característico de PFC:
+The triangular wave at $f_(sw)$ has an amplitude $Delta B_(pp)$ that
+varies throughout the line half-cycle. The engine applies iGSE
+(Mühlethaler 2012) over the $Delta B_(pp)(t)$ array to capture the
+non-linear effect $lr(angle.l B^beta angle.r) >> lr(angle.l B angle.r)^beta$ characteristic of PFC:
 
-$ P_("núcleo,ripple") = lr(angle.l P_v(f_(s w), Delta B_(p p)(t)\/2) angle.r) dot V_e = {P_core_ripple} thin "W" $
+$ P_("core,ripple") = lr(angle.l P_v(f_(sw), Delta B_(pp)(t)\/2) angle.r) dot V_e = {P_core_ripple} thin "W" $
 
 #block(
   fill: rgb("#f6f9fc"),
   inset: 10pt,
   radius: 3pt,
 )[
-  *Total no núcleo:* $P_("núcleo") = P_("linha") + P_("ripple") = {P_core_tot}$ W
+  *Total core loss:* $P_("core") = P_("line") + P_("ripple") = {P_core_tot}$ W
 ]
 
 // ────────────────────────────────────────────────────────────────────
-// 9. Balanço térmico
+// 9. Thermal balance
 // ────────────────────────────────────────────────────────────────────
-= 9. Balanço térmico
+= 9. Thermal balance
 
-O modelo lumped é convecção natural mais radiação, com coeficiente
-combinado $h = {h_conv}$ W/m²/K. A área de superfície do indutor
-montado:
+The lumped model is natural convection plus radiation, with a
+combined coefficient $h = {h_conv}$ W/m²/K. The surface area of the
+assembled inductor:
 
-$ A_("surf") = pi dot O D dot H T + pi dot I D dot H T + 2 dot pi/4 dot (O D^2 - I D^2) = {A_surf_cm2} thin "cm"^2 $
+$ A_("surf") = pi dot OD dot HT + pi dot ID dot HT + 2 dot pi/4 dot (OD^2 - ID^2) = {A_surf_cm2} thin "cm"^2 $
 
-O salto de temperatura é resolvido iterativamente porque $rho_(C u)(T)$
-realimenta a perda no cobre:
+The temperature rise is solved iteratively because $rho_(Cu)(T)$
+feeds back into the copper loss:
 
 $ Delta T = (P_("total")(T))/(h dot A_("surf")) thick arrow.r thick T = T_("amb") + Delta T $
 
-Convergência (3-6 iterações típicas):
+Convergence (3-6 iterations typical):
 
 #table(
   columns: (auto, 1fr, auto),
   align: (left, left, right),
-  stroke: (x, y) => if y == 0 {{ (bottom: 0.7pt) }} else {{ (bottom: 0.2pt + rgb("#ddd")) }},
+  stroke: (x, y) => if y == 0 {{{{ (bottom: 0.7pt) }}}} else {{{{ (bottom: 0.2pt + rgb("#ddd")) }}}},
   inset: (x: 6pt, y: 4pt),
-  table.header[Métrica][Definição][Valor],
-  [$T_("amb")$], [Temperatura ambiente], [{T_amb} °C],
-  [$Delta T$], [Subida sobre o ambiente], [{T_rise} K],
-  [$T_("enrolamento")$], [Temperatura do enrolamento], [*{T_winding} °C*],
-  [$T_("max")$], [Limite do spec], [{T_max} °C],
+  table.header[Metric][Definition][Value],
+  [$T_("amb")$], [Ambient temperature], [{T_amb} °C],
+  [$Delta T$], [Rise over ambient], [{T_rise} K],
+  [$T_("winding")$], [Winding temperature], [*{T_winding} °C*],
+  [$T_("max")$], [Spec limit], [{T_max} °C],
 )
 
 {figures_block}
 
 // ────────────────────────────────────────────────────────────────────
-// 11. Resumo
+// 11. Summary
 // ────────────────────────────────────────────────────────────────────
 #pagebreak()
-= 11. Resumo do projeto
+= 11. Design summary
 
 #block(
   width: 100%,
@@ -1307,7 +1430,7 @@ Convergência (3-6 iterações típicas):
   stroke: 0.5pt + rgb("#dee"),
 )[
   #set text(size: 11pt)
-  *Status global:* #text(fill: rgb("{feasible_color}"), weight: "bold")[{feasible}]
+  *Overall status:* #text(fill: rgb("{feasible_color}"), weight: "bold")[{feasible}]
 
   #v(8pt)
   #grid(
@@ -1315,39 +1438,39 @@ Convergência (3-6 iterações típicas):
     column-gutter: 1cm,
     row-gutter: 8pt,
     [
-      *Magnético*
-      - $N$ = {N} voltas
+      *Magnetic*
+      - $N$ = {N} turns
       - $L$ = {L_actual} µH
-      - $B_(p k)$ = {B_pk_mT} mT
-      - $l_(g a p)$ = {gap_mm} mm
+      - $B_(pk)$ = {B_pk_mT} mT
+      - $l_(gap)$ = {gap_mm} mm
       - $K_u$ = {Ku_actual_pct} %
     ],
     [
-      *Térmico + perdas*
-      - $T_("enrolamento")$ = {T_winding} °C ($Delta T$ = {T_rise} K)
-      - $P_("cobre")$ = {P_cu_tot} W
-      - $P_("núcleo")$ = {P_core_tot} W
+      *Thermal + losses*
+      - $T_("winding")$ = {T_winding} °C ($Delta T$ = {T_rise} K)
+      - $P_("copper")$ = {P_cu_tot} W
+      - $P_("core")$ = {P_core_tot} W
       - $P_("total")$ = *{P_total} W*
-      - $eta_("indutor")$ = {eta_inductor} %
+      - $eta_("inductor")$ = {eta_inductor} %
     ],
   )
 ]
 
 #v(12pt)
-== Verificações
+== Checks
 
 #table(
   columns: (auto, 1fr, auto, auto),
   align: (left, left, right, center),
-  stroke: (x, y) => if y == 0 {{ (bottom: 0.7pt) }} else {{ (bottom: 0.2pt + rgb("#ddd")) }},
+  stroke: (x, y) => if y == 0 {{{{ (bottom: 0.7pt) }}}} else {{{{ (bottom: 0.2pt + rgb("#ddd")) }}}},
   inset: (x: 6pt, y: 4pt),
-  table.header[Critério][Regra][Atingido][Status],
-  [Saturação], [$B_(p k) lt.eq B_(s a t)^*$], [{B_pk_mT} mT $lt.eq$ {B_limit_mT} mT], [{ok_B}],
-  [Janela], [$K_u lt.eq K_(u,m a x)$], [{Ku_actual_pct} % $lt.eq$ {Ku_max_pct} %], [{ok_Ku}],
-  [Térmico], [$T_("enrolamento") lt.eq T_("max")$], [{T_winding} °C $lt.eq$ {T_max} °C], [{ok_T}],
+  table.header[Criterion][Rule][Achieved][Status],
+  [Saturation], [$B_(pk) lt.eq B_(sat)^*$], [{B_pk_mT} mT $lt.eq$ {B_limit_mT} mT], [{ok_B}],
+  [Window], [$K_u lt.eq K_(u,max)$], [{Ku_actual_pct} % $lt.eq$ {Ku_max_pct} %], [{ok_Ku}],
+  [Thermal], [$T_("winding") lt.eq T_("max)$], [{T_winding} °C $lt.eq$ {T_max} °C], [{ok_T}],
 )
 
-== Avisos do engine
+== Engine warnings
 
 #block(inset: (left: 4pt))[
 {warnings_block}
@@ -1356,6 +1479,7 @@ Convergência (3-6 iterações típicas):
 #v(0.6cm)
 #align(right)[
   #set text(size: 8pt, fill: rgb("#888"))
-  Gerado por MagnaDesign em {date_iso} · projeto `{project_id}` · revisão {revision}
+  Generated by MagnaDesign on {date_iso} · project `{project_id}` · revision {revision}
 ]
 """
+

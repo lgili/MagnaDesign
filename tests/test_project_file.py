@@ -48,7 +48,7 @@ def test_round_trip_preserves_every_field(tmp_path: Path) -> None:
         Bsat_margin=0.20,
     )
     state = ProjectFile.from_session(
-        name="Reator 850 W",
+        name="850W Reactor",
         spec=spec,
         material_id="dongxing-50h800",
         core_id="dongxing-ei4117-50h800",
@@ -58,7 +58,7 @@ def test_round_trip_preserves_every_field(tmp_path: Path) -> None:
     save_project(path, state)
     loaded = load_project(path)
 
-    assert loaded.name == "Reator 850 W"
+    assert loaded.name == "850W Reactor"
     assert loaded.selection.material_id == "dongxing-50h800"
     assert loaded.selection.core_id == "dongxing-ei4117-50h800"
     assert loaded.selection.wire_id == "awg14"
