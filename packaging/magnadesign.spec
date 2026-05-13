@@ -297,9 +297,8 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
+    [],
+    exclude_binaries=True,
     name=APP_NAME,
     debug=False,
     bootloader_ignore_signals=False,
@@ -312,3 +311,45 @@ exe = EXE(
     entitlements_file=None,
     icon=icon,
 )
+
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    strip=False,
+    upx=False,
+    upx_exclude=[],
+    name=APP_NAME,
+    # PyInstaller 6.x defaults to ``contents_directory='_internal'``
+    # which moves every data file + shared lib under
+    # ``dist/<name>/_internal/`` and leaves only the executable next
+    # to it. That breaks ``data_loader._bundled_data_root`` (which
+    # probes ``Path(sys.executable).parent / data``) and the release
+    # workflow's existence check (``test -d dist/<name>/data``). The
+    # legacy flat layout (``contents_directory='.'``) is still
+    # supported and matches the assumptions encoded in the runtime
+    # data-loader and the verify step.
+    contents_directory=".",
+)
+
+# ---------------------------------------------------------------------------
+# macOS only: wrap the COLLECT folder into a .app bundle so users can
+# drop it into /Applications. The release workflow further wraps this
+# in a .dmg for distribution.
+# ---------------------------------------------------------------------------
+if sys.platform == "darwin":
+    app = BUNDLE(
+        coll,
+        name=f"{APP_NAME}.app",
+        icon=icon,
+        bundle_identifier="com.indutor.magnadesign",
+        info_plist={
+            "CFBundleName": "MagnaDesign",
+            "CFBundleDisplayName": "MagnaDesign",
+            "CFBundleVersion": CFBUNDLE_VERSION,
+            "CFBundleShortVersionString": CFBUNDLE_VERSION,
+            "NSHighResolutionCapable": True,
+            "NSRequiresAquaSystemAppearance": False,  # supports light + dark
+        },
+    )
