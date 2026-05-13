@@ -109,12 +109,14 @@ def test_direct_dispatch_pct_error_when_analytical_present(restore_env):
 # ─── Default + fallback paths ─────────────────────────────────────
 
 
-def test_default_dispatch_does_not_use_direct_backend(restore_env):
-    """Without the env var, dispatch falls through to the legacy
-    code path (FEMMT or FEMM via select_backend_for_shape).
-    We don't actually invoke FEMMT here — we patch it to assert
-    the call goes through the legacy entry point.
+def test_legacy_dispatch_when_PFC_FEA_BACKEND_auto(restore_env):
+    """After Phase 5.2 cutover, the legacy shape-based dispatch is
+    opt-in via ``PFC_FEA_BACKEND=auto`` (or by selecting "Auto" in
+    the UI). Verify the legacy path is reachable.
     """
+    import os
+
+    os.environ[ENV_VAR] = "auto"
     from pfc_inductor.data_loader import load_cores, load_materials, load_wires
     from pfc_inductor.fea.runner import validate_design
     from pfc_inductor.models import Spec

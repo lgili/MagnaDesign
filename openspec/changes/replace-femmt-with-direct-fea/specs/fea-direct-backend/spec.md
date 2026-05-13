@@ -510,6 +510,122 @@ that overrides the legacy shape-based FEA dispatcher:
 - **THEN** it logs a warning and falls through to the legacy
   shape-based dispatch — never crashes the cascade
 
+### Requirement: Litz wire AC resistance
+
+The system SHALL extend the Dowell formula to handle Litz wire
+when the caller supplies ``strand_diameter_m`` and ``n_strands``.
+The effective layer count becomes ``n_strands × n_layers`` in the
+proximity term, capturing the physics that each strand sees the
+proximity field from every other strand in the bundle.
+
+#### Scenario: Litz vs solid wire at high frequency
+
+- **GIVEN** the same total copper cross-section split into either
+  one solid AWG-18 wire or 50 strands of equivalent total area
+  at 130 kHz
+- **WHEN** the Dowell formula is evaluated on each
+- **THEN** the Litz F_R is lower than the solid-wire F_R (the
+  whole point of Litz)
+- **AND** F_R drops as the strand diameter shrinks (the canonical
+  ``d_strand < δ × √2`` rule)
+
+### Requirement: Foil winding AC resistance
+
+The system SHALL provide a Ferreira-style ``dowell_fr_foil``
+helper for m-layer foil windings that uses ``foil_thickness`` as
+the ``h_eff`` parameter (no porosity factor — foil fills the
+layer width entirely).
+
+#### Scenario: Foil at line frequency vs switching
+
+- **GIVEN** a 50 μm copper foil in 4 layers
+- **WHEN** evaluated at 100 Hz and 100 kHz
+- **THEN** F_R(100 Hz) → 1.0 (no AC penalty at line frequency)
+- **AND** F_R(100 kHz) > F_R(100 Hz) (proximity effect kicks in)
+
+### Requirement: Ferrite saturation knee for closed cores
+
+The system SHALL apply the tanh-knee saturation factor
+``μ_eff/μ_initial = 1 / (1 + (B/B_sat)^N)`` (with N=5) to closed-
+core ferrite cases (no gap). Gapped cores skip the knee because
+the gap dominates the magnetic circuit reluctance.
+
+#### Scenario: Closed-core ferrite L drops at saturation
+
+- **GIVEN** an ungapped ETD ferrite core driven hard into
+  saturation (I such that B > 1.3·B_sat)
+- **WHEN** the reluctance solver runs with ``apply_dc_bias_rolloff=True``
+- **THEN** the reported ``L_dc_uH`` is lower than the
+  small-signal value computed at I → 0
+
+#### Scenario: Gapped cores skip the knee
+
+- **GIVEN** the same core with an explicit ``gap_mm`` argument
+- **WHEN** the user sweeps current from 0.5 A to 20 A
+- **THEN** ``L_dc_uH`` stays within 2 % across the sweep (the gap
+  dominates and the iron operates well below B_sat)
+
+### Requirement: EM-thermal one-way coupling
+
+The system SHALL provide an ``solve_em_thermal`` entry point that
+iterates EM-loss → thermal → R(T) until ``|ΔT| < 0.5 K``
+(typically 2-4 iterations). Reports converged ``T_winding_C``,
+``T_core_C``, ``R_dc_mOhm``, ``R_ac_mOhm``, ``P_cu_W`` together
+with the iteration count + converged flag.
+
+#### Scenario: PFC choke converges
+
+- **GIVEN** a moderate PFC inductor operating point (PQ 40/40
+  N87, N=39, I_rms=2 A, f=10 kHz, 2 layers, T_amb=40 °C, P_core=0.5 W)
+- **WHEN** ``solve_em_thermal`` runs
+- **THEN** the loop converges or hits the iteration cap with a
+  finite T_winding above ambient and below 250 °C
+- **AND** R_ac > R_dc (some AC penalty)
+
+### Requirement: Transient i(t) simulator
+
+The system SHALL provide ``simulate_transient`` that integrates
+``v(t) = R·i + L(I)·di/dt`` via RK4 stepping, with L(I) applying
+the soft-tanh saturation knee.
+
+#### Scenario: Symmetric square-wave produces triangular ripple
+
+- **GIVEN** a 1 mH inductor driven by a ±50 V symmetric square
+  wave at 100 kHz with 50 % duty
+- **WHEN** ``simulate_transient`` runs for 10 cycles
+- **THEN** the peak-to-peak ripple matches ``V_high · D · T_sw / L``
+  within 50 % (start-up transient affects measurement; the formula
+  is the steady-state ideal)
+
+### Requirement: 3-D mode + ROM stubs raise NotImplementedError
+
+The system SHALL ship stubs for the deferred Phase 4.2 (3-D mode)
+and Phase 4.3 (POD-ROM) capabilities that raise
+``NotImplementedError`` with a clear message pointing at the
+analytical solvers that meet the current need.
+
+#### Scenario: Calling the 3-D stub
+
+- **WHEN** a user calls ``run_3d_solve_stub()``
+- **THEN** ``NotImplementedError`` is raised with text mentioning
+  "3-D mode" and pointing at the OpenSpec for tracking progress
+
+### Requirement: FEMMT deprecation warning
+
+The system SHALL emit a ``DeprecationWarning`` at runtime when
+``validate_design_femmt`` is called, pointing at the new dispatcher
+and the 2026-11 removal target.
+
+#### Scenario: Direct FEMMT call surfaces deprecation
+
+- **WHEN** code calls
+  ``pfc_inductor.fea.femmt_runner.validate_design_femmt(...)``
+- **THEN** a ``DeprecationWarning`` is emitted via
+  ``warnings.warn`` with stacklevel=2 (so it points at the caller)
+- **AND** the warning text mentions the recommended replacement
+  (``pfc_inductor.fea.runner.validate_design``) and the
+  ``PFC_FEA_BACKEND=femmt`` opt-out
+
 ### Requirement: UI backend selector
 
 The UI SHALL expose a backend selector under Configurações → FEA

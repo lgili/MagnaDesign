@@ -242,6 +242,17 @@ def validate_design_femmt(
 ) -> FEAValidation:
     """End-to-end FEMMT validation, isolated in a subprocess.
 
+    .. deprecated:: 0.5.0 — Phase 5.3 removal scheduled 2026-11.
+       Use ``pfc_inductor.fea.runner.validate_design`` (the
+       multi-backend dispatcher) instead. As of Phase 5.2 it
+       defaults to the in-tree direct backend, which is faster,
+       covers more shapes, and doesn't carry the ``setuptools<70``
+       / ``pkg_resources`` dependency tail. The FEMMT path stays
+       reachable via ``PFC_FEA_BACKEND=femmt`` for cross-check
+       through 2026-11; the underlying ``femmt`` and
+       ``materialdatabase`` packages get removed from the ``[fea]``
+       extra in the same release.
+
     Why subprocess: gmsh + getdp can hard-crash (SIGSEGV) on complex
     geometries — high turn counts, ill-conditioned meshes — and a
     crash inside FEMMT's C extensions takes the whole Python process
@@ -269,6 +280,16 @@ def validate_design_femmt(
 
     Raises ``FEMMNotAvailable`` / ``FEMMSolveError``.
     """
+    import warnings
+
+    warnings.warn(
+        "validate_design_femmt() is deprecated and scheduled for removal "
+        "in 2026-11. Use pfc_inductor.fea.runner.validate_design() — it "
+        "now defaults to the in-tree direct backend. Set "
+        "PFC_FEA_BACKEND=femmt to keep using FEMMT until removal.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     _install_no_space_femmt_shim()
     # FEMMT 0.5.x imports ``pkg_resources`` from its top-level
     # ``functions.py``, but recent setuptools (≥ 70) removed

@@ -77,7 +77,16 @@ def validate_design(
     # entry; the cascade orchestrator copies it from the user's
     # Configurações pane on each run.
     env_backend = os.environ.get("PFC_FEA_BACKEND", "").strip().lower()
-    if env_backend == "direct":
+
+    # Phase 5.2 cutover: the direct backend is now the DEFAULT.
+    # Users / cascade can still force the legacy path via
+    # ``PFC_FEA_BACKEND=femmt`` or ``PFC_FEA_BACKEND=femm``.
+    # The default-direct policy is active when:
+    #   - env var is empty / unset (most users)
+    #   - env var explicitly says "direct"
+    # We honour the legacy shape-based dispatch only when the user
+    # explicitly opts out via env or the legacy backends are forced.
+    if env_backend == "" or env_backend == "direct":
         try:
             return _validate_design_direct(
                 spec,
@@ -90,7 +99,7 @@ def validate_design(
             )
         except Exception as exc:
             _LOG.warning(
-                "PFC_FEA_BACKEND=direct requested but failed (%s); falling back to legacy dispatch.",
+                "Direct FEA backend failed (%s); falling back to legacy dispatch.",
                 exc,
             )
             backend = select_backend_for_shape(shape)

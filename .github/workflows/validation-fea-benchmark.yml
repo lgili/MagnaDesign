@@ -1,0 +1,107 @@
+name: FEA Benchmark Validation
+
+# Runs the cross-shape direct-backend vs FEMMT benchmark + the
+# slow ``compare_backends`` tests. Triggered:
+#   - on demand via the [fea] label on a PR
+#   - weekly cron (Sunday 04:00 UTC)
+#
+# The job uploads the comparison table as an artifact so PR
+# reviewers can spot calibration regressions or wins at a glance.
+
+on:
+  pull_request:
+    types: [labeled]
+  schedule:
+    # Sunday 04:00 UTC — off-peak
+    - cron: "0 4 * * 0"
+  workflow_dispatch:  # manual trigger
+
+jobs:
+  benchmark:
+    # Only run on PRs when the label is exactly "[fea]"; always run
+    # the weekly cron + manual triggers.
+    if: |
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && github.event.label.name == '[fea]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Set up Python 3.12
+        run: uv python install 3.12
+
+      - name: Install project + FEA extras
+        run: uv sync --extra fea
+
+      - name: Run direct-backend tests (fast)
+        run: |
+          uv run pytest \
+            tests/test_direct_calibration.py \
+            tests/test_direct_toroidal.py \
+            tests/test_direct_reluctance.py \
+            tests/test_direct_thermal.py \
+            tests/test_direct_dowell.py \
+            tests/test_direct_ac.py \
+            tests/test_fea_dispatch_direct.py \
+            tests/test_femmt_benchmark.py::test_benchmark_yaml_loads \
+            -v
+
+      - name: Run cross-shape benchmark (direct vs FEMMT)
+        run: |
+          mkdir -p validation/fea-benchmark/$(date +%Y-%m-%d)
+          uv run python scripts/benchmark_shapes_vs_femmt.py --json \
+            > validation/fea-benchmark/$(date +%Y-%m-%d)/results.json \
+            2> validation/fea-benchmark/$(date +%Y-%m-%d)/log.txt
+        continue-on-error: true  # FEMMT may flake on some shapes; we want the artifact regardless
+
+      - name: Run slow benchmark suite
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        run: uv run pytest tests/test_femmt_benchmark.py -m slow -v
+        continue-on-error: true
+
+      - name: Upload benchmark artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fea-benchmark-${{ github.run_id }}
+          path: validation/fea-benchmark/
+          retention-days: 90
+
+      - name: Comment PR with comparison table
+        if: github.event_name == 'pull_request' && github.event.label.name == '[fea]'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const today = new Date().toISOString().slice(0, 10);
+            const logFile = `validation/fea-benchmark/${today}/log.txt`;
+            let body = '## FEA Benchmark — direct vs FEMMT\n\n';
+            try {
+              const log = fs.readFileSync(logFile, 'utf8');
+              const tableStart = log.indexOf('Shape ');
+              if (tableStart >= 0) {
+                body += '```\n' + log.slice(tableStart) + '\n```\n';
+              } else {
+                body += 'No table parsed from benchmark log.\n';
+              }
+            } catch (e) {
+              body += `Couldn't read ${logFile}: ${e.message}\n`;
+            }
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body,
+            });

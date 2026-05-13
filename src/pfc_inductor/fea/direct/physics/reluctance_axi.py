@@ -343,15 +343,41 @@ def solve_reluctance_from_core(
 
     mu_r = mu_r_initial
     if apply_dc_bias_rolloff and getattr(material, "rolloff", None) is not None:
+        # Powder cores: Magnetics-style μ(H) rolloff.
         from pfc_inductor.fea.direct.physics.saturation import compute_mu_eff_dc_bias
 
-        mu_r, _frac = compute_mu_eff_dc_bias(
+        _mu_unused, mu_pct = compute_mu_eff_dc_bias(
             material=material,
             n_turns=int(n_turns),
             current_A=float(current_A),
             le_m=le * 1e-3,
             fallback_mu_r=mu_r_initial,
         )
+        mu_r = mu_r_initial * mu_pct
+    elif apply_dc_bias_rolloff:
+        # Ferrite (no rolloff curve, has Bsat): apply the tanh
+        # soft-knee saturation factor ONLY for closed-core operation
+        # (no gap). Gapped cores rely on the gap to keep B in the
+        # linear region and don't need the knee. Phase 3.1 acceptance
+        # focuses on B vs I up to 1.3·Bsat, which only happens on
+        # closed cores or severe over-current cases.
+        catalog_lgap = float(getattr(core, "lgap_mm", 0.0) or 0.0)
+        effective_lgap = float(gap_mm) if gap_mm is not None else catalog_lgap
+        Bsat = float(
+            getattr(material, "Bsat_100C_T", None) or getattr(material, "Bsat_25C_T", None) or 0.0
+        )
+        if effective_lgap == 0 and Bsat > 0:
+            from pfc_inductor.fea.direct.physics.saturation import (
+                ferrite_saturation_factor,
+            )
+
+            mu0 = 4 * math.pi * 1e-7
+            # Closed-circuit B estimate (no gap → μ_initial dominates)
+            B_estimate = mu_r_initial * mu0 * int(n_turns) * float(current_A) / (le * 1e-3)
+            knee_factor = ferrite_saturation_factor(
+                B_T=B_estimate, B_sat_T=Bsat, knee_sharpness=5.0
+            )
+            mu_r = mu_r_initial * knee_factor
 
     # Effective gap: explicit override → catalog lgap_mm → 0
     if gap_mm is not None:

@@ -30,10 +30,11 @@ from pfc_inductor.ui.widgets import Card, wrap_scrollable
 # QSettings key for the persisted FEA backend selection.
 _FEA_BACKEND_KEY = "fea/backend"
 # Maps the human-readable label to the env-var value the dispatcher
-# reads. ``"auto"`` is the legacy shape-based heuristic (no override).
+# reads. ``"direct"`` is now the default (Phase 5.2 cutover); the
+# legacy backends remain as opt-in fallbacks.
 _BACKEND_OPTIONS: list[tuple[str, str]] = [
+    ("Direct (default — in-tree, fastest, datasheet-exact)", "direct"),
     ("Auto (legacy: FEMMT for EE/PQ, FEMM for toroid)", "auto"),
-    ("Direct (in-tree, faster, no FEMMT dependency)", "direct"),
     ("FEMMT (force, even for toroids)", "femmt"),
     ("FEMM (legacy xfemm/femm.exe)", "femm"),
 ]
@@ -188,15 +189,17 @@ class ConfiguracoesPage(QWidget):
     def _apply_saved_backend(self) -> None:
         """Set the env var to match the persisted selection.
 
-        Called from __init__ so the first cascade / FEA solve in
-        a session uses the user's preference without requiring
-        them to re-open this page.
+        Phase 5.2 cutover: the default is now ``"direct"`` (when no
+        preference is saved). Called from __init__ so the first
+        cascade / FEA solve in a session uses the user's preference
+        without requiring them to re-open this page.
         """
         qs = QSettings(SETTINGS_ORG, SETTINGS_APP)
-        saved = str(qs.value(_FEA_BACKEND_KEY, "auto") or "auto").lower()
+        saved = str(qs.value(_FEA_BACKEND_KEY, "direct") or "direct").lower()
         if saved in ("direct", "femmt", "femm"):
             os.environ["PFC_FEA_BACKEND"] = saved
         else:
+            # ``"auto"`` → unset to let dispatcher use shape-based legacy
             os.environ.pop("PFC_FEA_BACKEND", None)
 
     def _build_litz_card(self) -> Card:

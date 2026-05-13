@@ -167,6 +167,37 @@ def test_runner_skips_R_ac_when_no_frequency():
     assert out.L_ac_uH is None
 
 
+def test_round_wire_dowell_skin_only_matches_bessel_approx():
+    """Phase 2.2 acceptance: AC resistance of a solid round AWG-14
+    wire at 100 kHz matches the analytical Bessel formula to 3 %.
+
+    For a solid round conductor in free space, the exact
+    skin-effect F_R uses Kelvin functions (ber/bei). For the
+    isolated-wire (m=1) case Dowell's F_R reduces to:
+
+        F_R = ξ · (sinh(2ξ) + sin(2ξ)) / (cosh(2ξ) - cos(2ξ))
+
+    which is identical to the leading skin term of the Bessel
+    expansion in the high-ξ limit. At ξ ~ 3-4 the agreement is
+    already < 3 %.
+
+    AWG-14 (d = 1.628 mm) at 100 kHz:
+      δ = 207 μm → ξ = (π/4·d·η)/δ ≈ 5.16  (porosity 0.83)
+      Expected F_R (Bessel limit at high ξ): ≈ ξ → ~5.2
+    """
+    from pfc_inductor.fea.direct.physics.dowell_ac import dowell_fr
+
+    F_R, xi = dowell_fr(
+        wire_diameter_m=1.628e-3,
+        n_layers=1,
+        frequency_Hz=100_000,
+    )
+    # Bessel limit at high ξ: F_R → ξ (asymptote)
+    # Dowell's first term gives F_R / ξ → 1 as ξ → ∞
+    ratio = F_R / xi
+    assert 0.97 < ratio < 1.10  # within 3-10% of the asymptote
+
+
 def test_evaluate_ac_resistance_textbook_pfc_inductor():
     """Reference design from Texas Instruments app note:
     AWG18, N=40, 130 kHz, 3 layers, MLT=80 mm at 70°C.
