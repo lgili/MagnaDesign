@@ -195,6 +195,54 @@ def solve_reluctance(inputs: ReluctanceInputs) -> ReluctanceOutputs:
     )
 
 
+def _mu_r_from_catalog_AL(core: object, fallback_mu_r: float) -> float:
+    """Back-derive μ_r from the catalog's experimental AL_nH value.
+
+    For a closed core (no gap), the inductance per turn² is
+    ``AL_nH × 1e-3 = μ_r · μ_0 · Ae / le`` (in H). Solving for μ_r:
+
+        μ_r = AL_nH · 1e-3 · le / (μ_0 · Ae)
+
+    AL is **experimentally measured by the manufacturer** at low
+    signal, so it captures the actual operating-condition μ_initial.
+    The catalog material's ``mu_initial`` field can be conservative
+    (e.g. Ferroxcube 3C90 catalog lists ~1416 here, but the
+    datasheet μ_i at 25 °C is 2300 — and AL implies 2300).
+
+    Using AL-derived μ_r makes closed-core L match the catalog
+    exactly. For gapped cores we still use this μ_r in the iron
+    reluctance term; the gap reluctance dominates anyway when
+    lgap > 0.1 mm so the iron μ_r matters less.
+
+    Returns ``fallback_mu_r`` when AL isn't populated or yields a
+    nonsensical value (negative, zero, or > 1e6).
+    """
+    AL = getattr(core, "AL_nH", None)
+    Ae = getattr(core, "Ae_mm2", None)
+    le = getattr(core, "le_mm", None)
+    if AL is None or Ae is None or le is None:
+        return fallback_mu_r
+    AL = float(AL or 0)
+    Ae = float(Ae or 0)
+    le = float(le or 0)
+    if AL <= 0 or Ae <= 0 or le <= 0:
+        return fallback_mu_r
+    # AL is for the AS-SHIPPED core, including any catalog gap. Cores
+    # shipped pre-gapped (catalog lgap_mm > 0) have AL that ALREADY
+    # accounts for the gap. We back-derive μ_r assuming the AL was
+    # measured on the closed equivalent — only valid for ungapped
+    # catalog entries.
+    catalog_gap = float(getattr(core, "lgap_mm", 0.0) or 0.0)
+    if catalog_gap > 0:
+        return fallback_mu_r
+    mu0 = 4 * math.pi * 1e-7
+    L_per_turn_H = AL * 1e-9
+    mu_r_implied = L_per_turn_H * (le * 1e-3) / (mu0 * Ae * 1e-6)
+    if mu_r_implied <= 0 or mu_r_implied > 1_000_000:
+        return fallback_mu_r
+    return mu_r_implied
+
+
 def solve_reluctance_from_core(
     *,
     core: object,
@@ -204,11 +252,66 @@ def solve_reluctance_from_core(
     gap_mm: Optional[float] = None,
     apply_dc_bias_rolloff: bool = True,
     fringing_model: str = "roters",
+    use_catalog_AL: bool = True,
 ) -> ReluctanceOutputs:
     """Adapter from catalog Core+Material to ``ReluctanceOutputs``.
 
     Mirrors the toroidal solver's calling convention.
+
+    Parameters
+    ----------
+    use_catalog_AL:
+        When ``True`` (default), back-derive ``μ_r`` from the catalog's
+        ``AL_nH`` value (experimentally measured) so closed-core L
+        matches manufacturer data exactly. When ``False``, use the
+        material's ``mu_initial`` directly — useful for what-if
+        studies where the user wants to model a non-catalog material.
     """
+    # Fast path: when the catalog ships an ``AL_nH`` value AND the
+    # caller hasn't overridden the gap, just use the manufacturer-
+    # measured AL × N². This matches the analytical engine's
+    # ``inductance_uH(N, AL, mu_pct)`` exactly and is the right answer
+    # for any catalog core (closed or gapped) at the operating
+    # condition the manufacturer measured. The reluctance model is a
+    # fallback for catalog entries without AL or when the user wants
+    # a non-catalog gap.
+    AL_catalog = getattr(core, "AL_nH", None)
+    user_overrode_gap = gap_mm is not None
+    if use_catalog_AL and AL_catalog and float(AL_catalog) > 0 and not user_overrode_gap:
+        mu_pct = 1.0
+        if apply_dc_bias_rolloff and getattr(material, "rolloff", None) is not None:
+            from pfc_inductor.fea.direct.physics.saturation import compute_mu_eff_dc_bias
+
+            le_m = float(getattr(core, "le_mm", 0.0) or 0.0) * 1e-3
+            if le_m > 0:
+                _mu_eff, mu_pct = compute_mu_eff_dc_bias(
+                    material=material,
+                    n_turns=int(n_turns),
+                    current_A=float(current_A),
+                    le_m=le_m,
+                    fallback_mu_r=1.0,
+                )
+
+        Ae_m2 = float(getattr(core, "Ae_mm2", 0.0) or 0.0) * 1e-6
+        L_H = float(AL_catalog) * 1e-9 * (int(n_turns) ** 2) * mu_pct
+        # B_pk = L·I / (N·Ae) — same expression the analytical
+        # engine uses (energy + flux balance).
+        if int(n_turns) > 0 and Ae_m2 > 0:
+            B_pk = L_H * float(current_A) / (int(n_turns) * Ae_m2)
+        else:
+            B_pk = 0.0
+
+        return ReluctanceOutputs(
+            L_uH=L_H * 1e6,
+            B_pk_T=abs(B_pk),
+            B_avg_T=abs(B_pk),
+            energy_J=0.5 * L_H * (float(current_A) ** 2),
+            R_iron_per_turn=0.0,
+            R_gap_per_turn=0.0,
+            k_fringe=1.0,
+            method="catalog_AL",
+        )
+
     Ae = float(getattr(core, "Ae_mm2", 0.0) or 0.0)
     le = float(getattr(core, "le_mm", 0.0) or 0.0)
     if Ae <= 0 or le <= 0:
@@ -233,6 +336,10 @@ def solve_reluctance_from_core(
         or getattr(material, "mu_initial", None)
         or 1.0
     )
+
+    # Calibrate μ_r against catalog AL when available.
+    if use_catalog_AL:
+        mu_r_initial = _mu_r_from_catalog_AL(core, mu_r_initial)
 
     mu_r = mu_r_initial
     if apply_dc_bias_rolloff and getattr(material, "rolloff", None) is not None:

@@ -405,11 +405,41 @@ def solve_toroidal_from_core(
         or 1.0
     )
 
+    # If the catalog ships an experimental AL_nH for this core,
+    # back-derive μ_r from it. Manufacturer-measured AL is more
+    # accurate than the conservative μ_initial stored in some
+    # material catalog entries (e.g. Ferroxcube 3C90 catalog
+    # μ_initial=1416 vs datasheet μ_i=2300 — AL implies 2300).
+    # Only applies to ungapped cores (catalog gap = 0); gapped
+    # cores' AL already includes the gap effect.
+    AL = getattr(core, "AL_nH", None)
+    Ae_mm2 = getattr(core, "Ae_mm2", None)
+    le_mm = getattr(core, "le_mm", None)
+    catalog_gap = float(getattr(core, "lgap_mm", 0.0) or 0.0)
+    if (
+        AL is not None
+        and Ae_mm2 is not None
+        and le_mm is not None
+        and float(AL or 0) > 0
+        and float(Ae_mm2 or 0) > 0
+        and float(le_mm or 0) > 0
+        and catalog_gap == 0
+    ):
+        mu0_const = 4 * math.pi * 1e-7
+        mu_r_implied = float(AL) * 1e-9 * float(le_mm) * 1e-3 / (mu0_const * float(Ae_mm2) * 1e-6)
+        if 1 < mu_r_implied < 1_000_000:
+            mu_r_initial = mu_r_implied
+
     # Apply DC-bias rolloff if requested + the material carries the
     # curve. For powder cores this typically pulls μ_eff down by
     # 20–80 % at typical PFC operating points; it's the difference
     # between catalog AL × N² (small signal) and the actual
     # operating-point inductance.
+    #
+    # We multiply the (AL-calibrated) ``mu_r_initial`` by the
+    # rolloff fraction directly rather than letting
+    # ``compute_mu_eff_dc_bias`` recompute μ from the material —
+    # otherwise the AL calibration is silently discarded.
     mu_r = mu_r_initial
     le_m_for_rolloff = float(le_mm) * 1e-3 if le_mm else None
     if (
@@ -419,13 +449,14 @@ def solve_toroidal_from_core(
     ):
         from pfc_inductor.fea.direct.physics.saturation import compute_mu_eff_dc_bias
 
-        mu_r, _fraction = compute_mu_eff_dc_bias(
+        _mu_unused, mu_pct = compute_mu_eff_dc_bias(
             material=material,
             n_turns=int(n_turns),
             current_A=float(current_A),
             le_m=le_m_for_rolloff,
             fallback_mu_r=mu_r_initial,
         )
+        mu_r = mu_r_initial * mu_pct
 
     distributed_gap_factor = float(getattr(material, "distributed_gap_factor", None) or 1.0)
 

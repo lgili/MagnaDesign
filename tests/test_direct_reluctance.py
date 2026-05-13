@@ -215,6 +215,62 @@ def test_runner_pq_50_50_within_15pct_of_femmt():
     assert delta_pct < 15.0, f"PQ 50/50 |ΔL| = {delta_pct:.1f}% (expected < 15% vs FEMMT)"
 
 
+def test_catalog_AL_fast_path_matches_datasheet():
+    """When the catalog ships AL and user doesn't override gap,
+    the reluctance adapter takes the fast path: L = AL × N² × mu_pct.
+    This matches the manufacturer's measured value exactly for any
+    catalog core — closed or pre-gapped.
+    """
+    from pfc_inductor.data_loader import load_cores, load_materials
+    from pfc_inductor.fea.direct.physics.reluctance_axi import (
+        solve_reluctance_from_core,
+    )
+
+    cores = load_cores()
+    mats = load_materials()
+    # A pre-gapped EFD core: AL was measured WITH the 0.36 mm gap.
+    core = next(
+        c for c in cores if c.id == "mas-ferroxcube-efd-efd-10-5-3---3c90---gapped-0_350-mm"
+    )
+    mat = next(m for m in mats if m.id == core.default_material_id)
+    N = 50
+
+    out = solve_reluctance_from_core(core=core, material=mat, n_turns=N, current_A=0.1)
+    L_catalog_uH = core.AL_nH * 1e-3 * N**2
+    # Direct should match catalog AL × N² within 1 % (the small
+    # residual comes from any DC-bias rolloff factor, which is
+    # ~1.0 at low current).
+    assert out.method == "catalog_AL"
+    assert abs(out.L_uH - L_catalog_uH) / L_catalog_uH < 0.01
+
+
+def test_gap_override_bypasses_AL_fast_path():
+    """When the user passes ``gap_mm=`` explicitly, we want the
+    reluctance solver to model the user-specified gap (not the
+    catalog gap). This bypasses the catalog-AL fast path."""
+    from pfc_inductor.data_loader import load_cores, load_materials
+    from pfc_inductor.fea.direct.physics.reluctance_axi import (
+        solve_reluctance_from_core,
+    )
+
+    cores = load_cores()
+    mats = load_materials()
+    core = next(c for c in cores if c.id == "tdkepcos-pq-4040-n87")
+    mat = next(m for m in mats if m.id == core.default_material_id)
+    N = 39
+
+    # No gap override → fast path (closed-core AL × N²)
+    no_override = solve_reluctance_from_core(core=core, material=mat, n_turns=N, current_A=0.1)
+    # Gap override → reluctance path
+    with_override = solve_reluctance_from_core(
+        core=core, material=mat, n_turns=N, current_A=0.1, gap_mm=0.5
+    )
+    assert no_override.method == "catalog_AL"
+    assert with_override.method == "analytical_reluctance"
+    # User-imposed gap drops L significantly
+    assert with_override.L_uH < no_override.L_uH * 0.5
+
+
 def test_runner_toroidal_still_uses_closed_form():
     """The toroidal dispatch (Phase 2.5) must still route through
     the analytical toroidal solver, not the new reluctance path.
