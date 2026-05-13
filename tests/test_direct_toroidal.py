@@ -215,6 +215,96 @@ def test_powder_core_matches_AL_within_1pct():
     )
 
 
+# ─── DC-bias rolloff (Phase 2.5b) ──────────────────────────────────
+
+
+def test_powder_core_rolloff_active_at_high_current():
+    """At a high DC current (large N·I/le → large H), the Magnetics
+    rolloff factor should pull ``μ_eff`` well below ``μ_initial``,
+    so ``L_with_rolloff < L_no_rolloff``. The catalog 125-HighFlux
+    rolloff curve gives ≈ 50 % at H = 66.7 Oe (the test condition);
+    we lock in this value to ±5 %.
+    """
+    from pfc_inductor.data_loader import load_cores, load_materials
+    from pfc_inductor.fea.direct.physics.magnetostatic_toroidal import (
+        solve_toroidal_from_core,
+    )
+
+    cores = load_cores()
+    mats = load_materials()
+    powder = next(c for c in cores if "magnetics-c058150a2" in c.id.lower())
+    mat = next(m for m in mats if m.id == powder.default_material_id)
+
+    # N=50, I=1A → H = 50/0.00942 = 5307 A/m = 66.7 Oe.
+    # Per Magnetics 125-HighFlux fit: μ% = 1 / (0.01 + 0.01636·66.7^1.13)
+    # = 1/1.891 ≈ 0.529. Verify the solver applies it.
+    L_no = solve_toroidal_from_core(
+        core=powder, material=mat, n_turns=50, current_A=1.0, apply_dc_bias_rolloff=False
+    ).L_uH
+    L_yes = solve_toroidal_from_core(
+        core=powder, material=mat, n_turns=50, current_A=1.0, apply_dc_bias_rolloff=True
+    ).L_uH
+    ratio = L_yes / L_no
+    assert 0.50 <= ratio <= 0.56, (
+        f"rolloff factor out of expected range: L_yes/L_no = {ratio:.3f} "
+        f"(expected ~0.53 per catalog 125-HighFlux fit)"
+    )
+
+
+def test_rolloff_inactive_at_low_current():
+    """At very low current the rolloff factor clips to 1.0 (formula
+    saturates at small H), so ``L`` with and without rolloff is
+    identical. This is the boundary case that keeps the small-
+    signal AL × N² match working.
+    """
+    from pfc_inductor.data_loader import load_cores, load_materials
+    from pfc_inductor.fea.direct.physics.magnetostatic_toroidal import (
+        solve_toroidal_from_core,
+    )
+
+    cores = load_cores()
+    mats = load_materials()
+    powder = next(c for c in cores if "magnetics-c058150a2" in c.id.lower())
+    mat = next(m for m in mats if m.id == powder.default_material_id)
+
+    L_no = solve_toroidal_from_core(
+        core=powder, material=mat, n_turns=50, current_A=0.01, apply_dc_bias_rolloff=False
+    ).L_uH
+    L_yes = solve_toroidal_from_core(
+        core=powder, material=mat, n_turns=50, current_A=0.01, apply_dc_bias_rolloff=True
+    ).L_uH
+    assert math.isclose(L_no, L_yes, rel_tol=1e-9)
+
+
+def test_rolloff_monotonic_in_current():
+    """Sweeping current upward must monotonically decrease L (more
+    saturation → less μ_eff → less L). Locks in the qualitative
+    behaviour against accidental sign flips or off-by-one issues
+    in the rolloff polynomial.
+    """
+    from pfc_inductor.data_loader import load_cores, load_materials
+    from pfc_inductor.fea.direct.physics.magnetostatic_toroidal import (
+        solve_toroidal_from_core,
+    )
+
+    cores = load_cores()
+    mats = load_materials()
+    powder = next(c for c in cores if "magnetics-c058150a2" in c.id.lower())
+    mat = next(m for m in mats if m.id == powder.default_material_id)
+
+    Ls = []
+    for I in (0.5, 1.0, 2.0, 5.0, 10.0):
+        out = solve_toroidal_from_core(
+            core=powder, material=mat, n_turns=50, current_A=I, apply_dc_bias_rolloff=True
+        )
+        Ls.append(out.L_uH)
+    # Monotonic descending
+    from itertools import pairwise
+
+    for prev, curr in pairwise(Ls):
+        assert curr < prev, f"L should drop with rising I, got sequence {Ls}"
+
+
 # ─── End-to-end runner dispatch ────────────────────────────────────
 
 
