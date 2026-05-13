@@ -54,6 +54,9 @@ def run_direct_fea(
     workdir: Path,
     backend: str = "reluctance",
     gap_mm: Optional[float] = None,
+    P_cu_W: Optional[float] = None,
+    P_core_W: Optional[float] = None,
+    T_amb_C: float = 25.0,
     getdp_exe: Optional[Path] = None,
     timeout_s: float = 600.0,
 ) -> DirectFeaResult:
@@ -99,12 +102,15 @@ def run_direct_fea(
     _TOROIDAL_SHAPES = {"toroid", "toroidal", "t"}
 
     if shape in _TOROIDAL_SHAPES:
-        return _run_toroidal_analytical(
+        result = _run_toroidal_analytical(
             core=core,
             material=material,
             n_turns=n_turns,
             current_A=current_A,
             workdir=workdir,
+        )
+        return _apply_thermal_if_requested(
+            result, core=core, P_cu_W=P_cu_W, P_core_W=P_core_W, T_amb_C=T_amb_C
         )
     if shape not in _AXI_SHAPES:
         # Fall through anyway — the reluctance solver works on any
@@ -122,13 +128,16 @@ def run_direct_fea(
     # have a known calibration gap (Phase 4.2 will replace them
     # with a proper 3-D mode).
     if backend == "reluctance":
-        return _run_reluctance(
+        result = _run_reluctance(
             core=core,
             material=material,
             n_turns=n_turns,
             current_A=current_A,
             workdir=workdir,
             gap_mm=gap_mm,
+        )
+        return _apply_thermal_if_requested(
+            result, core=core, P_cu_W=P_cu_W, P_core_W=P_core_W, T_amb_C=T_amb_C
         )
 
     # Lazy imports — keep cold import cost off the boot path.
@@ -358,6 +367,45 @@ def run_direct_fea(
 
 
 # ─── Helpers ──────────────────────────────────────────────────────
+
+
+def _apply_thermal_if_requested(
+    result: DirectFeaResult,
+    *,
+    core: object,
+    P_cu_W: Optional[float],
+    P_core_W: Optional[float],
+    T_amb_C: float,
+) -> DirectFeaResult:
+    """Run the lumped thermal model if losses are supplied; otherwise
+    return the result unchanged.
+
+    The caller (cascade Tier 3 / UI) typically passes ``P_cu_W`` and
+    ``P_core_W`` from the analytical engine's loss split. The direct
+    backend's FEA-side AC pass (Phase 2.2+) will eventually supply
+    these directly when the AC harmonic results stabilise. For now
+    it's caller-fed.
+    """
+    if P_cu_W is None and P_core_W is None:
+        return result
+
+    from pfc_inductor.fea.direct.physics.thermal import compute_temperature
+
+    therm = compute_temperature(
+        core=core,
+        P_cu_W=float(P_cu_W or 0.0),
+        P_core_W=float(P_core_W or 0.0),
+        T_amb_C=float(T_amb_C),
+    )
+    # DirectFeaResult is frozen — build a new one with the thermal
+    # fields populated.
+    from dataclasses import replace as _replace
+
+    return _replace(
+        result,
+        T_winding_C=therm.T_winding_C,
+        T_core_C=therm.T_core_C,
+    )
 
 
 def _run_reluctance(
