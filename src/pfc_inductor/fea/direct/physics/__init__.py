@@ -20,11 +20,15 @@ The module layout follows that order:
 from __future__ import annotations
 
 __all__ = [
+    "MagnetostaticAcInputs",
+    "MagnetostaticAcTemplate",
     "MagnetostaticAxiTemplate",
     "MagnetostaticGlobalQTemplate",
     "MagnetostaticTemplate",
     "ToroidalInputs",
     "ToroidalOutputs",
+    "recommended_mesh_size_at_skin_m",
+    "skin_depth_m",
     "solve_toroidal",
     "solve_toroidal_aggregate",
     "solve_toroidal_from_core",
@@ -44,6 +48,15 @@ def __getattr__(name: str):
         )
 
         return MagnetostaticAxiTemplate
+    if name in (
+        "MagnetostaticAcInputs",
+        "MagnetostaticAcTemplate",
+        "recommended_mesh_size_at_skin_m",
+        "skin_depth_m",
+    ):
+        from pfc_inductor.fea.direct.physics import magnetostatic_ac
+
+        return getattr(magnetostatic_ac, name)
     if name == "MagnetostaticGlobalQTemplate":
         from pfc_inductor.fea.direct.physics.magnetostatic_globalq import (
             MagnetostaticGlobalQTemplate,

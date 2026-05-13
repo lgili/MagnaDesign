@@ -117,3 +117,79 @@ def compute_inductance_uH(
     energy_total_J = energy_2d_Jm * depth_m
     L_H = 2.0 * energy_total_J / (current_A * current_A)
     return L_H * 1e6
+
+
+# ─── AC postproc (Phase 2.1) ───────────────────────────────────────
+
+
+def parse_complex_scalar_table(path: Path) -> Optional[complex]:
+    """Read a GetDP ``Format Table`` complex scalar.
+
+    Frequency-domain solves write three columns per line::
+
+        <region_index>   <real_part>   <imag_part>
+
+    This parses the last two columns and returns ``complex(re, im)``.
+    For pure real outputs (e.g. P_cu from a power expression) the
+    imaginary part will be 0; the caller takes ``.real`` to get
+    the physical Watts.
+
+    Returns ``None`` if the file is missing or malformed.
+    """
+    if not path.is_file():
+        _LOG.warning("complex scalar table missing: %s", path)
+        return None
+    text = path.read_text(encoding="utf-8", errors="replace")
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        tokens = re.split(r"\s+", stripped)
+        if len(tokens) < 3:
+            continue
+        try:
+            re_val = float(tokens[-2])
+            im_val = float(tokens[-1])
+            return complex(re_val, im_val)
+        except ValueError:
+            continue
+    _LOG.warning("complex scalar table %s had no parseable line", path)
+    return None
+
+
+def extract_ac_L_R_from_flux(
+    *,
+    flux_over_I_complex: complex,
+    n_turns: int,
+    frequency_Hz: float,
+) -> tuple[float, float]:
+    """Compute ``L_ac`` and ``R_ac`` from the flux-linkage phasor.
+
+    The integrand emitted by :class:`MagnetostaticAcTemplate` is
+    ``∫ A_φ × (2π·r) / A_coil dA  =  Φ_per_turn``. Multiplied by
+    N this is the total flux linkage Λ. The relation::
+
+        V = jω · Λ            (Faraday's law for the phasor)
+        V = (R_ac + jω·L_ac) · I
+        ⟹ jω · Φ_per_turn · N = (R_ac + jω·L_ac) · I
+
+    Since the template normalises by ``I_pk`` inside the integral,
+    we get directly:
+
+        Λ_over_I_complex = Re(Λ/I) + j·Im(Λ/I)
+        L_ac = Re(Λ/I) · N     [in Henries]
+        R_ac = -ω · Im(Λ/I) · N
+
+    The minus sign on R_ac reflects that the imaginary part of A
+    (in our sign convention) is in the same direction as the
+    eddy-current voltage drop that causes ohmic loss.
+
+    Returns
+    -------
+    (L_uH, R_mOhm)
+        Inductance in microhenries, resistance in milliohms.
+    """
+    omega = 2 * 3.141592653589793 * frequency_Hz
+    L_H = flux_over_I_complex.real * n_turns
+    R_Ohm = -omega * flux_over_I_complex.imag * n_turns
+    return L_H * 1e6, R_Ohm * 1e3
