@@ -235,6 +235,73 @@ right form once we add AC (where ``Dt[a]`` couples Us = jωL·I
 gives a different `L` extraction path) and circuit-coupled
 problems. So this implementation isn't wasted work.
 
+## Phase 1.5 RESULT (this session)
+
+Found and applied the **``2π·R_mean`` source-area correction**
+for axisymmetric. The runner now ships a working `backend="axi"`
+path that gives correct-order-of-magnitude inductance values
+on wound EI cores. From `78 μH` (planar, wrong physics) to
+`3840 μH` (axi, correct order of magnitude). Analytical ideal:
+6930 μH at μ_r=2000, lgap=0.5 mm on the synthetic test case.
+
+## Phase 1.6 characterization (also this session)
+
+Ran 3 parameter sweeps on the axi backend to characterize the
+remaining ~50 % residual error:
+
+```
+Sweep 1: lgap   (N=80, μ_r=2000)
+  lgap=0.1 mm: L_fem= 3852 μH   L_ana=24588 μH   ratio=0.157
+  lgap=0.5 mm: L_fem= 3840 μH   L_ana= 6930 μH   ratio=0.554
+  lgap=1.0 mm: L_fem= 3828 μH   L_ana= 3652 μH   ratio=1.048
+  lgap=2.0 mm: L_fem= 3820 μH   L_ana= 1876 μH   ratio=2.036
+  lgap=5.0 mm: L_fem= 3782 μH   L_ana=  763 μH   ratio=4.955
+
+Sweep 2: N   (lgap=0.5 mm, μ_r=2000)
+  All N: ratio is EXACTLY 0.554 (N² scaling perfect)
+
+Sweep 3: μ_r   (N=80, lgap=0.5 mm)
+  μ_r= 100: ratio=1.627
+  μ_r= 500: ratio=0.724
+  μ_r=2000: ratio=0.554
+  μ_r=10000: ratio=0.509  (plateaus)
+```
+
+**The FEM gives a constant ~3840 μH** regardless of `lgap` and
+`μ_r`. That's a SYMPTOMATIC of the flux taking a path the model
+doesn't expect — equivalent to an effective gap of ~1 mm.
+
+Hypotheses ruled out
+--------------------
+- **Bobbin clearance**: dropped clearance from 1 mm → 0.02 mm
+  and L only varied 3925 → 3731 μH (5 %). Not the bottleneck.
+- **Geometric gap**: confirmed AirGap physical group has the
+  expected 6.18 mm² area when ``lgap_mm`` is set.
+
+Remaining hypotheses
+--------------------
+1. **Flux is concentrating at the ``r = 0`` axis singularity**
+   instead of distributing through the iron loop. The earlier
+   axi field plot showed a bright stripe at r = 0 with little
+   B in the legs / yokes. The ``BF_PerpendicularEdge`` basis
+   handles ``A_φ = 0`` at the axis automatically, but the
+   numerical handling might be problematic.
+2. **Wrong outer-leg thickness** in our `EICoreDims.from_core`
+   heuristic. The cylindrical shell approximation might give a
+   shell that's too thin (current value: ~3 mm thick) producing
+   a saturation-like ceiling.
+3. **Mesh-induced artifact**: the gap region might not be
+   adequately discretized for the axi formulation (the planar
+   "fine mesh in the gap" hint was applied uniformly).
+
+Phase 1.7 / next session
+------------------------
+Focus on item 1 — the r = 0 singularity. Specific test:
+geometrically OFFSET the center leg slightly (so r_inner > 0)
+and see if the field response improves. If yes, the issue is
+the r = 0 boundary handling and we need an explicit Dirichlet
+``A_φ = 0`` constraint there.
+
 ## Empirical data from Phase 1.3 (end of session)
 
 A quick "what if I just scale J by N?" experiment ruled out the
