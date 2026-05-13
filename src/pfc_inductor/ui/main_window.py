@@ -1710,7 +1710,9 @@ class MainWindow(QMainWindow):
         try:
             from PySide6.QtCore import QSettings
 
-            settings = QSettings("MagnaDesign", "MagnaDesign")
+            from pfc_inductor.app_identity import qsettings_args
+
+            settings = QSettings(*qsettings_args())
             raw = settings.value(self._AUTO_CHECK_KEY, False)
         except Exception:
             return False
@@ -1723,7 +1725,9 @@ class MainWindow(QMainWindow):
     def _set_auto_check(self, enabled: bool) -> None:
         from PySide6.QtCore import QSettings
 
-        settings = QSettings("MagnaDesign", "MagnaDesign")
+        from pfc_inductor.app_identity import qsettings_args
+
+        settings = QSettings(*qsettings_args())
         settings.setValue(self._AUTO_CHECK_KEY, bool(enabled))
         settings.sync()
 

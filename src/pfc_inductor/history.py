@@ -10,9 +10,14 @@ in losses, ΔT, volume.
 
 Storage
 -------
-SQLite at ``~/Library/Application Support/MagnaDesign/history.db``
-(macOS) or the platform equivalent (we reuse the same QStandardPaths
-location the cascade store uses). Schema:
+SQLite at the path returned by
+:func:`pfc_inductor.app_identity.app_data_dir` + ``history.db``:
+
+    macOS    →  ~/Library/Application Support/MagnaDesign/history.db
+    Linux    →  ~/.local/share/MagnaDesign/history.db
+    Windows  →  %LOCALAPPDATA%\\MagnaDesign\\MagnaDesign\\history.db
+
+Schema:
 
     CREATE TABLE history (
         id            INTEGER PRIMARY KEY,
@@ -54,11 +59,9 @@ logger = logging.getLogger(__name__)
 
 def default_history_path() -> Path:
     """Return the platform's app-data directory + ``history.db``."""
-    import platformdirs
+    from pfc_inductor.app_identity import app_data_dir
 
-    base = Path(platformdirs.user_data_dir("MagnaDesign", "Anthropic"))
-    base.mkdir(parents=True, exist_ok=True)
-    return base / "history.db"
+    return app_data_dir() / "history.db"
 
 
 # ---------------------------------------------------------------------------

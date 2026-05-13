@@ -1,7 +1,7 @@
 """Consent state — crash reports + analytics flags.
 
 Persisted in ``QSettings`` when Qt is available; falls back to a
-JSON file under ``platformdirs.user_config_dir("MagnaDesign")``
+JSON file under :func:`pfc_inductor.app_identity.app_config_dir`
 so the CLI path works without a Qt application.
 
 State shape::
@@ -54,7 +54,7 @@ def consent_state() -> ConsentState:
     """Return the current persisted consent state.
 
     Reads from QSettings when Qt is available; otherwise reads
-    from ``platformdirs.user_config_dir / consent.json``.
+    from :func:`pfc_inductor.app_identity.app_config_dir` + ``consent.json``.
     Missing / malformed state returns the "not asked" default.
     """
     payload = _read_qsettings() or _read_json_file() or {}
@@ -120,7 +120,9 @@ def _read_qsettings() -> Optional[dict]:
         from PySide6.QtCore import QSettings
     except ImportError:
         return None
-    settings = QSettings("MagnaDesign", "MagnaDesign")
+    from pfc_inductor.app_identity import qsettings_args
+
+    settings = QSettings(*qsettings_args())
     raw = settings.value("telemetry/consent", None)
     if raw is None:
         return None
@@ -141,21 +143,18 @@ def _write_qsettings(payload: dict) -> bool:
         from PySide6.QtCore import QSettings
     except ImportError:
         return False
-    settings = QSettings("MagnaDesign", "MagnaDesign")
+    from pfc_inductor.app_identity import qsettings_args
+
+    settings = QSettings(*qsettings_args())
     settings.setValue("telemetry/consent", json.dumps(payload))
     settings.sync()
     return True
 
 
 def _consent_file() -> Path:
-    try:
-        from platformdirs import user_config_dir
+    from pfc_inductor.app_identity import app_config_dir
 
-        base = Path(user_config_dir("MagnaDesign"))
-    except ImportError:
-        base = Path.home() / ".config" / "MagnaDesign"
-    base.mkdir(parents=True, exist_ok=True)
-    return base / "consent.json"
+    return app_config_dir() / "consent.json"
 
 
 def _read_json_file() -> Optional[dict]:

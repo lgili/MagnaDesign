@@ -171,6 +171,69 @@ def test_needs_workaround_false_when_no_spaces(monkeypatch):
     assert workaround.needs_workaround() is False
 
 
+# ── _relocate: symlink + copy fallback paths ─────────────────────
+def test_relocate_uses_symlink_on_posix(tmp_path: Path):
+    """POSIX path: ``os.symlink`` works without privileges, so the
+    shim points at the real FEMMT install via a symlink (zero disk
+    cost). This is the fast path on macOS and Linux."""
+    if sys.platform == "win32":
+        pytest.skip("POSIX symlink behavior")
+    real = tmp_path / "real_femmt"
+    real.mkdir()
+    (real / "__init__.py").write_text("# real")
+    target = tmp_path / "shim" / "femmt"
+    target.parent.mkdir()
+
+    assert workaround._relocate(real, target) is True
+    assert target.is_symlink()
+    assert (target / "__init__.py").read_text() == "# real"
+
+
+def test_relocate_falls_back_to_copy_when_symlink_fails(monkeypatch, tmp_path: Path):
+    """Windows path: ``os.symlink`` raises ``OSError`` without admin /
+    Developer Mode. The function must transparently fall back to a
+    directory copy so the unprivileged Windows user still gets a
+    working FEMMT install."""
+    real = tmp_path / "real_femmt"
+    real.mkdir()
+    (real / "__init__.py").write_text("# real")
+    (real / "submodule.py").write_text("x = 1")
+    target = tmp_path / "shim" / "femmt"
+    target.parent.mkdir()
+
+    def _fail_symlink(*args, **kwargs):
+        raise OSError("symlink not permitted")
+
+    monkeypatch.setattr(workaround.os, "symlink", _fail_symlink)
+
+    assert workaround._relocate(real, target) is True
+    assert target.is_dir() and not target.is_symlink()
+    assert (target / "__init__.py").read_text() == "# real"
+    assert (target / "submodule.py").read_text() == "x = 1"
+
+
+def test_relocate_returns_false_when_both_strategies_fail(monkeypatch, tmp_path: Path):
+    """Pathological case (read-only target, full disk, ...) — both
+    symlink and copy fail. ``_relocate`` returns False so the caller
+    can surface a clear error to the user instead of silently
+    pretending the workaround succeeded."""
+    real = tmp_path / "real_femmt"
+    real.mkdir()
+    target = tmp_path / "shim" / "femmt"
+    target.parent.mkdir()
+
+    monkeypatch.setattr(
+        workaround.os, "symlink", lambda *a, **k: (_ for _ in ()).throw(OSError("nope"))
+    )
+    monkeypatch.setattr(
+        workaround.shutil,
+        "copytree",
+        lambda *a, **k: (_ for _ in ()).throw(OSError("disk full")),
+    )
+
+    assert workaround._relocate(real, target) is False
+
+
 # ---------------------------------------------------------------------------
 # CLI smoke
 # ---------------------------------------------------------------------------

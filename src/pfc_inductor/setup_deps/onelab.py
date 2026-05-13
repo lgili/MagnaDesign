@@ -28,8 +28,8 @@ def default_onelab_dir() -> Path:
     """Where we install ONELAB by default for the current OS.
 
     Delegates to :class:`~pfc_inductor.setup_deps.paths.FeaPaths` so
-    Windows users get ``%LOCALAPPDATA%/MagnaDesign/onelab`` and
-    macOS / Linux users keep the historical ``~/onelab``.
+    Windows users get ``%LOCALAPPDATA%\\MagnaDesign\\MagnaDesign\\onelab``
+    and macOS / Linux users keep the historical ``~/onelab``.
     """
     return FeaPaths.detect().default_onelab_dir
 

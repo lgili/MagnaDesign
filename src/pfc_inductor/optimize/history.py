@@ -1,7 +1,7 @@
 """Persistence layer for optimizer Run History + Recent Picks.
 
 Two lightweight stores, both JSON files under
-``platformdirs.user_data_dir("PFCInductorDesigner", "indutor")``:
+:func:`pfc_inductor.app_identity.app_data_dir`:
 
 - ``optimizer_recent_picks.json`` — last 5 applied design triples
   ``(material_id, core_id, wire_id)`` plus a display label and an
@@ -36,7 +36,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Optional
 
-from platformdirs import user_data_dir
+from pfc_inductor.app_identity import app_data_dir
 
 _LOG = logging.getLogger(__name__)
 
@@ -49,9 +49,7 @@ MAX_RUN_HISTORY = 10
 
 def _history_dir() -> Path:
     """Resolve and ensure the user-data directory for both stores."""
-    path = Path(user_data_dir("PFCInductorDesigner", "indutor"))
-    path.mkdir(parents=True, exist_ok=True)
-    return path
+    return app_data_dir()
 
 
 def _load_json_list(file_name: str) -> list[dict[str, Any]]:

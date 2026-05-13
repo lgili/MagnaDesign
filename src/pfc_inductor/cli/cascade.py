@@ -207,8 +207,7 @@ def _cascade_cmd(
 
     # Lazy imports — keep the CLI startup Qt-free. The cascade
     # module pulls platformdirs + sqlite, both fine for headless.
-    from platformdirs import user_data_dir
-
+    from pfc_inductor.app_identity import app_data_dir
     from pfc_inductor.optimize.cascade import (
         CascadeConfig,
         CascadeOrchestrator,
@@ -217,12 +216,7 @@ def _cascade_cmd(
     )
 
     if store_path is None:
-        store_path = (
-            Path(
-                user_data_dir("PFCInductorDesigner", "indutor"),
-            )
-            / "cascade.db"
-        )
+        store_path = app_data_dir() / "cascade.db"
     store_path = store_path.expanduser().resolve()
     store_path.parent.mkdir(parents=True, exist_ok=True)
     store = RunStore(store_path)

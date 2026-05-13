@@ -6,17 +6,28 @@ package path. When the venv is inside something like
 and gmsh receives a truncated argument like ``/Users/.../02.pro``.
 
 The workaround is to relocate the FEMMT package into a no-spaces path
-(``$TMPDIR/pfc_femmt_shim`` — kernel-managed on macOS/Linux, ``%TEMP%``
-on Windows) and prepend that to ``sys.path`` before ``import femmt``
-happens.
+and prepend that to ``sys.path`` before ``import femmt`` happens.
+:func:`pfc_inductor.setup_deps.paths._choose_no_spaces_shim_dir` picks
+the destination per OS:
 
-On macOS / Linux we use a symlink (cheap, atomic, survives across runs
-until reboot). On **Windows** symlink creation requires either admin
-rights or Developer Mode — neither of which a regular user is likely
-to have — so we fall back to a recursive directory copy. The copy is
-slower (~1 s for FEMMT) and uses ~30 MB of disk, but it's a one-time
-cost per install / upgrade and it's the only way to dodge the shell
-quoting bug without forcing admin rights.
+* macOS  → ``/var/folders/<hash>/T/pfc_femmt_shim``
+  (kernel-managed per-user tempdir, never has spaces).
+* Linux  → ``/tmp/pfc_femmt_shim`` (system tempdir, no spaces).
+  Falls back to ``/var/tmp/pfc_femmt_shim`` if ``$TMPDIR`` is set
+  to a path with spaces.
+* Windows → ``%TEMP%\\pfc_femmt_shim`` when ``%TEMP%`` is clean.
+  Falls back to ``C:\\Users\\Public\\magnadesign-femmt-shim`` when
+  the current user's name has a space — ``%LOCALAPPDATA%`` and
+  ``%TEMP%`` both inherit the space, but ``%PUBLIC%`` doesn't.
+
+Relocation strategy:
+
+* macOS / Linux → symlink (cheap, atomic, survives reboot via
+  ``/var/tmp``; ``/tmp`` clears but re-creating costs <100 ms).
+* Windows → symlink first, but symlink creation needs admin or
+  Developer Mode. Regular users hit ``OSError`` → we fall back to
+  a recursive directory copy. Costs ~1 s + ~30 MB once per FEMMT
+  upgrade and works without privileges.
 """
 
 from __future__ import annotations

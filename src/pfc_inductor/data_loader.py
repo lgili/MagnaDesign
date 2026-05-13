@@ -9,18 +9,21 @@ Supports two on-disk layouts:
 
 Source precedence, highest first:
 
-1. **User overlay** — ``<user_data_dir>/{materials,cores,wires}.json``
-   (whatever the user edited via the DB editor).
-2. **Curated** — ``data/mas/{materials,cores,wires}.json`` shipped with
-   the app, hand-tuned (rolloff/Steinmetz calibrations).
-3. **MAS catalog** — ``data/mas/catalog/{materials,wires}.json`` imported
-   from OpenMagnetics MAS (see ``scripts/import_mas_catalog.py``).
-4. **PyETK catalog** — ``data/pyetk/{materials,cores}.json`` imported
-   from ansys/ansys-pyetk (see ``scripts/import_pyetk_catalog.py``).
-   Tagged with ``x-pfc-inductor.source = "pyetk"`` so the
-   "Apenas curados" filter excludes them by default.
-5. **Legacy** — ``data/{materials,cores,wires}.json`` (only used when no
-   MAS-shaped file exists).
+1. **User overlay (curated)** — ``<user_data_dir>/{materials,cores,wires}.json``
+   (the small hand-tuned set the user can edit via the DB editor).
+2. **MAS catalog (user)** — ``<user_data_dir>/mas/catalog/{materials,cores,wires}.json``
+   (the full OpenMagnetics MAS import, copied to the user dir on first
+   launch by :func:`ensure_user_data` and editable thereafter).
+3. **PyETK catalog (user)** — ``<user_data_dir>/pyetk/{materials,cores}.json``
+   (Ansys-imported ferrites, same copy-on-first-launch pattern).
+4. **Bundle fallbacks** — when any of the user-dir files above is
+   missing :func:`_open_catalog` / :func:`_open_pyetk` fall back to
+   the same path under ``data/`` inside the installed package. New
+   installs always have all three trees populated; the fallbacks
+   exist for the case where a user deletes a file by hand.
+
+Entries with the same ``id`` collapse: only the highest-precedence copy
+is returned. The auto-detect for MAS shape vs legacy is per-file.
 
 Entries with the same ``id`` collapse: only the highest-precedence copy
 is returned. The auto-detect for MAS shape vs legacy is per-file.
@@ -36,12 +39,8 @@ import sys
 from pathlib import Path
 from typing import Iterable
 
-from platformdirs import user_data_dir
-
+from pfc_inductor.app_identity import app_data_dir
 from pfc_inductor.models import Core, Material, Wire
-
-APP_NAME = "PFCInductorDesigner"
-APP_AUTHOR = "indutor"
 
 _PACKAGE_ROOT = Path(__file__).resolve().parent
 
@@ -109,26 +108,67 @@ _BUNDLED_PYETK = _BUNDLED_DATA / "pyetk"
 
 
 def user_data_path() -> Path:
-    p = Path(user_data_dir(APP_NAME, APP_AUTHOR))
-    p.mkdir(parents=True, exist_ok=True)
-    return p
+    return app_data_dir()
 
 
 def ensure_user_data() -> Path:
-    """Copy bundled JSONs into the user-data dir on first launch (non-destructive).
+    """Copy every bundled JSON into the user-data dir on first launch.
 
-    Prefers the MAS layout; falls back to legacy if MAS files are missing
-    from the bundle.
+    Three source trees are mirrored verbatim so the engineer can
+    edit / extend each catalogue independently:
+
+    1. **Primary (curated)** — small hand-picked set in
+       ``<user>/materials.json``, ``<user>/cores.json``,
+       ``<user>/wires.json``. Sourced from ``data/mas/*.json`` when
+       available, falling back to the legacy ``data/*.json``.
+
+    2. **MAS catalog** — the full OpenMagnetics MAS import, kept in
+       ``<user>/mas/catalog/{materials,cores,wires}.json``. Mirrors
+       the bundle's ``data/mas/catalog/`` layout so the path-based
+       extensions the user files in (``my-cores.json`` siblings,
+       e.g.) survive launches.
+
+    3. **PyETK** — Ansys-imported ferrites in
+       ``<user>/pyetk/{materials,cores}.json``. Mirrors the bundle's
+       ``data/pyetk/`` layout for the same reason.
+
+    Copy is **non-destructive**: a file that already exists in the
+    user dir is never overwritten, so the engineer can mutate any
+    catalogue without fear of losing edits across upgrades.
     """
     target = user_data_path()
+
+    # Layer 1 — primary/curated triplet at the user dir root.
     for name in ("materials.json", "cores.json", "wires.json"):
         dst = target / name
-        if not dst.exists():
-            src_mas = _BUNDLED_MAS / name
-            src_legacy = _BUNDLED_DATA / name
-            src = src_mas if src_mas.exists() else src_legacy
-            if src.exists():
+        if dst.exists():
+            continue
+        src_mas = _BUNDLED_MAS / name
+        src_legacy = _BUNDLED_DATA / name
+        src = src_mas if src_mas.exists() else src_legacy
+        if src.exists():
+            shutil.copy2(src, dst)
+
+    # Layer 2 — full MAS catalog mirrored under ``<user>/mas/catalog/``.
+    if _BUNDLED_CATALOG.is_dir():
+        user_catalog_dir = target / "mas" / "catalog"
+        user_catalog_dir.mkdir(parents=True, exist_ok=True)
+        for name in ("materials.json", "cores.json", "wires.json"):
+            dst = user_catalog_dir / name
+            src = _BUNDLED_CATALOG / name
+            if src.exists() and not dst.exists():
                 shutil.copy2(src, dst)
+
+    # Layer 3 — PyETK mirrored under ``<user>/pyetk/``.
+    if _BUNDLED_PYETK.is_dir():
+        user_pyetk_dir = target / "pyetk"
+        user_pyetk_dir.mkdir(parents=True, exist_ok=True)
+        for name in ("materials.json", "cores.json"):
+            dst = user_pyetk_dir / name
+            src = _BUNDLED_PYETK / name
+            if src.exists() and not dst.exists():
+                shutil.copy2(src, dst)
+
     return target
 
 
@@ -145,30 +185,45 @@ def _open_data(name: str) -> dict:
 
 
 def _open_catalog(name: str) -> dict | None:
-    """Read the imported catalog file under data/mas/catalog/, if present."""
-    p = _BUNDLED_CATALOG / name
-    if not p.exists():
+    """Read the MAS catalog file, preferring the user overlay.
+
+    Look-up order:
+
+    1. ``<user_data>/mas/catalog/<name>`` — copied by
+       :func:`ensure_user_data` on first launch and editable by the
+       engineer afterwards. Lets a custom MAS-shaped JSON survive
+       app upgrades without merge-magic on our side.
+    2. ``<bundle>/data/mas/catalog/<name>`` — the read-only ship-time
+       catalog. Used until the user dir is populated and as the
+       fallback when the overlay file is missing.
+    """
+    user = user_data_path() / "mas" / "catalog" / name
+    src = user if user.exists() else _BUNDLED_CATALOG / name
+    if not src.exists():
         return None
     try:
-        return json.loads(p.read_text(encoding="utf-8"))
+        return json.loads(src.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
         return None
 
 
 def _open_pyetk(name: str) -> dict | None:
-    """Read the imported PyETK catalog file under ``data/pyetk/``.
+    """Read the PyETK catalog file, preferring the user overlay.
 
     The PyETK importer (``scripts/import_pyetk_catalog.py``) writes
-    legacy-shaped JSON into this directory tagged with
-    ``x-pfc-inductor.source = "pyetk"``. Returning ``None`` when the
-    file is missing keeps the loader silent for users who never ran
-    the import script.
+    legacy-shaped JSON tagged with ``x-pfc-inductor.source = "pyetk"``.
+    Returning ``None`` when both overlay and bundle are missing keeps
+    the loader silent for users who never ran the import script.
+
+    Look-up order mirrors :func:`_open_catalog`: user overlay first,
+    bundle as fallback.
     """
-    p = _BUNDLED_PYETK / name
-    if not p.exists():
+    user = user_data_path() / "pyetk" / name
+    src = user if user.exists() else _BUNDLED_PYETK / name
+    if not src.exists():
         return None
     try:
-        return json.loads(p.read_text(encoding="utf-8"))
+        return json.loads(src.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
         return None
 

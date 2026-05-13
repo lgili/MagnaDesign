@@ -1,15 +1,20 @@
 """Application-wide ``QSettings`` keys.
 
-Single source of truth for the organisation/application strings used by
-``QSettings(SETTINGS_ORG, SETTINGS_APP)``. Previously duplicated in
-``__main__.py`` and ``ui/main_window.py``; keeping them in one module
-prevents the two from drifting apart and silently splitting user
-preferences across two stores.
+Thin re-export of the ``(organization, application)`` pair from
+:mod:`pfc_inductor.app_identity`. The two names are kept as
+module-level constants for backward compatibility with existing
+``from pfc_inductor.settings import SETTINGS_ORG, SETTINGS_APP``
+imports — new code should call
+:func:`pfc_inductor.app_identity.qsettings_args` directly.
 """
 
 from __future__ import annotations
 
-SETTINGS_ORG = "indutor"
-SETTINGS_APP = "PFCInductorDesigner"
+from pfc_inductor.app_identity import APP_NAME
+
+# Both slots resolve to ``"MagnaDesign"``. Older code may still
+# read them as separate names, so we expose them explicitly.
+SETTINGS_ORG: str = APP_NAME
+SETTINGS_APP: str = APP_NAME
 
 __all__ = ["SETTINGS_APP", "SETTINGS_ORG"]

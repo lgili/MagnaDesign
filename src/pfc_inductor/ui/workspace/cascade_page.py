@@ -39,7 +39,6 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import ClassVar, Mapping, Optional
 
-from platformdirs import user_data_dir
 from PySide6.QtCore import QObject, Qt, QThread, QTimer, Signal, Slot
 from PySide6.QtWidgets import (
     QDialog,
@@ -1288,12 +1287,9 @@ class CascadePage(QWidget):
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
         if store_path is None:
-            store_path = (
-                Path(
-                    user_data_dir("PFCInductorDesigner", "indutor"),
-                )
-                / "cascade.db"
-            )
+            from pfc_inductor.app_identity import app_data_dir
+
+            store_path = app_data_dir() / "cascade.db"
         self._store = RunStore(store_path)
         self._orch = CascadeOrchestrator(self._store)
 

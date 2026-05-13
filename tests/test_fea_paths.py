@@ -45,7 +45,11 @@ def test_binary_names_linux_no_suffix():
 def test_app_data_dir_windows_uses_localappdata(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("LOCALAPPDATA", r"C:\Users\test\AppData\Local")
     paths = FeaPaths.for_platform(_plat("windows"), home=Path(r"C:\Users\test"))
-    assert paths.app_data_dir == Path(r"C:\Users\test\AppData\Local") / "MagnaDesign"
+    # platformdirs convention with author == name nests under
+    # ``<author>\<name>`` on Windows, yielding ``MagnaDesign\MagnaDesign``.
+    assert paths.app_data_dir == (
+        Path(r"C:\Users\test\AppData\Local") / "MagnaDesign" / "MagnaDesign"
+    )
 
 
 def test_app_data_dir_windows_fallback_when_localappdata_unset(
@@ -53,7 +57,9 @@ def test_app_data_dir_windows_fallback_when_localappdata_unset(
 ):
     monkeypatch.delenv("LOCALAPPDATA", raising=False)
     paths = FeaPaths.for_platform(_plat("windows"), home=Path(r"C:\Users\test"))
-    assert paths.app_data_dir == (Path(r"C:\Users\test") / "AppData" / "Local" / "MagnaDesign")
+    assert paths.app_data_dir == (
+        Path(r"C:\Users\test") / "AppData" / "Local" / "MagnaDesign" / "MagnaDesign"
+    )
 
 
 def test_app_data_dir_macos_uses_library_application_support():
@@ -64,13 +70,13 @@ def test_app_data_dir_macos_uses_library_application_support():
 def test_app_data_dir_linux_xdg(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("XDG_DATA_HOME", "/home/test/.share")
     paths = FeaPaths.for_platform(_plat("linux"), home=Path("/home/test"))
-    assert paths.app_data_dir == Path("/home/test/.share/magnadesign")
+    assert paths.app_data_dir == Path("/home/test/.share/MagnaDesign")
 
 
 def test_app_data_dir_linux_default_when_xdg_unset(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.delenv("XDG_DATA_HOME", raising=False)
     paths = FeaPaths.for_platform(_plat("linux"), home=Path("/home/test"))
-    assert paths.app_data_dir == Path("/home/test/.local/share/magnadesign")
+    assert paths.app_data_dir == Path("/home/test/.local/share/MagnaDesign")
 
 
 # ── Default ONELAB install dir ──────────────────────────────────
@@ -80,7 +86,7 @@ def test_default_onelab_dir_windows_under_app_data(monkeypatch: pytest.MonkeyPat
     # Windows users expect application binaries under LOCALAPPDATA,
     # not in their home folder root.
     assert paths.default_onelab_dir == (
-        Path(r"C:\Users\test\AppData\Local") / "MagnaDesign" / "onelab"
+        Path(r"C:\Users\test\AppData\Local") / "MagnaDesign" / "MagnaDesign" / "onelab"
     )
 
 
@@ -111,12 +117,69 @@ def test_femmt_settings_json_always_home_dotfile():
 
 # ── Shim dir (path-with-spaces workaround) ──────────────────────
 def test_shim_dir_uses_tempfile_gettempdir():
-    """Was hardcoded ``/tmp/pfc_femmt_shim`` — no ``/tmp`` on Windows."""
+    """The default shim_dir lives under the OS tempdir on a clean
+    machine — no spaces in the username, FEMMT just works."""
     paths = FeaPaths.for_platform(_plat("windows"), home=Path(r"C:\Users\test"))
     import tempfile
 
     expected = Path(tempfile.gettempdir()) / "pfc_femmt_shim"
     assert paths.shim_dir == expected
+
+
+def _choose_shim(os_name, tempdir, *, public_env: str | None = None) -> Path:
+    """Drive ``_choose_no_spaces_shim_dir`` for one platform / tempdir
+    combo, optionally overriding ``%PUBLIC%`` via env (Windows-only)."""
+    from pfc_inductor.setup_deps.paths import _choose_no_spaces_shim_dir
+
+    if public_env is not None:
+        import os
+
+        old = os.environ.get("PUBLIC")
+        os.environ["PUBLIC"] = public_env
+        try:
+            return _choose_no_spaces_shim_dir(_plat(os_name), tempdir=tempdir)
+        finally:
+            if old is None:
+                os.environ.pop("PUBLIC", None)
+            else:
+                os.environ["PUBLIC"] = old
+    return _choose_no_spaces_shim_dir(_plat(os_name), tempdir=tempdir)
+
+
+def test_shim_falls_back_to_public_on_windows_with_spaces_in_username():
+    """Windows user ``Luiz Carlos`` → ``%LOCALAPPDATA%`` and ``%TEMP%``
+    both inherit the space, but ``%PUBLIC%`` doesn't. The shim must
+    relocate there so FEMMT's broken shell quoting can survive."""
+    shim = _choose_shim(
+        "windows",
+        Path(r"C:\Users\Luiz Carlos\AppData\Local\Temp"),
+    )
+    assert " " not in str(shim)
+    assert "Public" in str(shim)
+
+
+def test_shim_falls_back_to_var_tmp_on_linux_with_spaces_in_tmpdir():
+    """``$TMPDIR=/home/Luiz Carlos/tmp`` would normally poison
+    ``tempfile.gettempdir()``. ``/var/tmp`` is always system-wide and
+    space-free, so it's the safe fallback."""
+    shim = _choose_shim("linux", Path("/home/Luiz Carlos/tmp"))
+    assert " " not in str(shim)
+    assert str(shim).startswith("/var/tmp/")
+
+
+def test_shim_falls_back_to_var_tmp_on_macos_with_spaces_in_tmpdir():
+    """Per-user ``/var/folders`` on macOS is kernel-managed and never
+    has spaces, but if a developer overrides ``$TMPDIR`` to a path
+    with a space we still fall through cleanly."""
+    shim = _choose_shim("darwin", Path("/Users/dev/My Temp"))
+    assert " " not in str(shim)
+
+
+def test_shim_keeps_tempdir_when_clean_on_windows():
+    """Clean user account → tempdir-rooted shim, no fallback needed."""
+    shim = _choose_shim("windows", Path(r"C:\Users\alice\AppData\Local\Temp"))
+    assert "Public" not in str(shim)
+    assert str(shim).endswith("pfc_femmt_shim")
 
 
 # ── is_onelab_installed_at ──────────────────────────────────────
