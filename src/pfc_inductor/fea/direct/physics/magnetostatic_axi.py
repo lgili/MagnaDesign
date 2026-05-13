@@ -150,6 +150,20 @@ PostProcessing {{
        // needed downstream.
        {{ Name W; Value {{ Integral {{ [ 0.5 * nu[] * SquNorm[{{d a}}] ];
             In Magnetic; Jacobian JVol; Integration I_Gauss; }} }} }}
+       // Flux-linkage extraction (FEMMT-style). For an axi A_φ
+       // formulation, the flux through one turn at radius r is
+       // ``Φ(r) = 2π·r·A_φ`` and ``Jacobian VolAxiSqu`` already
+       // includes the 2π·r factor. The integral below thus equals
+       // ``∫(A_φ × 2π·r)/A_coil dA`` over the bundle, i.e. the
+       // "average flux through a turn", scaled by 1/A_coil so the
+       // result divided by current yields ``L``.
+       //
+       // FEMMT's formula: L_nn = ∫ Signn·CoefGeo/AreaCell × CompZ[a] / I_n
+       // For us: AreaCell = coil_area_m2 (already 2π·R-corrected),
+       //         CoefGeo  = 1 (implicit in VolAxiSqu integration).
+       {{ Name FluxLinkageOverI; Value {{ Integral {{
+            [ CompZ[{{a}}] / A_coil / I_DC ];
+            In Coil_pos; Jacobian JVol; Integration I_Gauss; }} }} }}
      }}
   }}
 }}
@@ -164,6 +178,9 @@ PostOperation {{
        Print[ W[Magnetic], OnGlobal, Format Table, File "energy_2d.txt" ];
        Print[ W[Core],     OnGlobal, Format Table, File "energy_core.txt" ];
        Print[ W[AirGap],   OnGlobal, Format Table, File "energy_gap.txt" ];
+       // Flux-linkage / I_DC (FEMMT-style L extraction).
+       Print[ FluxLinkageOverI[Coil_pos], OnGlobal, Format Table,
+              File "flux_linkage_over_I.txt" ];
      }}
   }}
 }}
