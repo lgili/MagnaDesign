@@ -57,6 +57,8 @@ def run_direct_fea(
     P_cu_W: Optional[float] = None,
     P_core_W: Optional[float] = None,
     T_amb_C: float = 25.0,
+    frequency_Hz: Optional[float] = None,
+    n_layers: int = 1,
     getdp_exe: Optional[Path] = None,
     timeout_s: float = 600.0,
 ) -> DirectFeaResult:
@@ -109,8 +111,17 @@ def run_direct_fea(
             current_A=current_A,
             workdir=workdir,
         )
-        return _apply_thermal_if_requested(
+        result = _apply_thermal_if_requested(
             result, core=core, P_cu_W=P_cu_W, P_core_W=P_core_W, T_amb_C=T_amb_C
+        )
+        return _apply_dowell_ac_if_requested(
+            result,
+            wire=wire,
+            n_turns=n_turns,
+            core=core,
+            frequency_Hz=frequency_Hz,
+            n_layers=n_layers,
+            T_winding_C=result.T_winding_C,
         )
     if shape not in _AXI_SHAPES:
         # Fall through anyway — the reluctance solver works on any
@@ -136,8 +147,17 @@ def run_direct_fea(
             workdir=workdir,
             gap_mm=gap_mm,
         )
-        return _apply_thermal_if_requested(
+        result = _apply_thermal_if_requested(
             result, core=core, P_cu_W=P_cu_W, P_core_W=P_core_W, T_amb_C=T_amb_C
+        )
+        return _apply_dowell_ac_if_requested(
+            result,
+            wire=wire,
+            n_turns=n_turns,
+            core=core,
+            frequency_Hz=frequency_Hz,
+            n_layers=n_layers,
+            T_winding_C=result.T_winding_C,
         )
 
     # Lazy imports — keep cold import cost off the boot path.
@@ -367,6 +387,67 @@ def run_direct_fea(
 
 
 # ─── Helpers ──────────────────────────────────────────────────────
+
+
+def _apply_dowell_ac_if_requested(
+    result: DirectFeaResult,
+    *,
+    wire: object,
+    n_turns: int,
+    core: object,
+    frequency_Hz: Optional[float],
+    n_layers: int,
+    T_winding_C: Optional[float],
+) -> DirectFeaResult:
+    """Compute Dowell AC resistance if a frequency is supplied.
+
+    The cascade Tier 3 / UI passes ``frequency_Hz`` (typically
+    the switching frequency for the boost-PFC case) and gets
+    ``R_ac_mOhm`` + ``L_ac_uH`` back on the result.
+
+    For a single-tone AC analysis, L_ac ≈ L_dc (the inductance
+    doesn't change much with frequency below the winding self-
+    resonance). The full AC FEM (Phase 2.2 stranded) would compute
+    L_ac vs L_dc explicitly; for this analytical path we just set
+    ``L_ac = L_dc`` and let the Dowell helper drive R_ac.
+    """
+    if frequency_Hz is None or frequency_Hz <= 0:
+        return result
+
+    from pfc_inductor.fea.direct.physics.dowell_ac import evaluate_ac_resistance
+
+    # Wire dimensions: pull from the wire model. The catalog uses
+    # ``d_copper_mm`` (bare copper diameter) and ``r_unit_mOhm_per_m``.
+    d_cu_mm = float(
+        getattr(wire, "d_cu_mm", None)
+        or getattr(wire, "d_copper_mm", None)
+        or getattr(wire, "d_mm", None)
+        or 1.024
+    )
+    # MLT (mean length per turn) — catalog stores on the core
+    mlt_mm = float(getattr(core, "MLT_mm", None) or 0.0)
+    if mlt_mm <= 0:
+        # Fall back to a sane estimate: 2π × R_mean where R_mean is
+        # the bobbin's average radius. Without geometry detail we'd
+        # need a per-shape table; for now just bail out.
+        return result
+
+    T_C = float(T_winding_C if T_winding_C is not None else 25.0)
+    out = evaluate_ac_resistance(
+        n_turns=int(n_turns),
+        wire_diameter_m=d_cu_mm * 1e-3,
+        n_layers=int(n_layers),
+        mlt_mm=mlt_mm,
+        frequency_Hz=float(frequency_Hz),
+        T_winding_C=T_C,
+    )
+    from dataclasses import replace as _replace
+
+    return _replace(
+        result,
+        R_ac_mOhm=out.R_ac_mOhm,
+        L_ac_uH=result.L_dc_uH,  # ≈ DC for low-to-moderate f
+    )
 
 
 def _apply_thermal_if_requested(

@@ -101,6 +101,72 @@ def test_evaluate_ac_resistance_round_trip():
     assert math.isclose(out_20.R_ac_mOhm / out_20.R_dc_mOhm, out_20.F_R, rel_tol=1e-6)
 
 
+def test_runner_populates_R_ac_when_frequency_given():
+    """``run_direct_fea(frequency_Hz=130_000, n_layers=3)`` returns a
+    ``DirectFeaResult`` with ``R_ac_mOhm`` populated and a sensible
+    value (much bigger than R_dc due to skin + proximity)."""
+    import tempfile
+    from pathlib import Path
+
+    from pfc_inductor.data_loader import load_cores, load_materials, load_wires
+    from pfc_inductor.fea.direct.runner import run_direct_fea
+
+    cores = load_cores()
+    mats = load_materials()
+    wires = load_wires()
+    core = next(c for c in cores if c.id == "tdkepcos-pq-4040-n87")
+    mat = next(m for m in mats if m.id == core.default_material_id)
+    wire = next(w for w in wires if "AWG18" in w.id)
+
+    with tempfile.TemporaryDirectory() as td:
+        out = run_direct_fea(
+            core=core,
+            material=mat,
+            wire=wire,
+            n_turns=39,
+            current_A=8.0,
+            workdir=Path(td),
+            gap_mm=0.5,
+            frequency_Hz=130_000.0,
+            n_layers=3,
+        )
+    assert out.R_ac_mOhm is not None
+    # 3-layer AWG18 at 130 kHz: F_R ≈ 20-25 → R_ac ≈ 1.5-2 Ω
+    assert 1000 < out.R_ac_mOhm < 3000
+    # L_ac is set to ≈ L_dc for this analytical path
+    assert out.L_ac_uH is not None
+    assert math.isclose(out.L_ac_uH, out.L_dc_uH, rel_tol=1e-6)
+
+
+def test_runner_skips_R_ac_when_no_frequency():
+    """No ``frequency_Hz`` → ``R_ac_mOhm`` stays ``None``."""
+    import tempfile
+    from pathlib import Path
+
+    from pfc_inductor.data_loader import load_cores, load_materials, load_wires
+    from pfc_inductor.fea.direct.runner import run_direct_fea
+
+    cores = load_cores()
+    mats = load_materials()
+    wires = load_wires()
+    core = next(c for c in cores if c.id == "tdkepcos-pq-4040-n87")
+    mat = next(m for m in mats if m.id == core.default_material_id)
+    wire = next(w for w in wires if "AWG18" in w.id)
+
+    with tempfile.TemporaryDirectory() as td:
+        out = run_direct_fea(
+            core=core,
+            material=mat,
+            wire=wire,
+            n_turns=39,
+            current_A=8.0,
+            workdir=Path(td),
+            gap_mm=0.5,
+        )
+    assert out.R_ac_mOhm is None
+    assert out.L_ac_uH is None
+
+
 def test_evaluate_ac_resistance_textbook_pfc_inductor():
     """Reference design from Texas Instruments app note:
     AWG18, N=40, 130 kHz, 3 layers, MLT=80 mm at 70°C.
