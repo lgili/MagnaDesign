@@ -1,0 +1,164 @@
+# Phase 1.4 — closing the calibration gap
+
+## State at start of session
+
+After Phase 1.0-1.3:
+
+- Pipeline (Gmsh + GetDP + parsers + PNGs): ✅ end-to-end.
+- Region tagging via `fragment` output map: ✅ Core ≠ AirGap ≠ Air.
+- μ_r is honoured: `|B|_core ≈ 5 mT` vs `|B|_air ≈ 0.8 mT` (6 ×
+  concentration measured).
+- `L ∝ N²` scales exactly (3 dp).
+- `∫J_z dA` over Coil_pos = 400.013 At for N·I = 400 At (source
+  delivered correctly).
+- **L_dc is 100 × below the analytical ideal** (78 μH measured
+  vs 7740 μH expected on the synthetic EI test case at μ_r =
+  2000, lgap = 0.5 mm).
+- Axisymmetric variant (`ei_axi.py` + `magnetostatic_axi.py`)
+  also lands at ~48 μH — topology change alone doesn't fix it.
+
+## Root cause (hypothesis)
+
+The 2-D PLANAR formulation **fundamentally cannot represent a
+wound inductor's flux linkage**. With `+J` in one window and
+`-J` in the other (the natural 2-D-extrusion of a helical coil),
+the physical model becomes "two parallel bus bars with opposite
+currents in an iron core", whose inductance per unit length is
+the **transmission-line-like** `L' = (μ₀/π)·ln(d/r)` ≈ 12 nH/turn²
+for our geometry — exactly what we measure (78 μH at N = 80 →
+12.25 nH/turn²).
+
+A wound coil's L is **chain-linkage-amplified**: each of N
+turns links the full flux Φ, so `L = N·Φ/I = N²·μ₀·Ae/lgap`.
+The N² factor comes from the **chain** linkage, which 2-D planar
+extrusion does not encode.
+
+FEMMT recovers this by:
+
+1. Using axisymmetric geometry (revolution around bobbin axis)
+   so the wire is naturally a "ring" around the axis.
+2. Encoding the coil bundle as a `Hregion_i_2D` function space
+   with `BF_RegionZ` basis — a region-wise constant vector
+   representing the **total bundle current** as a single global
+   DOF.
+3. Adding the `GlobalQuantity` machinery that couples this DOF
+   to a `Voltage_2D` / `Current_2D` constraint pair, so the
+   external "applied current" pins the total Is = I, and Us is
+   solved for as the resulting voltage.
+4. Applying the source via `[-1/AreaCell × Dof{ir}, {a}]` where
+   `AreaCell = A_bundle / NbrCond` is the **per-strand** area
+   (not the bundle area). This is the missing N² factor:
+
+       J_FEMMT = N · I / AreaCell = N · I / (A_bundle / N) = N² · I / A_bundle
+       J_ours  = N · I / A_bundle
+
+   The ratio is N. With N = 80 and energy ∝ J², that's 80² =
+   6400. Times the "2-D-planar miss" of order 1, you land at the
+   100 × discrepancy we measure (factor ~80, our 100 is the
+   right order).
+
+**This is the missing piece.** Phase 1.4 is implementing it.
+
+## Phase 1.4 deliverables
+
+1. **Per-strand `AreaCell` parameter.** Extend
+   `MagnetostaticInputs` (and the axi variant) with
+   `area_cell_m2` = `coil_area_m2 / n_turns`. Use this in the
+   source term instead of `coil_area_m2`.
+
+2. **GlobalQuantity function space.** Add to the `.pro`
+   template:
+
+   ```getdp
+   FunctionSpace {
+     { Name Hregion_i_2D; Type Vector;
+       BasisFunction {
+         { Name sr; NameOfCoef ir; Function BF_RegionZ;
+           Support Coil_pos; Entity Coil_pos; }
+       }
+       GlobalQuantity {
+         { Name Is; Type AliasOf;        NameOfCoef ir; }
+         { Name Us; Type AssociatedWith; NameOfCoef ir; }
+       }
+       Constraint {
+         { NameOfCoef Us; EntityType Region; NameOfConstraint Voltage_2D; }
+         { NameOfCoef Is; EntityType Region; NameOfConstraint Current_2D; }
+       }
+     }
+   }
+
+   Constraint {
+     { Name Current_2D;
+       Case { { Region Coil_pos; Value {current_A}; } } }
+     { Name Voltage_2D; Case { } }
+   }
+   ```
+
+3. **Formulation: replace constant `js[]` with `Dof{ir}`.**
+
+   ```getdp
+   Quantity {
+     { Name a;  Type Local;  NameOfSpace Hcurl_a; }
+     { Name ir; Type Local;  NameOfSpace Hregion_i_2D; }
+     { Name Us; Type Global; NameOfSpace Hregion_i_2D[Us]; }
+     { Name Is; Type Global; NameOfSpace Hregion_i_2D[Is]; }
+   }
+
+   Equation {
+     Galerkin { [ nu[] * Dof{d a}, {d a} ];
+       In Magnetic; Jacobian JVol; Integration I_Gauss; }
+     Galerkin { [ -N_turns / AreaCell * Dof{ir}, {a} ];
+       In Coil_pos; Jacobian JVol; Integration I_Gauss; }
+     GlobalTerm { [ Dof{Us}, {Is} ];
+       In Coil_pos; }
+   }
+   ```
+
+   Note the `N_turns / AreaCell` factor — this is where the N²
+   comes from (`AreaCell` is per-strand).
+
+4. **Validate on a curated EI from the catalog.** 66 EI cores
+   in the dataset (all dongxing SI-steel). Use
+   `compare_backends` with FEMMT enabled:
+
+   ```python
+   from pfc_inductor.fea.direct.calibration import compare_backends
+   report = compare_backends(
+       core=load_cores()[i_real_ei],
+       material=load_materials()[...],
+       wire=load_wires()[...],
+       n_turns=...,
+       current_A=...,
+       spec=...,
+       design_result=...,
+   )
+   assert abs(report.diff_pct) < 5.0
+   ```
+
+5. **Promote `direct` to `cascade Tier 3` backend flag**
+   (deferred — only after step 4 lands).
+
+## Anti-goals (don't do in Phase 1.4)
+
+- AC harmonic (`Freq` parameter, complex μ). That's Phase 2.
+- Thermal. Phase 3.
+- More core shapes. Phase 2.
+- Saturation (`nu[Norm[{d a}], Freq]`). Linear-μ is fine for
+  Phase 1.4.
+
+## Verification
+
+The acceptance criterion is `|diff_pct| < 5 %` on **at least one
+real EI core** from the catalog, compared against FEMMT as the
+oracle. The `compare_backends` test infrastructure (Phase 1.2)
+already exists for this.
+
+If FEMMT errors out on the chosen core (silicon-steel + closed,
+both are FEMMT-unfriendly), fall back to the analytical
+`μ₀N²Ae/(le/μ_r + lgap)` reference for the high-μ_r limit.
+
+## Effort estimate
+
+~1 focused session. The .pro template is the only file that
+substantially changes; everything else (geometry, postproc,
+runner, calibration) is already in place.
