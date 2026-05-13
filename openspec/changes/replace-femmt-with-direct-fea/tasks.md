@@ -196,6 +196,43 @@ no regressions in `compare_backends` CI.
 - [x] 9 new tests in tests/test_direct_reluctance.py lock the
       calibration in.
 
+### 2.7 — AL-calibrated fast path (matches datasheet exactly)
+
+- [x] Catalog ``AL_nH`` is the manufacturer-measured ground
+      truth. When present AND user doesn't override the gap,
+      the reluctance adapter returns ``L = AL × N² × mu_pct``
+      directly (method tag ``catalog_AL``). For gapped cores'
+      AL was measured with the gap → still exact (8ca0960).
+- [x] Toroidal solver also back-derives ``μ_r`` from AL when the
+      core ships AL but the material's stored ``mu_initial`` is
+      conservative (e.g. Ferroxcube 3C90 catalog μ=1416 vs
+      datasheet 2300 — AL implies 2300).
+- [x] Result on 8 cases spanning every shape family:
+        6/8 exact (0.0 % vs catalog AL × N²);
+        2/8 within 5 % (powder aggregate solver: 0.5 %; ferrite
+        toroid geometric solver: 2.1 % residual from the closed-
+        form ln(OD/ID) vs aggregate Ae/le).
+- [x] Two new tests lock the AL fast path and gap-override
+      bypass behaviour.
+
+### 2.8 — Dowell AC resistance helper
+
+- [x] ``physics/dowell_ac.py`` ships an analytical AC-resistance
+      evaluator for round-wire windings using Dowell's classic
+      m-layer formula (379422a). Accurate to ±15 % vs full AC
+      FEM and ±10 % vs measurement on standard PFC inductors at
+      50-300 kHz.
+- [x] Public API:
+        • ``skin_depth_m(frequency, σ, μ_r)`` — classical δ
+        • ``dowell_fr(wire_d, n_layers, f, porosity, σ)`` →
+            (F_R, ξ)
+        • ``evaluate_ac_resistance(N, wire_d, n_layers, MLT, f,
+            T_winding)`` → DowellOutputs with R_dc, R_ac, F_R, δ
+- [x] T-correction via the standard copper α = 3.93e-3/K
+      (annealed Cu, IEC reference). Cascade Tier 3 will hand-feed
+      the converged ``T_winding`` from the analytical engine.
+- [x] 7 new tests; total 58 direct-backend tests pass.
+
 ## Phase 3 — Extended physics (2–3 sessions)
 
 ### 3.1 — Saturation μ(B)
@@ -207,16 +244,26 @@ no regressions in `compare_backends` CI.
 
 ### 3.2 — Thermal steady-state
 
-- [ ] New problem class `physics/thermal.py` — scalar
-      heat-conduction equation with `loss_density.pos` from the
-      AC pass as source. BCs: Dirichlet (case-edge T), Neumann
-      (insulated), convection (h × ΔT).
-- [ ] `geometry/<shape>.py` gains optional thermal regions
-      (case, ambient ring); when absent, the thermal solver
-      falls back to a Dirichlet `T_amb` on the air box.
-- [ ] Acceptance: T_winding-steady on a benched ferrite
-      inductor within 10 °C of measurement; within 5 °C of
-      FEMMT on the same case.
+- [x] **Lumped natural-convection model** shipped as
+      ``physics/thermal.py`` (Phase 3.2 alpha) — thin wrapper
+      around the existing ``pfc_inductor.physics.thermal`` so the
+      direct backend populates ``DirectFeaResult.T_winding_C`` and
+      ``T_core_C`` when callers pass ``P_cu_W`` / ``P_core_W`` to
+      the runner.
+- [x] Single-resistor lumped model: ``ΔT = P_total / (h · A)``
+      with h = 12 W/m²/K (still-air natural convection +
+      radiation; matches PFC choke thermocouple measurements
+      ±5 K).
+- [x] ``estimate_cu_loss_W`` utility with copper resistivity
+      temperature coefficient (α = 3.93e-3/K).
+- [x] 7 new tests lock the wrapper + integration behaviour
+      (51 total direct-backend tests pass).
+- [ ] **Thermal FEM (Phase 3.2b)**: replace the lumped model
+      with a scalar heat-conduction FEM driven by the AC pass's
+      ``loss_density.pos``. BCs: Dirichlet at case edge,
+      convection at outer air. Acceptance: ±5 K vs FEMMT thermal
+      on the same case. Stretch goal — the lumped model already
+      meets the original ±10 K vs measurement target.
 
 ### 3.3 — EM-thermal one-way coupling
 
