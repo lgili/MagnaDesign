@@ -16,7 +16,10 @@ from pfc_inductor.models.material import (
 )
 from pfc_inductor.models.modulation import (
     FswModulation,
+    LoadModulation,
+    LoadProfile,
     ModulationProfile,
+    from_compressor_swing,
     from_rpm_band,
     rpm_to_fsw,
 )
@@ -32,6 +35,8 @@ __all__ = [
     "DesignResult",
     "FeasibilityEnvelope",
     "FswModulation",
+    "LoadModulation",
+    "LoadProfile",
     "LossBreakdown",
     "LossDatapoint",
     "Material",
@@ -47,6 +52,7 @@ __all__ = [
     "Topology",
     "Wire",
     "WireType",
+    "from_compressor_swing",
     "from_rpm_band",
     "rpm_to_fsw",
     "stack_core",

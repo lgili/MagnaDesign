@@ -40,17 +40,61 @@ from pfc_inductor.models.spec import Spec
 
 @dataclass(frozen=True)
 class BandPoint:
-    """One evaluation at a specific fsw within the band."""
+    """One evaluation at a specific point within a sweep band.
 
-    fsw_kHz: float
-    """The switching frequency for this evaluation."""
+    The band can sweep one of two parameters:
 
-    result: Optional[DesignResult]
+    - **fsw** (``FswModulation`` path): ``fsw_kHz`` is set,
+      ``pout_W`` is ``None``.
+    - **Pout** (``LoadModulation`` path): ``pout_W`` is set,
+      ``fsw_kHz`` is ``None``.
+
+    The two are never both populated — the Spec validator rejects
+    simultaneous fsw + load modulation upstream. Charts and
+    aggregators discover which axis is in use via
+    :meth:`swept_value` + :meth:`swept_axis_label`.
+    """
+
+    fsw_kHz: Optional[float] = None
+    """Switching frequency at this evaluation point (kHz). Set
+    when the band is a :class:`FswModulation` sweep; ``None``
+    when the band sweeps Pout instead."""
+
+    pout_W: Optional[float] = None
+    """Output power at this evaluation point (W). Set when the
+    band is a :class:`LoadModulation` sweep; ``None`` when the
+    band sweeps fsw instead."""
+
+    result: Optional[DesignResult] = None
     """The full design result. ``None`` when the engine raised at
     this point — the failure is recorded in :attr:`failure_reason`
     so the band stays a complete record."""
 
     failure_reason: Optional[str] = None
+
+    def swept_value(self) -> float:
+        """Return the parameter value that this point evaluates at.
+
+        Used by the chart widget and aggregators that don't care
+        which axis is being swept — they just need a scalar.
+        Picks fsw if set, else Pout. Returns 0.0 when neither is
+        set (shouldn't happen — defensive).
+        """
+        if self.fsw_kHz is not None:
+            return float(self.fsw_kHz)
+        if self.pout_W is not None:
+            return float(self.pout_W)
+        return 0.0
+
+    def swept_axis_label(self) -> str:
+        """Human-readable axis label for charts ("fsw [kHz]" /
+        "Pout [W]"). Picks based on which field is set.
+        """
+        if self.fsw_kHz is not None:
+            return "fsw [kHz]"
+        if self.pout_W is not None:
+            return "Pout [W]"
+        return "swept parameter"
 
 
 @dataclass
@@ -193,12 +237,13 @@ def _pick_nominal(band: list[BandPoint]) -> Optional[BandPoint]:
     if candidate.result is not None:
         return candidate
     # Centre failed — try the geometric centre of the
-    # frequency band instead of the index midpoint, since the
-    # band may be uneven.
-    target_fsw = sum(p.fsw_kHz for p in band) / len(band)
+    # swept-parameter band instead of the index midpoint, since
+    # the band may be uneven. ``swept_value`` returns the active
+    # axis (fsw or Pout, whichever the band is sweeping).
+    target = sum(p.swept_value() for p in band) / len(band)
     closest = min(
         (p for p in band if p.result is not None),
-        key=lambda p: abs(p.fsw_kHz - target_fsw),
+        key=lambda p: abs(p.swept_value() - target),
         default=None,
     )
     return closest

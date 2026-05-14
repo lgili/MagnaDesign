@@ -367,24 +367,31 @@ class AnalisePage(QWidget):
     ) -> None:
         """Show / hide the modulation card per the spec.
 
-        When the spec carries an ``fsw_modulation``, run the
-        engine across the band and feed the result to the chart
-        widget. Both the card visibility and the chart contents
-        update from this single call so a toggle on the SpecPanel
-        reaches the Analysis tab on the next recalc.
+        When the spec carries either ``fsw_modulation`` or
+        ``load_modulation``, run the engine across the band and
+        feed the result to the chart widget. The chart is axis-
+        agnostic: it reads each ``BandPoint.swept_value()`` and
+        labels the X axis based on which band the spec is
+        sweeping. Both bands are mutually exclusive (enforced by
+        Spec validator) so the dispatch is unambiguous.
 
         Engine failures fall back to a hidden card with a status
         message rather than throwing — the rest of the Analysis
         tab stays usable.
         """
-        if spec.fsw_modulation is None:
+        has_fsw_band = spec.fsw_modulation is not None
+        has_load_band = spec.load_modulation is not None
+        if not has_fsw_band and not has_load_band:
             self._modulation_card.setVisible(False)
             self._modulation_chart.clear()
             return
         try:
-            from pfc_inductor.modulation import eval_band
+            from pfc_inductor.modulation import eval_band, eval_load_band
 
-            banded = eval_band(spec, core, wire, material)
+            if has_fsw_band:
+                banded = eval_band(spec, core, wire, material)
+            else:
+                banded = eval_load_band(spec, core, wire, material)
         except Exception:
             self._modulation_card.setVisible(False)
             self._modulation_chart.clear()

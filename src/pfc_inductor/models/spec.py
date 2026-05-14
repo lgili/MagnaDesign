@@ -46,7 +46,7 @@ from pydantic import BaseModel, Field, model_validator
 # this is acyclic. Required at runtime so Pydantic v2 can resolve
 # the ``Optional[FswModulation]`` field annotation when validating
 # a Spec from JSON.
-from pfc_inductor.models.modulation import FswModulation
+from pfc_inductor.models.modulation import FswModulation, LoadModulation
 
 Topology = Literal[
     "boost_ccm",
@@ -164,6 +164,29 @@ class Spec(BaseModel):
         ),
     )
 
+    # ``load_modulation`` is the analogue of ``fsw_modulation`` for
+    # the Pout dimension — the engine sweeps Pout instead of fsw
+    # and produces the same banded result shape. Compressor /
+    # appliance VFD drives need this because the load swings
+    # 50–130 % naturally as the compressor cycles, and the
+    # inductor's saturation margin / thermal headroom is
+    # interesting across the band, not just at the worst corner
+    # the corner-DOE picks. See
+    # :class:`pfc_inductor.models.modulation.LoadModulation`.
+    #
+    # Mutually exclusive with ``fsw_modulation`` — a 2-D sweep
+    # (fsw × Pout) explodes evaluation cost combinatorially. If
+    # both are set the engine raises at evaluation time; the UI
+    # surfaces them as mutually-exclusive radio options.
+    load_modulation: Optional[LoadModulation] = Field(
+        None,
+        description=(
+            "Optional load-power band (Pout sweep). Mutually "
+            "exclusive with ``fsw_modulation``. ``None`` (default) "
+            "preserves single-point behaviour."
+        ),
+    )
+
     # --- buck-CCM (DC-input topology) ---
     # ``Vin_dc_V`` is the nominal DC input voltage when the spec is a
     # DC-DC topology (currently ``buck_ccm``; future ``flyback`` /
@@ -272,6 +295,27 @@ class Spec(BaseModel):
         l_req_h = z_react / (2.0 * math.pi * max(f_line, 1.0))
         data["L_req_mH"] = l_req_h * 1000.0
         return data
+
+    @model_validator(mode="after")
+    def _check_modulation_exclusivity(self) -> Spec:
+        """Reject specs that enable both modulation bands simultaneously.
+
+        A 2-D sweep (fsw × Pout) explodes evaluation cost
+        combinatorially: 5 fsw points × 5 Pout points = 25 design
+        calls per recalc, ~25× the single-point baseline. Right
+        now we don't have a use case that justifies that cost, and
+        the UI surfaces the two as mutually-exclusive radio
+        options. Catching it at the model level keeps `.pfc` files
+        from drifting into an inconsistent state through a
+        round-trip.
+        """
+        if self.fsw_modulation is not None and self.load_modulation is not None:
+            raise ValueError(
+                "fsw_modulation and load_modulation are mutually "
+                "exclusive (the 2-D sweep would multiply evaluation "
+                "cost). Pick one band per spec."
+            )
+        return self
 
     @model_validator(mode="after")
     def _check_voltages(self) -> Spec:

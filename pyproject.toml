@@ -6,7 +6,7 @@
 # a mass-rename of import sites; the ``magnadesign`` CLI entry point
 # below is the new public name.
 name = "magnadesign"
-version = "0.5.5"
+version = "0.5.6"
 description = "MagnaDesign — topology-aware desktop suite for inductor design across PFC, passive chokes, and line reactors"
 readme = "README.md"
 requires-python = ">=3.11,<3.13"  # FEMMT 0.5.x bounds upper end at 3.12

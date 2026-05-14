@@ -96,11 +96,32 @@ class SpecPanel(QWidget):
         # Lazy import — keeps the spec_panel import graph clean of
         # the modulation widget for headless / test contexts that
         # never instantiate the panel.
+        from pfc_inductor.ui.widgets.load_modulation_group import (
+            LoadModulationGroup,
+        )
         from pfc_inductor.ui.widgets.modulation_group import ModulationGroup
 
         self.modulation_group = ModulationGroup()
         self.modulation_group.changed.connect(self.changed.emit)
+        # Mutual exclusion with the load-modulation sibling. When the
+        # fsw band turns on, the load band turns off — see
+        # ``_on_fsw_modulation_toggled`` / ``_on_load_modulation_toggled``.
+        self.modulation_group._chk_enabled.toggled.connect(
+            self._on_fsw_modulation_toggled,
+        )
         body.addWidget(self.modulation_group)
+
+        # ---- Load-power modulation sub-form ---------------------------
+        # Sibling of the fsw band: sweeps Pout instead of fsw. Mutual-
+        # exclusion is enforced by the Spec validator and by the two
+        # checkbox handlers below — only one band can be active at a
+        # time per spec.
+        self.load_modulation_group = LoadModulationGroup()
+        self.load_modulation_group.changed.connect(self.changed.emit)
+        self.load_modulation_group._chk_enabled.toggled.connect(
+            self._on_load_modulation_toggled,
+        )
+        body.addWidget(self.load_modulation_group)
 
         body.addStretch(1)
 
@@ -528,6 +549,39 @@ class SpecPanel(QWidget):
             # QDoubleSpinBox.valueChanged emits float; discard it.
             w.valueChanged.connect(lambda _v: self.changed.emit())
 
+    # ------------------------------------------------------------------
+    # Modulation mutual-exclusion handlers
+    # ------------------------------------------------------------------
+    def _on_fsw_modulation_toggled(self, checked: bool) -> None:
+        """When the fsw band turns on, turn off the load band.
+
+        The Spec validator rejects specs with both bands set, but
+        rejecting at validation time produces a confusing UX
+        (recalc fails with a wall of error text). Better: enforce
+        the exclusion at the UI layer so the radio-like behaviour
+        is the only state the user ever sees.
+        """
+        if not checked:
+            return
+        if hasattr(self, "load_modulation_group") and self.load_modulation_group.is_enabled():
+            self.load_modulation_group.set_enabled(False)
+
+    def _on_load_modulation_toggled(self, checked: bool) -> None:
+        """Mirror of ``_on_fsw_modulation_toggled`` — when the load
+        band turns on, turn off the fsw band."""
+        if not checked:
+            return
+        if hasattr(self, "modulation_group") and self.modulation_group.is_enabled():
+            # Tap the checkbox so the group's own ``_on_toggle`` runs
+            # and the body/derived-label collapse cleanly.
+            self.modulation_group._chk_enabled.blockSignals(True)
+            try:
+                self.modulation_group._chk_enabled.setChecked(False)
+            finally:
+                self.modulation_group._chk_enabled.blockSignals(False)
+            self.modulation_group._body.setVisible(False)
+            self.modulation_group._derived_label.setText("")
+
     def set_spec(self, spec: Spec) -> None:
         """Write ``spec`` back into the form fields — reverse of
         :meth:`get_spec`. Used by *File → Open Project* to restore a
@@ -577,6 +631,8 @@ class SpecPanel(QWidget):
             # VFD band — populates from the saved spec; no-op when
             # the spec doesn't carry a band (legacy `.pfc`).
             self.modulation_group.from_modulation(spec.fsw_modulation)
+            # Load-power band — same shape, sibling of the fsw band.
+            self.load_modulation_group.from_modulation(spec.load_modulation)
             # Flyback-only fields: only populate when topology matches.
             # The spinbox values persist across topology toggles so a
             # user who experimented with flyback and switched away
@@ -676,6 +732,18 @@ class SpecPanel(QWidget):
             # still runs. The ModulationGroup's derived-label has
             # already shown the error to the user.
             fsw_modulation = None
+        # Load-power band — sibling of fsw_modulation. Mutually
+        # exclusive (the Spec validator + the UI sibling-toggle
+        # both enforce it), so reaching here with BOTH non-None
+        # would mean the user wired around the UI; safe path is
+        # to drop the fsw band and keep the load band (the more
+        # recently-toggled one wins via UI mutual-exclusion).
+        try:
+            load_modulation = self.load_modulation_group.to_modulation()
+        except (ValueError, TypeError):
+            load_modulation = None
+        if fsw_modulation is not None and load_modulation is not None:
+            fsw_modulation = None
         # Flyback-only fields. Only emit them when topology is flyback;
         # for any other topology the engine ignores them, but leaving
         # them at None keeps the spec snapshot small and the serialised
@@ -712,6 +780,7 @@ class SpecPanel(QWidget):
             Vin_dc_max_V=vin_dc_max,
             ripple_ratio=ripple_ratio,
             fsw_modulation=fsw_modulation,
+            load_modulation=load_modulation,
             flyback_mode=flyback_mode,
             turns_ratio_n=turns_ratio_n,
             window_split_primary=window_split_primary,

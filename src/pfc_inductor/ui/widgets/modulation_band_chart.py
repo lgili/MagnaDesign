@@ -127,6 +127,17 @@ class ModulationBandChart(QWidget):
     def show_band(self, banded: BandedDesignResult) -> None:
         """Replace the chart with one line per metric across the
         band. Annotates the worst-case fsw on each subplot."""
+        # Detect which axis is being swept (fsw vs Pout). The
+        # ``BandPoint.swept_*`` helpers know which field is populated
+        # and surface a unified scalar + axis label.
+        is_load_band = (
+            banded.spec.load_modulation is not None
+            and banded.spec.fsw_modulation is None
+        )
+        axis_label = "Pout [W]" if is_load_band else "fsw [kHz]"
+        unit_short = "W" if is_load_band else "kHz"
+        unit_fmt = "{:.0f}" if is_load_band else "{:.1f}"
+
         # ---- Caption: always update, regardless of canvas state ----
         # The caption is a plain ``QLabel`` (no matplotlib dep), so we
         # set its text up-front. Tests assert against the caption
@@ -136,14 +147,17 @@ class ModulationBandChart(QWidget):
         # ``test_band_chart_show_band_renders_caption``.
         if banded.band:
             spec = banded.spec
-            fsw_points = [bp.fsw_kHz for bp in banded.band if bp.result is not None]
-            if fsw_points:
+            swept_points = [bp.swept_value() for bp in banded.band if bp.result is not None]
+            if swept_points:
                 n_failed = len(banded.flagged_points)
                 modulation: Optional[str] = None
                 if spec.fsw_modulation is not None:
                     modulation = spec.fsw_modulation.profile
+                elif spec.load_modulation is not None:
+                    modulation = spec.load_modulation.profile
                 caption = (
-                    f"Band: {fsw_points[0]:.1f} → {fsw_points[-1]:.1f} kHz · "
+                    f"Band: {unit_fmt.format(swept_points[0])} → "
+                    f"{unit_fmt.format(swept_points[-1])} {unit_short} · "
                     f"{len(banded.band)} points · profile={modulation}"
                 )
                 if n_failed > 0:
@@ -159,8 +173,8 @@ class ModulationBandChart(QWidget):
             return
 
         spec = banded.spec
-        fsw_points = [bp.fsw_kHz for bp in banded.band if bp.result is not None]
-        if not fsw_points:
+        swept_points = [bp.swept_value() for bp in banded.band if bp.result is not None]
+        if not swept_points:
             self._render_empty(message="Every band point failed.")
             return
 
@@ -185,7 +199,10 @@ class ModulationBandChart(QWidget):
                 value = self._read(bp, accessor)
                 if value is None:
                     continue
-                xs.append(bp.fsw_kHz)
+                # ``swept_value`` picks fsw_kHz or pout_W depending
+                # on which band the spec is sweeping. Single axis
+                # function — no branching needed at the call sites.
+                xs.append(bp.swept_value())
                 ys.append(value * scale)
 
             if not xs:
@@ -222,7 +239,7 @@ class ModulationBandChart(QWidget):
                 worst_v = self._read(worst_bp, accessor)
                 if worst_v is not None:
                     ax.scatter(
-                        [worst_bp.fsw_kHz],
+                        [worst_bp.swept_value()],
                         [worst_v * scale],
                         color=warn_color,
                         s=70,
@@ -233,7 +250,7 @@ class ModulationBandChart(QWidget):
                     )
 
             ax.set_title(f"{label} [{units}]", fontsize=9, color=p.text)
-            ax.set_xlabel("fsw [kHz]", fontsize=8, color=p.text_secondary)
+            ax.set_xlabel(axis_label, fontsize=8, color=p.text_secondary)
             ax.tick_params(colors=p.text_muted, labelsize=7)
             ax.grid(True, color=p.border, linewidth=0.4, alpha=0.6)
             for spine in ("top", "right"):

@@ -31,9 +31,11 @@ from __future__ import annotations
 from pfc_inductor.modulation.engine import (
     design_or_band,
     eval_band,
+    eval_load_band,
 )
 
 __all__ = [
     "design_or_band",
     "eval_band",
+    "eval_load_band",
 ]

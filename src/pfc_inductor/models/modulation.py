@@ -207,6 +207,150 @@ def rpm_to_fsw(rpm: float, pole_pairs: int) -> float:
     return f_elec_Hz * K_CARRIER_RATIO / 1000.0
 
 
+LoadProfile = Literal["uniform", "triangular_dither", "compressor_swing"]
+
+
+class LoadModulation(BaseModel):
+    """Description of an output-power (``Pout``) sweep band.
+
+    Mirrors :class:`FswModulation` for the load-variation case: PFC
+    inductors on compressor / appliance VFDs see Pout swing
+    naturally as the compressor cycles, and the inductor's
+    saturation margin / thermal headroom is interesting *across*
+    the band, not just at the worst corner the corner-DOE picks.
+
+    The engine wrapper :func:`pfc_inductor.modulation.eval_load_band`
+    iterates the band's Pout points, calls the design engine with
+    ``spec.Pout_W`` overridden per point, and aggregates the
+    results into the same :class:`BandedDesignResult` container the
+    fsw band path uses. Surfaces that already consume banded
+    results (Analysis tab band chart, datasheet, optimizer
+    scoring) get the load envelope for free.
+
+    Profiles
+    --------
+
+    ``uniform``
+        Evaluate ``n_eval_points`` evenly between ``pout_min_W``
+        and ``pout_max_W``. Right when the load just sweeps
+        linearly across the range.
+
+    ``triangular_dither``
+        Same set of points as ``uniform``, but the worst-case
+        aggregator restricts to the band edges — captures the
+        "loaded most of the time at the extremes" failure mode.
+
+    ``compressor_swing``
+        Convenience profile that fills ``pout_min_W = 0.5 ·
+        nominal`` and ``pout_max_W = 1.3 · nominal``. The user
+        only enters ``pout_nominal_W``; the validator fills the
+        rest. Matches the IEC 60335 application range for
+        appliance compressor drives.
+    """
+
+    pout_min_W: float = Field(
+        ...,
+        gt=0.0,
+        description="Lower bound of the load band (W).",
+    )
+    pout_max_W: float = Field(
+        ...,
+        gt=0.0,
+        description="Upper bound of the load band (W).",
+    )
+    profile: LoadProfile = Field(
+        "uniform",
+        description=(
+            "How the engine traverses the band. ``uniform`` "
+            "evenly samples; ``triangular_dither`` weights the "
+            "edges; ``compressor_swing`` is the IEC-60335 "
+            "appliance-compressor 50–130 % range."
+        ),
+    )
+    n_eval_points: int = Field(
+        5,
+        ge=2,
+        le=50,
+        description=(
+            "Number of Pout points the engine evaluates. 5 is "
+            "enough to surface the worst-case envelope; bump to "
+            "10–20 for finer resolution."
+        ),
+    )
+
+    # ---- compressor-swing specific (optional convenience input) ----
+    pout_nominal_W: Optional[float] = Field(
+        None,
+        gt=0.0,
+        description=(
+            "Compressor nominal load (W). Used by the "
+            "``compressor_swing`` profile to derive the 50–130 % "
+            "band bounds. Optional otherwise."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _check_band(self) -> LoadModulation:
+        if self.pout_max_W <= self.pout_min_W:
+            raise ValueError(
+                f"pout_max_W ({self.pout_max_W}) must exceed pout_min_W ({self.pout_min_W})",
+            )
+        if self.profile == "compressor_swing" and self.pout_nominal_W is None:
+            raise ValueError(
+                "profile='compressor_swing' requires pout_nominal_W",
+            )
+        return self
+
+    def pout_points_W(self) -> list[float]:
+        """Return the Pout points the engine should evaluate.
+
+        Same shape as :meth:`FswModulation.fsw_points_kHz` — linear
+        sweep regardless of profile (the aggregator handles the
+        edge-weighting downstream).
+        """
+        n = max(int(self.n_eval_points), 2)
+        if n == 2:
+            return [self.pout_min_W, self.pout_max_W]
+        step = (self.pout_max_W - self.pout_min_W) / (n - 1)
+        return [self.pout_min_W + i * step for i in range(n)]
+
+    def is_edge_weighted(self) -> bool:
+        """Same semantics as :meth:`FswModulation.is_edge_weighted`:
+        the aggregator picks worst across the whole band by default
+        (``uniform``, ``compressor_swing``), or only the band
+        extremes (``triangular_dither``).
+        """
+        return self.profile == "triangular_dither"
+
+
+def from_compressor_swing(
+    pout_nominal_W: float,
+    *,
+    swing_low_pct: float = 50.0,
+    swing_high_pct: float = 130.0,
+    n_eval_points: int = 5,
+) -> LoadModulation:
+    """Build a :class:`LoadModulation` from a nominal load + swing %.
+
+    Default 50–130 % matches IEC 60335 appliance-compressor
+    application notes — the inverter's PFC stage must hold up
+    across that range without saturating or overheating.
+    """
+    if pout_nominal_W <= 0:
+        raise ValueError(f"pout_nominal_W must be positive, got {pout_nominal_W}")
+    if swing_low_pct <= 0 or swing_high_pct <= swing_low_pct:
+        raise ValueError(
+            f"invalid swing: {swing_low_pct} %–{swing_high_pct} %",
+        )
+    return LoadModulation(
+        pout_min_W=pout_nominal_W * swing_low_pct / 100.0,
+        pout_max_W=pout_nominal_W * swing_high_pct / 100.0,
+        profile="compressor_swing",
+        n_eval_points=n_eval_points,
+        pout_nominal_W=pout_nominal_W,
+    )
+
+
 def from_rpm_band(
     rpm_min: float,
     rpm_max: float,
