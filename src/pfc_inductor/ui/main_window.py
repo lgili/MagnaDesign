@@ -499,6 +499,26 @@ class MainWindow(QMainWindow):
         self._shutdown_design_thread()
         super().closeEvent(event)
 
+    def resizeEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        """Auto-collapse the SpecDrawer on narrow viewports.
+
+        The drawer eats ~360 px when expanded, which is fine on a
+        1920 px monitor but pushes the workspace below its
+        minimum-usable width on a 1366 px laptop. The drawer's
+        ``apply_responsive_state`` enforces a 1100 px floor: below
+        that, it auto-collapses; above 1200 px (hysteresis), it
+        re-expands — unless the user manually toggled it, in which
+        case the watchdog stays out of the way.
+
+        The check is cheap (one int compare + ~3 method calls);
+        running it on every resize is faster than computing a
+        debounce.
+        """
+        super().resizeEvent(event)
+        drawer = getattr(getattr(self, "projeto_page", None), "drawer", None)
+        if drawer is not None and hasattr(drawer, "apply_responsive_state"):
+            drawer.apply_responsive_state(self.width())
+
     # ==================================================================
     # Command palette — Cmd/Ctrl+K (P2.Q)
     # ==================================================================

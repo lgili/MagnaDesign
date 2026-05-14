@@ -143,6 +143,14 @@ class SpecDrawer(QFrame):
         # Restore previous state
         qs = QSettings(SETTINGS_ORG, SETTINGS_APP)
         self._collapsed = bool(qs.value(_DRAWER_KEY, False, type=bool))
+        # ``_auto_collapsed`` tracks whether the current collapsed
+        # state was triggered by the responsive watchdog (viewport
+        # < 1100 px) rather than a user gesture. The MainWindow's
+        # ``resizeEvent`` toggles this via ``apply_responsive_state``.
+        # Initialised False because the persisted state is by
+        # definition user-driven (manual toggles persist; the
+        # responsive watchdog doesn't).
+        self._auto_collapsed = False
         self._apply_state()
 
         on_theme_changed(self._refresh_qss)
@@ -211,9 +219,54 @@ class SpecDrawer(QFrame):
     def set_collapsed(self, collapsed: bool) -> None:
         if collapsed == self._collapsed:
             return
+        # Manual toggle clears the auto-collapse marker so the
+        # responsive watchdog doesn't fight the user (see
+        # ``apply_responsive_state`` below). Any toggle that comes
+        # from the user clicking the chevron or pressing a shortcut
+        # goes through this code path, so latching the manual intent
+        # here covers every entry point.
+        self._auto_collapsed = False
         self._collapsed = collapsed
         self._apply_state()
         QSettings(SETTINGS_ORG, SETTINGS_APP).setValue(_DRAWER_KEY, collapsed)
+
+    def apply_responsive_state(self, viewport_width_px: int) -> None:
+        """Auto-collapse / re-expand based on the host window width.
+
+        Called by ``MainWindow.resizeEvent`` on every resize. The
+        thresholds are:
+
+        - ``< 1100 px``: collapse the drawer if it's open. Mark the
+          collapse as auto-triggered so the inverse pass below can
+          undo it when the user widens the window again.
+        - ``> 1200 px``: re-expand only if we collapsed it
+          ourselves. If the user manually collapsed it (or hasn't
+          opened it yet on this session), leave their preference
+          alone.
+
+        The 100 px hysteresis between the two thresholds prevents a
+        ping-pong loop when the user drags the window between
+        ~1100 and ~1150 px.
+
+        No-ops while the drawer was manually toggled (``set_collapsed``
+        clears the auto flag). This is the contract the user
+        depends on: "I clicked, you stop helping."
+        """
+        # Auto-collapse path: window got too narrow and the drawer
+        # is currently eating real estate the user can't spare.
+        if viewport_width_px < 1100 and not self._collapsed:
+            self._collapsed = True
+            self._auto_collapsed = True
+            self._apply_state()
+            # Deliberately NOT persisted to QSettings — auto-state
+            # follows the window size, not the user's preference.
+            return
+        # Auto-expand path: window has room again AND we were the
+        # ones who collapsed it.
+        if viewport_width_px > 1200 and self._collapsed and self._auto_collapsed:
+            self._collapsed = False
+            self._auto_collapsed = False
+            self._apply_state()
 
     def _apply_state(self) -> None:
         self.setFixedWidth(_COLLAPSED_WIDTH if self._collapsed else _EXPANDED_WIDTH)
