@@ -110,29 +110,41 @@ class ResumoStrip(QFrame):
         h.setContentsMargins(16, 8, 16, 8)
         h.setSpacing(12)
 
-        self.m_L = MetricCard("Inductance", "—", "µH", compact=True)
+        # Visual hierarchy in the strip:
+        # - **L** and **ΔT** are the engineer's go/no-go metrics
+        #   (does the design hit the target inductance, and does it
+        #   stay below T_max?). They get the ``prominent`` MetricCard
+        #   variant (larger value font) and 2× stretch weight in the
+        #   layout — both visual signals say "scan me first".
+        # - DC current / ripple / B peak / losses are contextual —
+        #   useful but secondary on the at-a-glance pass. Standard
+        #   compact tiles at 1× stretch.
+        # Same total tile count and same strip height; the difference
+        # lives entirely in font size + horizontal stretch.
+        self.m_L = MetricCard("Inductance", "—", "µH", compact=True, prominent=True)
         self.m_I = MetricCard("DC current", "—", "A", compact=True)
         self.m_dI = MetricCard("Ripple", "—", "App", compact=True)
         self.m_B = MetricCard("B peak", "—", "mT", compact=True)
-        self.m_T = MetricCard("ΔT", "—", "°C", compact=True, trend_better="lower")
-        self.m_P = MetricCard("Losses", "—", "W", compact=True, trend_better="lower")
-        self._tiles = (
-            self.m_L,
-            self.m_I,
-            self.m_dI,
-            self.m_B,
-            self.m_T,
-            self.m_P,
+        self.m_T = MetricCard(
+            "ΔT", "—", "°C", compact=True, prominent=True, trend_better="lower"
         )
-        for mc in self._tiles:
-            # Width-only minimum so the strip can compress horizontally
-            # if the window is narrow. ``setMinimumSize`` would pin
-            # both axes and turn each row into an 80-px-tall block
-            # even on tablets. ``CARD_MIN.metric_compact`` is the
-            # canonical pair; we honour the width and let height stay
-            # elastic.
+        self.m_P = MetricCard("Losses", "—", "W", compact=True, trend_better="lower")
+        # Tuples of (tile, stretch_weight) so the prominent metrics
+        # earn proportionally more horizontal room. Stretch=2 vs 1
+        # gives L / ΔT roughly 60 % more pixels each than the
+        # secondary tiles when the strip has room to expand.
+        self._tile_stretches = (
+            (self.m_L, 2),
+            (self.m_I, 1),
+            (self.m_dI, 1),
+            (self.m_B, 1),
+            (self.m_T, 2),
+            (self.m_P, 1),
+        )
+        self._tiles = tuple(tile for tile, _ in self._tile_stretches)
+        for mc, stretch in self._tile_stretches:
             mc.setMinimumWidth(CARD_MIN.metric_compact[0])
-            h.addWidget(mc, 1)
+            h.addWidget(mc, stretch)
 
         # Vertical separator before the aggregate badge.
         sep = QFrame()

@@ -38,13 +38,30 @@ class MetricCard(QFrame):
         trend_better: Literal["lower", "higher"] = "lower",
         status: MetricStatus = "neutral",
         compact: bool = False,
+        prominent: bool = False,
         parent: Optional[QWidget] = None,
     ) -> None:
+        """Single-metric tile.
+
+        Parameters
+        ----------
+        prominent:
+            When ``True``, render the numeric value at a larger
+            pixel size than the surrounding ``compact`` tiles
+            (visual hierarchy in the KPI strip — see
+            :class:`ResumoStrip <pfc_inductor.ui.widgets.resumo_strip.ResumoStrip>`).
+            Headline metrics (L, ΔT) flag themselves prominent so
+            they read at-a-glance over the contextual tiles
+            (ripple, DC current, losses). The vertical envelope is
+            unchanged so a mixed-prominence strip still fits inside
+            the strip's fixed 80 px height.
+        """
         super().__init__(parent)
         self.setObjectName("MetricCard")
         self.setFrameShape(QFrame.Shape.NoFrame)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self._compact = compact
+        self._prominent = prominent
         self.setStyleSheet(self._self_qss(status))
 
         outer = QVBoxLayout(self)
@@ -83,7 +100,16 @@ class MetricCard(QFrame):
         )
         # Compact uses the title_md ramp (14 px) instead of title_lg+2 (18)
         # so values stay readable but the strip is half the height.
-        if compact:
+        # ``prominent`` overrides the compact-tile font with a larger
+        # ramp so headline metrics (L, ΔT) outweigh contextual ones in
+        # the KPI strip — same vertical envelope, larger digit
+        # silhouette → reads first on a glance.
+        if prominent:
+            # 20 px in compact-prominent, 24 px in non-compact-prominent.
+            # Both still fit inside the strip's 80 px-tall envelope (the
+            # caption is 10 px + 8/8 padding = 18 px overhead).
+            font.setPixelSize(get_theme().type.title_lg + (4 if compact else 8))
+        elif compact:
             font.setPixelSize(get_theme().type.title_md)
         else:
             font.setPixelSize(get_theme().type.title_lg + 2)
