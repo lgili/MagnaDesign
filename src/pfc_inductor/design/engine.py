@@ -186,6 +186,133 @@ def _line_envelope_B_pk_T(
     return rf.B_dc_T(N, I_line_pk_A, AL_nH, Ae_mm2, mu_pct_at_peak)
 
 
+# Lamination materials that ship as a CLOSED magnetic path by design.
+# Their high μ_i (3000–10000) combined with high B_sat (1.5–2.0 T)
+# means line-frequency reactors are sized by N alone — adding an air
+# gap only reduces L without any saturation benefit. The catalog
+# ``AL_nH`` for these cores already reflects the as-shipped closed
+# geometry (manufacturer-measured).
+#
+# Why this matters: before this gate landed, the auto-gap path below
+# (case 3) was inventing 10+ mm air gaps for closed Si-Fe EI cores
+# whenever the line reactor design saturated at the candidate N — a
+# physically nonexistent gap that drove AL_eff from 392 nH down to
+# 12.8 nH and made the engine disagree with the direct FEA backend by
+# 170 %. The right answer for a saturating closed core is "pick a
+# bigger core", not "synthesise a gap that doesn't exist".
+_CLOSED_PATH_MATERIAL_TYPES = frozenset(
+    {"silicon-steel", "amorphous", "nanocrystalline"}
+)
+
+
+# Shapes that are CLOSED magnetic paths by topology — adding an air
+# gap is physically impossible (you'd have to break the core in two,
+# which is what a discrete-gap E/EI does but a toroid can't).
+#
+# Without this gate, ``_resolve_gap_and_AL`` was injecting phantom
+# gaps into ferrite toroids when the design saturated, then reporting
+# nonsense AL values that disagreed with the direct backend's
+# toroidal solver by 1500 %+ (the toroidal solver ignores any
+# fake gap and uses the analytical closed-form for the toroid's
+# magnetic path).
+_CLOSED_PATH_SHAPES = frozenset({"toroid", "toroidal", "t"})
+
+
+def _fringing_factor_roters(lgap_mm: float, w_centerleg_mm: float) -> float:
+    """Roters / McLyman fringing factor — must mirror the direct backend.
+
+    ``k = 1 + 2·sqrt(lgap / w_centerleg)`` clamped to ``[1.0, 3.0]``.
+
+    Lives in this module (not imported from the direct backend) to keep
+    ``design.engine`` free of any FEA-pipeline dependencies. The
+    formula is duplicated by intent — the direct backend's copy lives
+    at :func:`pfc_inductor.fea.direct.physics.reluctance_axi.fringing_factor_roters`
+    and both must stay in lock-step (verified by the parity tests in
+    ``tests/test_closed_path_no_autogap.py`` and the comprehensive
+    boost-PFC sweep).
+    """
+    if lgap_mm <= 0.0 or w_centerleg_mm <= 0.0:
+        return 1.0
+    k = 1.0 + 2.0 * math.sqrt(lgap_mm / w_centerleg_mm)
+    return max(1.0, min(k, 3.0))
+
+
+def _estimate_center_leg_width_mm(core: Core) -> float:
+    """Estimate the centre-leg cross-section width for Roters' formula.
+
+    The Roters fringing factor needs ``w_centerleg`` — the linear
+    dimension of the side perpendicular to the gap. The catalog
+    rarely populates that field directly, so we back-derive an
+    equivalent width from ``Ae`` assuming a roughly square / circular
+    cross-section::
+
+        w_eq = sqrt(Ae)
+
+    For non-square legs the error is bounded: a 1:2 rectangle gives
+    ``w_eq`` between the short and long sides, which is the right
+    ballpark for fringing flux that wraps the smaller side. The
+    direct backend's reluctance solver uses the same approximation
+    when it computes its own k_fringe (so the two stay aligned even
+    on cores with anisotropic legs).
+    """
+    Ae_mm2 = float(getattr(core, "Ae_mm2", 0.0) or 0.0)
+    if Ae_mm2 <= 0:
+        return 0.0
+    return math.sqrt(Ae_mm2)
+
+
+def _solve_lgap_with_fringing(
+    *,
+    l_eff_required_m: float,
+    le_m: float,
+    mu_r: float,
+    w_centerleg_mm: float,
+    max_iter: int = 8,
+    tol_m: float = 1e-7,
+) -> tuple[float, float]:
+    """Iterate to find ``lgap_phys`` that delivers ``L_required``
+    after fringing flux is accounted for.
+
+    Closed-form reluctance model with fringing::
+
+        l_eff_total = le / μ_r + lgap_phys / k_fringe(lgap_phys)
+
+    where ``l_eff_total`` is the effective reluctance length that
+    satisfies ``L = μ₀·N²·Ae / l_eff_total``. Without fringing the
+    naive answer is ``lgap_phys = l_eff_total − le/μ_r``. But
+    fringing flux around the gap shortens its effective length, so
+    the *physical* gap must be larger by exactly the factor
+    ``k_fringe``. Fixed-point iteration on::
+
+        lgap_phys_{n+1} = (l_eff_total − le/μ_r) × k_fringe(lgap_phys_n)
+
+    converges in 3–5 steps for the [1.0, 3.0] Roters range (the
+    fringing factor is a slowly-varying function of lgap).
+
+    Returns ``(lgap_phys_m, k_fringe)``. When the iron path already
+    dominates (``le/μ_r ≥ l_eff_total``), the design doesn't need a
+    gap and we return ``(0, 1.0)``.
+    """
+    iron_path_m = le_m / mu_r
+    no_fringe_gap = l_eff_required_m - iron_path_m
+    if no_fringe_gap <= 0.0:
+        return 0.0, 1.0
+
+    # First guess: no fringing.
+    lgap_m = no_fringe_gap
+    k_fringe = 1.0
+    for _ in range(max_iter):
+        k_new = _fringing_factor_roters(lgap_m * 1e3, w_centerleg_mm)
+        lgap_new = no_fringe_gap * k_new
+        if abs(lgap_new - lgap_m) < tol_m:
+            lgap_m = lgap_new
+            k_fringe = k_new
+            break
+        lgap_m = lgap_new
+        k_fringe = k_new
+    return lgap_m, k_fringe
+
+
 def _resolve_gap_and_AL(
     core: Core,
     material: Material,
@@ -196,19 +323,26 @@ def _resolve_gap_and_AL(
 ) -> tuple[Core, float]:
     """Return ``(effective_core, gap_used_mm)`` accounting for the air gap.
 
-    Three regimes, decided by the material's rolloff field:
+    Four regimes, decided by the material type + rolloff field:
 
     1. **Powder / rolloff materials** — the catalog ``AL_nH`` already
        reflects the manufacturer's distributed gap and ``mu_pct``
        handles DC-bias rolloff. Returns the core unchanged.
 
-    2. **Ferrite / no-rolloff with catalog or user-set ``lgap_mm > 0``**
+    2. **Si-Fe / amorphous / nanocrystalline lamination** — closed
+       magnetic path by design. Catalog ``AL_nH`` is the as-shipped
+       value; no auto-gap. If the design saturates, the engine warns
+       downstream so the user picks a bigger core. Honours an
+       explicit ``lgap_mm > 0`` in the catalog (rare — some line-
+       reactor cores ship with a stamped gap) without overwriting AL.
+
+    3. **Ferrite / no-rolloff with catalog or user-set ``lgap_mm > 0``**
        — the catalog ``AL_nH`` for these cores is the *ungapped* value;
        the engine recomputes ``AL_eff = μ₀·Ae / (le/μ_r + lgap)`` so
        both the iron-path and gap reluctance are accounted for. Returns
        a derived core with the corrected ``AL_nH``.
 
-    3. **Ferrite / no-rolloff with ``lgap_mm == 0``** — the engineering
+    4. **Ferrite / no-rolloff with ``lgap_mm == 0``** — the engineering
        no-op the user warned about. Auto-compute the gap from the
        saturation constraint::
 
@@ -229,29 +363,66 @@ def _resolve_gap_and_AL(
     if material.rolloff is not None:
         return core, float(core.lgap_mm)
 
+    # Si-Fe / amorphous / nanocrystalline lamination: closed path,
+    # no auto-gap. See ``_CLOSED_PATH_MATERIAL_TYPES`` docstring above.
+    mat_type = str(getattr(material, "type", "") or "").strip().lower()
+    if mat_type in _CLOSED_PATH_MATERIAL_TYPES:
+        return core, float(core.lgap_mm)
+
+    # Toroidal ferrites (and other closed-shape topologies): same
+    # rationale as Si-Fe — the core has no place for a discrete air
+    # gap, so the auto-gap path produces a phantom number that
+    # disagrees with the direct backend's toroidal closed-form solver.
+    shape = str(getattr(core, "shape", "") or "").strip().lower()
+    if shape in _CLOSED_PATH_SHAPES:
+        return core, float(core.lgap_mm)
+
     Ae_m2 = float(core.Ae_mm2) * 1e-6
     le_m = float(core.le_mm) * 1e-3
     mu_r = max(float(getattr(material, "mu_initial", 0.0) or 1.0), 1.0)
     L_H = max(float(L_req_uH) * 1e-6, 1e-15)
+    w_centerleg_mm = _estimate_center_leg_width_mm(core)
 
     if N_override is not None:
         # User-forced N. The gap is whatever makes ``L = N²·μ₀·Ae/l_eff``
-        # land on ``L_req`` at that turn count.
+        # land on ``L_req`` at that turn count, accounting for fringing
+        # flux around the gap (otherwise the engine under-sizes the gap
+        # and over-estimates the final L by 30–200 %).
         N_use = max(1, int(N_override))
         l_eff_m = rf.MU_0 * N_use * N_use * Ae_m2 / L_H
-        lgap_m = max(0.0, l_eff_m - le_m / mu_r)
+        lgap_m, k_fringe = _solve_lgap_with_fringing(
+            l_eff_required_m=l_eff_m,
+            le_m=le_m,
+            mu_r=mu_r,
+            w_centerleg_mm=w_centerleg_mm,
+        )
     elif core.lgap_mm > 0.0:
-        # Catalog (or user-override) gap. Recompute AL from geometry.
+        # Catalog (or user-override) gap. The physical gap is fixed;
+        # we just compute its fringing factor so AL_eff matches the
+        # direct backend's reluctance model.
         lgap_m = float(core.lgap_mm) * 1e-3
+        k_fringe = _fringing_factor_roters(lgap_m * 1e3, w_centerleg_mm)
     else:
         # Auto-compute gap from the saturation constraint.
         Bsat = max(float(Bsat_limit_T), 1e-6)
         N_min = L_H * max(float(I_pk_A), 0.0) / (Bsat * Ae_m2)
         N_use = max(1, math.ceil(N_min))
         l_eff_m = rf.MU_0 * N_use * N_use * Ae_m2 / L_H
-        lgap_m = max(0.0, l_eff_m - le_m / mu_r)
+        lgap_m, k_fringe = _solve_lgap_with_fringing(
+            l_eff_required_m=l_eff_m,
+            le_m=le_m,
+            mu_r=mu_r,
+            w_centerleg_mm=w_centerleg_mm,
+        )
 
-    l_eff_total_m = max(le_m / mu_r + lgap_m, 1e-9)
+    # AL_eff accounts for the gap's effective reluctance after fringing.
+    # The total reluctance path the flux sees is
+    # ``le/μ_r + lgap_phys/k_fringe`` (fringing shortens the gap's
+    # effective length). Both the engine and the direct backend's
+    # reluctance solver use this expression — keeping them in lock-step
+    # is what closes the previous 30–200 % engine-vs-direct disagreement
+    # on ferrite boost-PFC designs.
+    l_eff_total_m = max(le_m / mu_r + lgap_m / max(k_fringe, 1e-9), 1e-9)
     AL_eff_nH = (rf.MU_0 * Ae_m2 / l_eff_total_m) * 1e9
     effective_core = core.model_copy(
         update={
