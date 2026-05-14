@@ -5,6 +5,26 @@ and GetDP (subprocess) directly, generates artifacts where we
 want them, returns the same `FeaResult` shape the cascade
 already consumes.
 
+## 📚 Engineering documentation — read [`docs/`](docs/) first
+
+**[`docs/00-README.md`](docs/00-README.md)** is the entry point to a
+13-file documentation set covering the math, decisions, parity
+contracts, validation numbers, known limitations, and extension
+recipes. Read it before changing physics in either this module or
+`src/pfc_inductor/design/engine.py` — engine ↔ direct parity is the
+one invariant you must not break.
+
+The docs are organised so you can jump in at any chapter:
+
+- Start at [`01-architecture.md`](docs/01-architecture.md) if you want
+  the big picture.
+- Jump to [`08-engine-vs-direct-parity.md`](docs/08-engine-vs-direct-parity.md)
+  if you're debugging an L disagreement.
+- See [`09-validation-benchmarks.md`](docs/09-validation-benchmarks.md)
+  for the numbers we trust + the scripts that regenerate them.
+- See [`11-extending-the-backend.md`](docs/11-extending-the-backend.md)
+  if you're adding a shape, material, or physics module.
+
 ## 📋 Canonical spec
 
 **See `openspec/changes/replace-femmt-with-direct-fea/`** — the
