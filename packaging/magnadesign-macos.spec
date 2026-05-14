@@ -172,13 +172,10 @@ for pkg in (
     "numpy",
     "scipy",
     "pandas",
-    # ``femmt`` ships .pro / .pre / .res getdp templates and a
-    # ``config.json`` at the package root that ``collect_all``
-    # picks up by walking the package tree. The static analyser
-    # alone misses both the data files and the ``femmt.thermal.solver``
-    # subpackage that the magnetostatic solver imports lazily on
-    # first ``thermal_simulation()`` call.
-    "femmt",
+    # ``femmt`` removed from collect_all in v0.5.7 — see the
+    # Windows spec for the rationale. Same reasoning applies on
+    # macOS: the direct backend is the default, FEMMT is opt-in
+    # via the ``[fea-femmt]`` pip extra, no need to bundle it.
     "pyvista",
     "pyvistaqt",
     "vtkmodules",
@@ -217,10 +214,11 @@ datas += collect_data_files("openpyxl")
 
 # ---------------------------------------------------------------------------
 excluded = [
-    # ``femmt`` is now BUNDLED via collect_all above (see "Why we
-    # bundle FEMMT now" in the file header). Keeping ``onelab``
-    # excluded because that's the external getdp/gmsh binary
-    # blob we download into the user's home, not a Python module.
+    # FEMMT and ONELAB excluded (v0.5.7+): the direct backend
+    # is the default and never imports either. Users who opt
+    # into the legacy FEMMT path install ``[fea-femmt]`` via pip
+    # and the bundled .app is irrelevant to that flow.
+    "femmt",
     "onelab",
     "tkinter",
     "_tkinter",

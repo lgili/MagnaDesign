@@ -754,13 +754,32 @@ def _run_gui(argv: list[str]) -> int:
 
         _splash_shown_at = _time.perf_counter()
 
-    # ── Phase 2: ONELAB sys.path + slow imports, splash already painted ──
-    try:
-        from pfc_inductor.setup_deps import ensure_onelab_on_path
+    # ── Phase 2: legacy ONELAB sys.path injection (only when needed) ──
+    #
+    # The default direct backend (analytical reluctance + toroidal
+    # closed-form) doesn't need ONELAB on ``sys.path``. We only need
+    # to inject the parent of the ONELAB folder when the user has
+    # opted into the legacy FEMMT path via the env var, or when a
+    # later code path actually imports ``femmt`` / launches a GetDP
+    # solve. The lazy hooks in ``pfc_inductor.fea.probe`` and
+    # ``main_window._open_fea_dialog`` already re-call
+    # ``ensure_onelab_on_path()`` at the point of use, so removing the
+    # eager boot-time call only costs us if a user runs FEMMT without
+    # ever opening the FEA dialog (a path that wouldn't work anyway).
+    #
+    # Net effect: the cold-launch path is now FEMMT-free on the
+    # default install. The Windows .exe no longer tries to read
+    # ``~/.femmt_settings.json`` at boot, no longer prompts the user
+    # to install ONELAB during the first launch, and shaves ~50 ms
+    # off the splash-to-window time.
+    _env_backend = os.environ.get("PFC_FEA_BACKEND", "").strip().lower()
+    if _env_backend == "femmt":
+        try:
+            from pfc_inductor.setup_deps import ensure_onelab_on_path
 
-        ensure_onelab_on_path()
-    except Exception:
-        pass
+            ensure_onelab_on_path()
+        except Exception:
+            pass
 
     _import_qt_runtime_minimal()
 

@@ -25,6 +25,13 @@ from pfc_inductor.setup_deps.platform_info import detect_platform
 
 @dataclass
 class VerifyReport:
+    # Direct backend (default since v0.5.0): in-tree analytical
+    # reluctance + toroidal closed-form. No ONELAB / GetDP needed
+    # for the default ``backend="reluctance"`` solve. Only the
+    # research paths (``backend="axi"`` / ``"planar"``) call out
+    # to GetDP, and those are not the default any user hits.
+    direct_backend_importable: bool = False
+
     femmt_importable: bool = False
     femmt_version: Optional[str] = None
     onelab_dir: Optional[Path] = None
@@ -34,7 +41,17 @@ class VerifyReport:
 
     @property
     def fea_ready(self) -> bool:
-        """Truthy when the user can click "Validar (FEA)" and have it work."""
+        """Truthy when the user can click "Validar (FEA)" and have it work.
+
+        Either the in-tree direct backend is importable (the
+        canonical happy path since v0.5.0 — covers reluctance +
+        toroidal analytical, no external dependency) OR the legacy
+        FEMMT + ONELAB combo is fully configured. Both paths are
+        accepted so users who opted into ``PFC_FEA_BACKEND=femmt``
+        keep working.
+        """
+        if self.direct_backend_importable:
+            return True
         return (
             self.femmt_importable
             and self.onelab_dir is not None
@@ -45,6 +62,19 @@ class VerifyReport:
 
 def verify_fea_setup() -> VerifyReport:
     rep = VerifyReport()
+
+    # 0. Direct backend (default since v0.5.0). If this imports,
+    # the user can run the canonical FEA validation path without
+    # any external dependency — no ONELAB download, no FEMMT
+    # plumbing. The legacy FEMMT path stays available below for
+    # users who opted into ``PFC_FEA_BACKEND=femmt``.
+    try:
+        importlib.import_module("pfc_inductor.fea.direct.runner")
+        rep.direct_backend_importable = True
+    except Exception as e:
+        rep.notes.append(
+            f"Direct backend não importável: {type(e).__name__}: {e}"
+        )
 
     # FEMMT's ``femmt/component.py`` does ``from onelab import onelab``
     # at module top, which fails with ``ModuleNotFoundError: No module
@@ -63,7 +93,8 @@ def verify_fea_setup() -> VerifyReport:
     except Exception:
         pass
 
-    # 1. FEMMT importable?
+    # 1. FEMMT importable? Legacy path — skipped on the default
+    # install where FEMMT isn't pip-installed at all.
     try:
         femmt = importlib.import_module("femmt")
         rep.femmt_importable = True

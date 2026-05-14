@@ -172,13 +172,15 @@ for pkg in (
     "numpy",
     "scipy",
     "pandas",
-    # ``femmt`` ships .pro / .pre / .res getdp templates and a
-    # ``config.json`` at the package root that ``collect_all``
-    # picks up by walking the package tree. The static analyser
-    # alone misses both the data files and the ``femmt.thermal.solver``
-    # subpackage that the magnetostatic solver imports lazily on
-    # first ``thermal_simulation()`` call.
-    "femmt",
+    # ``femmt`` removed from collect_all in v0.5.7: the direct
+    # backend (analytical reluctance + toroidal closed-form) is
+    # the default since v0.5.0 and never imports FEMMT. Bundling
+    # ``femmt`` inflated the .exe by ~80 MB AND triggered the
+    # first-run ONELAB-install prompt on Windows because
+    # ``femmt`` import side-effects reach into setup_deps.
+    # Users who explicitly opt into ``PFC_FEA_BACKEND=femmt``
+    # install the optional ``[fea-femmt]`` extra via pip — they
+    # don't need it pre-bundled in the GUI .exe.
     "pyvista",
     "pyvistaqt",
     "vtkmodules",
@@ -217,10 +219,11 @@ datas += collect_data_files("openpyxl")
 
 # ---------------------------------------------------------------------------
 excluded = [
-    # ``femmt`` is now BUNDLED via collect_all above (see "Why we
-    # bundle FEMMT now" in the file header). Keeping ``onelab``
-    # excluded because that's the external getdp/gmsh binary
-    # blob we download into the user's home, not a Python module.
+    # FEMMT and ONELAB excluded (v0.5.7+): the direct backend
+    # is the default and never imports either. Users who opt
+    # into the legacy FEMMT path install ``[fea-femmt]`` via pip
+    # and the bundled .exe is irrelevant to that flow.
+    "femmt",
     "onelab",
     "tkinter",
     "_tkinter",

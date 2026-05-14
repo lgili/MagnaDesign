@@ -264,3 +264,75 @@ def test_cli_check_returns_one_when_missing(monkeypatch):
     monkeypatch.setattr(cli_mod, "check_fea_setup", lambda: rep)
     code = cli_mod.main(["--check", "--no-color"])
     assert code == 1
+
+
+# ─── Direct-backend-only path (v0.5.7) ────────────────────────────────
+# Regression suite for the "Windows .exe stops prompting users to
+# install ONELAB on first boot" fix. The direct backend is the default
+# since v0.5.0 and doesn't need FEMMT or ONELAB; the verifier must
+# accept direct-only installs as ``fea_ready``.
+
+
+def test_fea_ready_true_when_only_direct_backend_importable():
+    """Direct backend alone makes ``fea_ready`` return True.
+
+    Pre-v0.5.7 behaviour: users had to install FEMMT + ONELAB even
+    though the default backend never touches them. Frozen Windows
+    .exe builds shipped an aggressive "Install ONELAB now?" prompt
+    on first launch. The direct-backend gate added in this version
+    short-circuits that prompt — VerifyReport reports the install
+    as ready whenever ``pfc_inductor.fea.direct.runner`` imports.
+    """
+    from pfc_inductor.setup_deps.verify import VerifyReport
+
+    rep = VerifyReport(
+        direct_backend_importable=True,
+        # All legacy fields explicitly False — represents a fresh
+        # Windows .exe with no FEMMT bundled and no ONELAB on disk.
+        femmt_importable=False,
+        onelab_dir=None,
+        onelab_binaries_present=False,
+        config_consistent=False,
+    )
+    assert rep.fea_ready is True, (
+        "Direct backend alone must be enough — the boot prompt is "
+        "gated on this property, and prompting Windows users to "
+        "install ONELAB was the v0.5.6 regression."
+    )
+
+
+def test_fea_ready_false_when_nothing_works():
+    """Both backends broken → not ready, the boot prompt should fire."""
+    from pfc_inductor.setup_deps.verify import VerifyReport
+
+    rep = VerifyReport()  # all defaults False
+    assert rep.fea_ready is False
+
+
+def test_fea_ready_true_when_only_femmt_ready_legacy():
+    """Legacy FEMMT-only path still works for users who opted in."""
+    from pfc_inductor.setup_deps.verify import VerifyReport
+
+    rep = VerifyReport(
+        direct_backend_importable=False,
+        femmt_importable=True,
+        femmt_version="0.5.4",
+        onelab_dir=Path("/tmp/onelab"),
+        onelab_binaries_present=True,
+        config_consistent=True,
+    )
+    assert rep.fea_ready is True
+
+
+def test_verify_fea_setup_returns_direct_backend_importable():
+    """The actual ``verify_fea_setup`` call populates the new field.
+
+    Sanity check against the real codebase: the direct backend
+    module is importable in this repo, so the property must come
+    back True. If this ever flips False, something broke the
+    direct backend's import chain — fix that before shipping.
+    """
+    from pfc_inductor.setup_deps.verify import verify_fea_setup
+
+    rep = verify_fea_setup()
+    assert rep.direct_backend_importable is True
