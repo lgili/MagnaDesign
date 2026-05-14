@@ -169,6 +169,19 @@ class ProjetoPage(QWidget):
         kh.addWidget(self.kpi_strip)
         col_v.addWidget(kpi_holder)
 
+        # ---- Phase stepper — Design / Validate / Ship ----------------
+        # Above-the-tabs orientation cue. Each pill groups 2–3 tabs:
+        # Design (Core, Analysis), Validate (Validate, Worst-case,
+        # Compliance), Ship (Export, History). Click → jump to the
+        # first tab in the phase. The pill highlight follows the
+        # active tab so the user always knows where they are in the
+        # workflow.
+        from pfc_inductor.ui.shell.phase_stepper import PhaseStepper
+
+        self.phase_stepper = PhaseStepper(parent=column)
+        self.phase_stepper.phase_clicked.connect(self._on_phase_clicked)
+        col_v.addWidget(self.phase_stepper)
+
         # Tabs
         self.tabs = QTabWidget(parent=column)
         self.tabs.setDocumentMode(True)
@@ -413,11 +426,27 @@ class ProjetoPage(QWidget):
     # Internals
     # ------------------------------------------------------------------
     def _on_tab_changed(self, idx: int) -> None:
-        # Hook kept for future per-tab reactions (telemetry, defer-
-        # mounting heavy tabs, etc.) — the now-removed ProgressIndicator
-        # used to advance here. The active QTabWidget tab is itself the
-        # phase indicator.
-        return
+        # Keep the PhaseStepper pill in sync with the active tab.
+        # The stepper's set_active_tab_index is idempotent — it
+        # no-ops if the phase hasn't changed, so calling on every
+        # tab change is cheap.
+        if hasattr(self, "phase_stepper"):
+            self.phase_stepper.set_active_tab_index(idx)
+
+    def _on_phase_clicked(self, phase_key: str) -> None:
+        """Phase pill clicked — jump to the first tab in that phase.
+
+        The stepper emits one of ``"design" | "validate" | "ship"``;
+        the canonical phase → tab-index mapping lives in
+        :mod:`pfc_inductor.ui.shell.phase_stepper`. We rely on that
+        single source of truth (rather than duplicating the index
+        list here) so any future re-ordering only edits one file.
+        """
+        from pfc_inductor.ui.shell.phase_stepper import PhaseStepper
+
+        first_idx = PhaseStepper.first_tab_for_phase(phase_key)
+        if first_idx is not None:
+            self.tabs.setCurrentIndex(first_idx)
 
     def _on_report_pressed(self) -> None:
         # Header / Analysis "Generate report" button: switch to Export
