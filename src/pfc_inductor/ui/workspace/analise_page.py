@@ -329,6 +329,24 @@ class AnalisePage(QWidget):
     ) -> None:
         for card in self._cards:
             card.update_from_design(result, spec, core, wire, material)
+        # Topology-aware hide of the saturation-frame triptych's bottom
+        # two rows. For active-PFC topologies (boost_ccm, interleaved)
+        # the converter is the one closing the PF / power-throughput
+        # loop, not the inductor — so "P vs L" and "PF vs L" both just
+        # render a placeholder caption. Hiding them recovers ~30 % of
+        # the Analysis tab's vertical real estate for the cards that
+        # actually carry information (Perdas, Bobinamento, Entreferro,
+        # Detalhes) on the most-used topology.
+        #
+        # The cards stay mounted (visibility toggle only, not
+        # removed from the grid) so a topology switch to passive_choke
+        # / line_reactor brings them back without rebuilding the grid.
+        is_active_pfc = str(getattr(spec, "topology", "")).lower() in (
+            "boost_ccm",
+            "interleaved_boost_pfc",
+        )
+        self.card_p_vs_l.setVisible(not is_active_pfc)
+        self.card_pf_vs_l.setVisible(not is_active_pfc)
         # VFD modulation envelope — surface the per-fsw curves
         # only when the spec actually carries a band. The chart
         # widget is itself hidden when there's no data, so the

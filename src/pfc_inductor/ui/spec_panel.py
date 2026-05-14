@@ -132,13 +132,13 @@ class SpecPanel(QWidget):
         fields (V_line, I_rated, L_req) which the picker dialog
         intentionally does NOT cover.
         """
-        box = QGroupBox("REATOR DE LINHA")
+        box = QGroupBox("LINE REACTOR")
         form = QFormLayout(box)
         self.sp_vline = self._dspin(80, 690, 220.0, 1.0, " Vrms")
         self.sp_irated = self._dspin(0.1, 500, 2.2, 0.5, " A")
         self.sp_l_req = self._dspin(0.1, 1000, 10.0, 0.1, " mH")
-        form.addRow("V de linha:", self.sp_vline)
-        form.addRow("I nominal (RMS):", self.sp_irated)
+        form.addRow("Line voltage:", self.sp_vline)
+        form.addRow("Rated current (RMS):", self.sp_irated)
         form.addRow("Target inductance:", self.sp_l_req)
         return box
 
@@ -175,13 +175,13 @@ class SpecPanel(QWidget):
         mode_layout.addWidget(self.rb_flyback_dcm)
         mode_layout.addWidget(self.rb_flyback_ccm)
         mode_layout.addStretch(1)
-        form.addRow("Modo:", mode_row)
+        form.addRow("Mode:", mode_row)
 
         self.sp_turns_ratio = self._dspin(0.5, 20.0, 4.0, 0.1, "")
         form.addRow("Turns ratio Np/Ns:", self.sp_turns_ratio)
 
         self.sp_window_split = self._dspin(0.30, 0.65, 0.45, 0.01, "")
-        form.addRow("Window split (primário):", self.sp_window_split)
+        form.addRow("Window split (primary):", self.sp_window_split)
 
         # Wire the changed signal so the debounced recalc picks up
         # turns-ratio / mode edits.
@@ -418,16 +418,16 @@ class SpecPanel(QWidget):
             self.sp_fsw.setValue(100.0)
 
     def _build_input_box(self) -> QGroupBox:
-        box = QGroupBox("ENTRADA AC")
+        box = QGroupBox("AC INPUT")
         form = QFormLayout(box)
         self.sp_vin_min = self._dspin(50, 300, 85.0, 1.0, " Vrms")
         self.sp_vin_max = self._dspin(80, 300, 265.0, 1.0, " Vrms")
         self.sp_vin_nom = self._dspin(50, 300, 220.0, 1.0, " Vrms")
         self.sp_fline = self._dspin(40, 70, 50.0, 1.0, " Hz")
-        form.addRow("Vin mín (worst case):", self.sp_vin_min)
-        form.addRow("Vin máx:", self.sp_vin_max)
+        form.addRow("Vin min (worst case):", self.sp_vin_min)
+        form.addRow("Vin max:", self.sp_vin_max)
         form.addRow("Vin nominal:", self.sp_vin_nom)
-        form.addRow("f rede:", self.sp_fline)
+        form.addRow("Line frequency:", self.sp_fline)
         return box
 
     def _build_dc_input_box(self) -> QGroupBox:
@@ -444,18 +444,18 @@ class SpecPanel(QWidget):
         ``tests/test_topology_buck_ccm.py`` so a fresh user who picks
         "Buck CCM" gets a runnable spec immediately.
         """
-        box = QGroupBox("ENTRADA DC")
+        box = QGroupBox("DC INPUT")
         form = QFormLayout(box)
         self.sp_vin_dc = self._dspin(1.0, 1000.0, 12.0, 0.1, " V")
         self.sp_vin_dc_min = self._dspin(1.0, 1000.0, 10.8, 0.1, " V")
         self.sp_vin_dc_max = self._dspin(1.0, 1000.0, 13.2, 0.1, " V")
         form.addRow("Vin DC nominal:", self.sp_vin_dc)
-        form.addRow("Vin DC mín (worst current):", self.sp_vin_dc_min)
-        form.addRow("Vin DC máx (worst ripple):", self.sp_vin_dc_max)
+        form.addRow("Vin DC min (worst current):", self.sp_vin_dc_min)
+        form.addRow("Vin DC max (worst ripple):", self.sp_vin_dc_max)
         return box
 
     def _build_converter_box(self) -> QGroupBox:
-        box = QGroupBox("CONVERSOR")
+        box = QGroupBox("CONVERTER")
         form = QFormLayout(box)
         # Vout: boost typically 400 V; buck typically a few V.
         # Allow the full 0.5–800 V range so both topologies fit
@@ -470,7 +470,7 @@ class SpecPanel(QWidget):
         form.addRow("Pout:", self.sp_pout)
         form.addRow("Efficiency:", self.sp_eta)
         form.addRow("fsw:", self.sp_fsw)
-        form.addRow("Ripple pico-pico:", self.sp_ripple)
+        form.addRow("Ripple (peak-to-peak):", self.sp_ripple)
         return box
 
     def _build_thermal_box(self) -> QGroupBox:
@@ -480,10 +480,10 @@ class SpecPanel(QWidget):
         self.sp_tmax = self._dspin(60, 180, 125.0, 1.0, " °C")
         self.sp_ku = self._dspin(0.05, 0.7, 0.7, 0.01, "")
         self.sp_bsat_margin = self._dspin(0.0, 0.5, 0.20, 0.01, "")
-        form.addRow("T ambiente:", self.sp_tamb)
-        form.addRow("T máx enrolamento:", self.sp_tmax)
-        form.addRow("Ku máx (uso da janela):", self.sp_ku)
-        form.addRow("Margem Bsat:", self.sp_bsat_margin)
+        form.addRow("T ambient:", self.sp_tamb)
+        form.addRow("T max winding:", self.sp_tmax)
+        form.addRow("Ku max (window usage):", self.sp_ku)
+        form.addRow("Bsat margin:", self.sp_bsat_margin)
         return box
 
     @staticmethod

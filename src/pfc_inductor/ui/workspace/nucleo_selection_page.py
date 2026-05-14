@@ -97,7 +97,11 @@ class NucleoSelectionPage(QWidget):
         toolbar.setContentsMargins(0, 0, 0, 0)
         toolbar.setSpacing(8)
 
-        self._caption = QLabel("Project selection")
+        # Caption was previously "Project selection" — redundant with
+        # the parent tab already called "Core". Replaced with a tight
+        # mode-hint so the toolbar still has a visual anchor without
+        # repeating the tab's own label.
+        self._caption = QLabel("Pick how:")
         # Use a strong-secondary colour: text (8.8:1) and semibold so it
         # reads as a section heading, not as muted copy.
         p = get_theme().palette
@@ -108,7 +112,7 @@ class NucleoSelectionPage(QWidget):
         toolbar.addWidget(self._caption, 1)
 
         self.toggle = ModeToggle(
-            [("tabela", "Tabela"), ("otimizador", "Otimizador")],
+            [("tabela", "Catalog table"), ("otimizador", "Optimizer")],
         )
         self.toggle.mode_changed.connect(self._on_mode_changed)
         toolbar.addWidget(self.toggle, 0, Qt.AlignmentFlag.AlignVCenter)
