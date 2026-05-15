@@ -173,7 +173,8 @@
     PFC inductor engineering today involves:
     \begin{itemize}
       \item \textbf{Scattered spreadsheets} per topology
-      \item Validation \textbf{only via FEMM} (specialist operator)
+      \item Validation locked behind external tools
+            (FEMM/FEMMT, specialist operator)
       \item Hard to iterate over $L$, $N$, core, wire without
             redoing everything
       \item EMC compliance (IEC 61000-3-2) is a separate
@@ -184,9 +185,10 @@
     \app integrates:
     \begin{itemize}
       \item Analytical engine, calibrated against catalogues
-      \item Automated FEA (FEMMT/ONELAB + FEMM legacy)
+      \item \textbf{In-tree direct FEA backend} (no external
+            install) + FEMMT and FEMM as opt-in fallbacks
       \item Multi-tier optimiser (cascade)
-      \item Datasheet-style exporter
+      \item Datasheet-style exporter (Typst PDF)
       \item Single GUI for 6 topologies
     \end{itemize}
   \end{columns}
@@ -232,7 +234,7 @@
     \node[block] (cat) at (4.2, 2.4)
       {Catalogue\\\scriptsize Cores / materials};
     \node[block] (fea) at (-4.2, 0.6)
-      {FEA\\\scriptsize FEMMT / FEMM};
+      {FEA\\\scriptsize Direct (in-tree) \textbar{} FEMMT \textbar{} FEMM};
     \node[block] (opt) at (0, 0.6)
       {Optimiser\\\scriptsize Pareto / cascade};
     \node[block] (exp) at (4.2, 0.6)
@@ -594,6 +596,104 @@
   \end{columns}
 \end{frame}
 
+\begin{frame}{Direct FEA backend --- in-tree replacement}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.5\textwidth}
+    \textbf{Why we built our own}
+    \begin{itemize}
+      \item FEMMT covered only 6/12 catalogue shapes
+            (no RM / P / EP / EFD / EI, no toroid powder)
+      \item 12\,s per solve $\Rightarrow$ optimisation
+            cascades took minutes
+      \item Required ONELAB download + first-run
+            install dialog on Windows
+      \item Crashes on common geometries (high-N toroid,
+            EI ferrite cuts)
+    \end{itemize}
+    \column{0.5\textwidth}
+    \textbf{What direct gives us (v0.5.0+)}
+    \begin{itemize}
+      \item \textbf{12/12} catalogue shapes
+      \item \textbf{0.3\,s} median solve
+            ($\sim$40$\times$ faster)
+      \item \textbf{Zero external install} --- pure
+            Python, no ONELAB, no FEMMT pip wheel
+      \item Reluctance + Roters fringing + toroidal
+            closed-form + Dowell AC + lumped thermal
+      \item 13-file engineering documentation set under
+            \texttt{fea/direct/docs/}
+    \end{itemize}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Engine \(\leftrightarrow\) backend parity --- the contract}
+  \begin{table}
+    \centering\small
+    \begin{tabular}{@{}lrrl@{}}
+      \toprule
+      \textbf{Case} & \textbf{\textbar L\,\%\textbar\ before} & \textbf{after} & \textbf{Root cause / fix} \\
+      \midrule
+      Si-Fe line reactor (EI3311 30\,A) & 174\,\% & 0.00\,\% & Closed-path gate \\
+      Toroid ferrite (T107/65/18) & 1577\,\% & 2.1\,\% & Closed-shape gate \\
+      Ferrite boost PQ40/40 & 120\,\% & 0.3\,\% & Roters fringing iter. \\
+      Ferrite boost ETD49 & 96\,\% & 0.7\,\% & Roters fringing iter. \\
+      \midrule
+      \textbf{Median} (29 boost-PFC cases) & \textbf{166\,\%} & \textbf{0.22\,\%} & \emph{combined} \\
+      \bottomrule
+    \end{tabular}
+  \end{table}
+  \medskip
+
+  Two analytical solvers run side-by-side on every recalc:
+  the design-loop analytical engine and the direct FEA
+  backend. They must agree to numerical precision when fed
+  the same inputs --- a hard parity contract enforced by 8
+  regression tests including bit-for-bit Roters factor
+  comparisons between the two duplicate implementations.
+
+  Pre-fix users saw a ``$+30\,\%$ between FEA and analytic''
+  warning; with the closed-path gates + iterative
+  fringing-aware gap sizing, that disagreement is now noise.
+\end{frame}
+
+\begin{frame}{Modulation bands --- fsw and load}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.5\textwidth}
+    \textbf{Variable fsw} (compressor VFD)
+    \begin{itemize}
+      \item Switching freq.\ sweeps a band as the
+            compressor RPM varies
+      \item Profiles: \texttt{uniform},
+            \texttt{triangular\_dither},
+            \texttt{rpm\_band} (derives fsw from RPM
+            $\times$ pole pairs)
+      \item Engine evaluates $N$ points across the
+            band, returns per-metric worst-case
+    \end{itemize}
+    \column{0.5\textwidth}
+    \textbf{Variable load} (Pout sweep, new in v0.5.6)
+    \begin{itemize}
+      \item Sibling of fsw band for the load
+            dimension
+      \item Profiles: \texttt{uniform},
+            \texttt{triangular\_dither},
+            \texttt{compressor\_swing} (IEC 60335
+            50--130\,\% range)
+      \item Mutually exclusive with fsw band ---
+            2-D sweep would explode evaluation cost
+    \end{itemize}
+  \end{columns}
+  \medskip
+
+  Both bands surface as a 3-up envelope chart in the
+  Analysis tab (\emph{P\textsubscript{total}}
+  $\rightarrow$ \emph{B\textsubscript{pk}} $\rightarrow$
+  $\Delta T$). The chart widget is axis-agnostic --- it
+  reads each \texttt{BandPoint.swept\_value()} and labels
+  the X axis as \texttt{Pout [W]} or \texttt{fsw [kHz]}
+  based on which band the spec is sweeping.
+\end{frame}
+
 \begin{frame}{FEA validation dialog --- 5 tabs}
   \screenshot[height=0.65\textheight, keepaspectratio]%
             {figures/example1_fea_summary.png}
@@ -601,7 +701,8 @@
   (analytic vs FEA bars + confidence gauge) | \textbf{Geometry}
   (datasheet cross-section) | \textbf{B-H} (operating point on
   static curve) | \textbf{Field plots} (heatmap + 1D centerline
-  + histogram) | \textbf{L vs current} swept.}
+  + histogram) | \textbf{L vs current} swept. Backed by the
+  direct in-tree solver --- no external install required.}
 \end{frame}
 
 \begin{frame}{Topology-specific cards}
@@ -647,49 +748,52 @@
   sending to the bobbin manufacturer.}
 \end{frame}
 
-\begin{frame}{Coupled thermal FEA}
+\begin{frame}{Coupled thermal model}
   \begin{columns}[T,onlytextwidth]
     \column{0.55\textwidth}
+    \textbf{Default path --- direct backend (lumped)}
     \begin{itemize}
+      \item Single-node Churchill-Chu convection model
+            inside \texttt{fea/direct/physics/thermal.py}
       \item One click after the magnetostatic pass:
-            \emph{Run thermal FEA}
-      \item Single FEMMT subprocess that runs the
-            magnetostatic + thermal pair on the same
-            \texttt{geo} instance (FEMMT 0.5.x requires
-            the in-memory loss density from EM)
+            \emph{Run thermal} \,---\, no external solver,
+            $<$1\,ms per call
       \item Material-keyed conductivity defaults: ferrite
             5, silicon-steel 25, powder 20, nanocrystalline
-            10, amorphous 12 W/(m\,K)
-      \item \texttt{ThermalOptions} exposes $T_\text{amb}$,
-            case-gap dimensions and per-material k overrides
-      \item Three field views auto-render into the gallery:
-            \emph{Temperature} ($T$), \emph{Heat flux}
-            (\texttt{influx}) and \emph{Thermal conductivity
-            map} (\texttt{material})
-      \item Partial-failure path: if the thermal solve
-            crashes the EM result \textbf{and} the field
-            PNGs are preserved
+            10, amorphous 12\,W/(m\,K)
+      \item Iterative EM-thermal coupling (\texttt{em\_thermal\_coupling.py})
+            picks up $R(T) \rightarrow F_R(T) \rightarrow P_{cu}(T)$
+            feedback in 3--8 iterations
+    \end{itemize}
+
+    \textbf{Optional path --- FEMMT thermal (legacy)}
+    \begin{itemize}
+      \item Triggered when \texttt{PFC\_FEA\_BACKEND=femmt}
+            is set; uses the FEMMT 0.5.x thermal subprocess
+            for 2-D field renderings (\emph{Temperature},
+            \emph{Heat flux}, \emph{k map})
+      \item Adds 10--25\,s on top of the magnetostatic
+            solve
     \end{itemize}
     \column{0.45\textwidth}
-    \begin{block}{Outcome}
+    \begin{block}{Default outcome (direct)}
       \footnotesize
       The dialog logs:
       \begin{itemize}
-        \item \texttt{T\_peak}      \,---\, hottest cell
-        \item \texttt{T\_winding\_avg} vs the analytical $\Delta T$
-        \item \texttt{T\_core\_avg}
+        \item \texttt{T\_winding} (volume-avg)
+        \item $\Delta T$ vs ambient
         \item Verdict chip: \emph{passes} or
-              \emph{over 105\,$^\circ$C} (class-B insulation
-              budget)
+              \emph{over 105\,$^\circ$C} (class-B
+              insulation budget)
       \end{itemize}
-      Adds 10--25\,s on top of the magnetostatic solve.
     \end{block}
-    \begin{block}{Renderer (under the hood)}
+    \begin{block}{Trade-off}
       \footnotesize
-      gmsh's MSH 2.2 ASCII (\$Nodes / \$Elements /
-      \$ElementNodeData) is parsed directly into a
-      matplotlib \texttt{tripcolor} heatmap. No popup
-      windows, no DISPLAY required.
+      Lumped 1-node returns volume-average $T$; hot-spot
+      on tall multi-layer windings can be 5--15\,K
+      higher. For tight thermal designs the iterative
+      coupling closes the gap to $\sim$2\,K vs camera
+      measurement.
     \end{block}
   \end{columns}
 \end{frame}
@@ -711,20 +815,26 @@
 \section{Status and roadmap}
 % ============================================================
 
-\begin{frame}{Where we are today}
+\begin{frame}{Where we are today (v0.5.7)}
   \begin{columns}[T,onlytextwidth]
     \column{0.5\textwidth}
     \textbf{Shipped \& validated}
     \begin{itemize}
       \item 6 topologies with analytical engine
-      \item FEMMT + FEMM legacy backends
+      \item \textbf{Direct in-tree FEA backend}
+            (12/12 shapes, 0.3\,s per solve)
+      \item FEMMT + FEMM available as opt-in legacy
       \item Single + cascade (4-tier) optimiser
-      \item Topology-specific cards
-      \item HTML datasheet exporter
+      \item Topology-specific cards (auto hide/show)
+      \item Typst-based PDF datasheet exporter
       \item 5-tab FEA validation dialog
-      \item \textbf{Coupled thermal FEA} (FEMMT thermal solver)
+      \item Iterative EM-thermal coupling
       \item \textbf{Project history} --- git-like timeline +
             visual diffs
+      \item \textbf{fsw + load modulation bands} (compressor
+            VFD / IEC 60335 compressor swing)
+      \item Phase stepper UI grouping (Design / Validate /
+            Ship)
     \end{itemize}
     \column{0.5\textwidth}
     \textbf{Performance}
@@ -732,22 +842,35 @@
       \item Engine: \textbf{3.6$\times$ speedup} via fused
             Numba kernel
       \item Tier-1 analytical: $\sim$ 1 ms
-      \item Tier-3 FEA point: 30 s
-      \item Tier-4 swept (5 pts): 2--3 min
+      \item Direct FEA solve: \textbf{0.3 s} (40$\times$
+            faster than FEMMT)
+      \item Tier-4 swept (5 pts): $\sim$2\,s with direct
       \item Sparkle-style auto-update + Ed25519 sig
+    \end{itemize}
+    \textbf{Engine $\leftrightarrow$ FEA parity}
+    \begin{itemize}
+      \item Median $|L\,\%|$: 166\,\% $\rightarrow$
+            0.22\,\% after Si-Fe / Roters / toroid fixes
+      \item 26/29 boost-PFC cases within 5\,\%
+      \item 8 regression tests pin the contract
     \end{itemize}
   \end{columns}
 \end{frame}
 
 \begin{frame}{Roadmap --- next releases}
   \begin{itemize}
-    \item \textbf{Efficiency vs $P_\text{out}$} sweep ---
-          cross-load validation (10--100 \% of load)
+    \item \textbf{Variable Vin modulation} --- sibling of
+          fsw + load bands for brown-out / universal-input
+          envelopes
     \item \textbf{Voltage stress} per component (FET, diode)
     \item \textbf{Auto-updating magnetics catalogue} via the
           vendors' APIs (Magnetics, Micrometals, TDK)
-    \item \textbf{In-context cascade store} --- per-project
-          run history with bookmarked candidates
+    \item \textbf{LP-series catalogue audit} ---
+          Magnetics LP cores still show an AL-convention
+          mismatch (engine vs direct disagree by 87$\times$)
+    \item \textbf{3-D FEM} (deferred Phase 4.2) --- tet
+          mesh for cases where the Roters clamp at $k=3$
+          becomes the bottleneck
     \item \textbf{Multi-design report bundle} ---
           consolidated PDF for an entire bill-of-materials
   \end{itemize}
